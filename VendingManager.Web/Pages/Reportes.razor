@@ -1,0 +1,280 @@
+﻿@page "/reportes"
+@inject HttpClient Http
+
+<div class="container mt-5">
+    <h3>INFORME FINANCIERO_</h3>
+
+    <div class="card p-4 mb-4 border-dark">
+        <div class="row align-items-end g-3">
+            <div class="col-md-3">
+                <label class="form-label fw-bold">UNIDAD:</label>
+                <select class="form-select" @bind="MaquinaSeleccionada">
+                    <option value="0">-- TODAS LAS UNIDADES --</option>
+                    @if (ListaMaquinas != null)
+                    {
+                        @foreach (var m in ListaMaquinas)
+                        {
+                            <option value="@m.Id">@m.Nombre.ToUpper() - @m.Ubicacion.ToUpper()</option>
+                        }
+                    }
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label fw-bold">DESDE:</label>
+                <input type="date" @bind="FechaInicio" class="form-control" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label fw-bold">HASTA:</label>
+                <input type="date" @bind="FechaFin" class="form-control" />
+            </div>
+            <div class="col-md-3">
+                <button class="btn btn-primary w-100" @onclick="CargarReporte" disabled="@Cargando">
+                    @(Cargando ? "PROCESANDO..." : "EJECUTAR REPORTE")
+                </button>
+            </div>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(MensajeError))
+    {
+        <div class="alert alert-danger border-dark rounded-0 mb-4">
+            <strong>ERROR DE SISTEMA:</strong> @MensajeError
+        </div>
+    }
+
+    @if (Cargando)
+    {
+        <div class="text-center py-5">
+            <h4 class="text-muted">CONNECTING TO DATABASE...</h4>
+            <div class="spinner-border" role="status"></div>
+        </div>
+    }
+    else if (Datos != null)
+    {
+        <div class="row mb-4 text-center">
+            <div class="col-md-4">
+                <div class="card p-3 border-dark">
+                    <small>VENTA BRUTA</small>
+                    <h2 class="mt-2">$@Datos.MontoTotal.ToString("N0")</h2>
+                    <small>CANT: @Datos.TotalVentas</small>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card p-3 border-dark" style="background-color: #e8f5e9;">
+                    <small>CONCILIADO (TB)</small>
+                    <h2 class="mt-2">$@Datos.MontoPagado.ToString("N0")</h2>
+                    <small>FONDOS SEGUROS</small>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card p-3 border-dark" style="background-color: #ffebee;">
+                    <small>PENDIENTE / EFECTIVO</small>
+                    <h2 class="mt-2">$@Datos.MontoPendiente.ToString("N0")</h2>
+                    <small>DIFERENCIA</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover table-sm border-dark">
+                <thead>
+                    <tr class="bg-light">
+                        <th role="button" @onclick='() => OrdenarPor("Fecha")'>
+                            FECHA @RenderIcono("Fecha")
+                        </th>
+                        <th role="button" @onclick='() => OrdenarPor("Maquina")'>
+                            UNIDAD @RenderIcono("Maquina")
+                        </th>
+                        <th role="button" @onclick='() => OrdenarPor("Slot")'>
+                            SLOT @RenderIcono("Slot")
+                        </th>
+                        <th role="button" @onclick='() => OrdenarPor("Monto")'>
+                            MONTO @RenderIcono("Monto")
+                        </th>
+                        <th role="button" @onclick='() => OrdenarPor("Estado")'>
+                            ESTADO @RenderIcono("Estado")
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (Datos.Detalle != null && Datos.Detalle.Count > 0)
+                    {
+                        @foreach (var v in Datos.Detalle)
+                        {
+                            <tr>
+                                <td>@v.Fecha</td>
+                                <td>@v.Maquina</td>
+                                <td class="text-center">@v.Slot</td>
+                                <td class="text-end">$@v.Monto.ToString("N0")</td>
+                                <td class="text-center">
+                                    @if (v.Estado == "Pagado")
+                                    {
+                                        <span class="badge bg-success border-dark text-dark">OK</span>
+                                    }
+                                    else
+                                    {
+
+                                        <span class="badge bg-warning border-dark text-dark">PEND</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="5" class="text-center py-3">NO SE ENCONTRARON REGISTROS EN ESTE RANGO.</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@code {
+    // --- VARIABLES DE ESTADO ---
+    private bool Cargando = false;
+    private string MensajeError = "";
+
+    // --- VARIABLES DE DATOS ---
+    private DateTime FechaInicio = DateTime.Today.AddDays(-30);
+    private DateTime FechaFin = DateTime.Today;
+    private int MaquinaSeleccionada = 0;
+
+    private ReporteDto? Datos;
+    private List<MaquinaSimpleDto>? ListaMaquinas;
+
+    // --- CONTROL DE ORDEN ---
+    private string ColumnaOrden = "Fecha";
+    private bool Ascendente = false;
+
+    // --- MÉTODOS ---
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            // Solo cargamos la lista de máquinas al iniciar
+            ListaMaquinas = await Http.GetFromJsonAsync<List<MaquinaSimpleDto>>("api/Ventas/lista-maquinas");
+
+            // Y cargamos el reporte inicial
+            await CargarReporte();
+        }
+        catch (Exception ex)
+        {
+            MensajeError = "ERROR AL INICIAR: " + ex.Message;
+        }
+    }
+
+    private async Task CargarReporte()
+    {
+        Cargando = true;
+        MensajeError = "";
+        Datos = null;
+
+        try
+        {
+            string inicio = FechaInicio.ToString("yyyy-MM-dd");
+            string fin = FechaFin.ToString("yyyy-MM-dd");
+            string url = $"api/Ventas/reporte-rango?inicio={inicio}&fin={fin}&maquinaId={MaquinaSeleccionada}";
+
+            Datos = await Http.GetFromJsonAsync<ReporteDto>(url);
+
+            if (Datos == null)  // ✅ Validar si llegó null
+            {
+                MensajeError = "El servidor no retornó datos válidos.";
+                return;
+            }
+
+            AplicarOrdenamiento();
+        }
+        catch (Exception ex)
+        {
+            MensajeError = $"ERROR: {ex.Message}";
+            Console.WriteLine($"Stack: {ex.StackTrace}");  // Para ver el error completo en F12
+        }
+        finally
+        {
+            Cargando = false;
+        }
+    }
+
+    private void OrdenarPor(string columna)
+    {
+        if (ColumnaOrden == columna) Ascendente = !Ascendente;
+        else
+        {
+            ColumnaOrden = columna;
+            Ascendente = true;
+        }
+        AplicarOrdenamiento();
+    }
+
+    private void AplicarOrdenamiento()
+    {
+        if (Datos?.Detalle == null || Datos.Detalle.Count == 0) return;
+
+        switch (ColumnaOrden)
+        {
+            case "Fecha":
+                Datos.Detalle = Ascendente
+                    ? Datos.Detalle.OrderBy(x => x.FechaRaw).ToList()
+                    : Datos.Detalle.OrderByDescending(x => x.FechaRaw).ToList();
+                break;
+            case "Monto":
+                Datos.Detalle = Ascendente
+                    ? Datos.Detalle.OrderBy(x => x.Monto).ToList()
+                    : Datos.Detalle.OrderByDescending(x => x.Monto).ToList();
+                break;
+            case "Maquina":
+                Datos.Detalle = Ascendente
+                    ? Datos.Detalle.OrderBy(x => x.Maquina ?? string.Empty).ToList()  // ✅ Manejo de null
+                    : Datos.Detalle.OrderByDescending(x => x.Maquina ?? string.Empty).ToList();
+                break;
+            case "Slot":
+                Datos.Detalle = Ascendente
+                    ? Datos.Detalle.OrderBy(x => x.Slot).ToList()
+                    : Datos.Detalle.OrderByDescending(x => x.Slot).ToList();
+                break;
+            case "Estado":
+                Datos.Detalle = Ascendente
+                    ? Datos.Detalle.OrderBy(x => x.Estado ?? string.Empty).ToList()  // ✅ Manejo de null
+                    : Datos.Detalle.OrderByDescending(x => x.Estado ?? string.Empty).ToList();
+                break;
+        }
+        StateHasChanged();
+    }
+
+    private string RenderIcono(string columna)
+    {
+        if (ColumnaOrden != columna) return "";
+        return Ascendente ? "▲" : "▼";
+    }
+
+    // --- CLASES DTO ---
+    public class MaquinaSimpleDto
+    {
+        public int Id { get; set; }
+        public string Nombre { get; set; } = string.Empty;
+        public string Ubicacion { get; set; } = string.Empty;
+    }
+
+    public class ReporteDto
+    {
+        public int TotalVentas { get; set; }
+        public decimal MontoTotal { get; set; }
+        public decimal MontoPagado { get; set; }
+        public decimal MontoPendiente { get; set; }
+        public List<DetalleVentaDto> Detalle { get; set; } = new();
+    }
+
+    public class DetalleVentaDto
+    {
+        public string Fecha { get; set; } = string.Empty;
+        public DateTime FechaRaw { get; set; }
+        public string Maquina { get; set; } = string.Empty;
+        public decimal Monto { get; set; }
+        public string Estado { get; set; } = string.Empty;
+        public int Slot { get; set; }
+    }
+}

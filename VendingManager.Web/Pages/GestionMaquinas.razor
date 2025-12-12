@@ -1,0 +1,152 @@
+﻿@page "/maquinas"
+@inject HttpClient Http
+@inject IJSRuntime JS
+
+<div class="container mt-5">
+    <h3>GESTIÓN DE UNIDADES_</h3>
+
+    <div class="card p-4 mb-5 border-dark">
+        <h5 class="mb-3">@(ModoEdicion ? "EDITAR DATOS" : "NUEVA UNIDAD")</h5>
+
+        <EditForm Model="maquinaActual" OnValidSubmit="GuardarMaquina">
+            <DataAnnotationsValidator />
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label fw-bold">NOMBRE REFERENCIA:</label>
+                    <InputText @bind-Value="maquinaActual.Nombre" class="form-control" placeholder="EJ: VENDING SNACKS 1" />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-bold">UBICACIÓN FÍSICA:</label>
+                    <InputText @bind-Value="maquinaActual.Ubicacion" class="form-control" placeholder="EJ: HALL CENTRAL - PISO 1" />
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label fw-bold">ID INTERNO (EXCEL MÁQUINA):</label>
+                    <InputText @bind-Value="maquinaActual.IdInternoMaquina" class="form-control" />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-bold">TERMINAL POS (EXCEL TB):</label>
+                    <InputText @bind-Value="maquinaActual.CodigoTerminalPos" class="form-control" />
+                </div>
+            </div>
+
+            <div class="mt-4 d-flex gap-2 justify-content-end">
+                @if (ModoEdicion)
+                {
+                    <button type="button" class="btn btn-secondary" @onclick="CancelarEdicion">CANCELAR</button>
+                }
+                <button type="submit" class="btn btn-primary">
+                    @(ModoEdicion ? "GUARDAR CAMBIOS" : "REGISTRAR UNIDAD")
+                </button>
+            </div>
+        </EditForm>
+    </div>
+
+    @if (listaMaquinas == null)
+    {
+        <p>CARGANDO INVENTARIO...</p>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover">
+                <thead class="bg-light">
+                    <tr>
+                        <th>ID</th>
+                        <th>NOMBRE</th>
+                        <th>UBICACIÓN</th>
+                        <th>ID INTERNO</th>
+                        <th>POS</th>
+                        <th class="text-center">ACCIONES</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var m in listaMaquinas)
+                    {
+                        <tr>
+                            <td>@m.Id</td>
+                            <td>@m.Nombre.ToUpper()</td>
+                            <td>@m.Ubicacion.ToUpper()</td>
+                            <td>@m.IdInternoMaquina</td>
+                            <td>@m.CodigoTerminalPos</td>
+                            <td class="text-center">
+                                <button class="btn btn-sm btn-outline-dark me-2" @onclick="() => Editar(m)">EDITAR</button>
+                                <button class="btn btn-sm btn-danger" @onclick="() => Borrar(m.Id)">BORRAR</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@code {
+    private List<Maquina>? listaMaquinas;
+    private Maquina maquinaActual = new Maquina();
+    private bool ModoEdicion = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarMaquinas();
+    }
+
+    private async Task CargarMaquinas()
+    {
+        listaMaquinas = await Http.GetFromJsonAsync<List<Maquina>>("api/Maquinas");
+    }
+
+    private async Task GuardarMaquina()
+    {
+        if (ModoEdicion)
+        {
+            await Http.PutAsJsonAsync($"api/Maquinas/{maquinaActual.Id}", maquinaActual);
+        }
+        else
+        {
+            await Http.PostAsJsonAsync("api/Maquinas", maquinaActual);
+        }
+
+        maquinaActual = new Maquina();
+        ModoEdicion = false;
+        await CargarMaquinas();
+    }
+
+    private void Editar(Maquina m)
+    {
+        maquinaActual = new Maquina
+        {
+            Id = m.Id,
+            Nombre = m.Nombre,
+            Ubicacion = m.Ubicacion, // Agregado
+            IdInternoMaquina = m.IdInternoMaquina,
+            CodigoTerminalPos = m.CodigoTerminalPos
+        };
+        ModoEdicion = true;
+    }
+
+    private void CancelarEdicion()
+    {
+        maquinaActual = new Maquina();
+        ModoEdicion = false;
+    }
+
+    private async Task Borrar(int id)
+    {
+        bool confirmado = await JS.InvokeAsync<bool>("confirm", "¿CONFIRMAR ELIMINACIÓN?");
+        if (confirmado)
+        {
+            await Http.DeleteAsync($"api/Maquinas/{id}");
+            await CargarMaquinas();
+        }
+    }
+
+    public class Maquina
+    {
+        public int Id { get; set; }
+        public string Nombre { get; set; } = string.Empty;
+        public string Ubicacion { get; set; } = string.Empty; // Agregado aquí también
+        public string IdInternoMaquina { get; set; } = string.Empty;
+        public string CodigoTerminalPos { get; set; } = string.Empty;
+    }
+}
