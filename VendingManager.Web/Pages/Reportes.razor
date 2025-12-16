@@ -5,8 +5,8 @@
 @inject IJSRuntime JS
 @using Microsoft.AspNetCore.WebUtilities
 
-<div class="container-fluid px-4 mt-4" style="font-family: 'Segoe UI', Consolas, monospace;">
-    
+<div class="container-fluid px-2 px-md-4 mt-4" style="font-family: 'Segoe UI', Consolas, monospace;">
+
     <!-- HEADER -->
     <div class="row align-items-center mb-4 border-bottom border-3 border-dark pb-3">
         <div class="col-12">
@@ -17,11 +17,12 @@
 
     <!-- CONTROL PANEL -->
     <div class="card border-2 border-dark rounded-0 shadow-sm mb-4">
-        <div class="card-body bg-light">
+        <div class="card-body bg-light p-3">
             <div class="row align-items-end g-3">
-                <div class="col-md-3">
+                <div class="col-md-3 col-12">
                     <label class="fw-bold small text-uppercase mb-1">UNIDAD:</label>
-                    <select class="form-select border-dark rounded-0 fw-bold" @bind="MaquinaSeleccionada">
+                    <!-- Added py-2 for better vertical centering of text in select -->
+                    <select class="form-select border-dark rounded-0 fw-bold py-2" @bind="MaquinaSeleccionada">
                         <option value="0">:: TODAS LAS UNIDADES ::</option>
                         @if (ListaMaquinas != null)
                         {
@@ -32,20 +33,23 @@
                         }
                     </select>
                 </div>
-                <div class="col-md-3">
+                <!-- Fechas grouped for mobile 2-col layout -->
+                <div class="col-6 col-md-3">
                     <label class="fw-bold small text-uppercase mb-1">DESDE:</label>
                     <input type="date" @bind="FechaInicio" class="form-control border-dark rounded-0 fw-bold" />
                 </div>
-                <div class="col-md-3">
+                <div class="col-6 col-md-3">
                     <label class="fw-bold small text-uppercase mb-1">HASTA:</label>
                     <input type="date" @bind="FechaFin" class="form-control border-dark rounded-0 fw-bold" />
                 </div>
-                <div class="col-md-3 d-flex gap-2">
-                    <button class="btn btn-dark flex-grow-1 rounded-0 fw-bold" @onclick="CargarReporte" disabled="@Cargando">
+                <div class="col-12 col-md-3 d-flex gap-2">
+                    <button class="btn btn-dark flex-grow-1 rounded-0 fw-bold py-2" @onclick="CargarReporte"
+                        disabled="@Cargando">
                         @(Cargando ? "PROCESANDO..." : "EJECUTAR QUERY")
                     </button>
-                    <button class="btn btn-success rounded-0 fw-bold border-dark" @onclick="ExportarExcel" title="Exportar a Excel" style="width: 50px;">
-                        <i class="bi bi-file-earmark-excel"></i> 📊
+                    <button class="btn btn-success rounded-0 fw-bold border-dark py-2" @onclick="ExportarExcel"
+                        title="Exportar a Excel" style="width: 50px;">
+                        <i class="bi bi-file-earmark-excel"></i>
                     </button>
                 </div>
             </div>
@@ -62,39 +66,47 @@
     @if (Cargando)
     {
         <div class="text-center py-5 border border-dark border-2 bg-light">
-             <div class="spinner-grow text-dark" role="status"></div>
-             <p class="mt-2 fw-bold text-uppercase" style="letter-spacing: 2px;">Conectando Base de Datos...</p>
+            <div class="spinner-grow text-dark" role="status"></div>
+            <p class="mt-2 fw-bold text-uppercase" style="letter-spacing: 2px;">Conectando Base de Datos...</p>
         </div>
     }
     else if (Datos != null)
     {
         <!-- KPI CARDS -->
-        <div class="row g-4 mb-4">
-            <div class="col-md-4">
-                <div class="border border-2 border-dark bg-white p-4 h-100 shadow-sm position-relative">
+        <div class="row g-3 mb-4">
+            <div class="col-12 col-md-4">
+                <div class="border border-2 border-dark bg-white p-3 p-md-4 h-100 shadow-sm position-relative">
                     <div class="text-muted fw-bold text-uppercase small" style="letter-spacing: 1px;">Venta Bruta</div>
-                    <h2 class="display-6 fw-bold mt-2 text-dark" style="letter-spacing: -1px;">$@Datos.MontoTotal.ToString("N0")</h2>
-                    <div class="mt-3 pt-3 border-top border-dark d-flex justify-content-between align-items-center">
+                    <h2 class="display-6 fw-bold mt-2 text-dark" style="letter-spacing: -1px;">
+                        $@Datos.MontoTotal.ToString("N0")</h2>
+                    <!-- Increased size and padding for Transacciones badge -->
+                <div class="mt-3 pt-3 border-top border-dark d-flex justify-content-between align-items-center">
                         <span class="small fw-bold text-uppercase">Transacciones</span>
-                        <span class="badge bg-dark rounded-0 font-monospace">@Datos.TotalVentas</span>
+                        <span class="badge bg-dark rounded-0 font-monospace fs-6 p-2">@Datos.TotalVentas</span>
                     </div>
                 </div>
             </div>
-            <div class="col-md-4">
-                <div class="border border-2 border-dark bg-white p-4 h-100 shadow-sm">
-                    <div class="text-success fw-bold text-uppercase small" style="letter-spacing: 1px;">Ingreso Confirmado</div>
-                    <h2 class="display-6 fw-bold mt-2 text-success" style="letter-spacing: -1px;">$@Datos.MontoPagado.ToString("N0")</h2>
-                    <div class="mt-3 pt-3 border-top border-dark">
-                         <small class="text-muted fw-bold text-uppercase">Pagado via Transbank</small>
+            <div class="col-6 col-md-4">
+                <div class="border border-2 border-dark bg-white p-3 p-md-4 h-100 shadow-sm">
+                    <div class="text-success fw-bold text-uppercase small" style="letter-spacing: 1px;">Ingreso Confirmado
+                    </div>
+                    <h3 class="fw-bold mt-2 text-success" style="letter-spacing: -1px;">$@Datos.MontoPagado.ToString("N0")
+                    </h3>
+                    <div class="mt-2 border-top border-dark pt-2">
+                        <small class="text-muted fw-bold text-uppercase" style="font-size: 0.7rem;">Pagado via
+                            Transbank</small>
                     </div>
                 </div>
             </div>
-            <div class="col-md-4">
-                <div class="border border-2 border-dark bg-light p-4 h-100 shadow-sm">
-                    <div class="text-danger fw-bold text-uppercase small" style="letter-spacing: 1px;">Pendiente / Efectivo</div>
-                    <h2 class="display-6 fw-bold mt-2 text-dark" style="letter-spacing: -1px;">$@Datos.MontoPendiente.ToString("N0")</h2>
-                    <div class="mt-3 pt-3 border-top border-dark">
-                        <small class="text-muted fw-bold text-uppercase">Diferencia Recaudación</small>
+            <div class="col-6 col-md-4">
+                <div class="border border-2 border-dark bg-light p-3 p-md-4 h-100 shadow-sm">
+                    <div class="text-danger fw-bold text-uppercase small" style="letter-spacing: 1px;">Pendiente / Efectivo
+                    </div>
+                    <h3 class="fw-bold mt-2 text-dark" style="letter-spacing: -1px;">$@Datos.MontoPendiente.ToString("N0")
+                    </h3>
+                    <div class="mt-2 border-top border-dark pt-2">
+                        <small class="text-muted fw-bold text-uppercase" style="font-size: 0.7rem;">Diferencia
+                            Recaudación</small>
                     </div>
                 </div>
             </div>
@@ -106,7 +118,7 @@
                 <i class="bi bi-table me-2"></i>Detalle de Operaciones
             </div>
             <div class="table-responsive">
-                <table class="table table-hover table-bordered border-dark m-0">
+                <table class="table table-hover table-bordered border-dark m-0" style="min-width: 600px;">
                     <thead class="bg-secondary text-white text-uppercase small">
                         <tr>
                             <th role="button" class="sortable-header" @onclick='() => OrdenarPor("Fecha")'>
@@ -157,7 +169,8 @@
                         else
                         {
                             <tr>
-                                <td colspan="7" class="text-center py-4 text-muted fw-bold fst-italic">NO SE ENCONTRARON REGISTROS EN ESTE RANGO.</td>
+                                <td colspan="7" class="text-center py-4 text-muted fw-bold fst-italic">NO SE ENCONTRARON
+                                    REGISTROS EN ESTE RANGO.</td>
                             </tr>
                         }
                     </tbody>
@@ -168,10 +181,10 @@
         <!-- TABLAS AGRUPADAS -->
         <div class="row g-4 mb-4">
             <!-- POR MAQUINA -->
-            <div class="col-md-6">
+        <div class="col-md-6">
                 <div class="card border-2 border-dark rounded-0 h-100 shadow-sm">
                     <div class="card-header bg-dark text-white rounded-0 fw-bold text-uppercase">
-                       <i class="bi bi-hdd-rack me-2"></i>Rendimiento por Máquina
+                        <i class="bi bi-hdd-rack me-2"></i>Rendimiento por Máquina
                     </div>
                     <div class="table-responsive">
                         <table class="table table-sm table-bordered border-dark m-0 table-hover">
@@ -207,7 +220,7 @@
             </div>
 
             <!-- TOP PRODUCTOS -->
-            <div class="col-md-6">
+        <div class="col-md-6">
                 <div class="card border-2 border-dark rounded-0 h-100 shadow-sm">
                     <div class="card-header bg-dark text-white rounded-0 fw-bold text-uppercase">
                         <i class="bi bi-star-fill me-2"></i>Top Productos
@@ -250,6 +263,7 @@
         cursor: pointer;
         user-select: none;
     }
+
     .sortable-header:hover {
         background-color: #555 !important;
         color: white;

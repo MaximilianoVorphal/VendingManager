@@ -15,7 +15,7 @@
         </div>
         <div class="col-md-4">
             <label class="fw-bold mb-1 small text-uppercase">:: SELECCIÓN DE UNIDAD ::</label>
-            <select class="form-select border-2 border-dark rounded-0 fw-bold bg-light text-uppercase"
+            <select class="form-select border-2 border-dark rounded-0 fw-bold bg-light text-uppercase py-2"
                 @onchange="CambiarMaquina">
                 <option value="0">:: TODAS LAS UNIDADES ::</option>
                 @if (ListaMaquinas != null)
@@ -153,8 +153,10 @@
 
         <div class="row mt-5">
             <div class="col-12 mb-3">
-                <h5 class="fw-bold text-uppercase border-bottom border-3 border-dark pb-2" style="letter-spacing: 1px;">
-                    <span class="bg-dark text-white px-2 py-1 me-2">INPUT</span> INGRESO DE DATOS_
+                <h5 class="fw-bold text-uppercase border-bottom border-3 border-dark pb-2 d-flex align-items-center flex-wrap gap-2"
+                style="letter-spacing: 1px;">
+                    <span class="bg-dark text-white px-2 py-1">INPUT</span>
+                    <span>INGRESO DE DATOS_</span>
                 </h5>
             </div>
 
