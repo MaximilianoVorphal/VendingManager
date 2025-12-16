@@ -117,7 +117,7 @@
             <div class="card-header bg-dark text-white rounded-0 fw-bold border-bottom border-dark text-uppercase">
                 <i class="bi bi-table me-2"></i>Detalle de Operaciones
             </div>
-            <div class="table-responsive">
+            <div class="table-responsive" style="max-height: 550px; overflow-y: auto;">
                 <table class="table table-hover table-bordered border-dark m-0" style="min-width: 600px;">
                     <thead class="bg-secondary text-white text-uppercase small">
                         <tr>
@@ -143,10 +143,9 @@
                     <tbody class="bg-white">
                         @if (Datos.Detalle != null && Datos.Detalle.Count > 0)
                         {
-                            @foreach (var v in Datos.Detalle)
-                            {
+                            <Virtualize Items="@Datos.Detalle" Context="v" SpacerElement="tr" OverscanCount="20">
                                 <tr>
-                                    <td class="font-monospace small">@v.Fecha</td>
+                                    <td class="font-monospace small">@v.FechaRaw.ToString("dd/MM/yyyy HH:mm")</td>
                                     <td class="fw-bold small">@v.Maquina</td>
                                     <td class="text-center font-monospace small">@v.Slot</td>
                                     <td class="fw-bold small text-uppercase">@v.Producto</td>
@@ -154,17 +153,16 @@
                                     <td class="text-end font-monospace text-success">$@v.Ganancia.ToString("N0")</td>
                                     <td class="text-center">
                                         @if (v.Estado == "Pagado")
-                                        {
-                                            <span class="badge bg-success rounded-0 border border-dark text-white">OK</span>
-                                        }
-                                        else
-                                        {
-
-                                            <span class="badge bg-warning rounded-0 border border-dark text-dark">PEND</span>
-                                        }
-                                    </td>
-                                </tr>
-                            }
+                                {
+                                    <span class="badge bg-success rounded-0 border border-dark text-white">OK</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-warning rounded-0 border border-dark text-dark">PEND</span>
+                                }
+                            </td>
+                        </tr>
+                    </Virtualize>
                         }
                         else
                         {
@@ -290,12 +288,9 @@
     // --- MÉTODOS ---
     protected override async Task OnInitializedAsync()
     {
+        // 1. PROCESAR QUERY PARAMS (Synchronous)
         try
         {
-            // Solo cargamos la lista de máquinas al iniciar
-            ListaMaquinas = await Http.GetFromJsonAsync<List<MaquinaSimpleDto>>("api/Ventas/lista-maquinas");
-
-            // PROCESAR QUERY PARAMS
             var uri = NavManager.ToAbsoluteUri(NavManager.Uri);
             if (QueryHelpers.ParseQuery(uri.Query).TryGetValue("start", out var startParam))
             {
@@ -312,18 +307,25 @@
         }
         catch (Exception ex)
         {
-            MensajeError = "ERROR AL CARGAR LISTA DE UNIDADES: " + ex.Message;
-            return;
+            Logger.LogError(ex, "Error parsing query params");
         }
 
+        // 2. LANZAR PETICIONES EN PARALELO
+        var taskMaquinas = CargarMaquinas();
+        var taskReporte = CargarReporte();
+
+        await Task.WhenAll(taskMaquinas, taskReporte);
+    }
+
+    private async Task CargarMaquinas()
+    {
         try
         {
-            // Y cargamos el reporte inicial
-            await CargarReporte();
+            ListaMaquinas = await Http.GetFromJsonAsync<List<MaquinaSimpleDto>>("api/Ventas/lista-maquinas");
         }
         catch (Exception ex)
         {
-            MensajeError = "ERROR AL INICIAR REPORTE: " + ex.Message;
+            MensajeError = "ERROR AL CARGAR LISTA DE UNIDADES: " + ex.Message;
         }
     }
 
@@ -484,7 +486,7 @@
 
     public class DetalleVentaDto
     {
-        public string Fecha { get; set; } = string.Empty;
+
         public DateTime FechaRaw { get; set; }
         public string Maquina { get; set; } = string.Empty;
         public decimal Monto { get; set; }

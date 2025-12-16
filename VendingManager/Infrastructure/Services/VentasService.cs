@@ -102,7 +102,7 @@ namespace VendingManager.Infrastructure.Services
 
                 reporte.Detalle.Add(new DetalleVentaDto
                 {
-                    Fecha = v.FechaLocal.ToString("dd/MM/yyyy HH:mm"),
+
                     FechaRaw = v.FechaLocal,
                     Maquina = v.Maquina?.Nombre ?? "Desconocida",
                     Slot = v.NumeroSlot,
