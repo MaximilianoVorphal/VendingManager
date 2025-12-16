@@ -1,53 +1,91 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Scalar.AspNetCore;
-using VendingManager.Data;
-using VendingManager.Services;
-
-System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
+using VendingManager.Infrastructure.Data;
+using VendingManager.Infrastructure.Services;
+using VendingManager.Web;
 
 var builder = WebApplication.CreateBuilder(args);
 
-
-
-
-// 1. CORS (Para que la web funcione)
+// 1. Configurar CORS (DEBE ir ANTES de AddControllers)
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("PermitirTodo", policy =>
+    options.AddPolicy("PermitirBlazor", policy =>
     {
-        policy.AllowAnyOrigin()
+        policy.WithOrigins(
+                "https://localhost:5091",
+                "http://localhost:5091",
+                "https://localhost:5093",
+                "http://localhost:5093",
+                "http://localhost:5095",
+                "https://localhost:5095"
+            )
               .AllowAnyMethod()
-              .AllowAnyHeader();
+              .AllowAnyHeader()
+              .AllowCredentials();
     });
 });
 
-builder.Services.AddControllers();
-builder.Services.AddOpenApi();
-
-// 2. BASE DE DATOS
+// 2. Base de Datos (SQL Express)
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// 3. SERVICIO EXCEL (El único que necesitamos)
-builder.Services.AddScoped<ExcelService>();
+// 3. Registrar tus Servicios (Clean Architecture)
+builder.Services.AddScoped<IExcelService, ExcelService>();
+builder.Services.AddScoped<ICajaService, CajaService>();
+builder.Services.AddScoped<IVentasService, VentasService>();
+builder.Services.AddScoped<IInventarioService, InventarioService>();
+builder.Services.AddScoped<IMaquinaService, MaquinaService>();
 
-// --- AQUÍ QUITAMOS LOS BOTS Y SELENIUM ---
+// 4. Configuración Blazor
+builder.Services.AddControllers();
+builder.Services.AddRazorComponents()
+    .AddInteractiveWebAssemblyComponents();
+
+builder.Services.AddOpenApi();
+
+// Registrar HttpClient para Pre-rendering (Server Side)
+builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri("http://localhost:8080") });
 
 var app = builder.Build();
 
+// Auto-migrate database on startup
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+    try
+    {
+        var context = services.GetRequiredService<VendingManager.Infrastructure.Data.ApplicationDbContext>();
+        context.Database.Migrate();
+    }
+    catch (Exception ex)
+    {
+        var logger = services.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "An error occurred while migrating the database.");
+    }
+}
+
+// Configuración de entorno
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
-    app.MapScalarApiReference(options =>
-    {
-        options.Title = "Vending Manager API";
-        options.Theme = ScalarTheme.Mars;
-    });
+    app.MapScalarApiReference();
+}
+else
+{
+    app.UseHsts();
 }
 
 app.UseHttpsRedirection();
-app.UseCors("PermitirTodo");
-app.UseAuthorization();
+app.UseStaticFiles();
+app.UseAntiforgery();
+app.UseCors("PermitirBlazor"); // Activar CORS
+
+// 5. Mapear componentes y API
+app.MapStaticAssets();
 app.MapControllers();
+
+app.MapRazorComponents<VendingManager.Components.App>()
+    .AddInteractiveWebAssemblyRenderMode()
+    .AddAdditionalAssemblies(typeof(VendingManager.Web.App).Assembly);
 
 app.Run();

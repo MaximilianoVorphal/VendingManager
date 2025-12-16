@@ -2,10 +2,14 @@
    NUEVA BARRA SUPERIOR (HEADER)
    ========================================= */
 
-/* Eliminamos los estilos por defecto de Blazor que rompen el dise�o */
+/* Eliminamos los estilos por defecto de Blazor que rompen el diseño */
+/* Comentado: ocultar .page/.sidebar/.top-row deja la app vacía */
+/*
 .page, .sidebar, .top-row {
-    display: none !important; /* Ocultamos la sidebar vieja si qued� algo vivo */
+    display: none !important;
 }
+
+*/
 
 /* El contenedor principal */
 .industrial-wrapper {
@@ -16,10 +20,12 @@
 /* La Barra Superior */
 .industrial-navbar {
     width: 100%;
-    background-color: #ffffff; /* Sin color, solo blanco */
-    border-bottom: 2px solid #000000; /* Borde duro inferior */
+    background-color: #ffffff;
+    border-bottom: 2px solid #000000;
     padding: 20px 0;
     margin-bottom: 40px;
+    position: relative;
+    /* Para posicionamiento absoluto del menú móvil si fuera necesario */
 }
 
 /* El Logo (Texto a la izquierda) */
@@ -35,27 +41,114 @@
     color: #fff;
 }
 
-/* Los Enlaces (Botones de navegaci�n) */
+/* Navegación (Contenedor de enlaces) */
+.nav-links-container {
+    display: flex;
+    gap: 1.5rem;
+}
+
+/* Los Enlaces (Botones de navegación) */
 .industrial-link {
     font-family: 'Consolas', monospace;
     font-weight: bold;
-    color: #000000; /* Texto negro */
+    color: #000000;
     text-decoration: none;
     font-size: 1.1rem;
     padding: 5px 10px;
     transition: all 0.2s;
-    border: 1px solid transparent; /* Para que no salte al hacer hover */
+    border: 1px solid transparent;
+    display: block;
+    /* Asegura bloque para áreas de toque */
 }
 
-    /* Cuando pasas el mouse por encima */
-    .industrial-link:hover {
-        background-color: #e0e0e0;
-        border: 1px solid #000;
+/* Cuando pasas el mouse por encima */
+.industrial-link:hover {
+    background-color: #e0e0e0;
+    border: 1px solid #000;
+}
+
+/* Cuando estás en esa página (Activo) */
+.industrial-link.active {
+    background-color: #000000;
+    color: #ffffff;
+    border: 1px solid #000;
+}
+
+/* Botón Hamburger (Oculto en Desktop) */
+.hamburger-btn {
+    display: none;
+    background: transparent;
+    border: 2px solid #000;
+    font-size: 1.5rem;
+    cursor: pointer;
+    width: 45px;
+    height: 45px;
+    padding: 0;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    border-radius: 0;
+}
+
+/* =========================================
+   MEDIA QUERIES (MOBILE OPTIMIZATION)
+   ========================================= */
+@media (max-width: 992px) {
+    /* Tablet/Mobile breakpoint */
+
+    .industrial-navbar {
+        padding: 10px 0;
+        margin-bottom: 20px;
     }
 
-    /* Cuando est�s en esa p�gina (Activo) */
-    .industrial-link.active {
-        background-color: #000000; /* Fondo negro */
-        color: #ffffff; /* Letra blanca */
-        border: 1px solid #000;
+    .brand-logo {
+        font-size: 1.2rem;
     }
+
+    /* Mostrar botón menú */
+    .hamburger-btn {
+        display: flex;
+    }
+
+    /* Menú colapsable estilo "Cajón" o Dropdown */
+    .nav-links-container {
+        display: none;
+        /* Oculto por defecto */
+        flex-direction: column;
+        width: 100%;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        background-color: #ffffff;
+        border-bottom: 2px solid #000;
+        z-index: 1000;
+        padding: 10px 0;
+        gap: 0;
+    }
+
+    .nav-links-container.show {
+        display: flex;
+    }
+
+    .industrial-link {
+        width: 100%;
+        text-align: center;
+        padding: 15px 0;
+        border-bottom: 1px solid #eee;
+    }
+
+    .industrial-link:last-child {
+        border-bottom: none;
+    }
+
+    .w-100-mobile {
+        width: 100% !important;
+        display: block;
+        margin-top: 10px;
+    }
+}
+
+/* BLAZOR ERROR UI */
+#blazor-error-ui {
+    display: none;
+}

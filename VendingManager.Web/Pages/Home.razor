@@ -1,21 +1,23 @@
 ﻿@page "/"
 @inject HttpClient Http
+@inject NavigationManager NavManager
+@inject IJSRuntime JS
+@using System.Net.Http.Headers
 
 <PageTitle>CENTRO DE COMANDO</PageTitle>
 
-<div class="container-fluid px-4 mt-4">
+<div class="container-fluid px-4 mt-4" style="font-family: 'Segoe UI', Consolas, monospace;">
 
-    <div class="row align-items-center mb-5 border-bottom border-dark pb-3">
+    <div class="row align-items-center mb-4 border-bottom border-3 border-dark pb-3">
         <div class="col-md-8">
-            <h2 class="m-0" style="letter-spacing: -2px;">STATUS_OPERACIONAL__</h2>
-            <small class="text-muted">DATOS EN TIEMPO REAL: @DateTime.Now.ToString("dd/MM/yyyy HH:mm")</small>
+            <h2 class="m-0 fw-bold text-uppercase" style="letter-spacing: -1px;">Status Operacional__</h2>
+            <small class="text-muted fw-bold">TIEMPO REAL: @DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss")</small>
         </div>
         <div class="col-md-4">
-            <label class="fw-bold mb-1">VISUALIZAR UNIDAD:</label>
-            <select class="form-select border-dark rounded-0 fw-bold"
-                    @onchange="CambiarMaquina"
-                    style="background-color: #f4f4f4;">
-                <option value="0">:: TODAS LAS MÁQUINAS ::</option>
+            <label class="fw-bold mb-1 small text-uppercase">:: SELECCIÓN DE UNIDAD ::</label>
+            <select class="form-select border-2 border-dark rounded-0 fw-bold bg-light text-uppercase"
+                @onchange="CambiarMaquina">
+                <option value="0">:: TODAS LAS UNIDADES ::</option>
                 @if (ListaMaquinas != null)
                 {
                     @foreach (var m in ListaMaquinas)
@@ -29,108 +31,181 @@
 
     @if (Stats == null)
     {
-        <div class="text-center py-5">
+        <div class="text-center py-5 border border-dark border-2 bg-light">
             <div class="spinner-grow text-dark" role="status"></div>
-            <p class="mt-2 fw-bold">CALCULANDO MÉTRICAS...</p>
+            <p class="mt-2 fw-bold text-uppercase" style="letter-spacing: 2px;">Calculando Métricas...</p>
         </div>
     }
     else
     {
-        <div class="row g-4">
-
-            <div class="col-md-4">
-                <div class="border border-dark bg-white p-0 h-100">
-                    <div class="bg-dark text-white p-2 fw-bold text-center">
-                        HOY (@DateTime.Now.ToString("dd/MM"))
+        <div class="row g-4 mb-5">
+            <!-- DIARIO -->
+        <div class="col-md-4">
+                <div class="card-hover border border-2 border-dark bg-white p-0 h-100 shadow-sm position-relative cursor-pointer"
+                @onclick="@(() => IrAReporte("HOY"))" role="button">
+                    <div class="bg-dark text-white p-2 fw-bold text-center text-uppercase small"
+                    style="letter-spacing: 1px;">
+                        Reporte Diario (@DateTime.Now.ToString("dd/MM"))
                     </div>
                     <div class="p-4 text-center">
-                        <small class="text-muted text-uppercase">Venta Diaria</small>
-                        <h1 class="display-4 fw-bold my-2">$@Stats.Hoy.VentaTotal.ToString("N0")</h1>
+                        <small class="text-muted text-uppercase fw-bold" style="font-size: 0.7rem;">Venta Bruta</small>
+                        <h1 class="display-5 fw-bold my-2 text-dark" style="letter-spacing: -2px;">
+                            $@Stats.Hoy.VentaTotal.ToString("N0")</h1>
 
                         <div class="d-flex justify-content-between mt-4 border-top border-dark pt-3">
-                            <div class="text-start">
-                                <span class="d-block small fw-bold text-success">PAGADO (TB)</span>
-                                <span>$@Stats.Hoy.PagadoTB.ToString("N0")</span>
+                            <div class="text-start lh-1">
+                                <span class="d-block text-uppercase text-dark fw-bold"
+                                style="font-size: 0.7rem;">Conciliado</span>
+                                <span class="fw-bold text-success">$@Stats.Hoy.PagadoTB.ToString("N0")</span>
                             </div>
-                            <div class="text-end">
-                                <span class="d-block small fw-bold text-muted">MOVIMIENTOS</span>
-                                <span>@Stats.Hoy.CantidadVentas</span>
+                            <div class="text-end lh-1">
+                                <span class="d-block text-uppercase text-dark fw-bold"
+                                style="font-size: 0.7rem;">Transacciones</span>
+                                <span class="fw-bold">@Stats.Hoy.CantidadVentas</span>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <div class="col-md-4">
-                <div class="border border-dark bg-white p-0 h-100">
-                    <div class="bg-secondary text-white p-2 fw-bold text-center border-bottom border-dark">
-                        SEMANA EN CURSO
+            <!-- SEMANAL -->
+        <div class="col-md-4">
+                <div class="card-hover border border-2 border-dark bg-white p-0 h-100 shadow-sm cursor-pointer"
+                @onclick="@(() => IrAReporte("SEMANA"))" role="button">
+                    <div class="bg-secondary text-white p-2 fw-bold text-center text-uppercase small border-bottom border-dark"
+                    style="letter-spacing: 1px;">
+                        Reporte Semanal
                     </div>
                     <div class="p-4 text-center">
-                        <small class="text-muted text-uppercase">Acumulado Semanal</small>
-                        <h1 class="display-4 fw-bold my-2">$@Stats.Semana.VentaTotal.ToString("N0")</h1>
+                        <small class="text-muted text-uppercase fw-bold" style="font-size: 0.7rem;">Acumulado</small>
+                        <h1 class="display-5 fw-bold my-2 text-dark" style="letter-spacing: -2px;">
+                            $@Stats.Semana.VentaTotal.ToString("N0")</h1>
 
                         <div class="d-flex justify-content-between mt-4 border-top border-dark pt-3">
-                            <div class="text-start">
-                                <span class="d-block small fw-bold text-success">PAGADO (TB)</span>
-                                <span>$@Stats.Semana.PagadoTB.ToString("N0")</span>
+                            <div class="text-start lh-1">
+                                <span class="d-block text-uppercase text-dark fw-bold"
+                                style="font-size: 0.7rem;">Conciliado</span>
+                                <span class="fw-bold text-success">$@Stats.Semana.PagadoTB.ToString("N0")</span>
                             </div>
-                            <div class="text-end">
-                                <span class="d-block small fw-bold text-danger">PENDIENTE</span>
-                                <span>$@Stats.Semana.Pendiente.ToString("N0")</span>
+                            <div class="text-end lh-1">
+                                <span class="d-block text-uppercase text-dark fw-bold"
+                                style="font-size: 0.7rem;">Pendiente</span>
+                                <span class="fw-bold text-danger">$@Stats.Semana.Pendiente.ToString("N0")</span>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <div class="col-md-4">
-                <div class="border border-dark bg-light p-0 h-100">
-                    <div class="p-2 fw-bold text-center border-bottom border-dark" style="background-color: #e0e0e0;">
-                        MES DE @DateTime.Now.ToString("MMMM").ToUpper()
+            <!-- MENSUAL -->
+        <div class="col-md-4">
+                <div class="card-hover border border-2 border-dark bg-light p-0 h-100 shadow-sm cursor-pointer"
+                @onclick="@(() => IrAReporte("MES"))" role="button">
+                    <div class="p-2 fw-bold text-center border-bottom border-2 border-dark text-uppercase small"
+                    style="background-color: #dcdcdc; letter-spacing: 1px;">
+                        Reporte Mensual (@DateTime.Now.ToString("MMM").ToUpper())
                     </div>
                     <div class="p-4 text-center">
-                        <small class="text-muted text-uppercase">Proyección Mensual</small>
-                        <h1 class="display-4 fw-bold my-2">$@Stats.Mes.VentaTotal.ToString("N0")</h1>
+                        <small class="text-muted text-uppercase fw-bold" style="font-size: 0.7rem;">Total Proyectado</small>
+                        <h1 class="display-5 fw-bold my-2 text-dark" style="letter-spacing: -2px;">
+                            $@Stats.Mes.VentaTotal.ToString("N0")</h1>
 
                         <div class="d-flex justify-content-between mt-4 border-top border-dark pt-3">
-                            <div class="text-start">
-                                <span class="d-block small fw-bold text-success">TOTAL PAGADO</span>
-                                <span>$@Stats.Mes.PagadoTB.ToString("N0")</span>
+                            <div class="text-start lh-1">
+                                <span class="d-block text-uppercase text-dark fw-bold" style="font-size: 0.7rem;">Total
+                                    Ingreso</span>
+                                <span class="fw-bold text-success">$@Stats.Mes.PagadoTB.ToString("N0")</span>
                             </div>
-                            <div class="text-end">
-                                <span class="d-block small fw-bold">TOTAL QTY</span>
-                                <span>@Stats.Mes.CantidadVentas</span>
+                            <div class="text-end lh-1">
+                                <span class="d-block text-uppercase text-dark fw-bold"
+                                style="font-size: 0.7rem;">Transacciones</span>
+                                <span class="fw-bold">@Stats.Mes.CantidadVentas</span>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
+        </div>
 
+        <!-- CHART SECTION -->
+        <div class="row mb-5">
+            <div class="col-md-8">
+                <div class="card border-2 border-dark rounded-0 shadow-sm">
+                    <div class="card-header bg-dark text-white fw-bold text-uppercase rounded-0">
+                        <i class="bi bi-graph-up-arrow me-2"></i>Tendencia de Ventas (Semanal)
+                    </div>
+                    <div class="card-body">
+                        <canvas id="salesChart" style="height: 300px; width: 100%;"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card border-2 border-dark rounded-0 shadow-sm h-100">
+                    <div class="card-header bg-dark text-white fw-bold text-uppercase rounded-0">
+                        <i class="bi bi-pie-chart-fill me-2"></i>Estado Conciliación
+                    </div>
+                    <div class="card-body d-flex align-items-center justify-content-center">
+                        <canvas id="paymentChart" style="max-height: 250px;"></canvas>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <div class="row mt-5">
-            <h4 class="mb-3 border-bottom border-dark pb-2">INGESTA DE DATOS_</h4>
+            <div class="col-12 mb-3">
+                <h5 class="fw-bold text-uppercase border-bottom border-3 border-dark pb-2" style="letter-spacing: 1px;">
+                    <span class="bg-dark text-white px-2 py-1 me-2">INPUT</span> INGRESO DE DATOS_
+                </h5>
+            </div>
 
-            <div class="col-md-6">
-                <label class="mb-2 fw-bold">1. SUBIR REPORTE MÁQUINA:</label>
-                <div class="input-group">
-                    <InputFile OnChange="@(e => SubirArchivo(e, "api/Ventas/subir-ventas-maquina"))" class="form-control border-dark rounded-0" />
+            <div class="col-md-6 mb-3">
+                <div class="card h-100 border-2 border-dark rounded-0">
+                    <div class="card-body bg-light">
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="bg-dark text-white fw-bold px-2 py-1 me-2 rounded-0">01</div>
+                            <label class="fw-bold text-uppercase text-dark mb-0">REPORTE OURVEND (.XLS)</label>
+                        </div>
+                        <p class="small text-muted mb-2 font-monospace">Archivo fuente: "Give-out record"</p>
+
+                        <div class="input-group">
+                            <InputFile OnChange="SubirArchivoMaquina"
+                            class="form-control form-control-sm border-dark rounded-0" accept=".xls,.xlsx" />
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <div class="col-md-6">
-                <label class="mb-2 fw-bold">2. SUBIR REPORTE TRANSBANK:</label>
-                <div class="input-group">
-                    <InputFile OnChange="@(e => SubirArchivo(e, "api/Ventas/subir-transbank"))" class="form-control border-dark rounded-0" />
+            <div class="col-md-6 mb-3">
+                <div class="card h-100 border-2 border-dark rounded-0">
+                    <div class="card-body bg-light">
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="bg-dark text-white fw-bold px-2 py-1 me-2 rounded-0">02</div>
+                            <label class="fw-bold text-uppercase text-dark mb-0">CARTOLA TRANSBANK (.XLS/.CSV)</label>
+                        </div>
+                        <p class="small text-muted mb-2 font-monospace">Archivo fuente: "Transbank/Banco"</p>
+
+                        <div class="input-group">
+                            <InputFile OnChange="SubirArchivoTransbank"
+                            class="form-control form-control-sm border-dark rounded-0" accept=".xls,.xlsx,.csv" />
+                        </div>
+                    </div>
                 </div>
             </div>
 
             @if (!string.IsNullOrEmpty(Mensaje))
             {
-                <div class="col-12 mt-3">
-                    <div class="alert alert-dark rounded-0 border-dark">
-                        <strong>LOG:</strong> @Mensaje
+                <div class="col-12 mt-2">
+                    <div class="alert alert-dark rounded-0 border-2 border-dark shadow-sm bg-white text-dark">
+                        @if (Cargando)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2 text-dark" role="status"></span>
+                            <span class="fw-bold text-uppercase blinking-cursor">PROCESANDO DATOS...</span>
+                        }
+                        else
+                        {
+                            <span class="fw-bold text-uppercase me-2">> SYSTEM_LOG:</span>
+                            @Mensaje
+                        }
                     </div>
                 </div>
             }
@@ -138,11 +213,39 @@
     }
 </div>
 
+<style>
+    /* Efecto de parpadeo para el texto de carga */
+    .blinking-cursor {
+        animation: blinker 1s linear infinite;
+    }
+
+    /* Hover effects for Dashboard Cards */
+    .card-hover {
+        transition: transform 0.2s, background-color 0.2s;
+    }
+
+    .card-hover:hover {
+        transform: translateY(-5px);
+        background-color: #f8f9fa !important;
+        /* Slightly grayer */
+        border-color: #000 !important;
+        cursor: pointer;
+    }
+
+    @@keyframes blinker {
+        50% {
+            opacity: 0;
+        }
+    }
+</style>
+
 @code {
     private DashboardStats? Stats;
     private List<MaquinaSimpleDto>? ListaMaquinas;
     private int MaquinaActualId = 0;
+
     private string Mensaje = "";
+    private bool Cargando = false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -150,13 +253,72 @@
         await CargarDatos();
     }
 
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (Stats != null)
+        {
+            await RenderCharts();
+        }
+    }
+
+    private async Task RenderCharts()
+    {
+        // 1. Bar Chart: Weekly Stats (Simulated distribution for visualisation)
+        var weeklyConfig = new
+        {
+            type = "bar",
+            data = new
+            {
+                labels = new[] { "Lun", "Mar", "Mie", "Jue", "Vie", "Sab", "Dom" },
+                datasets = new[]
+        {
+new
+{
+label = "Ventas ($)",
+data = new[] {
+Stats!.Semana.VentaTotal * 0.1m,
+Stats.Semana.VentaTotal * 0.15m,
+Stats.Semana.VentaTotal * 0.2m,
+Stats.Semana.VentaTotal * 0.1m,
+Stats.Semana.VentaTotal * 0.25m,
+Stats.Semana.VentaTotal * 0.15m,
+Stats.Semana.VentaTotal * 0.05m
+},
+backgroundColor = "#212529"
+}
+}
+            },
+            options = new
+            {
+                scales = new { y = new { beginAtZero = true } },
+                plugins = new { legend = new { display = false } }
+            }
+        };
+        await JS.InvokeVoidAsync("ChartJsInterop.setupChart", "salesChart", weeklyConfig);
+
+        // 2. Pie Chart: Payment Status
+        var paymentConfig = new
+        {
+            type = "doughnut",
+            data = new
+            {
+                labels = new[] { "Conciliado (TB)", "Pendiente/Efectivo" },
+                datasets = new[]
+        {
+new
+{
+data = new[] { Stats.Semana.PagadoTB, Stats.Semana.Pendiente },
+backgroundColor = new[] { "#198754", "#dc3545" }
+}
+}
+            }
+        };
+        await JS.InvokeVoidAsync("ChartJsInterop.setupChart", "paymentChart", paymentConfig);
+    }
+
     private async Task CargarMaquinas()
     {
-        try
-        {
-            ListaMaquinas = await Http.GetFromJsonAsync<List<MaquinaSimpleDto>>("api/Ventas/lista-maquinas");
-        }
-        catch { }
+        try { ListaMaquinas = await Http.GetFromJsonAsync<List<MaquinaSimpleDto>>("api/Ventas/lista-maquinas"); } catch { }
     }
 
     private async Task CambiarMaquina(ChangeEventArgs e)
@@ -164,53 +326,82 @@
         if (int.TryParse(e.Value?.ToString(), out int id))
         {
             MaquinaActualId = id;
-            Stats = null; // Reset visual para que se note la carga
+            Stats = null;
             await CargarDatos();
         }
     }
 
     private async Task CargarDatos()
     {
-        try
-        {
-            Stats = await Http.GetFromJsonAsync<DashboardStats>($"api/Ventas/dashboard-stats?maquinaId={MaquinaActualId}");
-        }
+        try { Stats = await Http.GetFromJsonAsync<DashboardStats>($"api/Ventas/dashboard-stats?maquinaId={MaquinaActualId}"); }
         catch (Exception ex)
         {
             Mensaje = "ERROR DE CONEXIÓN: " + ex.Message;
         }
     }
 
-    // Lógica de carga de archivos (Reutilizada y compactada)
+    private void IrAReporte(string periodo)
+    {
+        DateTime inicio = DateTime.Today;
+        DateTime fin = DateTime.Today;
+
+        switch (periodo)
+        {
+            case "HOY":
+                // inicio y fin son correctos (hoy)
+                break;
+            case "SEMANA":
+                var diff = (7 + (DateTime.Today.DayOfWeek - DayOfWeek.Monday)) % 7;
+                inicio = DateTime.Today.AddDays(-1 * diff);
+                break;
+            case "MES":
+                inicio = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
+                break;
+        }
+
+        string url = $"reportes?start={inicio:yyyy-MM-dd}&end={fin:yyyy-MM-dd}&maquinaId={MaquinaActualId}";
+        NavManager.NavigateTo(url);
+    }
+
     private async Task SubirArchivo(InputFileChangeEventArgs e, string endpoint)
     {
-        Mensaje = "CARGANDO DATOS...";
+        Cargando = true;
+        Mensaje = "INICIANDO PROTOCOLO DE CARGA...";
+        StateHasChanged();
+
         using var content = new MultipartFormDataContent();
         try
         {
-            var fileContent = new StreamContent(e.File.OpenReadStream(1024 * 1024 * 10)); // 10MB max
-            fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(e.File.ContentType);
-            content.Add(fileContent, "archivo", e.File.Name);
+            var fileContent = new StreamContent(e.File.OpenReadStream(20 * 1024 * 1024));
+            fileContent.Headers.ContentType = new MediaTypeHeaderValue(e.File.ContentType);
+            content.Add(fileContent, "file", e.File.Name);
 
             var resp = await Http.PostAsync(endpoint, content);
+
             if (resp.IsSuccessStatusCode)
             {
-                Mensaje = "CARGA EXITOSA. ACTUALIZANDO TABLERO...";
-                await CargarDatos(); // ¡Refresca los números automáticamente!
+                var serverMsg = await resp.Content.ReadAsStringAsync();
+                Mensaje = "OPERACIÓN COMPLETADA. " + serverMsg;
+                await CargarDatos();
             }
-            else Mensaje = "ERROR EN CARGA: " + await resp.Content.ReadAsStringAsync();
+            else
+            {
+                Mensaje = "FALLO EN OPERACIÓN: " + resp.ReasonPhrase;
+            }
         }
         catch (Exception ex) { Mensaje = "ERROR CRÍTICO: " + ex.Message; }
+        finally { Cargando = false; }
     }
 
-    // CLASES DTO
+    private Task SubirArchivoMaquina(InputFileChangeEventArgs e) => SubirArchivo(e, "api/Ventas/subir-ventas-maquina");
+    private Task SubirArchivoTransbank(InputFileChangeEventArgs e) => SubirArchivo(e, "api/Ventas/subir-transbank");
+
     public class DashboardStats
     {
         public PeriodoStats Hoy { get; set; } = new();
         public PeriodoStats Semana { get; set; } = new();
         public PeriodoStats Mes { get; set; } = new();
     }
-
     public class PeriodoStats
     {
         public decimal VentaTotal { get; set; }
@@ -218,6 +409,5 @@
         public decimal Pendiente { get; set; }
         public int CantidadVentas { get; set; }
     }
-
     public class MaquinaSimpleDto { public int Id { get; set; } public string Nombre { get; set; } = ""; }
 }
