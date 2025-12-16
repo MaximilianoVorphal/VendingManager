@@ -13,7 +13,7 @@ namespace VendingManager.Core.DTOs
 
     public class DetalleVentaDto
     {
-        public string Fecha { get; set; } = "";
+
         public DateTime FechaRaw { get; set; }
         public string Maquina { get; set; } = "";
         public int Slot { get; set; }

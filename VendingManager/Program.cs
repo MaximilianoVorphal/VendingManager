@@ -43,6 +43,11 @@ builder.Services.AddRazorComponents()
 
 builder.Services.AddOpenApi();
 
+builder.Services.AddResponseCompression(options =>
+{
+    options.EnableForHttps = true;
+});
+
 // Registrar HttpClient para Pre-rendering (Server Side)
 builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri("http://localhost:8080") });
 
@@ -78,6 +83,7 @@ else
 app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseAntiforgery();
+app.UseResponseCompression();
 app.UseCors("PermitirBlazor"); // Activar CORS
 
 // 5. Mapear componentes y API
