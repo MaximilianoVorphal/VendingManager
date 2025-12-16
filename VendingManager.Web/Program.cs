@@ -4,7 +4,7 @@ using VendingManager.Web;
 using Microsoft.Extensions.Logging;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
-builder.RootComponents.Add<App>("#app");
+// builder.RootComponents.Add<App>("#app");
 // HeadOutlet is now managed by Server's App.razor
 
 

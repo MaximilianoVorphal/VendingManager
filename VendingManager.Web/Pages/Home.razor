@@ -291,7 +291,9 @@ backgroundColor = "#212529"
             options = new
             {
                 scales = new { y = new { beginAtZero = true } },
-                plugins = new { legend = new { display = false } }
+                plugins = new { legend = new { display = false } },
+                responsive = true,
+                maintainAspectRatio = false
             }
         };
         await JS.InvokeVoidAsync("ChartJsInterop.setupChart", "salesChart", weeklyConfig);
@@ -311,6 +313,11 @@ data = new[] { Stats.Semana.PagadoTB, Stats.Semana.Pendiente },
 backgroundColor = new[] { "#198754", "#dc3545" }
 }
 }
+            },
+            options = new
+            {
+                responsive = true,
+                maintainAspectRatio = false
             }
         };
         await JS.InvokeVoidAsync("ChartJsInterop.setupChart", "paymentChart", paymentConfig);

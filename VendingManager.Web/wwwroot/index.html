@@ -31,19 +31,7 @@
         <span class="dismiss">🗙</span>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script>
-        console.log('Initializing ChartJsInterop inline...');
-        window.ChartJsInterop = {
-            setupChart: (canvasId, config) => {
-                console.log(`Setting up chart: ${canvasId}`);
-                const ctx = document.getElementById(canvasId).getContext('2d');
-                if (window[canvasId + '_chart']) {
-                    window[canvasId + '_chart'].destroy();
-                }
-                window[canvasId + '_chart'] = new Chart(ctx, config);
-            }
-        };
-    </script>
+    <script src="js/ChartJsInterop.js?v=2.0"></script>
     <script src="_framework/blazor.webassembly.js"></script>
     <script src="js/app.js"></script>
 </body>

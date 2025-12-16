@@ -103,13 +103,13 @@
                     <div class="mb-3">
                         <label class="fw-bold small text-uppercase mb-1">1. TIPO DE OPERACIÓN:</label>
                         <div class="btn-group w-100 border border-dark" role="group">
-                            <input type="radio" class="btn-check" name="btnradio" id="btnGasto" autocomplete="off" checked @onclick='() => Nuevo.Tipo = "GASTO"'>
+                            <input type="radio" class="btn-check" name="btnradio" id="btnGasto" autocomplete="off" checked @onclick='() => SetTipo("GASTO")'>
                             <label class="btn btn-outline-dark rounded-0 fw-bold @(Nuevo.Tipo == "GASTO" ? "active bg-danger text-white" : "")" for="btnGasto">🔴 GASTO</label>
 
-                            <input type="radio" class="btn-check" name="btnradio" id="btnAporte" autocomplete="off" @onclick='() => Nuevo.Tipo = "APORTE"'>
+                            <input type="radio" class="btn-check" name="btnradio" id="btnAporte" autocomplete="off" @onclick='() => SetTipo("APORTE")'>
                             <label class="btn btn-outline-dark rounded-0 fw-bold @(Nuevo.Tipo == "APORTE" ? "active bg-primary text-white" : "")" for="btnAporte">🔵 APORTE</label>
 
-                            <input type="radio" class="btn-check" name="btnradio" id="btnRetiro" autocomplete="off" @onclick='() => Nuevo.Tipo = "RETIRO"'>
+                            <input type="radio" class="btn-check" name="btnradio" id="btnRetiro" autocomplete="off" @onclick='() => SetTipo("RETIRO")'>
                             <label class="btn btn-outline-dark rounded-0 fw-bold @(Nuevo.Tipo == "RETIRO" ? "active bg-warning text-dark" : "")" for="btnRetiro">💸 RETIRO</label>
                         </div>
                     </div>
@@ -288,20 +288,33 @@
             Console.WriteLine($"Error: {ex.Message}");
         }
 
-        // Reset fecha registro si se cambia de mes para comodidad (aunque la validación es backend)
         if (SelectedDate.Month == DateTime.Now.Month && SelectedDate.Year == DateTime.Now.Year)
         {
             FechaRegistro = DateTime.Now;
         }
         else
         {
-            // Poner fecha al dia 1 del mes seleccionado como sugerencia, o mantener hoy si es permitido?
-            // El usuario podria querer registrar "hoy" un gasto de "mes pasado"?
-            // El controller valida Fechas. Aqui solo UI. 
-            // Si estoy viendo Febrero, y hoy es Marzo 2, y quiero agregar gasto a Febrero, 
-            // la fecha del input deberia ser de Febrero.
             var daysInMonth = DateTime.DaysInMonth(SelectedDate.Year, SelectedDate.Month);
-            FechaRegistro = new DateTime(SelectedDate.Year, SelectedDate.Month, daysInMonth); // Fin de mes por defecto
+            FechaRegistro = new DateTime(SelectedDate.Year, SelectedDate.Month, daysInMonth);
+        }
+    }
+
+    private void SetTipo(string tipo)
+    {
+        Nuevo.Tipo = tipo;
+        
+        // Reset category based on type to prevent invalid states
+        if (tipo == "GASTO")
+        {
+            Nuevo.Categoria = "MERCADERIA";
+        }
+        else if (tipo == "APORTE")
+        {
+            Nuevo.Categoria = "APORTE_CAPITAL";
+        }
+        else if (tipo == "RETIRO")
+        {
+            Nuevo.Categoria = "RETIRO_UTILIDAD";
         }
     }
 
@@ -321,7 +334,6 @@
             // 1. Subir imagen si existe
             if (fileToUpload != null)
             {
-                // Limite 5MB
                 if (fileToUpload.Size > 5120000)
                 {
                     Mensaje = "❌ IMAGEN MUY GRANDE (>5MB)";
@@ -349,16 +361,16 @@
             }
 
             // 2. Registrar Movimiento
-            // Asignar fecha seleccionada
             Nuevo.Fecha = FechaRegistro;
 
             var response = await Http.PostAsJsonAsync("api/caja/registrar", Nuevo);
             if (response.IsSuccessStatusCode)
             {
                 Mensaje = "✔ REGISTRADO";
+                // Reset form
                 Nuevo = new() { Tipo = "GASTO", Categoria = "MERCADERIA", Descripcion = "", Monto = 0 };
                 fileToUpload = null;
-                await CargarDatos(); // Recargar tabla
+                await CargarDatos();
                 await Task.Delay(2000);
                 Mensaje = "";
             }
@@ -405,7 +417,6 @@
         public string? Path { get; set; }
     }
 
-    // Propiedad para manejar el input de monto con formato
     private string MontoString
     {
         get => Nuevo.Monto == 0 ? "" : Nuevo.Monto.ToString("#,##0");
@@ -417,7 +428,6 @@
             }
             else
             {
-                // Eliminar puntos de miles y validar
                 string v = value.Replace(".", "");
                 if (decimal.TryParse(v, out decimal m))
                 {

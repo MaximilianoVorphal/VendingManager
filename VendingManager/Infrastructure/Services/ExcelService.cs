@@ -182,16 +182,39 @@ namespace VendingManager.Infrastructure.Services
                     {
                         // 1. Filtro básico: Solo Ventas y Montos > 0
                         string tipo = colTipo != -1 ? row[colTipo]?.ToString()?.ToUpper() ?? "" : "VENTA";
-                        if (!tipo.Contains("VENTA")) continue;
+                        if (!tipo.Contains("VENTA"))
+                        {
+                            // Console.WriteLine($"   Skipped: Tipo '{tipo}' no es VENTA"); // Uncomment if needed, usually noisy
+                            continue;
+                        }
 
                         string sMonto = row[colMonto]?.ToString()?.Replace("$", "")?.Replace(".", "")?.Replace(",", "") ?? "0";
-                        if (!decimal.TryParse(sMonto, out decimal montoTB) || montoTB <= 0) continue;
+                        if (!decimal.TryParse(sMonto, out decimal montoTB) || montoTB <= 0)
+                        {
+                            Console.WriteLine($"   ⚠️ Skipped Row: Monto inválido '{sMonto}'");
+                            continue;
+                        }
 
                         // 2. Construir Fecha Real (Fecha + Hora)
                         string sFecha = row[colFecha]?.ToString() ?? "";
                         string sHora = colHora != -1 ? row[colHora]?.ToString() ?? "00:00:00" : "00:00:00";
+                        string fechaStringFull = $"{sFecha} {sHora}".Trim();
 
-                        if (DateTime.TryParse($"{sFecha} {sHora}", out DateTime fechaTB))
+                        string[] formatos = { "dd/MM/yyyy HH:mm", "dd/MM/yyyy HH:mm:ss", "dd-MM-yyyy HH:mm", "dd-MM-yyyy HH:mm:ss" };
+
+                        // Intentar parseo exacto con formatos chilenos/latinos
+                        bool fechaValida = DateTime.TryParseExact(fechaStringFull, formatos,
+                                                                  System.Globalization.CultureInfo.InvariantCulture,
+                                                                  System.Globalization.DateTimeStyles.None,
+                                                                  out DateTime fechaTB);
+
+                        if (!fechaValida)
+                        {
+                            Console.WriteLine($"   ⚠️ Skipped Row: Fecha inválida '{fechaStringFull}' (Esperado: dd/MM/yyyy)");
+                            continue;
+                        }
+
+                        // Proceed (if logic was wrapped in if(TryParse) before, now we continue straight)
                         {
                             // === NUEVA LÓGICA: USAR FECHA LOCAL DIRECTA ===
                             // Ya no sumamos 11 horas, porque la BD tiene la FechaLocal correcta.
@@ -225,9 +248,66 @@ namespace VendingManager.Infrastructure.Services
                             }
                             else
                             {
+                                // ============================================================
+                                // 4. INTENTO DE MATCH POR SUMA (COMBINACION DE VENTAS)
+                                // ============================================================
+                                // Caso: El usuario compra 2 productos (ej: $700 + $1000) y paga $1700 en una sola transacción.
+                                // Buscamos combinaciones de ventas NO PAGADAS en el rango que sumen el monto.
+
+                                bool matchCombinado = false;
+
+                                // Traer todos los candidatos NO pagados en el rango de tiempo (+/- 60 min)
+                                // Nota: Ampliamos un poco la búsqueda interna para dar flexibilidad a combinaciones
+                                var candidatosMix = await _context.Ventas
+                                    .Where(v => v.FechaLocal >= inicio &&
+                                                v.FechaLocal <= fin &&
+                                                !v.Pagado)
+                                    .OrderBy(v => v.FechaLocal)
+                                    .ToListAsync();
+
+                                // Solo intentamos si hay candidatos y el monto es razonable
+                                if (candidatosMix.Count >= 2)
+                                {
+                                    // NUEVO ALGORITMO: Búsqueda recursiva de combinaciones (Hasta 5 items)
+                                    // Reglas: Suma exacta y todos los items dentro de una ventana de 5 minutos
+                                    var combinations = FindBestCombinations(candidatosMix, montoTB);
+
+                                    if (combinations.Any())
+                                    {
+                                        // Tomamos la primera válida (la función ya prioriza por orden de fecha)
+                                        var mejorCombo = combinations.First();
+
+                                        // Aplicar Cambios
+                                        foreach (var v in mejorCombo)
+                                        {
+                                            v.Pagado = true;
+                                        }
+
+                                        matches++;
+                                        matchCombinado = true;
+
+                                        string detalles = string.Join("+", mejorCombo.Select(v => $"${v.PrecioVenta}"));
+                                        string ids = string.Join(",", mejorCombo.Select(v => v.Id));
+
+                                        decimal totalLocal = mejorCombo.Sum(v => v.PrecioVenta);
+                                        string tipoMatch = totalLocal == montoTB ? "Exacto" : "AJUSTE POR COMISIÓN";
+
+                                        Console.WriteLine($"   ✅ Match ({tipoMatch}): ${montoTB} (vs Local ${totalLocal} [{detalles}]) | TB:{fechaTB} -> IDs:[{ids}]");
+
+                                        await _context.SaveChangesAsync();
+                                    }
+                                }
+
+                                if (matchCombinado)
+                                {
+                                    // Si hubo match combinado, continuamos al siguiente ciclo (foreach row)
+                                    // Para saltar el bloque de "NO MATCH" que viene abajo
+                                    continue;
+                                }
                                 // --- DIAGNOSTICO DE NO MATCH ---
                                 Console.WriteLine($"   ⚠️ NO MATCH: ${montoTB} | TB:{fechaTB}");
-                                // Buscar candidatos cercanos ignorando precio o estado (solo para el log)
+
+                                // 1. Ver si hay algo cerca en el rango estándar (+/- 60 min)
                                 var posibles = await _context.Ventas
                                     .Where(v => v.FechaLocal >= inicio && v.FechaLocal <= fin)
                                     .OrderBy(v => v.FechaLocal)
@@ -238,12 +318,39 @@ namespace VendingManager.Infrastructure.Services
                                 {
                                     foreach (var c in posibles)
                                     {
-                                        Console.WriteLine($"      -> Candidato RECHAZADO: Id:{c.Id} | Local:{c.FechaLocal} | $: {c.PrecioVenta} | Pagado:{c.Pagado}");
+                                        string motivo = c.Pagado ? "YA PAGADO" : "MONTO DIFERENTE";
+                                        Console.WriteLine($"      -> RECHAZADO ({motivo}): Id:{c.Id} | Local:{c.FechaLocal} | $: {c.PrecioVenta}");
                                     }
                                 }
                                 else
                                 {
-                                    Console.WriteLine($"      -> No hay ventas en ese rango horario (+/- 60m).");
+                                    Console.WriteLine($"      -> No hay ventas en rango horario estricto (+/- 60m).");
+
+                                    // 2. BÚSQUEDA AMPLIADA DE DEBUG (+/- 24 Horas)
+                                    DateTime inicioDebug = fechaTB.AddHours(-24);
+                                    DateTime finDebug = fechaTB.AddHours(24);
+
+                                    var candidatosLejanos = await _context.Ventas
+                                        .Where(v => v.PrecioVenta == montoTB &&
+                                                    v.FechaLocal >= inicioDebug &&
+                                                    v.FechaLocal <= finDebug)
+                                        .OrderBy(v => Math.Abs((v.FechaLocal - fechaTB).TotalMinutes)) // Más cercanos primero
+                                        .Take(3)
+                                        .ToListAsync();
+
+                                    if (candidatosLejanos.Any())
+                                    {
+                                        Console.WriteLine($"      💡 PISTA DEBUG: Encontré ventas con el MISMO precio (${montoTB}) fuera del rango:");
+                                        foreach (var c in candidatosLejanos)
+                                        {
+                                            double diffHoras = (c.FechaLocal - fechaTB).TotalHours;
+                                            Console.WriteLine($"         -> Id:{c.Id} | Local:{c.FechaLocal} | Diferencia: {diffHoras:F1} horas | Pagado:{c.Pagado}");
+                                        }
+                                    }
+                                    else
+                                    {
+                                        Console.WriteLine($"      ❌ DEBUG: No encontré NINGUNA venta de ${montoTB} en +/- 24 horas.");
+                                    }
                                 }
                             }
                         }
@@ -397,6 +504,94 @@ namespace VendingManager.Infrastructure.Services
             if (decimal.TryParse(s, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out res)) return res;
 
             return 0; // Fallback
+        }
+
+        // =============================================
+        // HELPERS PARA COMBINACIONES (FUZZY / TOLERANCIA)
+        // =============================================
+        private List<List<Venta>> FindBestCombinations(List<Venta> candidates, decimal targetTotal)
+        {
+            var results = new List<List<Venta>>();
+
+            // Ordenamos por fecha
+            var sorted = candidates.OrderBy(v => v.FechaLocal).ToList();
+
+            // Iteramos cada elemento como posible "inicio" de la combinación
+            for (int i = 0; i < sorted.Count; i++)
+            {
+                var startNode = sorted[i];
+
+                // Definimos una ventana de tiempo estricta (5 mins)
+                var window = new List<Venta> { startNode };
+                for (int j = i + 1; j < sorted.Count; j++)
+                {
+                    if ((sorted[j].FechaLocal - startNode.FechaLocal).TotalMinutes <= 5)
+                        window.Add(sorted[j]);
+                    else break;
+                }
+
+                // Generar todos los subconjuntos DE LA VENTANA (Power Set)
+                // Como la ventana es pequeña (ej: max 10 items), 2^10 = 1024 iteraciones -> Rápido.
+                // Limitamos tamaño del subset a 5 items.
+                var validSubsets = GetSubsets(window, 5);
+
+                foreach (var subset in validSubsets)
+                {
+                    decimal sum = subset.Sum(v => v.PrecioVenta);
+
+                    // 1. MATCH EXACTO
+                    if (sum == targetTotal)
+                    {
+                        results.Insert(0, subset); // Prioridad máxima
+                        return results;
+                    }
+
+                    // 2. MATCH CON COMISIÓN (Tolerancia ~4-5%)
+                    // Transbank a veces deposita menos (Neto vs Bruto).
+                    // Ejemplo: Venta $1600 -> TB $1536 (96%).
+                    // Rango aceptable: TB debe ser <= Suma y >= Suma * 0.94
+                    if (targetTotal < sum && targetTotal >= sum * 0.94m)
+                    {
+                        // Verificación Doble: Que la diferencia se parezca a una comisión (2% a 5%)
+                        decimal diff = sum - targetTotal;
+                        decimal pct = diff / sum; // ej: 0.04
+
+                        if (pct >= 0.02m && pct <= 0.06m)
+                        {
+                            results.Add(subset);
+                        }
+                    }
+                }
+            }
+
+            // Si no hay exactos, devolvemos los aproximados (si existen)
+            return results;
+        }
+
+        // Generador de Subsets (Iterativo)
+        private List<List<Venta>> GetSubsets(List<Venta> set, int maxSize)
+        {
+            var subsets = new List<List<Venta>>();
+            int count = set.Count;
+            int powerSetCount = 1 << count; // 2^n
+
+            for (int i = 1; i < powerSetCount; i++) // Empezar de 1 para saltar vacío
+            {
+                var subset = new List<Venta>();
+                for (int j = 0; j < count; j++)
+                {
+                    if ((i & (1 << j)) > 0)
+                    {
+                        subset.Add(set[j]);
+                    }
+                }
+
+                if (subset.Count <= maxSize)
+                {
+                    subsets.Add(subset);
+                }
+            }
+            return subsets;
         }
     }
 }
