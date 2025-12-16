@@ -70,8 +70,14 @@
                             <td>@m.IdInternoMaquina</td>
                             <td>@m.CodigoTerminalPos</td>
                             <td class="text-center">
-                                <button class="btn btn-sm btn-outline-dark me-2" @onclick="() => Editar(m)">EDITAR</button>
-                                <button class="btn btn-sm btn-danger" @onclick="() => Borrar(m.Id)">BORRAR</button>
+                                <div class="d-flex justify-content-center gap-2 flex-wrap">
+                                    <button class="btn btn-sm btn-outline-dark fw-bold" @onclick="() => Editar(m)">
+                                        <i class="bi bi-pencil-square"></i> EDITAR
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger fw-bold" @onclick="() => Borrar(m)">
+                                        <i class="bi bi-trash"></i> BORRAR
+                                    </button>
+                                </div>
                             </td>
                         </tr>
                     }
@@ -100,6 +106,13 @@
     {
         if (ModoEdicion)
         {
+            string nombreConfirmacion = await JS.InvokeAsync<string>("prompt", $"PARA CONFIRMAR CAMBIOS, ESCRIBA EL NOMBRE DE LA MÁQUINA: {maquinaActual.Nombre}");
+            if (nombreConfirmacion != maquinaActual.Nombre)
+            {
+                await JS.InvokeVoidAsync("alert", "❌ EL NOMBRE NO COINCIDE. OPERACIÓN CANCELADA.");
+                return;
+            }
+
             await Http.PutAsJsonAsync($"api/Maquinas/{maquinaActual.Id}", maquinaActual);
         }
         else
@@ -131,13 +144,18 @@
         ModoEdicion = false;
     }
 
-    private async Task Borrar(int id)
+    private async Task Borrar(Maquina m)
     {
-        bool confirmado = await JS.InvokeAsync<bool>("confirm", "¿CONFIRMAR ELIMINACIÓN?");
-        if (confirmado)
+        string nombreConfirmacion = await JS.InvokeAsync<string>("prompt", $"PELIGRO: PARA BORRAR LA MÁQUINA, ESCRIBA SU NOMBRE EXACTO: {m.Nombre}");
+        
+        if (nombreConfirmacion == m.Nombre)
         {
-            await Http.DeleteAsync($"api/Maquinas/{id}");
+            await Http.DeleteAsync($"api/Maquinas/{m.Id}");
             await CargarMaquinas();
+        }
+        else
+        {
+            await JS.InvokeVoidAsync("alert", "❌ EL NOMBRE NO COINCIDE. NO SE HA BORRADO NADA.");
         }
     }
 

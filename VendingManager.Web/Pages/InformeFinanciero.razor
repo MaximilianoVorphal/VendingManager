@@ -1,0 +1,172 @@
+@page "/financiero"
+@inject HttpClient Http
+@inject IJSRuntime JS
+
+<div class="container mt-5" style="font-family: 'Segoe UI', Consolas, monospace;">
+    <h3>INFORME FINANCIERO (P&L)_</h3>
+    <small class="text-muted">RESULTADOS OPERACIONALES REALES</small>
+
+    <div class="card p-4 mb-4 border-dark mt-3">
+        <div class="row align-items-end g-3">
+            <div class="col-md-3">
+                <label class="form-label fw-bold">DESDE:</label>
+                <input type="date" @bind="FechaInicio" class="form-control rounded-0 border-dark" />
+            </div>
+            <div class="col-md-3">
+                <label class="form-label fw-bold">HASTA:</label>
+                <input type="date" @bind="FechaFin" class="form-control rounded-0 border-dark" />
+            </div>
+            <div class="col-md-3">
+                <button class="btn btn-dark w-100 rounded-0 fw-bold" @onclick="CargarDatos" disabled="@Cargando">
+                    @(Cargando ? "CALCULANDO..." : "CALCULAR RESULTADOS")
+                </button>
+            </div>
+        </div>
+    </div>
+
+    @if (Datos != null)
+    {
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <div class="card border-2 border-dark rounded-0 shadow">
+                    <div class="card-header bg-dark text-white rounded-0 text-center py-3">
+                        <h4 class="m-0 fw-bold">ESTADO DE RESULTADOS</h4>
+                        <small>Del @FechaInicio.ToString("dd/MM/yyyy") al @FechaFin.ToString("dd/MM/yyyy")</small>
+                    </div>
+                    <div class="card-body p-0">
+                        <table class="table table-hover mb-0" style="font-size: 1.1rem;">
+                            <tbody>
+                                <!-- INGRESOS -->
+                            <tr class="bg-light">
+                                    <td class="ps-4 py-3">
+                                        <span class="fw-bold">1. VENTAS TOTALES (INGRESOS)</span>
+                                    </td>
+                                    <td class="text-end pe-4 py-3 fw-bold text-dark">
+                                        $@Datos.VentasTotales.ToString("N0")
+                                    </td>
+                                </tr>
+
+                                <!-- COSTOS -->
+                            <tr>
+                                    <td class="ps-4 py-3 text-danger">
+                                        <span class="ms-3">(-) Costo de Productos (Histórico)</span>
+                                    </td>
+                                    <td class="text-end pe-4 py-3 text-danger">
+                                        $@Datos.CostoVentas.ToString("N0")
+                                    </td>
+                                </tr>
+
+                                <!-- MARGEN BRUTO -->
+                            <tr class="bg-secondary-subtle">
+                                    <td class="ps-4 py-3">
+                                        <span class="fw-bold text-uppercase">(=) Margen Bruto</span>
+                                    </td>
+                                    <td class="text-end pe-4 py-3 fw-bold">
+                                        $@Datos.MargenBruto.ToString("N0")
+                                    </td>
+                                </tr>
+
+                                <!-- GASTOS -->
+                            <tr>
+                                    <td class="ps-4 py-3 text-danger">
+                                        <span class="ms-3">(-) Gastos Operativos (Caja)</span>
+                                    </td>
+                                    <td class="text-end pe-4 py-3 text-danger">
+                                        $@Datos.GastosOperativos.ToString("N0")
+                                    </td>
+                                </tr>
+
+                                <!-- UTILIDAD NETA -->
+                            <tr
+                                class="border-top border-3 border-dark @(Datos.UtilidadNeta >= 0 ? "bg-success text-white" : "bg-danger text-white")">
+                                    <td class="ps-4 py-4">
+                                        <h3 class="m-0 fw-bold">(=) UTILIDAD NETA</h3>
+                                    </td>
+                                    <td class="text-end pe-4 py-4">
+                                        <h3 class="m-0 fw-bold">$@Datos.UtilidadNeta.ToString("N0")</h3>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="card-footer bg-white border-top border-dark text-center py-3">
+                        <div class="row">
+                            <div class="col-6 border-end">
+                                <small class="text-muted fw-bold d-block">MARGEN REAL %</small>
+                                <span class="fs-4 fw-bold @(Datos.MargenPorcentaje > 30 ? "text-success" : "text-warning")">
+                                    @Datos.MargenPorcentaje.ToString("N1")%
+                                </span>
+                            </div>
+                            <div class="col-6">
+                                <small class="text-muted fw-bold d-block">ESTADO</small>
+                                @if (Datos.UtilidadNeta > 0)
+                                {
+                                    <span class="badge bg-success text-white rounded-0 mt-1">RENTABLE</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-danger text-white rounded-0 mt-1">PÉRDIDA</span>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="alert alert-info mt-4 rounded-0 border-dark d-flex align-items-center gap-3">
+                    <span class="fs-3">💡</span>
+                    <div>
+                        <strong>¿CÓMO SE CALCULA?</strong>
+                        <ul class="m-0 small ps-3">
+                            <li><strong>Ventas Totales:</strong> Suma de precios de venta de todas las transacciones
+                                pagadas.</li>
+                            <li><strong>Costo Productos:</strong> Suma del costo que tenía cada producto <em>en el momento
+                                    de la venta</em>.</li>
+                            <li><strong>Gastos Operativos:</strong> Gastos registrados en la Caja (Combustible, Arriendos,
+                                etc).</li>
+                        </ul>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    }
+
+</div>
+
+@code {
+    private DateTime FechaInicio = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
+    private DateTime FechaFin = DateTime.Now;
+    private bool Cargando = false;
+    private InformeFinancieroDto? Datos;
+
+    private async Task CargarDatos()
+    {
+        Cargando = true;
+        try
+        {
+            string inicio = FechaInicio.ToString("yyyy-MM-dd");
+            string fin = FechaFin.ToString("yyyy-MM-dd");
+            // Nota: maquinaId=0 para obtener gastos globales correctamente
+            Datos = await
+            Http.GetFromJsonAsync<InformeFinancieroDto>($"api/Ventas/informe-financiero?inicio={inicio}&fin={fin}&maquinaId=0");
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", $"Error: {ex.Message}");
+        }
+        finally
+        {
+            Cargando = false;
+        }
+    }
+
+    public class InformeFinancieroDto
+    {
+        public decimal VentasTotales { get; set; }
+        public decimal CostoVentas { get; set; }
+        public decimal MargenBruto { get; set; }
+        public decimal GastosOperativos { get; set; }
+        public decimal UtilidadNeta { get; set; }
+        public decimal MargenPorcentaje { get; set; }
+    }
+}

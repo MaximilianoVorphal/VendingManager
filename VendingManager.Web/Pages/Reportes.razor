@@ -1,8 +1,12 @@
 ﻿@page "/reportes"
 @inject HttpClient Http
+@inject Microsoft.Extensions.Logging.ILogger<Reportes> Logger
+@inject NavigationManager NavManager
+@inject IJSRuntime JS
+@using Microsoft.AspNetCore.WebUtilities
 
 <div class="container mt-5">
-    <h3>INFORME FINANCIERO_</h3>
+    <h3>INFORME DE VENTAS_</h3>
 
     <div class="card p-4 mb-4 border-dark">
         <div class="row align-items-end g-3">
@@ -14,7 +18,7 @@
                     {
                         @foreach (var m in ListaMaquinas)
                         {
-                            <option value="@m.Id">@m.Nombre.ToUpper() - @m.Ubicacion.ToUpper()</option>
+                                    <option value="@m.Id">@m.Nombre.ToUpper()</option>
                         }
                     }
                 </select>
@@ -27,9 +31,12 @@
                 <label class="form-label fw-bold">HASTA:</label>
                 <input type="date" @bind="FechaFin" class="form-control" />
             </div>
-            <div class="col-md-3">
-                <button class="btn btn-primary w-100" @onclick="CargarReporte" disabled="@Cargando">
-                    @(Cargando ? "PROCESANDO..." : "EJECUTAR REPORTE")
+            <div class="col-md-3 d-flex gap-2">
+                <button class="btn btn-primary flex-grow-1" @onclick="CargarReporte" disabled="@Cargando">
+                    @(Cargando ? "PROCESANDO..." : "EJECUTAR")
+                </button>
+                <button class="btn btn-success" @onclick="ExportarExcel" title="Exportar a Excel">
+                    📊
                 </button>
             </div>
         </div>
@@ -37,98 +44,178 @@
 
     @if (!string.IsNullOrEmpty(MensajeError))
     {
-        <div class="alert alert-danger border-dark rounded-0 mb-4">
-            <strong>ERROR DE SISTEMA:</strong> @MensajeError
-        </div>
+            <div class="alert alert-danger border-dark rounded-0 mb-4">
+                <strong>ERROR DE SISTEMA:</strong> @MensajeError
+            </div>
     }
 
     @if (Cargando)
     {
-        <div class="text-center py-5">
-            <h4 class="text-muted">CONNECTING TO DATABASE...</h4>
-            <div class="spinner-border" role="status"></div>
-        </div>
+            <div class="text-center py-5">
+                <h4 class="text-muted">CONNECTING TO DATABASE...</h4>
+                <div class="spinner-border" role="status"></div>
+            </div>
     }
     else if (Datos != null)
     {
-        <div class="row mb-4 text-center">
-            <div class="col-md-4">
-                <div class="card p-3 border-dark">
-                    <small>VENTA BRUTA</small>
-                    <h2 class="mt-2">$@Datos.MontoTotal.ToString("N0")</h2>
-                    <small>CANT: @Datos.TotalVentas</small>
+            <div class="row mb-4 text-center">
+                <div class="col-md-4">
+                    <div class="card p-3 border-dark">
+                        <small>VENTA BRUTA</small>
+                        <h2 class="mt-2">$@Datos.MontoTotal.ToString("N0")</h2>
+                        <small>CANT: @Datos.TotalVentas</small>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card p-3 border-dark" style="background-color: #e8f5e9;">
+                        <small>CONCILIADO (TB)</small>
+                        <h2 class="mt-2">$@Datos.MontoPagado.ToString("N0")</h2>
+                        <small>FONDOS SEGUROS</small>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card p-3 border-dark" style="background-color: #ffebee;">
+                        <small>PENDIENTE / EFECTIVO</small>
+                        <h2 class="mt-2">$@Datos.MontoPendiente.ToString("N0")</h2>
+                        <small>DIFERENCIA</small>
+                    </div>
                 </div>
             </div>
-            <div class="col-md-4">
-                <div class="card p-3 border-dark" style="background-color: #e8f5e9;">
-                    <small>CONCILIADO (TB)</small>
-                    <h2 class="mt-2">$@Datos.MontoPagado.ToString("N0")</h2>
-                    <small>FONDOS SEGUROS</small>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="card p-3 border-dark" style="background-color: #ffebee;">
-                    <small>PENDIENTE / EFECTIVO</small>
-                    <h2 class="mt-2">$@Datos.MontoPendiente.ToString("N0")</h2>
-                    <small>DIFERENCIA</small>
-                </div>
-            </div>
-        </div>
 
-        <div class="table-responsive">
-            <table class="table table-bordered table-hover table-sm border-dark">
-                <thead>
-                    <tr class="bg-light">
-                        <th role="button" @onclick='() => OrdenarPor("Fecha")'>
-                            FECHA @RenderIcono("Fecha")
-                        </th>
-                        <th role="button" @onclick='() => OrdenarPor("Maquina")'>
-                            UNIDAD @RenderIcono("Maquina")
-                        </th>
-                        <th role="button" @onclick='() => OrdenarPor("Slot")'>
-                            SLOT @RenderIcono("Slot")
-                        </th>
-                        <th role="button" @onclick='() => OrdenarPor("Monto")'>
-                            MONTO @RenderIcono("Monto")
-                        </th>
-                        <th role="button" @onclick='() => OrdenarPor("Estado")'>
-                            ESTADO @RenderIcono("Estado")
-                        </th>
-                    </tr>
-                </thead>
-                <tbody>
+            <div class="table-responsive mb-5">
+                <table class="table table-bordered table-hover table-sm border-dark">
+                    <thead>
+                        <tr class="bg-light">
+                            <th role="button" @onclick='() => OrdenarPor("Fecha")'>
+                                FECHA LOCAL @RenderIcono("Fecha")
+                            </th>
+                            <th role="button" @onclick='() => OrdenarPor("Maquina")'>
+                                UNIDAD @RenderIcono("Maquina")
+                            </th>
+                            <th role="button" @onclick='() => OrdenarPor("Slot")'>
+                                SLOT @RenderIcono("Slot")
+                            </th>
+                            <th>PRODUCTO</th>
+                            <th role="button" @onclick='() => OrdenarPor("Monto")'>
+                                MONTO @RenderIcono("Monto")
+                            </th>
+                            <th>GANANCIA</th>
+                            <th role="button" @onclick='() => OrdenarPor("Estado")'>
+                                ESTADO @RenderIcono("Estado")
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody>
                     @if (Datos.Detalle != null && Datos.Detalle.Count > 0)
                     {
                         @foreach (var v in Datos.Detalle)
                         {
-                            <tr>
-                                <td>@v.Fecha</td>
-                                <td>@v.Maquina</td>
-                                <td class="text-center">@v.Slot</td>
-                                <td class="text-end">$@v.Monto.ToString("N0")</td>
-                                <td class="text-center">
+                                        <tr>
+                                            <td>@v.Fecha</td>
+                                            <td>@v.Maquina</td>
+                                            <td class="text-center">@v.Slot</td>
+                                            <td class="small fw-bold">@v.Producto</td>
+                                            <td class="text-end">$@v.Monto.ToString("N0")</td>
+                                            <td class="text-end text-success">$@v.Ganancia.ToString("N0")</td>
+                                            <td class="text-center">
                                     @if (v.Estado == "Pagado")
                                     {
-                                        <span class="badge bg-success border-dark text-dark">OK</span>
+                                                        <span class="badge bg-success border-dark text-dark">OK</span>
                                     }
                                     else
                                     {
 
-                                        <span class="badge bg-warning border-dark text-dark">PEND</span>
+                                                        <span class="badge bg-warning border-dark text-dark">PEND</span>
                                     }
-                                </td>
-                            </tr>
+                                            </td>
+                                        </tr>
                         }
                     }
                     else
                     {
-                        <tr>
-                            <td colspan="5" class="text-center py-3">NO SE ENCONTRARON REGISTROS EN ESTE RANGO.</td>
-                        </tr>
+                                <tr>
+                                    <td colspan="7" class="text-center py-3">NO SE ENCONTRARON REGISTROS EN ESTE RANGO.</td>
+                                </tr>
                     }
-                </tbody>
-            </table>
-        </div>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- TABLAS AGRUPADAS -->
+            <div class="row g-4 mb-4">
+                <!-- POR MAQUINA -->
+        <div class="col-md-6">
+                    <div class="card border-dark rounded-0 h-100">
+                        <div class="card-header bg-dark text-white rounded-0 fw-bold">
+                            RENDIMIENTO POR MÁQUINA
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered border-dark m-0">
+                                <thead class="bg-light">
+                                    <tr>
+                                        <th>MÁQUINA</th>
+                                        <th class="text-end">VTAS</th>
+                                        <th class="text-end">TOTAL</th>
+                                        <th class="text-end">GANANCIA</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                @foreach (var m in (Datos.Detalle ?? new List<DetalleVentaDto>()).GroupBy(x => x.Maquina).Select(g => new
+                                {
+                                    Nombre = g.Key,
+                                    Count = g.Count(),
+                                    Total = g.Sum(x => x.Monto),
+                                    Ganancia = g.Sum(x => x.Ganancia)
+                                }).OrderByDescending(x => x.Total))
+                                {
+                                            <tr>
+                                                <td class="small fw-bold">@m.Nombre</td>
+                                                <td class="text-end font-monospace">@m.Count</td>
+                                                <td class="text-end font-monospace">$@m.Total.ToString("N0")</td>
+                                                <td class="text-end font-monospace text-success">$@m.Ganancia.ToString("N0")</td>
+                                            </tr>
+                                }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TOP PRODUCTOS -->
+        <div class="col-md-6">
+                    <div class="card border-dark rounded-0 h-100">
+                        <div class="card-header bg-secondary text-white rounded-0 fw-bold">
+                            TOP PRODUCTOS (VENTAS)
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered border-dark m-0">
+                                <thead class="bg-light">
+                                    <tr>
+                                        <th>PRODUCTO</th>
+                                        <th class="text-end">CANT</th>
+                                        <th class="text-end">TOTAL</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                @foreach (var p in (Datos.Detalle ?? new List<DetalleVentaDto>()).GroupBy(x => x.Producto).Select(g => new
+                                {
+                                    Nombre = g.Key,
+                                    Count = g.Count(),
+                                    Total = g.Sum(x => x.Monto)
+                                }).OrderByDescending(x => x.Count).Take(10))
+                                {
+                                            <tr>
+                                                <td class="small">@p.Nombre</td>
+                                                <td class="text-end font-monospace">@p.Count</td>
+                                                <td class="text-end font-monospace">$@p.Total.ToString("N0")</td>
+                                            </tr>
+                                }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
     }
 </div>
 
@@ -157,12 +244,35 @@
             // Solo cargamos la lista de máquinas al iniciar
             ListaMaquinas = await Http.GetFromJsonAsync<List<MaquinaSimpleDto>>("api/Ventas/lista-maquinas");
 
+            // PROCESAR QUERY PARAMS
+            var uri = NavManager.ToAbsoluteUri(NavManager.Uri);
+            if (QueryHelpers.ParseQuery(uri.Query).TryGetValue("start", out var startParam))
+            {
+                if (DateTime.TryParse(startParam, out DateTime dtStart)) FechaInicio = dtStart;
+            }
+            if (QueryHelpers.ParseQuery(uri.Query).TryGetValue("end", out var endParam))
+            {
+                if (DateTime.TryParse(endParam, out DateTime dtEnd)) FechaFin = dtEnd;
+            }
+            if (QueryHelpers.ParseQuery(uri.Query).TryGetValue("maquinaId", out var maqParam))
+            {
+                if (int.TryParse(maqParam, out int mId)) MaquinaSeleccionada = mId;
+            }
+        }
+        catch (Exception ex)
+        {
+            MensajeError = "ERROR AL CARGAR LISTA DE UNIDADES: " + ex.Message;
+            return;
+        }
+
+        try
+        {
             // Y cargamos el reporte inicial
             await CargarReporte();
         }
         catch (Exception ex)
         {
-            MensajeError = "ERROR AL INICIAR: " + ex.Message;
+            MensajeError = "ERROR AL INICIAR REPORTE: " + ex.Message;
         }
     }
 
@@ -171,43 +281,61 @@
         Cargando = true;
         MensajeError = "";
         Datos = null;
+        StateHasChanged();
 
         try
         {
             string inicio = FechaInicio.ToString("yyyy-MM-dd");
             string fin = FechaFin.ToString("yyyy-MM-dd");
-            string url = $"api/Ventas/reporte-rango?inicio={inicio}&fin={fin}&maquinaId={MaquinaSeleccionada}";
+            string url =
+            $"api/Ventas/reporte-rango?inicio={inicio}&fin={fin}&maquinaId={MaquinaSeleccionada}";
+
+            Logger.LogDebug("Reportes: CargarReporte inicio. Url={Url}", url);
 
             Datos = await Http.GetFromJsonAsync<ReporteDto>(url);
 
-            if (Datos == null)  // ✅ Validar si llegó null
+            if (Datos == null) // ✅ Validar si llegó null
             {
                 MensajeError = "El servidor no retornó datos válidos.";
+                Logger.LogWarning("Reportes: respuesta nula del servidor para {Url}", url);
                 return;
             }
 
+            Logger.LogDebug("Reportes: datos recibidos. TotalVentas={TotalVentas}, MontoTotal={MontoTotal}", Datos.TotalVentas,
+            Datos.MontoTotal);
             AplicarOrdenamiento();
+            await InvokeAsync(StateHasChanged);
         }
         catch (Exception ex)
         {
             MensajeError = $"ERROR: {ex.Message}";
-            Console.WriteLine($"Stack: {ex.StackTrace}");  // Para ver el error completo en F12
+            Logger.LogError(ex, "Reportes: excepción en CargarReporte");
+            Console.WriteLine($"[Reportes] Stack: {ex}"); // redundante pero útil en F12 si Logger no aparece
         }
         finally
         {
             Cargando = false;
+            await InvokeAsync(StateHasChanged);
         }
     }
 
     private void OrdenarPor(string columna)
     {
-        if (ColumnaOrden == columna) Ascendente = !Ascendente;
-        else
+        try
         {
-            ColumnaOrden = columna;
-            Ascendente = true;
+            if (ColumnaOrden == columna) Ascendente = !Ascendente;
+            else
+            {
+                ColumnaOrden = columna;
+                Ascendente = true;
+            }
+            AplicarOrdenamiento();
         }
-        AplicarOrdenamiento();
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Reportes: excepción en OrdenarPor columna={Columna}", columna);
+            MensajeError = "ERROR AL ORDENAR: " + ex.Message;
+        }
     }
 
     private void AplicarOrdenamiento()
@@ -218,28 +346,28 @@
         {
             case "Fecha":
                 Datos.Detalle = Ascendente
-                    ? Datos.Detalle.OrderBy(x => x.FechaRaw).ToList()
-                    : Datos.Detalle.OrderByDescending(x => x.FechaRaw).ToList();
+                ? Datos.Detalle.OrderBy(x => x.FechaRaw).ToList()
+                : Datos.Detalle.OrderByDescending(x => x.FechaRaw).ToList();
                 break;
             case "Monto":
                 Datos.Detalle = Ascendente
-                    ? Datos.Detalle.OrderBy(x => x.Monto).ToList()
-                    : Datos.Detalle.OrderByDescending(x => x.Monto).ToList();
+                ? Datos.Detalle.OrderBy(x => x.Monto).ToList()
+                : Datos.Detalle.OrderByDescending(x => x.Monto).ToList();
                 break;
             case "Maquina":
                 Datos.Detalle = Ascendente
-                    ? Datos.Detalle.OrderBy(x => x.Maquina ?? string.Empty).ToList()  // ✅ Manejo de null
-                    : Datos.Detalle.OrderByDescending(x => x.Maquina ?? string.Empty).ToList();
+                ? Datos.Detalle.OrderBy(x => x.Maquina ?? string.Empty).ToList()
+                : Datos.Detalle.OrderByDescending(x => x.Maquina ?? string.Empty).ToList();
                 break;
             case "Slot":
                 Datos.Detalle = Ascendente
-                    ? Datos.Detalle.OrderBy(x => x.Slot).ToList()
-                    : Datos.Detalle.OrderByDescending(x => x.Slot).ToList();
+                ? Datos.Detalle.OrderBy(x => x.Slot).ToList()
+                : Datos.Detalle.OrderByDescending(x => x.Slot).ToList();
                 break;
             case "Estado":
                 Datos.Detalle = Ascendente
-                    ? Datos.Detalle.OrderBy(x => x.Estado ?? string.Empty).ToList()  // ✅ Manejo de null
-                    : Datos.Detalle.OrderByDescending(x => x.Estado ?? string.Empty).ToList();
+                ? Datos.Detalle.OrderBy(x => x.Estado ?? string.Empty).ToList()
+                : Datos.Detalle.OrderByDescending(x => x.Estado ?? string.Empty).ToList();
                 break;
         }
         StateHasChanged();
@@ -249,6 +377,40 @@
     {
         if (ColumnaOrden != columna) return "";
         return Ascendente ? "▲" : "▼";
+    }
+
+    private async Task ExportarExcel()
+    {
+        try
+        {
+            string inicio = FechaInicio.ToString("yyyy-MM-dd");
+            string fin = FechaFin.ToString("yyyy-MM-dd");
+            string url = $"api/Ventas/exportar?inicio={inicio}&fin={fin}&maquinaId={MaquinaSeleccionada}";
+
+            Logger.LogDebug("Exportando: {Url}", url);
+
+            // Descargar el archivo
+            var response = await Http.GetAsync(url);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var content = await response.Content.ReadAsByteArrayAsync();
+                var fileName = $"Reporte_{FechaInicio:ddMMyy}_{FechaFin:ddMMyy}.xlsx";
+
+                // Usar JS para descargar
+                await JS.InvokeVoidAsync("descargarArchivo", content, fileName);
+            }
+            else
+            {
+                MensajeError = "Error al exportar: " + response.StatusCode;
+                Logger.LogError("Error exportando: {StatusCode}", response.StatusCode);
+            }
+        }
+        catch (Exception ex)
+        {
+            MensajeError = "Error: " + ex.Message;
+            Logger.LogError(ex, "Error en ExportarExcel");
+        }
     }
 
     // --- CLASES DTO ---
@@ -276,5 +438,7 @@
         public decimal Monto { get; set; }
         public string Estado { get; set; } = string.Empty;
         public int Slot { get; set; }
+        public string Producto { get; set; } = string.Empty;
+        public decimal Ganancia { get; set; }
     }
 }

@@ -1,0 +1,429 @@
+﻿@page "/caja"
+@using System.Net.Http.Headers
+@inject HttpClient Http
+@inject IJSRuntime JS
+
+<PageTitle>TESORERÍA</PageTitle>
+
+<div class="container-fluid px-4 mt-4" style="font-family: 'Segoe UI', Consolas, monospace;">
+
+    <div class="row align-items-center mb-4 border-bottom border-3 border-dark pb-3">
+        <div class="col-12 d-flex justify-content-between align-items-center flex-wrap gap-3">
+            <div>
+                <h2 class="m-0 fw-bold text-uppercase" style="letter-spacing: -1px;">CONTROL DE TESORERÍA</h2>
+                <small class="text-muted fw-bold">FLUJO DE CAJA Y RENTABILIDAD</small>
+            </div>
+
+            <!-- MONTH SELECTOR -->
+            <div class="d-flex align-items-center gap-2 flex-wrap justify-content-end">
+                <button class="btn btn-dark rounded-0 btn-sm" @onclick="() => ChangeMonth(-1)">◀</button>
+                <div class="bg-dark text-white px-3 py-2 fw-bold rounded-0 text-uppercase text-center" style="min-width: 180px;">
+                    @SelectedDate.ToString("MMMM yyyy")
+                </div>
+                <button class="btn btn-dark rounded-0 btn-sm" @onclick="() => ChangeMonth(1)">▶</button>
+                <button class="btn btn-outline-dark rounded-0 btn-sm" @onclick="GoToToday" title="Ir a Hoy">Hoy</button>
+                <a href="api/caja/exportar?month=@SelectedDate.Month&year=@SelectedDate.Year" target="_blank" class="btn btn-success rounded-0 btn-sm fw-bold">
+                    📊 EXPORTAR
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- LOCK WARNING -->
+    @if (Resumen?.IsLocked == true)
+    {
+                <div class="alert alert-warning border-dark rounded-0 fw-bold d-flex align-items-center gap-2 mb-4">
+                    🔒 ESTE MES ESTÁ CERRADO. NO SE PUEDEN AGREGAR NUEVOS MOVIMIENTOS.
+                </div>
+    }
+
+    <!-- RESUMEN DE KPI -->
+    @if (Resumen != null)
+    {
+                <div class="row g-3 mb-5">
+                    <div class="col-md-3">
+                        <div class="border border-2 border-dark bg-light p-3 h-100">
+                            <small class="text-muted fw-bold text-uppercase">SALDO ANTERIOR</small>
+                            <h3 class="text-secondary fw-bold mt-2">$@Resumen.SaldoAnterior.ToString("N0")</h3>
+                            <small class="text-muted" style="font-size: 0.7rem;">ACUMULADO HISTÓRICO</small>
+                        </div>
+                    </div>
+
+                    <div class="col-md-3">
+                        <div class="border border-2 border-dark bg-white p-3 h-100 position-relative">
+                            <div class="position-absolute top-0 end-0 bg-success text-white px-2 py-1 small fw-bold" style="font-size: 0.6rem;">ENTRADAS</div>
+                            <small class="text-muted fw-bold text-uppercase">INGRESOS VENTAS</small>
+                            <h3 class="text-success fw-bold mt-2">$@Resumen.IngresosVentas.ToString("N0")</h3>
+                            <small class="text-success fw-bold" style="font-size: 0.7rem;">(ESTE MES)</small>
+                        </div>
+                    </div>
+
+                    <div class="col-md-3">
+                        <div class="border border-2 border-dark bg-white p-3 h-100 position-relative">
+                            <div class="position-absolute top-0 end-0 bg-danger text-white px-2 py-1 small fw-bold" style="font-size: 0.6rem;">SALIDAS</div>
+                            <small class="text-muted fw-bold text-uppercase">GASTOS + RETIROS</small>
+                            <h3 class="text-danger fw-bold mt-2">$@((Resumen.GastosOperativos).ToString("N0"))</h3>
+                            <small class="text-danger fw-bold" style="font-size: 0.7rem;">(ESTE MES)</small>
+                        </div>
+                    </div>
+
+                    <div class="col-md-3">
+                        <div class="border border-2 border-dark bg-dark text-white p-3 h-100 shadow">
+                            <div class="d-flex justify-content-between align-items-center border-bottom border-light pb-2 mb-2">
+                                <small class="fw-bold text-uppercase">SALDO FINAL</small>
+                                <span class="badge bg-light text-dark rounded-0">TOTAL</span>
+                            </div>
+                            <div class="d-flex align-items-center justify-content-between">
+                                <h2 class="fw-bold m-0">$@Resumen.SaldoFinal.ToString("N0")</h2>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+    }
+    else
+    {
+                <div class="alert alert-info">Cargando datos financieros...</div>
+    }
+
+    <div class="row">
+        <!-- FORMULARIO DE REGISTRO -->
+        <div class="col-md-4 mb-4">
+            <div class="card border-2 border-dark rounded-0 h-100 shadow-sm @(Resumen?.IsLocked == true ? "opacity-50" : "")">
+                <div class="card-header bg-dark text-white rounded-0 fw-bold d-flex justify-content-between align-items-center">
+                    <span>NUEVO MOVIMIENTO</span>
+                    <span class="small text-white-50">MANUAL</span>
+                </div>
+                <div class="card-body bg-light position-relative">
+
+                    @if (Resumen?.IsLocked == true)
+                    {
+                                <div class="position-absolute top-0 start-0 w-100 h-100 bg-white opacity-25" style="z-index: 10;"></div>
+                    }
+
+                    <div class="mb-3">
+                        <label class="fw-bold small text-uppercase mb-1">1. TIPO DE OPERACIÓN:</label>
+                        <div class="btn-group w-100 border border-dark" role="group">
+                            <input type="radio" class="btn-check" name="btnradio" id="btnGasto" autocomplete="off" checked @onclick='() => Nuevo.Tipo = "GASTO"'>
+                            <label class="btn btn-outline-dark rounded-0 fw-bold @(Nuevo.Tipo == "GASTO" ? "active bg-danger text-white" : "")" for="btnGasto">🔴 GASTO</label>
+
+                            <input type="radio" class="btn-check" name="btnradio" id="btnAporte" autocomplete="off" @onclick='() => Nuevo.Tipo = "APORTE"'>
+                            <label class="btn btn-outline-dark rounded-0 fw-bold @(Nuevo.Tipo == "APORTE" ? "active bg-primary text-white" : "")" for="btnAporte">🔵 APORTE</label>
+
+                            <input type="radio" class="btn-check" name="btnradio" id="btnRetiro" autocomplete="off" @onclick='() => Nuevo.Tipo = "RETIRO"'>
+                            <label class="btn btn-outline-dark rounded-0 fw-bold @(Nuevo.Tipo == "RETIRO" ? "active bg-warning text-dark" : "")" for="btnRetiro">💸 RETIRO</label>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="fw-bold small text-uppercase mb-1">2. FECHA DE REGISTRO:</label>
+                        <input @bind="FechaRegistro" type="date" class="form-control border-dark rounded-0" />
+                        <small class="text-muted" style="font-size: 0.7rem;">Puedes registrar gastos de días anteriores del mes actual.</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="fw-bold small text-uppercase mb-1">3. CATEGORÍA:</label>
+                        <select @bind="Nuevo.Categoria" class="form-select border-dark rounded-0 bg-white">
+                            @if (Nuevo.Tipo == "GASTO")
+                            {
+                                        <option value="MERCADERIA">📦 MERCADERÍA (Stock)</option>
+                                        <option value="LOGISTICA">⛽ LOGÍSTICA / COMBUSTIBLE</option>
+                                        <option value="MANTENCION">🔧 MANTENCIÓN / REPUESTOS</option>
+                                        <option value="INFRA">💡 INFRAESTRUCTURA / ARRIENDO</option>
+                                        <option value="OTROS">📝 OTROS GASTOS</option>
+                            }
+                            else if (Nuevo.Tipo == "APORTE")
+                            {
+                                        <option value="APORTE_CAPITAL">🏦 INYECCIÓN CAPITAL</option>
+                                        <option value="DEVOLUCION">🔄 DEVOLUCIÓN PROVEEDOR</option>
+                            }
+                            else
+                            {
+                                        <option value="RETIRO_UTILIDAD">💰 RETIRO UTILIDAD</option>
+                                        <option value="PAGO_SUELDOS">👥 RETIRO SUELDOS</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="fw-bold small text-uppercase mb-1">4. DESCRIPCIÓN:</label>
+                        <input @bind="Nuevo.Descripcion" type="text" class="form-control border-dark rounded-0" placeholder="Ej: COPEC, LIDER..." />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="fw-bold small text-uppercase mb-1">5. MONTO ($):</label>
+                        <div class="input-group">
+                            <span class="input-group-text border-dark rounded-0 bg-dark text-white fw-bold">$</span>
+                            <input @bind="MontoString" type="text" class="form-control border-dark rounded-0 fw-bold fs-5" placeholder="0" />
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="fw-bold small text-uppercase mb-1">6. ADJUNTAR IMAGEN (OPCIONAL):</label>
+                        <InputFile OnChange="@LoadFiles" class="form-control border-dark rounded-0" accept="image/*" />
+                        @if (fileToUpload != null)
+                        {
+                                    <small class="text-success fw-bold">Imagen seleccionada: @fileToUpload.Name</small>
+                        }
+                    </div>
+
+                    <button class="btn btn-dark w-100 rounded-0 fw-bold py-2 mt-2 border-2 border-dark shadow" @onclick="Registrar" disabled="@(Resumen?.IsLocked == true || IsUploading)">
+                        @if (IsUploading)
+                        { 
+                                <span>SUBIENDO IMAGEN...</span>
+                        }
+                        else
+                        { 
+                                <span>REGISTRAR OPERACIÓN_</span>
+                        }
+                    </button>
+
+                    @if (!string.IsNullOrEmpty(Mensaje))
+                    {
+                                <div class="mt-2 text-center small fw-bold text-success animate__animated animate__fadeIn">@Mensaje</div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- LISTA -->
+        <div class="col-md-8">
+            <div class="card border-2 border-dark rounded-0 h-100">
+                <div class="card-header bg-white text-dark rounded-0 fw-bold border-bottom border-dark">
+                    MOVIMIENTOS DE @SelectedDate.ToString("MMMM yyyy").ToUpper()
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover table-bordered border-dark m-0">
+                        <thead class="bg-secondary text-white">
+                            <tr>
+                                <th style="width: 15%">FECHA</th>
+                                <th style="width: 15%">CATEGORÍA</th>
+                                <th>DESCRIPCIÓN</th>
+                                <th class="text-center">IMG</th>
+                                <th class="text-end" style="width: 15%">MONTO</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white">
+                            @foreach (var mov in Movimientos)
+                            {
+                                        <tr>
+                                            <td class="font-monospace small">@mov.Fecha.ToString("dd/MM HH:mm")</td>
+                                            <td>
+                                                <span class="badge rounded-0 border border-dark text-dark
+                                            @(mov.Monto > 0 ? "bg-success-subtle" : "bg-danger-subtle")">
+                                            @mov.Categoria
+                                                </span>
+                                            </td>
+                                            <td class="text-uppercase small fw-bold">@mov.Descripcion</td>
+                                            <td class="text-center">
+                                        @if (!string.IsNullOrEmpty(mov.ImagenPath))
+                                        {
+                                                            <a href="@mov.ImagenPath" target="_blank" class="text-decoration-none" title="Ver Comprobante">
+                                                                📷
+                                                            </a>
+                                        }
+                                        else
+                                        {
+                                                            <span class="text-muted opacity-25">-</span>
+                                        }
+                                            </td>
+                                            <td class="text-end fw-bold font-monospace @(mov.Monto > 0 ? "text-success" : "text-danger")">
+                                                $@mov.Monto.ToString("N0")
+                                            </td>
+                                        </tr>
+                            }
+                            @if (Movimientos.Count == 0)
+                            {
+                                        <tr>
+                                            <td colspan="5" class="text-center py-4 text-muted fst-italic">No hay movimientos registrados en este mes.</td>
+                                        </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private DateTime SelectedDate = DateTime.Now;
+    private CajaResumenDto? Resumen;
+    private List<MovimientoCaja> Movimientos = new();
+
+    // Formulario
+    private MovimientoCaja Nuevo = new() { Tipo = "GASTO", Categoria = "MERCADERIA" };
+    private DateTime FechaRegistro = DateTime.Now;
+    private IBrowserFile? fileToUpload;
+
+    private string Mensaje = "";
+    private bool IsUploading = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarDatos();
+    }
+
+    private async Task ChangeMonth(int months)
+    {
+        SelectedDate = SelectedDate.AddMonths(months);
+        await CargarDatos();
+    }
+
+    private async Task GoToToday()
+    {
+        SelectedDate = DateTime.Now;
+        await CargarDatos();
+    }
+
+    private async Task CargarDatos()
+    {
+        try
+        {
+            string query = $"?month={SelectedDate.Month}&year={SelectedDate.Year}";
+            Resumen = await Http.GetFromJsonAsync<CajaResumenDto>($"api/caja/resumen{query}");
+            Movimientos = await Http.GetFromJsonAsync<List<MovimientoCaja>>($"api/caja/movimientos{query}") ?? new();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error: {ex.Message}");
+        }
+
+        // Reset fecha registro si se cambia de mes para comodidad (aunque la validación es backend)
+        if (SelectedDate.Month == DateTime.Now.Month && SelectedDate.Year == DateTime.Now.Year)
+        {
+            FechaRegistro = DateTime.Now;
+        }
+        else
+        {
+            // Poner fecha al dia 1 del mes seleccionado como sugerencia, o mantener hoy si es permitido?
+            // El usuario podria querer registrar "hoy" un gasto de "mes pasado"?
+            // El controller valida Fechas. Aqui solo UI. 
+            // Si estoy viendo Febrero, y hoy es Marzo 2, y quiero agregar gasto a Febrero, 
+            // la fecha del input deberia ser de Febrero.
+            var daysInMonth = DateTime.DaysInMonth(SelectedDate.Year, SelectedDate.Month);
+            FechaRegistro = new DateTime(SelectedDate.Year, SelectedDate.Month, daysInMonth); // Fin de mes por defecto
+        }
+    }
+
+    private void LoadFiles(InputFileChangeEventArgs e)
+    {
+        fileToUpload = e.File;
+    }
+
+    private async Task Registrar()
+    {
+        if (Nuevo.Monto <= 0 || string.IsNullOrEmpty(Nuevo.Descripcion)) return;
+
+        IsUploading = true;
+
+        try
+        {
+            // 1. Subir imagen si existe
+            if (fileToUpload != null)
+            {
+                // Limite 5MB
+                if (fileToUpload.Size > 5120000)
+                {
+                    Mensaje = "❌ IMAGEN MUY GRANDE (>5MB)";
+                    IsUploading = false;
+                    return;
+                }
+
+                using var content = new MultipartFormDataContent();
+                using var fileContent = new StreamContent(fileToUpload.OpenReadStream(5120000));
+                fileContent.Headers.ContentType = new MediaTypeHeaderValue(fileToUpload.ContentType);
+                content.Add(fileContent, "file", fileToUpload.Name);
+
+                var uploadResponse = await Http.PostAsync("api/caja/upload", content);
+                if (uploadResponse.IsSuccessStatusCode)
+                {
+                    var result = await uploadResponse.Content.ReadFromJsonAsync<UploadResult>();
+                    Nuevo.ImagenPath = result?.Path;
+                }
+                else
+                {
+                    Mensaje = "❌ ERROR AL SUBIR IMAGEN";
+                    IsUploading = false;
+                    return;
+                }
+            }
+
+            // 2. Registrar Movimiento
+            // Asignar fecha seleccionada
+            Nuevo.Fecha = FechaRegistro;
+
+            var response = await Http.PostAsJsonAsync("api/caja/registrar", Nuevo);
+            if (response.IsSuccessStatusCode)
+            {
+                Mensaje = "✔ REGISTRADO";
+                Nuevo = new() { Tipo = "GASTO", Categoria = "MERCADERIA", Descripcion = "", Monto = 0 };
+                fileToUpload = null;
+                await CargarDatos(); // Recargar tabla
+                await Task.Delay(2000);
+                Mensaje = "";
+            }
+            else
+            {
+                var errorMsg = await response.Content.ReadAsStringAsync();
+                Mensaje = $"❌ ERROR: {errorMsg}";
+            }
+        }
+        catch (Exception ex)
+        {
+            Mensaje = $"❌ ERROR: {ex.Message}";
+        }
+        finally
+        {
+            IsUploading = false;
+        }
+    }
+
+    // --- DTOs Locales ---
+    public class CajaResumenDto
+    {
+        public decimal SaldoAnterior { get; set; }
+        public decimal IngresosVentas { get; set; }
+        public decimal GastosOperativos { get; set; }
+        public decimal AportesExtra { get; set; }
+        public decimal SaldoFinal { get; set; }
+        public bool IsLocked { get; set; }
+    }
+
+    public class MovimientoCaja
+    {
+        public int Id { get; set; }
+        public DateTime Fecha { get; set; }
+        public string Descripcion { get; set; } = "";
+        public decimal Monto { get; set; }
+        public string Tipo { get; set; } = "GASTO";
+        public string Categoria { get; set; } = "";
+        public string? ImagenPath { get; set; }
+    }
+
+    public class UploadResult
+    {
+        public string? Path { get; set; }
+    }
+
+    // Propiedad para manejar el input de monto con formato
+    private string MontoString
+    {
+        get => Nuevo.Monto == 0 ? "" : Nuevo.Monto.ToString("#,##0");
+        set
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                Nuevo.Monto = 0;
+            }
+            else
+            {
+                // Eliminar puntos de miles y validar
+                string v = value.Replace(".", "");
+                if (decimal.TryParse(v, out decimal m))
+                {
+                    Nuevo.Monto = m;
+                }
+            }
+        }
+    }
+}
