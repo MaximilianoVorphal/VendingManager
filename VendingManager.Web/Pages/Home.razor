@@ -10,7 +10,7 @@
 
     <div class="row align-items-center mb-4 border-bottom border-3 border-dark pb-3">
         <div class="col-md-8">
-            <h2 class="m-0 fw-bold text-uppercase" style="letter-spacing: -1px;">Status Operacional__</h2>
+            <h2 class="m-0 fw-bold text-uppercase" style="letter-spacing: -1px;">Status Operacional</h2>
             <small class="text-muted fw-bold">TIEMPO REAL: @DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss")</small>
         </div>
         <div class="col-md-4">
@@ -55,7 +55,7 @@
                         <div class="d-flex justify-content-between mt-4 border-top border-dark pt-3">
                             <div class="text-start lh-1">
                                 <span class="d-block text-uppercase text-dark fw-bold"
-                                style="font-size: 0.7rem;">Conciliado</span>
+                                style="font-size: 0.7rem;">Confirmado</span>
                                 <span class="fw-bold text-success">$@Stats.Hoy.PagadoTB.ToString("N0")</span>
                             </div>
                             <div class="text-end lh-1">
@@ -84,7 +84,7 @@
                         <div class="d-flex justify-content-between mt-4 border-top border-dark pt-3">
                             <div class="text-start lh-1">
                                 <span class="d-block text-uppercase text-dark fw-bold"
-                                style="font-size: 0.7rem;">Conciliado</span>
+                                style="font-size: 0.7rem;">Confirmado</span>
                                 <span class="fw-bold text-success">$@Stats.Semana.PagadoTB.ToString("N0")</span>
                             </div>
                             <div class="text-end lh-1">
@@ -142,7 +142,7 @@
             <div class="col-md-4">
                 <div class="card border-2 border-dark rounded-0 shadow-sm h-100">
                     <div class="card-header bg-dark text-white fw-bold text-uppercase rounded-0">
-                        <i class="bi bi-pie-chart-fill me-2"></i>Estado Conciliación
+                        <i class="bi bi-pie-chart-fill me-2"></i>Ventas Brutas
                     </div>
                     <div class="card-body d-flex align-items-center justify-content-center">
                         <canvas id="paymentChart" style="max-height: 250px;"></canvas>
@@ -304,7 +304,7 @@ backgroundColor = "#212529"
             type = "doughnut",
             data = new
             {
-                labels = new[] { "Conciliado (TB)", "Pendiente/Efectivo" },
+                labels = new[] { "Confirmado", "Pendiente/Efectivo" },
                 datasets = new[]
         {
 new
