@@ -9,6 +9,7 @@ services:
     environment:
       - ConnectionStrings__DefaultConnection=Server=db;Database=VendingDB;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True;
       - ASPNETCORE_ENVIRONMENT=Development
+      - TZ=America/Santiago
     depends_on:
       - db
 
@@ -17,6 +18,7 @@ services:
     environment:
       - ACCEPT_EULA=Y
       - MSSQL_SA_PASSWORD=${MSSQL_SA_PASSWORD}
+      - TZ=America/Santiago
     volumes:
       - mssql_data:/var/opt/mssql
     ports:

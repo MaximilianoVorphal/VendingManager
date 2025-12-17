@@ -120,10 +120,13 @@ namespace VendingManager.Infrastructure.Services
                         int? prodId = configSlot?.ProductoId;
                         decimal cost = configSlot?.Producto?.CostoPromedio ?? 0;
 
+                        // FIX: Ajuste horario según máquina
+                        int offset = machineId.Trim() == "2410280012" ? 1 : -11;
+
                         _context.Ventas.Add(new Venta
                         {
                             FechaHora = fecha,
-                            FechaLocal = fecha.AddHours(-11), // 👈 FIX: Ajuste automático a hora local (Chile)
+                            FechaLocal = fecha.AddHours(offset),
                             PrecioVenta = precio,
                             NumeroSlot = slot,
                             IdOrdenMaquina = orderNumber,
@@ -143,7 +146,7 @@ namespace VendingManager.Infrastructure.Services
         }
 
         // =============================================
-        // 2. IMPORTAR TRANSBANK (CONCILIACIÓN +11H)
+        // 2. IMPORTAR TRANSBANK (DOBLE PASADA: ESTRICTA + HOLGADA)
         // =============================================
         public async Task ImportarTransbank(Stream fileStream, string nombreArchivo)
         {
@@ -158,15 +161,14 @@ namespace VendingManager.Infrastructure.Services
                     var tabla = reader.AsDataSet(conf).Tables[0];
                     Console.WriteLine($"💳 TRANSBANK: Analizando {tabla.Rows.Count} filas...");
 
-                    // Buscar columnas dinámicamente
+                    // A) DETECCIÓN DE COLUMNAS
                     int colFecha = -1, colHora = -1, colMonto = -1, colTipo = -1;
-
                     for (int i = 0; i < tabla.Columns.Count; i++)
                     {
                         string h = tabla.Columns[i].ColumnName.ToUpper();
                         if (h == "FECHA") colFecha = i;
                         else if (h == "HORA") colHora = i;
-                        else if (h == "MONTO") colMonto = i; // "MONTO", no "MONTO CUOTA"
+                        else if (h == "MONTO") colMonto = i;
                         else if (h.Contains("TIPO MOVIMIENTO") || h.Contains("TIPO VENTA")) colTipo = i;
                     }
 
@@ -176,192 +178,258 @@ namespace VendingManager.Infrastructure.Services
                         return;
                     }
 
-                    int matches = 0;
+                    // B) PARSEAR TODO A MEMORIA (Evitar relectura de DataTable)
+                    var tbRecords = new List<TransbankRecord>();
+                    string[] formatos = { "dd/MM/yyyy HH:mm", "dd/MM/yyyy HH:mm:ss", "dd-MM-yyyy HH:mm", "dd-MM-yyyy HH:mm:ss" };
 
                     foreach (DataRow row in tabla.Rows)
                     {
-                        // 1. Filtro básico: Solo Ventas y Montos > 0
+                        // 1. Filtro básico
                         string tipo = colTipo != -1 ? row[colTipo]?.ToString()?.ToUpper() ?? "" : "VENTA";
-                        if (!tipo.Contains("VENTA"))
-                        {
-                            // Console.WriteLine($"   Skipped: Tipo '{tipo}' no es VENTA"); // Uncomment if needed, usually noisy
-                            continue;
-                        }
+                        if (!tipo.Contains("VENTA")) continue;
 
                         string sMonto = row[colMonto]?.ToString()?.Replace("$", "")?.Replace(".", "")?.Replace(",", "") ?? "0";
-                        if (!decimal.TryParse(sMonto, out decimal montoTB) || montoTB <= 0)
-                        {
-                            Console.WriteLine($"   ⚠️ Skipped Row: Monto inválido '{sMonto}'");
-                            continue;
-                        }
+                        if (!decimal.TryParse(sMonto, out decimal montoTB) || montoTB <= 0) continue;
 
-                        // 2. Construir Fecha Real (Fecha + Hora)
+                        // 2. Parsear Fecha
                         string sFecha = row[colFecha]?.ToString() ?? "";
                         string sHora = colHora != -1 ? row[colHora]?.ToString() ?? "00:00:00" : "00:00:00";
                         string fechaStringFull = $"{sFecha} {sHora}".Trim();
 
-                        string[] formatos = { "dd/MM/yyyy HH:mm", "dd/MM/yyyy HH:mm:ss", "dd-MM-yyyy HH:mm", "dd-MM-yyyy HH:mm:ss" };
-
-                        // Intentar parseo exacto con formatos chilenos/latinos
-                        bool fechaValida = DateTime.TryParseExact(fechaStringFull, formatos,
-                                                                  System.Globalization.CultureInfo.InvariantCulture,
-                                                                  System.Globalization.DateTimeStyles.None,
-                                                                  out DateTime fechaTB);
-
-                        if (!fechaValida)
+                        if (DateTime.TryParseExact(fechaStringFull, formatos,
+                                                   System.Globalization.CultureInfo.InvariantCulture,
+                                                   System.Globalization.DateTimeStyles.None,
+                                                   out DateTime fechaTB))
                         {
-                            Console.WriteLine($"   ⚠️ Skipped Row: Fecha inválida '{fechaStringFull}' (Esperado: dd/MM/yyyy)");
-                            continue;
+                            tbRecords.Add(new TransbankRecord { Fecha = fechaTB, Monto = montoTB });
+                        }
+                    }
+
+                    Console.WriteLine($"   -> Registros válidos para procesar: {tbRecords.Count}");
+
+                    int matches = 0;
+                    int datesFixed = 0;
+
+                    // =================================================================================
+                    // PASO 1: MATCH ESTRICTO (+/- 5 MINUTOS)
+                    // =================================================================================
+                    foreach (var rec in tbRecords)
+                    {
+                        if (rec.Matched) continue;
+
+                        int minutesWindow = 5;
+                        DateTime inicio = rec.Fecha.AddMinutes(-minutesWindow);
+                        DateTime fin = rec.Fecha.AddMinutes(minutesWindow);
+
+                        // 1. Match Normal (No pagados)
+                        var venta = await FindBestMatch(rec.Monto, rec.Fecha, inicio, fin, includePaid: false);
+
+                        // 2. Si no encuentra, intentar buscar en pagados (Re-sync Fecha)
+                        if (venta == null)
+                        {
+                            venta = await FindBestMatch(rec.Monto, rec.Fecha, inicio, fin, includePaid: true);
                         }
 
-                        // Proceed (if logic was wrapped in if(TryParse) before, now we continue straight)
+                        // 3. Con Tolerancia (Neto vs Bruto) 
+                        if (venta == null)
                         {
-                            // === NUEVA LÓGICA: USAR FECHA LOCAL DIRECTA ===
-                            // Ya no sumamos 11 horas, porque la BD tiene la FechaLocal correcta.
-                            // Ampliamos tolerancia a +/- 60 minutos por si las máquinas tienen reloj desfasado.
+                            venta = await FindBestMatchWithTolerance(rec.Monto, rec.Fecha, inicio, fin, includePaid: false);
+                        }
 
-                            DateTime inicio = fechaTB.AddMinutes(-60);
-                            DateTime fin = fechaTB.AddMinutes(60);
+                        if (venta != null)
+                        {
+                            venta.Pagado = true;
 
-                            // 3. BUSCAR EN BD USANDO FECHA LOCAL
-                            var query = _context.Ventas
-                                .Where(v => v.PrecioVenta == montoTB &&
-                                            v.FechaLocal >= inicio &&
-                                            v.FechaLocal <= fin &&
-                                            !v.Pagado); // IMPORTANTE: Filtrar pagados en la query
-
-                            var candidatos = await query.ToListAsync();
-
-                            // Encontrar el más cercano en tiempo
-                            var venta = candidatos
-                                .OrderBy(v => Math.Abs((v.FechaLocal - fechaTB).TotalSeconds))
-                                .FirstOrDefault();
-
-                            if (venta != null)
+                            // SYNC FECHA: Si diff != 0, igualar a Transbank
+                            if ((venta.FechaLocal - rec.Fecha).TotalSeconds != 0)
                             {
-                                venta.Pagado = true; // ¡MATCH!
+                                venta.FechaLocal = rec.Fecha;
+                                datesFixed++;
+                            }
+
+                            rec.Matched = true;
+                            matches++;
+                            await _context.SaveChangesAsync();
+                        }
+                    }
+
+                    Console.WriteLine($"   -> Fin Pasada Estricta. Matches: {matches}. Fechas Ajustadas: {datesFixed}");
+
+                    // =================================================================================
+                    // PASO 2: MATCH HOLGADO (+/- 60 MINUTOS) + INTENSIVO
+                    // =================================================================================
+                    foreach (var rec in tbRecords)
+                    {
+                        if (rec.Matched) continue;
+
+                        int minutesWindow = 60;
+                        DateTime inicio = rec.Fecha.AddMinutes(-minutesWindow);
+                        DateTime fin = rec.Fecha.AddMinutes(minutesWindow);
+
+                        // A) INTENTO MATCH SIMPLE
+                        var venta = await FindBestMatch(rec.Monto, rec.Fecha, inicio, fin, includePaid: false);
+
+                        // A.2) INTENTO MATCH HOLGADO CON TOLERANCIA
+                        if (venta == null)
+                        {
+                            venta = await FindBestMatchWithTolerance(rec.Monto, rec.Fecha, inicio, fin, includePaid: false);
+                        }
+
+                        if (venta != null)
+                        {
+                            venta.Pagado = true;
+
+                            // SYNC FECHA
+                            if ((venta.FechaLocal - rec.Fecha).TotalSeconds != 0)
+                            {
+                                venta.FechaLocal = rec.Fecha;
+                                datesFixed++;
+                            }
+
+                            rec.Matched = true;
+                            matches++;
+                            Console.WriteLine($"   ✅ Match [HOLGADO]: ${rec.Monto} | TB:{rec.Fecha}");
+                            await _context.SaveChangesAsync();
+                        }
+                        else
+                        {
+                            // B) INTENTO MATCH COMBINADO
+                            bool matchCombinado = await TryMatchCombinado(rec, inicio, fin);
+                            if (matchCombinado)
+                            {
                                 matches++;
-                                Console.WriteLine($"   ✅ Match: ${montoTB} | TB:{fechaTB} -> LOCAL:{venta.FechaLocal} (Id:{venta.Id}) | Diff: {(venta.FechaLocal - fechaTB).TotalMinutes:F1} min");
-
-                                // GUARDAR INMEDIATAMENTE para que la siguiente iteración no tome la misma venta
                                 await _context.SaveChangesAsync();
+                                continue;
                             }
-                            else
-                            {
-                                // ============================================================
-                                // 4. INTENTO DE MATCH POR SUMA (COMBINACION DE VENTAS)
-                                // ============================================================
-                                // Caso: El usuario compra 2 productos (ej: $700 + $1000) y paga $1700 en una sola transacción.
-                                // Buscamos combinaciones de ventas NO PAGADAS en el rango que sumen el monto.
 
-                                bool matchCombinado = false;
+                            Console.WriteLine($"   ⚠️ NO MATCH: ${rec.Monto} | TB:{rec.Fecha}");
 
-                                // Traer todos los candidatos NO pagados en el rango de tiempo (+/- 60 min)
-                                // Nota: Ampliamos un poco la búsqueda interna para dar flexibilidad a combinaciones
-                                var candidatosMix = await _context.Ventas
-                                    .Where(v => v.FechaLocal >= inicio &&
-                                                v.FechaLocal <= fin &&
-                                                !v.Pagado)
-                                    .OrderBy(v => v.FechaLocal)
-                                    .ToListAsync();
-
-                                // Solo intentamos si hay candidatos y el monto es razonable
-                                if (candidatosMix.Count >= 2)
-                                {
-                                    // NUEVO ALGORITMO: Búsqueda recursiva de combinaciones (Hasta 5 items)
-                                    // Reglas: Suma exacta y todos los items dentro de una ventana de 5 minutos
-                                    var combinations = FindBestCombinations(candidatosMix, montoTB);
-
-                                    if (combinations.Any())
-                                    {
-                                        // Tomamos la primera válida (la función ya prioriza por orden de fecha)
-                                        var mejorCombo = combinations.First();
-
-                                        // Aplicar Cambios
-                                        foreach (var v in mejorCombo)
-                                        {
-                                            v.Pagado = true;
-                                        }
-
-                                        matches++;
-                                        matchCombinado = true;
-
-                                        string detalles = string.Join("+", mejorCombo.Select(v => $"${v.PrecioVenta}"));
-                                        string ids = string.Join(",", mejorCombo.Select(v => v.Id));
-
-                                        decimal totalLocal = mejorCombo.Sum(v => v.PrecioVenta);
-                                        string tipoMatch = totalLocal == montoTB ? "Exacto" : "AJUSTE POR COMISIÓN";
-
-                                        Console.WriteLine($"   ✅ Match ({tipoMatch}): ${montoTB} (vs Local ${totalLocal} [{detalles}]) | TB:{fechaTB} -> IDs:[{ids}]");
-
-                                        await _context.SaveChangesAsync();
-                                    }
-                                }
-
-                                if (matchCombinado)
-                                {
-                                    // Si hubo match combinado, continuamos al siguiente ciclo (foreach row)
-                                    // Para saltar el bloque de "NO MATCH" que viene abajo
-                                    continue;
-                                }
-                                // --- DIAGNOSTICO DE NO MATCH ---
-                                Console.WriteLine($"   ⚠️ NO MATCH: ${montoTB} | TB:{fechaTB}");
-
-                                // 1. Ver si hay algo cerca en el rango estándar (+/- 60 min)
-                                var posibles = await _context.Ventas
-                                    .Where(v => v.FechaLocal >= inicio && v.FechaLocal <= fin)
-                                    .OrderBy(v => v.FechaLocal)
-                                    .Take(5)
-                                    .ToListAsync();
-
-                                if (posibles.Any())
-                                {
-                                    foreach (var c in posibles)
-                                    {
-                                        string motivo = c.Pagado ? "YA PAGADO" : "MONTO DIFERENTE";
-                                        Console.WriteLine($"      -> RECHAZADO ({motivo}): Id:{c.Id} | Local:{c.FechaLocal} | $: {c.PrecioVenta}");
-                                    }
-                                }
-                                else
-                                {
-                                    Console.WriteLine($"      -> No hay ventas en rango horario estricto (+/- 60m).");
-
-                                    // 2. BÚSQUEDA AMPLIADA DE DEBUG (+/- 24 Horas)
-                                    DateTime inicioDebug = fechaTB.AddHours(-24);
-                                    DateTime finDebug = fechaTB.AddHours(24);
-
-                                    var candidatosLejanos = await _context.Ventas
-                                        .Where(v => v.PrecioVenta == montoTB &&
-                                                    v.FechaLocal >= inicioDebug &&
-                                                    v.FechaLocal <= finDebug)
-                                        .OrderBy(v => Math.Abs((v.FechaLocal - fechaTB).TotalMinutes)) // Más cercanos primero
-                                        .Take(3)
-                                        .ToListAsync();
-
-                                    if (candidatosLejanos.Any())
-                                    {
-                                        Console.WriteLine($"      💡 PISTA DEBUG: Encontré ventas con el MISMO precio (${montoTB}) fuera del rango:");
-                                        foreach (var c in candidatosLejanos)
-                                        {
-                                            double diffHoras = (c.FechaLocal - fechaTB).TotalHours;
-                                            Console.WriteLine($"         -> Id:{c.Id} | Local:{c.FechaLocal} | Diferencia: {diffHoras:F1} horas | Pagado:{c.Pagado}");
-                                        }
-                                    }
-                                    else
-                                    {
-                                        Console.WriteLine($"      ❌ DEBUG: No encontré NINGUNA venta de ${montoTB} en +/- 24 horas.");
-                                    }
-                                }
-                            }
+                            await LogDebugExtended(rec.Monto, rec.Fecha);
                         }
                     }
 
                     await _context.SaveChangesAsync();
-                    Console.WriteLine($"✅ TRANSBANK: {matches} ventas conciliadas (pasaron a TRUE).");
+                    Console.WriteLine($"✅ TRANSBANK FIN: {matches} conciliadas. {datesFixed} fechas corregidas.");
                 }
             }
-            catch (Exception ex) { Console.WriteLine($"❌ ERROR TRANSBANK: {ex.Message}"); }
+            catch (Exception ex) { Console.WriteLine($"❌ ERROR TRANSBANK: {ex.Message} \n {ex.StackTrace}"); }
         }
+
+        // ====================================================
+        // HELPERS PRIVADOS
+        // ====================================================
+
+        private class TransbankRecord
+        {
+            public DateTime Fecha { get; set; }
+            public decimal Monto { get; set; }
+            public bool Matched { get; set; } = false;
+        }
+
+        private async Task<Venta?> FindBestMatch(decimal monto, DateTime fechaTB, DateTime inicio, DateTime fin, bool includePaid)
+        {
+            var query = _context.Ventas
+                .Where(v => v.PrecioVenta == monto &&
+                            v.FechaLocal >= inicio &&
+                            v.FechaLocal <= fin);
+
+            if (!includePaid)
+            {
+                query = query.Where(v => !v.Pagado);
+            }
+
+            var candidatos = await query.ToListAsync();
+
+            if (!candidatos.Any()) return null;
+
+            return candidatos
+                .OrderBy(v => Math.Abs((v.FechaLocal - fechaTB).TotalSeconds))
+                .First();
+        }
+
+        private async Task<Venta?> FindBestMatchWithTolerance(decimal montoTB, DateTime fechaTB, DateTime inicio, DateTime fin, bool includePaid)
+        {
+            var query = _context.Ventas
+                .Where(v => v.PrecioVenta > montoTB &&
+                            v.PrecioVenta <= (montoTB / 0.90m) &&
+                            v.FechaLocal >= inicio &&
+                            v.FechaLocal <= fin);
+
+            if (!includePaid)
+            {
+                query = query.Where(v => !v.Pagado);
+            }
+
+            var candidatos = await query.ToListAsync();
+
+            var match = candidatos
+                .Where(v => montoTB >= v.PrecioVenta * 0.94m)
+                .OrderBy(v => Math.Abs((v.FechaLocal - fechaTB).TotalSeconds))
+                .FirstOrDefault();
+
+            return match;
+        }
+
+        private async Task<bool> TryMatchCombinado(TransbankRecord rec, DateTime inicio, DateTime fin)
+        {
+            var candidatosMix = await _context.Ventas
+                .Where(v => v.FechaLocal >= inicio &&
+                            v.FechaLocal <= fin &&
+                            !v.Pagado)
+                .OrderBy(v => v.FechaLocal)
+                .ToListAsync();
+
+            if (candidatosMix.Count < 2) return false;
+
+            var combinations = FindBestCombinations(candidatosMix, rec.Monto);
+            if (combinations.Any())
+            {
+                var mejorCombo = combinations.First();
+                foreach (var v in mejorCombo)
+                {
+                    v.Pagado = true;
+                    v.FechaLocal = rec.Fecha; // Synced
+                }
+
+                rec.Matched = true;
+                string ids = string.Join(",", mejorCombo.Select(v => v.Id));
+                decimal totalLocal = mejorCombo.Sum(v => v.PrecioVenta);
+                string tipoMatch = totalLocal == rec.Monto ? "Exacto" : "AJUSTE";
+
+                Console.WriteLine($"   ✅ Match [COMBINADO {tipoMatch}]: ${rec.Monto} (vs ${totalLocal}) | TB:{rec.Fecha} -> IDs:[{ids}]");
+                return true;
+            }
+            return false;
+        }
+
+        private async Task LogDebugExtended(decimal monto, DateTime fechaTB)
+        {
+            Console.WriteLine($"      -> No hay ventas en rango horario estricto (+/- 60m).");
+            DateTime inicioDebug = fechaTB.AddHours(-24);
+            DateTime finDebug = fechaTB.AddHours(24);
+
+            var rawCandidatos = await _context.Ventas
+                .Where(v => v.PrecioVenta == monto &&
+                            v.FechaLocal >= inicioDebug &&
+                            v.FechaLocal <= finDebug)
+                .ToListAsync();
+
+            var candidatosLejanos = rawCandidatos
+                .OrderBy(v => Math.Abs((v.FechaLocal - fechaTB).TotalMinutes))
+                .Take(3)
+                .ToList();
+
+            if (candidatosLejanos.Any())
+            {
+                Console.WriteLine($"      💡 PISTA DEBUG: Encontré ventas con el MISMO precio (${monto}) fuera del rango:");
+                foreach (var c in candidatosLejanos)
+                {
+                    double diffHoras = (c.FechaLocal - fechaTB).TotalHours;
+                    Console.WriteLine($"         -> Id:{c.Id} | Local:{c.FechaLocal} | Diferencia: {diffHoras:F1} horas | Pagado:{c.Pagado}");
+                }
+            }
+        }
+
         // =============================================
         // 3. IMPORTAR CATÁLOGO DE PRODUCTOS (PLANTILLA)
         // =============================================
@@ -418,9 +486,6 @@ namespace VendingManager.Infrastructure.Services
                             // "F0" fuerza formato numérico completo sin decimales ni E+
                             barcode = dBarcode.ToString("F0");
                         }
-
-                        // Debug log para ver qué está leyendo
-                        // Console.WriteLine($"   -> Leído: '{rawBarcode}' -> Parseado: '{barcode}'");
 
                         if (string.IsNullOrEmpty(barcode))
                         {
