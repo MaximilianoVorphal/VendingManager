@@ -2,7 +2,7 @@
     <div class="container d-flex justify-content-between align-items-center position-relative">
 
         <div class="brand-logo">
-            VENDING_MANAGER_V1.0
+            VENDING
         </div>
 
         <!-- Botón Hamburger (Visible solo en móvil) -->
@@ -19,9 +19,11 @@
                 [ VENTAS ]
             </NavLink>
 
-            <NavLink class="industrial-link" href="financiero" @onclick="CloseNavMenu">
+            @*
+                <NavLink class="industrial-link" href="financiero" @onclick="CloseNavMenu">
                 [ FINANZAS ]
-            </NavLink>
+                </NavLink>
+            *@
 
             <NavLink class="industrial-link" href="maquinas" @onclick="CloseNavMenu">
                 [ MÁQUINAS ]
@@ -32,7 +34,11 @@
             </NavLink>
 
             <NavLink class="industrial-link" href="inventario" @onclick="CloseNavMenu">
-                [ INVENTARIO ]
+                [ BODEGA ]
+            </NavLink>
+
+            <NavLink class="industrial-link" href="inventario-maquina" @onclick="CloseNavMenu">
+                [ CONFIG-MAQ ]
             </NavLink>
         </nav>
 

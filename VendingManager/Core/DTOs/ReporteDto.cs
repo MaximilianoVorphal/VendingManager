@@ -17,7 +17,7 @@ namespace VendingManager.Core.DTOs
 
         public DateTime FechaRaw { get; set; }
         public string Maquina { get; set; } = "";
-        public int Slot { get; set; }
+        public string Slot { get; set; } = "";
         public string Producto { get; set; } = "";
         public decimal Monto { get; set; }
         public decimal CostoUnitario { get; set; }

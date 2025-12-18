@@ -2,97 +2,190 @@
 @inject HttpClient Http
 @inject IJSRuntime JS
 
-<div class="container mt-5">
-    <h3>GESTIÓN DE UNIDADES_</h3>
+<PageTitle>GESTIÓN DE UNIDADES</PageTitle>
 
-    <div class="card p-4 mb-5 border-dark">
-        <h5 class="mb-3">@(ModoEdicion ? "EDITAR DATOS" : "NUEVA UNIDAD")</h5>
+<div class="container-fluid px-4 mt-4" style="font-family: 'Segoe UI', Consolas, monospace;">
+    
+    <!-- HEADER STYLE -->
+    <div class="row align-items-center mb-4 border-bottom border-3 border-dark pb-3 g-3">
+        <div class="col-md-5 col-12">
+            <h2 class="m-0 fw-bold text-uppercase" style="letter-spacing: -1px; color: #333;">
+                <i class="bi bi-hdd-rack me-2"></i>GESTIÓN DE UNIDADES
+            </h2>
+            <small class="text-muted fw-bold">ADMINISTRACIÓN DE PUNTOS DE VENTA</small>
+        </div>
 
-        <EditForm Model="maquinaActual" OnValidSubmit="GuardarMaquina" FormName="GestionMaquinasForm">
-            <DataAnnotationsValidator />
-            <div class="row g-3">
-                <div class="col-md-6">
-                    <label class="form-label fw-bold">NOMBRE REFERENCIA:</label>
-                    <InputText @bind-Value="maquinaActual.Nombre" class="form-control" placeholder="EJ: VENDING SNACKS 1" />
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label fw-bold">UBICACIÓN FÍSICA:</label>
-                    <InputText @bind-Value="maquinaActual.Ubicacion" class="form-control" placeholder="EJ: HALL CENTRAL - PISO 1" />
+        <div class="col-md-7 col-12">
+            <div class="d-flex flex-wrap gap-2 justify-content-md-end">
+                <!-- SEARCH BAR -->
+                <div class="input-group" style="max-width: 300px;">
+                    <span class="input-group-text bg-white border-dark rounded-0"><i class="bi bi-search"></i></span>
+                    <input type="text" class="form-control border-dark rounded-0 shadow-sm"
+                        placeholder="Buscar unidad..." @bind="SearchTerm" @bind:event="oninput" />
                 </div>
 
-                <div class="col-md-6">
-                    <label class="form-label fw-bold">ID INTERNO (EXCEL MÁQUINA):</label>
-                    <InputText @bind-Value="maquinaActual.IdInternoMaquina" class="form-control" />
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label fw-bold">TERMINAL POS (EXCEL TB):</label>
-                    <InputText @bind-Value="maquinaActual.CodigoTerminalPos" class="form-control" />
-                </div>
-            </div>
-
-            <div class="mt-4 d-flex gap-2 justify-content-end">
-                @if (ModoEdicion)
-                {
-                    <button type="button" class="btn btn-secondary" @onclick="CancelarEdicion">CANCELAR</button>
-                }
-                <button type="submit" class="btn btn-primary">
-                    @(ModoEdicion ? "GUARDAR CAMBIOS" : "REGISTRAR UNIDAD")
+                <button class="btn btn-success rounded-0 fw-bold shadow" @onclick="() => AbrirModal(null)">
+                    <i class="bi bi-plus-lg me-2"></i>NUEVA UNIDAD
                 </button>
             </div>
-        </EditForm>
+        </div>
     </div>
 
+    <!-- MAIN CONTENT -->
     @if (listaMaquinas == null)
     {
-        <p>CARGANDO INVENTARIO...</p>
+        <div class="text-center p-5">
+            <div class="spinner-border text-dark" role="status"></div>
+            <p class="mt-2 fw-bold text-muted">CARGANDO INVENTARIO...</p>
+        </div>
     }
     else
     {
-        <div class="table-responsive">
-            <table class="table table-bordered table-hover">
-                <thead class="bg-light">
-                    <tr>
-                        <th>ID</th>
-                        <th>NOMBRE</th>
-                        <th>UBICACIÓN</th>
-                        <th>ID INTERNO</th>
-                        <th>POS</th>
-                        <th class="text-center">ACCIONES</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var m in listaMaquinas)
-                    {
+        <div class="card border-2 border-dark rounded-0 shadow my-4">
+            <div class="card-header bg-dark text-white rounded-0 fw-bold d-flex justify-content-between align-items-center">
+                <span>UNIDADES REGISTRADAS: @FilteredMaquinas.Count()</span>
+            </div>
+            
+            <div class="table-responsive">
+                <table class="table table-hover table-bordered border-dark m-0 align-middle">
+                    <thead class="bg-secondary text-white text-uppercase" style="font-size: 0.85rem;">
                         <tr>
-                            <td>@m.Id</td>
-                            <td>@m.Nombre.ToUpper()</td>
-                            <td>@m.Ubicacion.ToUpper()</td>
-                            <td>@m.IdInternoMaquina</td>
-                            <td>@m.CodigoTerminalPos</td>
-                            <td class="text-center">
-                                <div class="d-flex justify-content-center gap-2 flex-wrap">
-                                    <button class="btn btn-sm btn-outline-dark fw-bold" @onclick="() => Editar(m)">
-                                        <i class="bi bi-pencil-square"></i> EDITAR
-                                    </button>
-                                    <button class="btn btn-sm btn-outline-danger fw-bold" @onclick="() => Borrar(m)">
-                                        <i class="bi bi-trash"></i> BORRAR
-                                    </button>
-                                </div>
-                            </td>
+                            <th class="text-center">ID</th>
+                            <th>NOMBRE REFERENCIA</th>
+                            <th>UBICACIÓN</th>
+                            <th>ID INTERNO</th>
+                            <th>POS TERMINAL</th>
+                            <th class="text-center" style="min-width: 150px;">ACCIONES</th>
                         </tr>
-                    }
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody class="bg-white fw-bold" style="font-size: 0.9rem;">
+                        @if (!FilteredMaquinas.Any())
+                        {
+                            <tr>
+                                <td colspan="6" class="text-center p-4 text-muted">
+                                    No se encontraron máquinas que coincidan con "@SearchTerm".
+                                </td>
+                            </tr>
+                        }
+                        else
+                        {
+                            @foreach (var m in FilteredMaquinas)
+                            {
+                                <tr>
+                                    <td class="text-center">@m.Id</td>
+                                    <td>@m.Nombre.ToUpper()</td>
+                                    <td class="text-muted">@m.Ubicacion.ToUpper()</td>
+                                    <td class="font-monospace text-primary">@m.IdInternoMaquina</td>
+                                    <td class="font-monospace text-success">@m.CodigoTerminalPos</td>
+                                    <td class="text-center">
+                                        <div class="d-flex justify-content-center gap-2">
+                                            <button class="btn btn-sm btn-outline-warning rounded-0 fw-bold border-dark text-dark" 
+                                                    title="Editar Datos" @onclick="() => AbrirModal(m)">
+                                                <i class="bi bi-pencil-square"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-danger rounded-0 fw-bold border-dark" 
+                                                    title="Borrar Unidad" @onclick="() => Borrar(m)">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
         </div>
     }
 </div>
 
+<!-- MODAL UNIFICADO (CREAR / EDITAR) -->
+@if (MostrarModal)
+{
+    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content rounded-0 border-2 border-dark shadow-lg">
+                <div class="modal-header bg-warning text-dark rounded-0 border-bottom border-dark">
+                    <h5 class="modal-title fw-bold">
+                        <i class="bi @(maquinaActual.Id == 0 ? "bi-plus-circle" : "bi-pencil-square") me-2"></i>
+                        @(maquinaActual.Id == 0 ? "REGISTRAR NUEVA UNIDAD" : "EDITAR UNIDAD")
+                    </h5>
+                    <button type="button" class="btn-close" @onclick="CerrarModal"></button>
+                </div>
+                
+                <div class="modal-body p-4">
+                    <EditForm Model="maquinaActual" OnValidSubmit="GuardarMaquina">
+                        <DataAnnotationsValidator />
+                        
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold small">NOMBRE REFERENCIA</label>
+                                <InputText @bind-Value="maquinaActual.Nombre" class="form-control rounded-0 border-dark" 
+                                          placeholder="EJ: VENDING HALL CENTRAL" />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold small">UBICACIÓN FÍSICA</label>
+                                <InputText @bind-Value="maquinaActual.Ubicacion" class="form-control rounded-0 border-dark" 
+                                          placeholder="EJ: PISO 1 - ALA NORTE" />
+                            </div>
+
+                            <div class="col-12"><hr class="text-muted" /></div>
+
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold small">ID INTERNO (EXCEL MÁQUINA)</label>
+                                <InputText @bind-Value="maquinaActual.IdInternoMaquina" class="form-control rounded-0 border-dark font-monospace" />
+                                <div class="form-text small">Identificador único en el reporte de la máquina.</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold small">TERMINAL POS (EXCEL TB)</label>
+                                <InputText @bind-Value="maquinaActual.CodigoTerminalPos" class="form-control rounded-0 border-dark font-monospace" />
+                                <div class="form-text small">Código exacto del terminal Transbank.</div>
+                            </div>
+                        </div>
+
+                        <div class="modal-footer bg-light rounded-0 mt-4 px-0 pb-0 pt-3 border-top border-dark">
+                             <button type="button" class="btn btn-outline-dark rounded-0 fw-bold" @onclick="CerrarModal">
+                                 CANCELAR
+                             </button>
+                             <button type="submit" class="btn btn-warning rounded-0 border-dark fw-bold px-4">
+                                 <i class="bi bi-save me-2"></i>GUARDAR CAMBIOS
+                             </button>
+                        </div>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     private List<Maquina>? listaMaquinas;
     
+    // Filtro de búsqueda
+    private string SearchTerm = "";
+    
     [SupplyParameterFromForm]
     public Maquina maquinaActual { get; set; } = new Maquina();
-    private bool ModoEdicion = false;
+    
+    private bool MostrarModal = false;
+
+    // Propiedad calculada para filtrar
+    private IEnumerable<Maquina> FilteredMaquinas
+    {
+        get
+        {
+            if (listaMaquinas == null) return Enumerable.Empty<Maquina>();
+            if (string.IsNullOrWhiteSpace(SearchTerm)) return listaMaquinas;
+
+            var term = SearchTerm.ToLower();
+            return listaMaquinas.Where(m => 
+                (m.Nombre?.ToLower().Contains(term) ?? false) || 
+                (m.Ubicacion?.ToLower().Contains(term) ?? false) ||
+                (m.IdInternoMaquina?.ToLower().Contains(term) ?? false) ||
+                (m.CodigoTerminalPos?.ToLower().Contains(term) ?? false)
+            );
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -104,11 +197,46 @@
         listaMaquinas = await Http.GetFromJsonAsync<List<Maquina>>("api/Maquinas");
     }
 
+    private void AbrirModal(Maquina? maquina)
+    {
+        if (maquina == null)
+        {
+            // Nuevo
+            maquinaActual = new Maquina();
+        }
+        else
+        {
+            // Editar (Clonar para evitar editar directo en la lista antes de guardar)
+            maquinaActual = new Maquina
+            {
+                Id = maquina.Id,
+                Nombre = maquina.Nombre,
+                Ubicacion = maquina.Ubicacion,
+                IdInternoMaquina = maquina.IdInternoMaquina,
+                CodigoTerminalPos = maquina.CodigoTerminalPos
+            };
+        }
+        MostrarModal = true;
+    }
+
+    private void CerrarModal()
+    {
+        MostrarModal = false;
+        maquinaActual = new Maquina();
+    }
+
     private async Task GuardarMaquina()
     {
-        if (ModoEdicion)
+        if (maquinaActual.Id != 0)
         {
+            // Edición con confirmación
             string nombreConfirmacion = await JS.InvokeAsync<string>("prompt", $"PARA CONFIRMAR CAMBIOS, ESCRIBA EL NOMBRE DE LA MÁQUINA: {maquinaActual.Nombre}");
+            
+            // Nota: Aquí validamos contra el nombre que estamos enviando (maquinaActual.Nombre). 
+            // Si el usuario acaba de cambiar el nombre, deberá escribir el NUEVO nombre.
+            // Si se prefiere validar con el original, tendríamos que haberlo guardado. 
+            // Asumiremos que el usuario sabe lo que está escribiendo en el input.
+            
             if (nombreConfirmacion != maquinaActual.Nombre)
             {
                 await JS.InvokeVoidAsync("alert", "❌ EL NOMBRE NO COINCIDE. OPERACIÓN CANCELADA.");
@@ -119,31 +247,12 @@
         }
         else
         {
+            // Creación directa
             await Http.PostAsJsonAsync("api/Maquinas", maquinaActual);
         }
 
-        maquinaActual = new Maquina();
-        ModoEdicion = false;
         await CargarMaquinas();
-    }
-
-    private void Editar(Maquina m)
-    {
-        maquinaActual = new Maquina
-        {
-            Id = m.Id,
-            Nombre = m.Nombre,
-            Ubicacion = m.Ubicacion, // Agregado
-            IdInternoMaquina = m.IdInternoMaquina,
-            CodigoTerminalPos = m.CodigoTerminalPos
-        };
-        ModoEdicion = true;
-    }
-
-    private void CancelarEdicion()
-    {
-        maquinaActual = new Maquina();
-        ModoEdicion = false;
+        CerrarModal();
     }
 
     private async Task Borrar(Maquina m)
@@ -165,7 +274,7 @@
     {
         public int Id { get; set; }
         public string Nombre { get; set; } = string.Empty;
-        public string Ubicacion { get; set; } = string.Empty; // Agregado aquí también
+        public string Ubicacion { get; set; } = string.Empty;
         public string IdInternoMaquina { get; set; } = string.Empty;
         public string CodigoTerminalPos { get; set; } = string.Empty;
     }

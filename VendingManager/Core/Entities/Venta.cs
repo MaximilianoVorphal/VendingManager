@@ -13,7 +13,7 @@ public class Venta
     public int? ProductoId { get; set; } // Puede ser nulo si no configuraste el slot
     public Producto? Producto { get; set; }
 
-    public int NumeroSlot { get; set; }
+    public string NumeroSlot { get; set; } = string.Empty;
     public decimal PrecioVenta { get; set; }
     public decimal CostoVenta { get; set; } = 0; // Costo histórico al momento de la venta
     public string IdOrdenMaquina { get; set; } = string.Empty; // Para evitar duplicados

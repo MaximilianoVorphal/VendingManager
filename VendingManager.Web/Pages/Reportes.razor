@@ -94,10 +94,10 @@
                 <div class="bg-white p-3 h-100 shadow-sm border border-2 border-dark">
                     <div class="text-muted fw-bold text-uppercase small" style="letter-spacing: 1px;">2. Máquina (Excel)
                     </div>
-                        $@((Datos.MontoTotal - Datos.MontoPhantom - Datos.MontoPendiente).ToString("N0"))
+                    $@((Datos.MontoTotal - Datos.MontoPhantom - Datos.MontoPendiente).ToString("N0"))
                     <div class="mt-2 border-top border-dark pt-2">
                         <small class="text-muted fw-bold text-uppercase" style="font-size: 0.7rem;">
-                            Registrados: @(Datos.TotalVentas - Datos.Detalle.Count(d => d.Slot == -1))
+                            Registrados: @(Datos.TotalVentas - Datos.Detalle.Count(d => d.Slot == "-1"))
                         </small>
                     </div>
                 </div>
@@ -116,7 +116,7 @@
                         <div class="mt-2 border-top border-dark pt-2">
                             <small class="text-danger fw-bold text-uppercase" style="font-size: 0.7rem;">Cobros Fantasma</small>
                             <span class="badge bg-danger rounded-0 border border-dark ms-1">@Datos.Detalle.Count(d => d.Slot ==
-                        -1)</span>
+                        "-1")</span>
                         </div>
                     }
                     else
@@ -524,7 +524,7 @@
         public string Maquina { get; set; } = string.Empty;
         public decimal Monto { get; set; }
         public string Estado { get; set; } = string.Empty;
-        public int Slot { get; set; }
+        public string Slot { get; set; } = string.Empty;
         public string Producto { get; set; } = string.Empty;
         public decimal Ganancia { get; set; }
     }

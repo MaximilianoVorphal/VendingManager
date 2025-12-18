@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using VendingManager.Core.DTOs; // Helper using
 
 namespace VendingManager.Web.Controllers
 {
@@ -51,6 +52,20 @@ namespace VendingManager.Web.Controllers
             // Note: Service handles deletion logic (and potentially check for orphans if implemented there)
             await _maquinaService.DeleteMaquinaAsync(id);
             return NoContent();
+        }
+
+        [HttpGet("{id}/slots")]
+        public async Task<ActionResult<List<ConfiguracionSlotDto>>> GetSlots([FromRoute] int id)
+        {
+            return await _maquinaService.GetSlotsAsync(id);
+        }
+
+        [HttpPost("{id}/slots")]
+        public async Task<IActionResult> UpdateSlot(int id, [FromBody] ConfiguracionSlotDto slot)
+        {
+            if (id != slot.MaquinaId) return BadRequest("ID de máquina no coincide.");
+            await _maquinaService.UpdateSlotAsync(slot);
+            return Ok();
         }
     }
 }

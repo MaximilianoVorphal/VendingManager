@@ -77,7 +77,7 @@ namespace VendingManager.Infrastructure.Services
 
                         // 2. Parsear DATOS PRIMERO (Necesitamos fecha/precio para el chequeo alternativo)
                         decimal.TryParse(row[colPrecio]?.ToString(), out decimal precio);
-                        int.TryParse(row[colSlot]?.ToString(), out int slot);
+                        string slot = row[colSlot]?.ToString()?.Trim() ?? ""; // AHORA ES STRING
                         DateTime.TryParse(row[colTiempo]?.ToString(), out DateTime fecha);
 
                         string orderNumber = colOrden != -1 ? row[colOrden]?.ToString() ?? "" : "";
@@ -116,9 +116,17 @@ namespace VendingManager.Infrastructure.Services
                         }
 
                         // 4. Procesar Venta (Insertar)
-                        var configSlot = maquina.Slots.FirstOrDefault(s => s.NumeroSlot == slot);
+                        var configSlot = maquina.Slots.FirstOrDefault(s => s.NumeroSlot == slot); // String comparison
                         int? prodId = configSlot?.ProductoId;
                         decimal cost = configSlot?.Producto?.CostoPromedio ?? 0;
+
+                        // NUEVO: Decrementar Stock si existe configuración
+                        if (configSlot != null)
+                        {
+                            configSlot.StockActual--;
+                            // Opcional: Validar no bajar de 0? El requerimiento no lo explicita, pero es buena práctica.
+                            // Por ahora lo dejamos permitir negativo para reconciliación posterior o si el stock estaba mal.
+                        }
 
                         // FIX: Ajuste horario según máquina
                         int offset = machineId.Trim() == "2410280012" ? 1 : -11;
@@ -352,7 +360,7 @@ namespace VendingManager.Infrastructure.Services
                                 Pagado = true,               // ¡Sí, está pagado!
 
                                 // MARCAS PARA IDENTIFICAR QUE ES UN COBRO SIN PRODUCTO
-                                NumeroSlot = -1,             // Slot negativo para identificar error
+                                NumeroSlot = "-1",             // Slot negativo para identificar error
                                 IdOrdenMaquina = "TB-EXTRA", // Marca para tus reportes
                                 ProductoId = null,           // No sabemos qué producto era
                                 CostoVenta = 0,              // No hubo costo porque no salió mercadería
