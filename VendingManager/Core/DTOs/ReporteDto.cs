@@ -7,6 +7,7 @@ namespace VendingManager.Core.DTOs
         public decimal MontoTotal { get; set; }
         public decimal MontoPagado { get; set; }
         public decimal MontoPendiente { get; set; }
+        public decimal MontoPhantom { get; set; } // Cobros extra (TB-EXTRA)
         public decimal GananciaTotal { get; set; }
         public List<DetalleVentaDto> Detalle { get; set; } = new();
     }

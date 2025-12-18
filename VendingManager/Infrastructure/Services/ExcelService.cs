@@ -152,6 +152,8 @@ namespace VendingManager.Infrastructure.Services
         {
             try
             {
+                // Rastreador de IDs usados en esta sesión para evitar que una venta cubra 2 depósitos
+                var processedIds = new HashSet<int>();
                 using (var reader = ExcelReaderFactory.CreateReader(fileStream))
                 {
                     var conf = new ExcelDataSetConfiguration
@@ -162,7 +164,7 @@ namespace VendingManager.Infrastructure.Services
                     Console.WriteLine($"💳 TRANSBANK: Analizando {tabla.Rows.Count} filas...");
 
                     // A) DETECCIÓN DE COLUMNAS
-                    int colFecha = -1, colHora = -1, colMonto = -1, colTipo = -1;
+                    int colFecha = -1, colHora = -1, colMonto = -1, colTipo = -1, colPos = -1;
                     for (int i = 0; i < tabla.Columns.Count; i++)
                     {
                         string h = tabla.Columns[i].ColumnName.ToUpper();
@@ -170,6 +172,7 @@ namespace VendingManager.Infrastructure.Services
                         else if (h == "HORA") colHora = i;
                         else if (h == "MONTO") colMonto = i;
                         else if (h.Contains("TIPO MOVIMIENTO") || h.Contains("TIPO VENTA")) colTipo = i;
+                        else if (h.Contains("TERMINAL") || h.Contains("POS") || h.Contains("CODIGO COMERCIO")) colPos = i;
                     }
 
                     if (colFecha == -1 || colMonto == -1)
@@ -178,7 +181,12 @@ namespace VendingManager.Infrastructure.Services
                         return;
                     }
 
-                    // B) PARSEAR TODO A MEMORIA (Evitar relectura de DataTable)
+                    // B) PREPARAR MAPA DE MÁQUINAS (POS -> ID)
+                    var maquinaMap = await _context.Maquinas
+                        .Where(m => !string.IsNullOrEmpty(m.CodigoTerminalPos))
+                        .ToDictionaryAsync(m => m.CodigoTerminalPos, m => m.Id);
+
+                    // C) PARSEAR TODO A MEMORIA (Evitar relectura de DataTable)
                     var tbRecords = new List<TransbankRecord>();
                     string[] formatos = { "dd/MM/yyyy HH:mm", "dd/MM/yyyy HH:mm:ss", "dd-MM-yyyy HH:mm", "dd-MM-yyyy HH:mm:ss" };
 
@@ -201,7 +209,8 @@ namespace VendingManager.Infrastructure.Services
                                                    System.Globalization.DateTimeStyles.None,
                                                    out DateTime fechaTB))
                         {
-                            tbRecords.Add(new TransbankRecord { Fecha = fechaTB, Monto = montoTB });
+                            string posCode = colPos != -1 ? row[colPos]?.ToString()?.Trim() ?? "" : "";
+                            tbRecords.Add(new TransbankRecord { Fecha = fechaTB, Monto = montoTB, PosCode = posCode });
                         }
                     }
 
@@ -222,18 +231,18 @@ namespace VendingManager.Infrastructure.Services
                         DateTime fin = rec.Fecha.AddMinutes(minutesWindow);
 
                         // 1. Match Normal (No pagados)
-                        var venta = await FindBestMatch(rec.Monto, rec.Fecha, inicio, fin, includePaid: false);
+                        var venta = await FindBestMatch(rec.Monto, rec.Fecha, inicio, fin, includePaid: false, processedIds);
 
                         // 2. Si no encuentra, intentar buscar en pagados (Re-sync Fecha)
                         if (venta == null)
                         {
-                            venta = await FindBestMatch(rec.Monto, rec.Fecha, inicio, fin, includePaid: true);
+                            venta = await FindBestMatch(rec.Monto, rec.Fecha, inicio, fin, includePaid: true, processedIds);
                         }
 
                         // 3. Con Tolerancia (Neto vs Bruto) 
                         if (venta == null)
                         {
-                            venta = await FindBestMatchWithTolerance(rec.Monto, rec.Fecha, inicio, fin, includePaid: false);
+                            venta = await FindBestMatchWithTolerance(rec.Monto, rec.Fecha, inicio, fin, includePaid: false, processedIds);
                         }
 
                         if (venta != null)
@@ -247,8 +256,19 @@ namespace VendingManager.Infrastructure.Services
                                 datesFixed++;
                             }
 
+                            // FIX: Si es un Cobro Fantasma (TB-EXTRA), verificar si debemos moverlo de máquina
+                            if (venta.IdOrdenMaquina == "TB-EXTRA" && !string.IsNullOrEmpty(rec.PosCode))
+                            {
+                                if (maquinaMap.TryGetValue(rec.PosCode, out int mappedId) && venta.MaquinaId != mappedId)
+                                {
+                                    venta.MaquinaId = mappedId;
+                                    Console.WriteLine($"   🔄 CORRIGIENDO MAQUINA para TB-EXTRA: ID {venta.Id} -> Ahora Maquina {mappedId}");
+                                }
+                            }
+
                             rec.Matched = true;
                             matches++;
+                            processedIds.Add(venta.Id); // Marcar como usado
                             await _context.SaveChangesAsync();
                         }
                     }
@@ -267,12 +287,12 @@ namespace VendingManager.Infrastructure.Services
                         DateTime fin = rec.Fecha.AddMinutes(minutesWindow);
 
                         // A) INTENTO MATCH SIMPLE
-                        var venta = await FindBestMatch(rec.Monto, rec.Fecha, inicio, fin, includePaid: false);
+                        var venta = await FindBestMatch(rec.Monto, rec.Fecha, inicio, fin, includePaid: false, processedIds);
 
                         // A.2) INTENTO MATCH HOLGADO CON TOLERANCIA
                         if (venta == null)
                         {
-                            venta = await FindBestMatchWithTolerance(rec.Monto, rec.Fecha, inicio, fin, includePaid: false);
+                            venta = await FindBestMatchWithTolerance(rec.Monto, rec.Fecha, inicio, fin, includePaid: false, processedIds);
                         }
 
                         if (venta != null)
@@ -288,13 +308,14 @@ namespace VendingManager.Infrastructure.Services
 
                             rec.Matched = true;
                             matches++;
+                            processedIds.Add(venta.Id);
                             Console.WriteLine($"   ✅ Match [HOLGADO]: ${rec.Monto} | TB:{rec.Fecha}");
                             await _context.SaveChangesAsync();
                         }
                         else
                         {
                             // B) INTENTO MATCH COMBINADO
-                            bool matchCombinado = await TryMatchCombinado(rec, inicio, fin);
+                            bool matchCombinado = await TryMatchCombinado(rec, inicio, fin, processedIds);
                             if (matchCombinado)
                             {
                                 matches++;
@@ -302,7 +323,48 @@ namespace VendingManager.Infrastructure.Services
                                 continue;
                             }
 
-                            Console.WriteLine($"   ⚠️ NO MATCH: ${rec.Monto} | TB:{rec.Fecha}");
+                            // =================================================================
+                            // 🔴 AQUÍ ESTÁ LA MODIFICACIÓN: REGISTRAR EL COBRO FANTASMA
+                            // =================================================================
+
+                            Console.WriteLine($" ⚠️ NO MATCH: ${rec.Monto} | TB:{rec.Fecha} -> 💾 GUARDANDO COMO COBRO FANTASMA");
+
+                            // Buscamos una máquina por defecto para asignar la venta 
+                            var maquinaDefault = await _context.Maquinas.FirstOrDefaultAsync();
+                            int targetMaquinaId = maquinaDefault?.Id ?? 0;
+
+                            // INTENTO DE ASIGNACIÓN POR POS
+                            if (!string.IsNullOrEmpty(rec.PosCode) && maquinaMap.TryGetValue(rec.PosCode, out int mappedId))
+                            {
+                                targetMaquinaId = mappedId;
+                                Console.WriteLine($"   -> Asignado a Máquina ID: {mappedId} por POS: '{rec.PosCode}'");
+                            }
+                            else
+                            {
+                                Console.WriteLine($"   -> USANDO DEFAULT (No se encontró POS '{rec.PosCode}' en DB)");
+                            }
+
+                            var ventaFantasma = new Venta
+                            {
+                                FechaHora = rec.Fecha,       // Hora real del cobro
+                                FechaLocal = rec.Fecha,      // Usamos la misma hora
+                                PrecioVenta = rec.Monto,     // El dinero que entró
+                                Pagado = true,               // ¡Sí, está pagado!
+
+                                // MARCAS PARA IDENTIFICAR QUE ES UN COBRO SIN PRODUCTO
+                                NumeroSlot = -1,             // Slot negativo para identificar error
+                                IdOrdenMaquina = "TB-EXTRA", // Marca para tus reportes
+                                ProductoId = null,           // No sabemos qué producto era
+                                CostoVenta = 0,              // No hubo costo porque no salió mercadería
+
+                                // Asignación de Máquina (Necesario por Foreign Key)
+                                MaquinaId = targetMaquinaId
+                            };
+
+                            _context.Ventas.Add(ventaFantasma);
+                            await _context.SaveChangesAsync(); // Guardamos el dinero
+
+                            // [FIN MODIFICACIÓN]
 
                             await LogDebugExtended(rec.Monto, rec.Fecha);
                         }
@@ -323,10 +385,11 @@ namespace VendingManager.Infrastructure.Services
         {
             public DateTime Fecha { get; set; }
             public decimal Monto { get; set; }
+            public string PosCode { get; set; } = "";
             public bool Matched { get; set; } = false;
         }
 
-        private async Task<Venta?> FindBestMatch(decimal monto, DateTime fechaTB, DateTime inicio, DateTime fin, bool includePaid)
+        private async Task<Venta?> FindBestMatch(decimal monto, DateTime fechaTB, DateTime inicio, DateTime fin, bool includePaid, HashSet<int> processedIds)
         {
             var query = _context.Ventas
                 .Where(v => v.PrecioVenta == monto &&
@@ -340,6 +403,9 @@ namespace VendingManager.Infrastructure.Services
 
             var candidatos = await query.ToListAsync();
 
+            // Filter out already processed in this session
+            candidatos = candidatos.Where(v => !processedIds.Contains(v.Id)).ToList();
+
             if (!candidatos.Any()) return null;
 
             return candidatos
@@ -347,7 +413,7 @@ namespace VendingManager.Infrastructure.Services
                 .First();
         }
 
-        private async Task<Venta?> FindBestMatchWithTolerance(decimal montoTB, DateTime fechaTB, DateTime inicio, DateTime fin, bool includePaid)
+        private async Task<Venta?> FindBestMatchWithTolerance(decimal montoTB, DateTime fechaTB, DateTime inicio, DateTime fin, bool includePaid, HashSet<int> processedIds)
         {
             var query = _context.Ventas
                 .Where(v => v.PrecioVenta > montoTB &&
@@ -362,6 +428,9 @@ namespace VendingManager.Infrastructure.Services
 
             var candidatos = await query.ToListAsync();
 
+            // Filter out already processed
+            candidatos = candidatos.Where(v => !processedIds.Contains(v.Id)).ToList();
+
             var match = candidatos
                 .Where(v => montoTB >= v.PrecioVenta * 0.94m)
                 .OrderBy(v => Math.Abs((v.FechaLocal - fechaTB).TotalSeconds))
@@ -370,7 +439,7 @@ namespace VendingManager.Infrastructure.Services
             return match;
         }
 
-        private async Task<bool> TryMatchCombinado(TransbankRecord rec, DateTime inicio, DateTime fin)
+        private async Task<bool> TryMatchCombinado(TransbankRecord rec, DateTime inicio, DateTime fin, HashSet<int> processedIds)
         {
             var candidatosMix = await _context.Ventas
                 .Where(v => v.FechaLocal >= inicio &&
@@ -378,6 +447,9 @@ namespace VendingManager.Infrastructure.Services
                             !v.Pagado)
                 .OrderBy(v => v.FechaLocal)
                 .ToListAsync();
+
+            // Filter out already processed
+            candidatosMix = candidatosMix.Where(v => !processedIds.Contains(v.Id)).ToList();
 
             if (candidatosMix.Count < 2) return false;
 
@@ -389,6 +461,7 @@ namespace VendingManager.Infrastructure.Services
                 {
                     v.Pagado = true;
                     v.FechaLocal = rec.Fecha; // Synced
+                    processedIds.Add(v.Id);
                 }
 
                 rec.Matched = true;
