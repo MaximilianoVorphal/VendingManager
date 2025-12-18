@@ -90,6 +90,10 @@ namespace VendingManager.Infrastructure.Services
                 MontoTotal = listaVentas.Sum(v => v.PrecioVenta),
                 MontoPagado = listaVentas.Where(v => v.Pagado).Sum(v => v.PrecioVenta),
                 MontoPendiente = listaVentas.Where(v => !v.Pagado).Sum(v => v.PrecioVenta),
+
+                // Calculamos los cobros fantasma (TB-EXTRA)
+                MontoPhantom = listaVentas.Where(v => v.IdOrdenMaquina == "TB-EXTRA").Sum(v => v.PrecioVenta),
+
                 Detalle = new List<DetalleVentaDto>()
             };
 
