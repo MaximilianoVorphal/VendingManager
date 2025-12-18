@@ -20,18 +20,21 @@
                 <!-- SEARCH BAR -->
                 <div class="input-group" style="max-width: 300px;">
                     <span class="input-group-text bg-white border-dark rounded-0"><i class="bi bi-search"></i></span>
-                    <input type="text" class="form-control border-dark rounded-0 shadow-sm" 
-                           placeholder="Buscar producto, SKU..." 
-                           @bind="SearchTerm" @bind:event="oninput" />
+                    <input type="text" class="form-control border-dark rounded-0 shadow-sm"
+                        placeholder="Buscar producto, SKU..." @bind="SearchTerm" @bind:event="oninput" />
                 </div>
+                <label class="btn btn-success rounded-0 fw-bold shadow animate__animated animate__fadeIn">
+                    <i class="bi bi-plus-lg me-2"></i>NUEVO
+                    <button @onclick="() => AbrirModalEditar(null)" style="display: none;"></button>
+                </label>
 
                 <label class="btn btn-dark rounded-0 fw-bold shadow">
                     <i class="bi bi-file-earmark-excel me-2"></i>IMPORTAR
                     <InputFile OnChange="@SubirCatalogo" style="display: none;" accept=".xls,.xlsx" />
                 </label>
             </div>
-            
-             @if (Cargando)
+
+            @if (Cargando)
             {
                 <div class="text-end mt-1">
                     <span class="fw-bold text-primary small">Procesando...</span>
@@ -48,7 +51,8 @@
     }
 
     <div class="card border-2 border-dark rounded-0 shadow my-4">
-        <div class="card-header bg-dark text-white rounded-0 fw-bold d-flex justify-content-between align-items-center flex-wrap">
+        <div
+            class="card-header bg-dark text-white rounded-0 fw-bold d-flex justify-content-between align-items-center flex-wrap">
             <span>INVENTARIO: @FilteredProductos.Count() ITEMS (Total: @Productos.Count)</span>
             <span>VALOR: $@FilteredProductos.Sum(x => x.StockBodega * x.CostoPromedio).ToString("N0")</span>
         </div>
@@ -56,9 +60,6 @@
             <table class="table table-hover table-bordered border-dark m-0 align-middle">
                 <thead class="bg-secondary text-white text-uppercase" style="font-size: 0.85rem;">
                     <tr>
-                        <th class="text-center sortable-header" @onclick="@(() => SortBy("Codigo"))">
-                            CÓDIGO <i class="@GetSortIcon("Codigo")"></i>
-                        </th>
                         <th class="sortable-header" @onclick="@(() => SortBy("Nombre"))">
                             PRODUCTO <i class="@GetSortIcon("Nombre")"></i>
                         </th>
@@ -70,9 +71,6 @@
                         </th>
                         <th class="text-end sortable-header" @onclick="@(() => SortBy("Costo"))">
                             COSTO <i class="@GetSortIcon("Costo")"></i>
-                        </th>
-                        <th class="text-end sortable-header" @onclick="@(() => SortBy("Precio"))">
-                            PRECIO <i class="@GetSortIcon("Precio")"></i>
                         </th>
                         <th class="text-center sortable-header" @onclick="@(() => SortBy("Stock"))">
                             STOCK <i class="@GetSortIcon("Stock")"></i>
@@ -90,13 +88,15 @@
                     else if (Productos.Count == 0)
                     {
                         <tr>
-                            <td colspan="8" class="text-center p-4 text-muted">No hay productos registrados. Importa una plantilla.</td>
+                            <td colspan="8" class="text-center p-4 text-muted">No hay productos registrados. Importa una
+                                plantilla.</td>
                         </tr>
                     }
                     else if (!FilteredProductos.Any())
                     {
                         <tr>
-                             <td colspan="8" class="text-center p-4 text-muted">No se encontraron resultados para "@SearchTerm".</td>
+                            <td colspan="8" class="text-center p-4 text-muted">No se encontraron resultados para
+                                "@SearchTerm".</td>
                         </tr>
                     }
                     else
@@ -104,12 +104,11 @@
                         @foreach (var p in PagedProductos)
                         {
                             <tr class="@(p.StockBodega < 5 ? "table-danger-custom" : "")">
-                                <td class="text-center font-monospace bg-light">@p.CodigoBarras</td>
                                 <td>@p.Nombre</td>
-                                <td class="text-center"><span class="badge bg-light text-dark border border-dark rounded-0">@p.Categoria</span></td>
+                                <td class="text-center"><span
+                                class="badge bg-light text-dark border border-dark rounded-0">@p.Categoria</span></td>
                                 <td class="text-center small text-muted">@p.Proveedor</td>
                                 <td class="text-end font-monospace text-muted">$@p.CostoPromedio.ToString("N0")</td>
-                                <td class="text-end font-monospace text-success">$@p.PrecioVenta.ToString("N0")</td>
 
                                 <td class="text-center">
                                     <span class="fs-6 fw-bold @(p.StockBodega < 10 ? "text-danger" : "text-dark")">
@@ -120,20 +119,20 @@
                                 <td class="text-center">
                                     <div class="d-flex justify-content-center gap-2 flex-wrap">
                                         <!-- BOTÓN EDITAR -->
-                                        <button class="btn btn-sm btn-outline-warning rounded-0 fw-bold border-dark text-dark"
-                                            title="Editar Producto" @onclick="() => AbrirModalEditar(p)">
+                                <button class="btn btn-sm btn-outline-warning rounded-0 fw-bold border-dark text-dark"
+                                    title="Editar Producto" @onclick="() => AbrirModalEditar(p)">
                                             <i class="bi bi-pencil-square"></i>
                                         </button>
 
                                         <!-- BOTÓN INGRESO -->
-                                        <button class="btn btn-sm btn-outline-success rounded-0 fw-bold border-dark"
-                                            title="Ingresar nueva mercadería" @onclick="() => AbrirModal(p, true)">
+                                <button class="btn btn-sm btn-outline-success rounded-0 fw-bold border-dark"
+                                    title="Ingresar nueva mercadería" @onclick="() => AbrirModal(p, true)">
                                             <i class="bi bi-box-arrow-in-down"></i>
                                         </button>
 
                                         <!-- BOTÓN REPONER -->
-                                        <button class="btn btn-sm btn-outline-primary rounded-0 fw-bold border-dark"
-                                            title="Cargar máquina (Salida)" @onclick="() => AbrirModal(p, false)">
+                                <button class="btn btn-sm btn-outline-primary rounded-0 fw-bold border-dark"
+                                    title="Cargar máquina (Salida)" @onclick="() => AbrirModal(p, false)">
                                             <i class="bi bi-box-arrow-up"></i>
                                         </button>
                                     </div>
@@ -144,7 +143,7 @@
                 </tbody>
             </table>
         </div>
-        
+
         <!-- PAGINATION -->
         @if (TotalPages > 1)
         {
@@ -153,10 +152,12 @@
                 <nav>
                     <ul class="pagination pagination-sm m-0">
                         <li class="page-item @(CurrentPage == 1 ? "disabled" : "")">
-                            <button class="page-link text-dark fw-bold" @onclick="() => ChangePage(CurrentPage - 1)">Anterior</button>
+                            <button class="page-link text-dark fw-bold"
+                            @onclick="() => ChangePage(CurrentPage - 1)">Anterior</button>
                         </li>
                         <li class="page-item @(CurrentPage == TotalPages ? "disabled" : "")">
-                             <button class="page-link text-dark fw-bold" @onclick="() => ChangePage(CurrentPage + 1)">Siguiente</button>
+                            <button class="page-link text-dark fw-bold"
+                            @onclick="() => ChangePage(CurrentPage + 1)">Siguiente</button>
                         </li>
                     </ul>
                 </nav>
@@ -170,9 +171,11 @@
         cursor: pointer;
         user-select: none;
     }
+
     .sortable-header:hover {
         background-color: #555 !important;
     }
+
     .table-danger-custom {
         background-color: #fff5f5 !important;
     }
@@ -181,7 +184,7 @@
 <!-- MODAL UNIFICADO (INGRESO / SALIDA) -->
 @if (MostrarModal && ProductoSeleccionado != null)
 {
-    var esIngreso = EsIngresoStock; 
+    var esIngreso = EsIngresoStock;
     var colorModal = esIngreso ? "bg-success" : "bg-primary";
     var colorBoton = esIngreso ? "btn-success" : "btn-primary";
     var textoAccion = esIngreso ? "INGRESAR A BODEGA" : "CARGAR EN MÁQUINA";
@@ -244,7 +247,10 @@
         <div class="modal-dialog modal-dialog-centered modal-lg">
             <div class="modal-content rounded-0 border-2 border-dark shadow-lg">
                 <div class="modal-header bg-warning text-dark rounded-0 border-bottom border-dark">
-                    <h5 class="modal-title fw-bold"><i class="bi bi-pencil-square me-2"></i>EDITAR FICHA TÉCNICA</h5>
+                    <h5 class="modal-title fw-bold">
+                        <i class="bi @(ProductoEditar.Id == 0 ? "bi-plus-circle" : "bi-pencil-square") me-2"></i>
+                        @(ProductoEditar.Id == 0 ? "NUEVO PRODUCTO" : "EDITAR FICHA TÉCNICA")
+                    </h5>
                     <button type="button" class="btn-close" @onclick="CerrarModalEditar"></button>
                 </div>
                 <div class="modal-body p-4">
@@ -268,11 +274,7 @@
                             <input type="text" class="form-control rounded-0 border-dark"
                             @bind="ProductoEditar.Proveedor" />
                         </div>
-                        <div class="col-md-6">
-                            <label class="form-label fw-bold small text-success">PRECIO VENTA ($)</label>
-                            <input type="number" class="form-control rounded-0 border-dark fw-bold text-success"
-                            @bind="ProductoEditar.PrecioVenta" />
-                        </div>
+
                         <div class="col-md-6">
                             <label class="form-label fw-bold small text-muted">COSTO UNITARIO ($)</label>
                             <input type="number" class="form-control rounded-0 border-dark fw-bold text-muted"
@@ -303,15 +305,15 @@
     private string SearchTerm = "";
     private string SortColumn = "Nombre";
     private bool IsAscending = true;
-    
+
     // Pagination State
     private int CurrentPage = 1;
     private int PageSize = 10;
 
     // Derived Properties
-    private IEnumerable<ProductoDTO> FilteredProductos 
+    private IEnumerable<ProductoDTO> FilteredProductos
     {
-        get 
+        get
         {
             var query = Productos.AsEnumerable();
 
@@ -319,10 +321,10 @@
             if (!string.IsNullOrWhiteSpace(SearchTerm))
             {
                 var term = SearchTerm.ToLower();
-                query = query.Where(p => 
-                    (p.Nombre?.ToLower().Contains(term) ?? false) || 
-                    (p.CodigoBarras?.ToLower().Contains(term) ?? false) || 
-                    (p.Proveedor?.ToLower().Contains(term) ?? false));
+                query = query.Where(p =>
+                (p.Nombre?.ToLower().Contains(term) ?? false) ||
+                (p.CodigoBarras?.ToLower().Contains(term) ?? false) ||
+                (p.Proveedor?.ToLower().Contains(term) ?? false));
             }
 
             // 2. Sort
@@ -338,13 +340,13 @@
                 _ => query
             };
 
-            return query; 
+            return query;
         }
     }
 
     private IEnumerable<ProductoDTO> PagedProductos => FilteredProductos
-        .Skip((CurrentPage - 1) * PageSize)
-        .Take(PageSize);
+    .Skip((CurrentPage - 1) * PageSize)
+    .Take(PageSize);
 
     private int TotalPages => (int)Math.Ceiling(FilteredProductos.Count() / (double)PageSize);
 
@@ -440,21 +442,38 @@
     }
 
     // --- ACCIONES EDICIÓN ---
-    private void AbrirModalEditar(ProductoDTO producto)
+    private void AbrirModalEditar(ProductoDTO? producto)
     {
-        // Clonar para no modificar la tabla directamente hasta confirmar
-        ProductoEditar = new ProductoDTO
+        if (producto == null)
         {
-            Id = producto.Id,
-            Nombre = producto.Nombre,
-            CodigoBarras = producto.CodigoBarras,
-            SKU = producto.SKU, // Copiar SKU
-            Categoria = producto.Categoria,
-            Proveedor = producto.Proveedor,
-            CostoPromedio = producto.CostoPromedio,
-            PrecioVenta = producto.PrecioVenta,
-            StockBodega = producto.StockBodega
-        };
+            // CREAR UNO NUEVO
+            ProductoEditar = new ProductoDTO
+            {
+                Nombre = "",
+                CodigoBarras = "",
+                SKU = "",
+                Categoria = "GENERAL",
+                Proveedor = "GENERICO",
+                PrecioVenta = 1000,
+                CostoPromedio = 500
+            };
+        }
+        else
+        {
+            // EDITAR EXISTENTE (Clonar)
+            ProductoEditar = new ProductoDTO
+            {
+                Id = producto.Id,
+                Nombre = producto.Nombre,
+                CodigoBarras = producto.CodigoBarras,
+                SKU = producto.SKU,
+                Categoria = producto.Categoria,
+                Proveedor = producto.Proveedor,
+                CostoPromedio = producto.CostoPromedio,
+                PrecioVenta = producto.PrecioVenta,
+                StockBodega = producto.StockBodega
+            };
+        }
         MostrarModalEditar = true;
     }
 
@@ -473,10 +492,22 @@
 
         try
         {
-            var response = await Http.PutAsJsonAsync($"api/productos/{ProductoEditar.Id}", ProductoEditar);
+            HttpResponseMessage response;
+            if (ProductoEditar.Id == 0)
+            {
+                // POST (Nuevo)
+                response = await Http.PostAsJsonAsync("api/productos", ProductoEditar);
+            }
+            else
+            {
+                // PUT (Editar)
+                response = await Http.PutAsJsonAsync($"api/productos/{ProductoEditar.Id}", ProductoEditar);
+            }
+
             if (response.IsSuccessStatusCode)
             {
-                Mensaje = "✅ Producto actualizado correctamente.";
+                var action = ProductoEditar.Id == 0 ? "creado" : "actualizado";
+                Mensaje = $"✅ Producto {action} correctamente.";
                 AlertClass = "alert-success";
                 await CargarInventario(); // Recargar lista completa
                 CerrarModalEditar();
