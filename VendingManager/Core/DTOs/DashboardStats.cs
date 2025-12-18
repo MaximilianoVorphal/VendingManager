@@ -5,6 +5,7 @@
         public PeriodoStats Hoy { get; set; } = new();
         public PeriodoStats Semana { get; set; } = new();
         public PeriodoStats Mes { get; set; } = new();
+        public int CantidadStockCritico { get; set; }
     }
 
     public class PeriodoStats

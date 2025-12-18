@@ -1,0 +1,13 @@
+
+namespace VendingManager.Core.DTOs
+{
+    public class StockCriticoDto
+    {
+        public int SlotId { get; set; }
+        public string Maquina { get; set; } = string.Empty;
+        public string NumeroSlot { get; set; } = string.Empty;
+        public string Producto { get; set; } = string.Empty;
+        public int StockActual { get; set; }
+        public int CapacidadMaxima { get; set; }
+    }
+}
