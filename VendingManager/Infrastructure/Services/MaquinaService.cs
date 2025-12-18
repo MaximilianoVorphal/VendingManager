@@ -75,12 +75,51 @@ namespace VendingManager.Infrastructure.Services
 
         public async Task UpdateSlotAsync(ConfiguracionSlotDto slot)
         {
-            var existing = await _context.ConfiguracionSlots
-                .FirstOrDefaultAsync(s => s.MaquinaId == slot.MaquinaId && s.NumeroSlot == slot.NumeroSlot);
-
-            if (existing == null)
+            if (slot.Id > 0)
             {
-                // Create
+                // EDIT MODE (Update existing)
+                var existing = await _context.ConfiguracionSlots.FindAsync(slot.Id);
+                if (existing != null)
+                {
+                    // Check if target slot number is already taken by ANOTHER slot in same machine
+                    var collision = await _context.ConfiguracionSlots
+                        .FirstOrDefaultAsync(s => s.MaquinaId == slot.MaquinaId &&
+                                                  s.NumeroSlot == slot.NumeroSlot &&
+                                                  s.Id != slot.Id);
+
+                    if (collision != null)
+                    {
+                        // SWAP LOGIC: Exchange Slot Numbers
+                        // Store the "old" number locally to give to the collision
+                        string oldNumber = existing.NumeroSlot;
+
+                        // Give collision the old number (swap complete)
+                        collision.NumeroSlot = oldNumber;
+                        _context.Entry(collision).State = EntityState.Modified;
+                    }
+
+                    // Apply updates to target
+                    existing.NumeroSlot = slot.NumeroSlot;
+                    existing.ProductoId = slot.ProductoId;
+                    existing.PrecioVenta = slot.PrecioVenta;
+                    existing.StockActual = slot.StockActual;
+                    existing.CapacidadMaxima = slot.CapacidadMaxima;
+
+                    _context.Entry(existing).State = EntityState.Modified;
+                }
+            }
+            else
+            {
+                // CREATE MODE (New Slot)
+                // Check if slot number exists
+                var collision = await _context.ConfiguracionSlots
+                       .FirstOrDefaultAsync(s => s.MaquinaId == slot.MaquinaId && s.NumeroSlot == slot.NumeroSlot);
+
+                if (collision != null)
+                {
+                    throw new InvalidOperationException($"El slot {slot.NumeroSlot} ya existe. Editalo en lugar de crear uno nuevo.");
+                }
+
                 var newSlot = new ConfiguracionSlot
                 {
                     MaquinaId = slot.MaquinaId,
@@ -91,14 +130,6 @@ namespace VendingManager.Infrastructure.Services
                     CapacidadMaxima = slot.CapacidadMaxima
                 };
                 _context.ConfiguracionSlots.Add(newSlot);
-            }
-            else
-            {
-                // Update
-                existing.ProductoId = slot.ProductoId;
-                existing.PrecioVenta = slot.PrecioVenta;
-                existing.StockActual = slot.StockActual;
-                existing.CapacidadMaxima = slot.CapacidadMaxima;
             }
 
             await _context.SaveChangesAsync();

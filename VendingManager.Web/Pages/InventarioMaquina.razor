@@ -90,7 +90,15 @@
                                     
                                     <td class="text-center">
                                         <div class="d-flex align-items-center justify-content-center gap-1">
-                                            <span class="fs-6 @(s.StockActual < 3 ? "text-danger" : "text-dark")">@s.StockActual</span>
+                                            @if (s.StockActual >= 0 && s.StockActual <= 2)
+                                            {
+                                                <span class="fs-5 fw-bold text-danger">@s.StockActual</span>
+                                                <span class="badge bg-danger ms-1">CRÍTICO</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="fs-6 text-dark">@s.StockActual</span>
+                                            }
                                         </div>
                                     </td>
                                     <td class="text-center text-muted">@s.CapacidadMaxima</td>
