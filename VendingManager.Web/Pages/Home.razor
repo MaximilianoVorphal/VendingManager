@@ -127,6 +127,34 @@
             </div>
         </div>
 
+        <!-- CARD DE STOCK CRITICO -->
+        <div class="row mb-5">
+            <div class="col-12">
+                <div class="card-hover border border-2 border-danger bg-white p-0 shadow-sm cursor-pointer position-relative"
+                @onclick="AbrirModalCritico" role="button">
+                    <div class="bg-danger text-white p-2 fw-bold text-center text-uppercase small"
+                    style="letter-spacing: 1px;">
+                        🚨 ALERTA DE STOCK CRÍTICO (≤ 2 UNIDADES) 🚨
+                    </div>
+                    <div class="p-4 text-center d-flex align-items-center justify-content-center gap-4">
+                        <div>
+                            <small class="text-danger text-uppercase fw-bold d-block" style="font-size: 0.7rem;">Items en
+                                Riesgo</small>
+                            <h1 class="display-4 fw-bold my-0 text-danger" style="letter-spacing: -2px;">
+                                @Stats.CantidadStockCritico
+                            </h1>
+                        </div>
+                        <div class="text-start border-start border-danger ps-4">
+                            <p class="mb-0 fw-bold small text-uppercase text-dark">
+                                Haga clic para ver el detalle de productos que requieren reposición inmediata.
+                            </p>
+                            <small class="text-muted">Inventario actualizado en tiempo real.</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- CHART SECTION -->
         <div class="row mb-5">
             <div class="col-md-8">
@@ -248,6 +276,24 @@
 
     private string Mensaje = "";
     private bool Cargando = false;
+
+    // Critical Stock Modal Logic
+    private bool MostrarModalCriticoState = false;
+    private List<StockCriticoDto>? ListaCriticos;
+
+    private async Task AbrirModalCritico()
+    {
+        MostrarModalCriticoState = true;
+        ListaCriticos = null; // Reset to show loading
+        try
+        {
+            ListaCriticos = await
+            Http.GetFromJsonAsync<List<StockCriticoDto>>($"api/Ventas/stock-critico?maquinaId={MaquinaActualId}") ?? new();
+        }
+        catch { ListaCriticos = new(); }
+    }
+
+    private void CerrarModalCritico() => MostrarModalCriticoState = false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -410,6 +456,7 @@ backgroundColor = new[] { "#198754", "#dc3545" }
         public PeriodoStats Hoy { get; set; } = new();
         public PeriodoStats Semana { get; set; } = new();
         public PeriodoStats Mes { get; set; } = new();
+        public int CantidadStockCritico { get; set; }
     }
     public class PeriodoStats
     {
@@ -419,4 +466,90 @@ backgroundColor = new[] { "#198754", "#dc3545" }
         public int CantidadVentas { get; set; }
     }
     public class MaquinaSimpleDto { public int Id { get; set; } public string Nombre { get; set; } = ""; }
+    public class StockCriticoDto
+    {
+        public int SlotId { get; set; }
+        public string Maquina { get; set; } = "";
+        public string NumeroSlot { get; set; } = "";
+        public string Producto { get; set; } = "";
+        public int StockActual { get; set; }
+        public int CapacidadMaxima { get; set; }
+    }
+}
+
+@if (MostrarModalCriticoState)
+{
+    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content rounded-0 border-2 border-danger shadow-lg">
+                <div class="modal-header bg-danger text-white rounded-0 border-bottom border-dark">
+                    <h5 class="modal-title fw-bold text-uppercase"><i
+                        class="bi bi-exclamation-triangle-fill me-2"></i>REPORTE DE STOCK CRÍTICO</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CerrarModalCritico"></button>
+                </div>
+                <div class="modal-body p-0">
+                    @if (ListaCriticos == null)
+                    {
+                        <div class="text-center py-5">
+                            <div class="spinner-border text-danger" role="status"></div>
+                            <p class="mt-2 fw-bold text-uppercase small text-muted">Cargando reporte...</p>
+                        </div>
+                    }
+                    else if (ListaCriticos.Count == 0)
+                    {
+                        <div class="text-center py-5">
+                            <i class="bi bi-check-circle-fill text-success fs-1"></i>
+                            <h5 class="fw-bold mt-3 text-uppercase">¡Todo en orden!</h5>
+                            <p class="text-muted small">No hay productos con stock crítico en este momento.</p>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover m-0 align-middle">
+                                <thead class="bg-light text-dark text-uppercase small font-monospace">
+                                    <tr>
+                                        <th class="px-3">MÁQUINA</th>
+                                        <th class="text-center">SLOT</th>
+                                        <th>PRODUCTO</th>
+                                        <th class="text-center">STOCK / CAP</th>
+                                        <th class="text-center">ESTADO</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var item in ListaCriticos)
+                                    {
+                                        <tr>
+                                            <td class="fw-bold px-3 small">@item.Maquina</td>
+                                            <td class="text-center font-monospace bg-white border-start border-end">@item.NumeroSlot
+                                            </td>
+                                            <td class="text-uppercase small">@item.Producto</td>
+                                            <td class="text-center fw-bold font-monospace">
+                                                <span class="text-danger">@item.StockActual</span>
+                                                <span class="text-muted"> / @item.CapacidadMaxima</span>
+                                            </td>
+                                            <td class="text-center">
+                                                @if (item.StockActual == 0)
+                                                {
+                                                    <span class="badge bg-dark rounded-0">AGOTADO</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="badge bg-danger rounded-0">BAJO</span>
+                                                }
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer bg-light rounded-0">
+                    <button type="button" class="btn btn-dark rounded-0 fw-bold px-4" @onclick="CerrarModalCritico">CERRAR
+                        PANTALLA</button>
+                </div>
+            </div>
+        </div>
+    </div>
 }

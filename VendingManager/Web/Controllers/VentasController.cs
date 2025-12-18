@@ -62,6 +62,12 @@ namespace VendingManager.Web.Controllers
             return await _ventasService.GetDashboardStatsAsync(maquinaId);
         }
 
+        [HttpGet("stock-critico")]
+        public async Task<ActionResult<List<StockCriticoDto>>> GetStockCritico(int maquinaId = 0)
+        {
+            return await _ventasService.GetStockCriticoAsync(maquinaId);
+        }
+
         [HttpGet("reporte-rango")]
         public async Task<ActionResult<ReporteDto>> GetReporteRango(DateTime inicio, DateTime fin, int maquinaId = 0)
         {

@@ -39,6 +39,11 @@ namespace VendingManager.Infrastructure.Services
             stats.Semana = await GetPeriodoStats(query, inicioSemana);
             stats.Mes = await GetPeriodoStats(query, inicioMes);
 
+            // Fetch Critical Stock Count
+            var slotsQuery = _context.ConfiguracionSlots.Where(s => s.StockActual <= 2 && s.ProductoId != 0);
+            if (maquinaId > 0) slotsQuery = slotsQuery.Where(s => s.MaquinaId == maquinaId);
+            stats.CantidadStockCritico = await slotsQuery.CountAsync();
+
             return stats;
         }
 
@@ -234,6 +239,32 @@ namespace VendingManager.Infrastructure.Services
         public async Task ImportarTransbankAsync(Stream stream, string fileName)
         {
             await _excelService.ImportarTransbank(stream, fileName);
+        }
+        public async Task<List<StockCriticoDto>> GetStockCriticoAsync(int maquinaId)
+        {
+            var query = _context.ConfiguracionSlots
+                .Include(s => s.Maquina)
+                .Include(s => s.Producto)
+                .Where(s => s.StockActual <= 2 && s.ProductoId != 0); // Threshold matches InventarioMaquina.razor
+
+            if (maquinaId > 0)
+            {
+                query = query.Where(s => s.MaquinaId == maquinaId);
+            }
+
+            return await query
+                .Select(s => new StockCriticoDto
+                {
+                    SlotId = s.Id,
+                    Maquina = s.Maquina.Nombre,
+                    NumeroSlot = s.NumeroSlot,
+                    Producto = s.Producto.Nombre,
+                    StockActual = s.StockActual,
+                    CapacidadMaxima = s.CapacidadMaxima
+                })
+                .OrderBy(s => s.Maquina)
+                .ThenBy(s => s.NumeroSlot)
+                .ToListAsync();
         }
     }
 }
