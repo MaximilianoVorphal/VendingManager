@@ -78,32 +78,55 @@
     {
         <!-- KPI CARDS -->
         <div class="row g-3 mb-4">
+            @{
+                // CALCULO EN CALIENTE DE LA GANANCIA CONFIRMADA (SOLO PAGADO)
+                // Filtrar solo las ventas con Estado 'Pagado' (asumiendo que en ReporteDto.Detalle viene el estado)
+                var gananciaConfirmada = Datos.Detalle
+                .Where(d => d.Estado == "Pagado")
+                .Sum(d => d.Ganancia);
 
-            <!-- 1. UTILIDAD REAL (NUEVO) -->
+                var ventasConfirmadas = Datos.MontoPagado;
+            }
+
+            <!-- 1. UTILIDAD REAL (SOLO CONFIRMADO) -->
         <div class="col-12 col-md-3">
                 <div class="text-white bg-primary p-3 h-100 shadow-sm border border-2 border-dark position-relative"
                 style="background: linear-gradient(45deg, #0d6efd, #0a58ca);">
-                    <div class="fw-bold text-uppercase small" style="letter-spacing: 1px; opacity: 0.9;">Utilidad (Ganancia)
+                    <div class="fw-bold text-uppercase small" style="letter-spacing: 1px; opacity: 0.9;">Utilidad (Real /
+                        Pagada)
                     </div>
                     <h3 class="fw-bold mt-2 text-white" style="letter-spacing: -1px;">
-                        $@Datos.GananciaTotal.ToString("N0")
+                        $@gananciaConfirmada.ToString("N0")
                     </h3>
-                    <div class="mt-2 border-top border-white pt-2" style="opacity: 0.8;">
-                        <small class="fw-bold text-uppercase" style="font-size: 0.7rem;">Margen Neto Calculado</small>
+                    <div class="mt-2 border-top border-white pt-2 d-flex justify-content-between align-items-center"
+                    style="opacity: 0.9;">
+                        <small class="fw-bold text-uppercase" style="font-size: 0.7rem;">Margen Neto Real</small>
+                        @if (ventasConfirmadas > 0)
+                        {
+                            <span class="badge bg-white text-primary fw-bold border border-white"
+                        style="color: #0d6efd !important;">
+                                @((gananciaConfirmada / ventasConfirmadas * 100).ToString("F1"))%
+                            </span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-white text-muted fw-bold border border-white">0.0%</span>
+                        }
                     </div>
                 </div>
             </div>
 
-            <!-- 2. VENTAS TOTALES -->
+            <!-- 2. VENTAS CONFIRMADAS (SOLO PAGADO) -->
         <div class="col-6 col-md-3">
                 <div class="bg-white p-3 h-100 shadow-sm border border-2 border-dark">
-                    <div class="text-muted fw-bold text-uppercase small" style="letter-spacing: 1px;">Ventas Totales</div>
+                    <div class="text-muted fw-bold text-uppercase small" style="letter-spacing: 1px;">Ventas Confirmadas
+                    </div>
                     <h3 class="fw-bold mt-2 text-dark" style="letter-spacing: -1px;">
-                        $@Datos.MontoTotal.ToString("N0")
+                        $@Datos.MontoPagado.ToString("N0")
                     </h3>
                     <div class="mt-2 border-top border-dark pt-2">
                         <small class="text-muted fw-bold text-uppercase" style="font-size: 0.7rem;">
-                            @Datos.TotalVentas Transacciones
+                            @Datos.Detalle.Count(x => x.Estado == "Pagado") Transacciones
                         </small>
                     </div>
                 </div>
@@ -112,7 +135,7 @@
             <!-- 3. LA DIFERENCIA (FANTASMA) -->
         <div class="col-6 col-md-3">
                 <div class="bg-white p-3 h-100 shadow-sm border border-2 border-dark">
-                    <div class="text-danger fw-bold text-uppercase small" style="letter-spacing: 1px;">Diferencias (Phantom)
+                    <div class="text-danger fw-bold text-uppercase small" style="letter-spacing: 1px;">Diferencias Transbank
                     </div>
                     <h3 class="fw-bold mt-2 text-danger" style="letter-spacing: -1px;">
                         $@Datos.MontoPhantom.ToString("N0")
@@ -140,7 +163,7 @@
                         $@Datos.MontoPendiente.ToString("N0")
                     </h3>
                     <div class="mt-2 border-top border-dark pt-2">
-                        <small class="text-muted fw-bold text-uppercase" style="font-size: 0.7rem;">Por Recaudar</small>
+                        <small class="text-muted fw-bold text-uppercase" style="font-size: 0.7rem;">Por Confirmar</small>
                     </div>
                 </div>
             </div>

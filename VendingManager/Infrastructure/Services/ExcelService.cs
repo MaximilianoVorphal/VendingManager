@@ -1,4 +1,5 @@
 ﻿using ExcelDataReader;
+using ClosedXML.Excel;
 using Microsoft.EntityFrameworkCore;
 using System.Data;
 using System.IO;
@@ -514,7 +515,7 @@ namespace VendingManager.Infrastructure.Services
         // =============================================
         // 3. IMPORTAR CATÁLOGO DE PRODUCTOS (PLANTILLA)
         // =============================================
-        public async Task ImportarCatalogoProductos(Stream fileStream, string nombreArchivo)
+        public async Task<string> ImportarCatalogoProductos(Stream fileStream, string nombreArchivo)
         {
             try
             {
@@ -529,7 +530,8 @@ namespace VendingManager.Infrastructure.Services
                     Console.WriteLine($"📦 CATÁLOGO: Procesando {tabla.Rows.Count} productos...");
 
                     // Mapeo de columnas (Insensible a mayúsculas) (Prioriza la primera aparición)
-                    int colBarcode = -1, colName = -1, colPrice = -1, colCost = -1, colSupplier = -1, colType = -1;
+                    // Mapeo de columnas (Insensible a mayúsculas) (Prioriza la primera aparición)
+                    int colId = -1, colBarcode = -1, colName = -1, colPrice = -1, colCost = -1, colSupplier = -1, colType = -1, colStock = -1;
 
                     Console.WriteLine("📋 COLUMNAS ENCONTRADAS:");
                     for (int i = 0; i < tabla.Columns.Count; i++)
@@ -537,20 +539,26 @@ namespace VendingManager.Infrastructure.Services
                         string h = tabla.Columns[i].ColumnName.Trim().ToLower();
                         Console.WriteLine($"   [{i}] '{tabla.Columns[i].ColumnName}' -> '{h}'");
 
-                        if (colBarcode == -1 && h.Contains("product barcode")) colBarcode = i;
+                        if (colId == -1 && (h.Contains("system id") || h == "id")) colId = i;
+                        else if (colBarcode == -1 && h.Contains("product barcode")) colBarcode = i;
                         else if (colName == -1 && h.Contains("product name")) colName = i;
-                        else if (colPrice == -1 && h.Contains("unit price")) colPrice = i;
+                        else if (colPrice == -1 && (h.Contains("unit price") || h.Contains("reference price"))) colPrice = i;
                         else if (colCost == -1 && h.Contains("cost price")) colCost = i;
                         else if (colSupplier == -1 && h.Contains("supplier")) colSupplier = i;
                         else if (colType == -1 && h.Contains("type")) colType = i;
+                        else if (colStock == -1 && h.Contains("current stock")) colStock = i;
                     }
 
-                    Console.WriteLine($"🔍 Mapeo: Barcode={colBarcode}, Name={colName}, Price={colPrice}");
+                    Console.WriteLine($"🔍 Mapeo: ID={colId}, Barcode={colBarcode}, Name={colName}, Cost={colCost}, Stock={colStock}");
 
-                    if (colBarcode == -1 || colName == -1)
+                    Console.WriteLine($"🔍 Mapeo: ID={colId}, Barcode={colBarcode}, Name={colName}, Cost={colCost}");
+
+                    // VALIDACIÓN MÍNIMA: Necesitamos AL MENOS (ID O Barcode) Y Name
+                    if ((colId == -1 && colBarcode == -1) || colName == -1)
                     {
-                        Console.WriteLine("🔥 ERROR CATÁLOGO: Faltan columnas clave (Barcode o Name).");
-                        return;
+                        string errorMsg = "🔥 ERROR CATÁLOGO: Faltan columnas clave (ID o Barcode) y Name. Verifique el archivo.";
+                        Console.WriteLine(errorMsg);
+                        return errorMsg;
                     }
 
                     int nuevos = 0;
@@ -558,44 +566,65 @@ namespace VendingManager.Infrastructure.Services
 
                     foreach (DataRow row in tabla.Rows)
                     {
-                        var rawBarcode = row[colBarcode];
-                        string barcode = rawBarcode?.ToString()?.Trim() ?? "";
-
-                        // Conversión Notación Científica (Ej: 7,80161E+11 -> 780161000000)
-                        if (double.TryParse(barcode, out double dBarcode))
-                        {
-                            // "F0" fuerza formato numérico completo sin decimales ni E+
-                            barcode = dBarcode.ToString("F0");
-                        }
-
-                        if (string.IsNullOrEmpty(barcode))
-                        {
-                            Console.WriteLine("   ⚠️ Fila saltada: Barcode vacío o nulo.");
-                            continue;
-                        }
-
                         string nombre = row[colName]?.ToString()?.Trim() ?? "Sin Nombre";
+                        if (string.IsNullOrEmpty(nombre)) continue; // Fila vacía
+
+                        // INTENTO 1: BUSCAR POR ID INTERNO (Prioridad Máxima)
+                        Producto? producto = null;
+                        if (colId != -1)
+                        {
+                            string sId = row[colId]?.ToString()?.Trim() ?? "";
+                            if (int.TryParse(sId, out int id) && id > 0)
+                            {
+                                producto = await _context.Productos.FindAsync(id);
+                            }
+                        }
+
+                        string barcode = "";
+                        if (producto == null && colBarcode != -1)
+                        {
+                            // INTENTO 2: BUSCAR POR CÓDIGO DE BARRAS
+                            var rawBarcode = row[colBarcode];
+                            barcode = rawBarcode?.ToString()?.Trim() ?? "";
+
+                            // Conversión Notación Científica
+                            if (double.TryParse(barcode, out double dBarcode))
+                            {
+                                barcode = dBarcode.ToString("F0");
+                            }
+
+                            if (!string.IsNullOrEmpty(barcode))
+                            {
+                                producto = await _context.Productos.FirstOrDefaultAsync(p => p.CodigoBarras == barcode);
+                            }
+                        }
+
+                        decimal precio = ParseDecimal(colPrice != -1 ? row[colPrice] : null);
+                        decimal costo = ParseDecimal(colCost != -1 ? row[colCost] : null);
+                        int stock = (int)ParseDecimal(colStock != -1 ? row[colStock] : null); // Reusing ParseDecimal for safety
+
                         string proveedor = colSupplier != -1 ? row[colSupplier]?.ToString()?.Trim() ?? "" : "";
                         string categoria = colType != -1 ? row[colType]?.ToString()?.Trim() ?? "" : "";
 
-                        // Parseo de precios ROBUSTO
-                        decimal precio = ParseDecimal(colPrice != -1 ? row[colPrice] : null);
-                        decimal costo = ParseDecimal(colCost != -1 ? row[colCost] : null);
-
-                        var producto = await _context.Productos.FirstOrDefaultAsync(p => p.CodigoBarras == barcode);
-
                         if (producto == null)
                         {
-                            // CREAR NUEVO
+                            // CREAR NUEVO (Solo si tenemos un barcode válido para identificarlo a futuro, o si decidimos permitir crear sin barcode)
+                            // Para mantener integridad, exigimos Barcode para crear nuevos.
+                            if (string.IsNullOrEmpty(barcode))
+                            {
+                                Console.WriteLine($"   ⚠️ Imposible crear nuevo: Barcode vacio para '{nombre}'");
+                                continue;
+                            }
+
                             producto = new Producto
                             {
                                 CodigoBarras = barcode,
                                 Nombre = nombre,
-                                PrecioVenta = precio, // USAR VALOR PARSEADO
-                                CostoPromedio = costo, // USAR VALOR PARSEADO
+                                PrecioVenta = precio,
+                                CostoPromedio = costo,
                                 Proveedor = proveedor,
                                 Categoria = categoria,
-                                StockBodega = 0, // Por defecto
+                                StockBodega = (colStock != -1) ? stock : 0,
                                 SKU = barcode
                             };
                             _context.Productos.Add(producto);
@@ -603,19 +632,41 @@ namespace VendingManager.Infrastructure.Services
                         }
                         else
                         {
-                            // ACTUALIZAR EXISTENTE (Solo metadatos, NO stock)
+                            // ACTUALIZAR EXISTENTE
                             producto.Nombre = nombre;
-                            producto.PrecioVenta = precio;
-                            producto.CostoPromedio = costo; // MAPEO CORRECTO
-                            producto.Proveedor = proveedor;
-                            producto.Categoria = categoria;
-                            // ¡IMPORTANTE! No tocamos StockBodega
+                            // Actualizamos codigo de barras solo si vino en el excel y es diferente (y no vacio)
+                            if (!string.IsNullOrEmpty(barcode) && producto.CodigoBarras != barcode)
+                            {
+                                producto.CodigoBarras = barcode;
+                            }
+
+                            // Actualizar precio solo si es > 0, para no sobreescribir con 0 si la col no estaba
+                            if (precio > 0) producto.PrecioVenta = precio;
+
+                            // El costo SIEMPRE se actualiza
+                            if (colCost != -1)
+                            {
+                                if (actualizados < 3) Console.WriteLine($"   🕵️ DEBUG: '{producto.Nombre}' Costo Antes: {producto.CostoPromedio} -> ExcelRaw: '{row[colCost]}' -> Parsed: {costo}");
+                                producto.CostoPromedio = costo;
+                            }
+
+                            if (!string.IsNullOrEmpty(proveedor)) producto.Proveedor = proveedor;
+                            if (!string.IsNullOrEmpty(categoria)) producto.Categoria = categoria;
+
+                            // Actualizar Stock si la columna existe
+                            if (colStock != -1)
+                            {
+                                producto.StockBodega = stock;
+                            }
+
                             actualizados++;
                         }
                     }
 
                     await _context.SaveChangesAsync();
-                    Console.WriteLine($"✅ CATÁLOGO: {nuevos} nuevos | {actualizados} actualizados.");
+                    string resultado = $"✅ PROCESO COMPLETADO: {actualizados} productos actualizados, {nuevos} productos nuevos creados.";
+                    Console.WriteLine(resultado);
+                    return resultado;
                 }
             }
             catch (Exception ex)
@@ -738,6 +789,70 @@ namespace VendingManager.Infrastructure.Services
                 }
             }
             return subsets;
+        }
+        // =============================================
+        // 4. EXPORTAR CATÁLOGO DE PRODUCTOS (PLANTILLA)
+        // =============================================
+        public async Task<byte[]> ExportarCatalogoProductos()
+        {
+            try
+            {
+                var productos = await _context.Productos.OrderBy(p => p.Nombre).ToListAsync();
+
+                using (var workbook = new XLWorkbook())
+                {
+                    var worksheet = workbook.Worksheets.Add("Productos");
+
+                    // HEADERS
+                    worksheet.Cell(1, 1).Value = "System ID"; // NEW COLUMN
+                    worksheet.Cell(1, 2).Value = "Product Barcode";
+                    worksheet.Cell(1, 3).Value = "Product Name";
+                    // col 4 Reference Price REMOVED
+                    worksheet.Cell(1, 4).Value = "Cost Price";
+                    worksheet.Cell(1, 5).Value = "Supplier";
+                    worksheet.Cell(1, 6).Value = "Type";
+                    worksheet.Cell(1, 7).Value = "Current Stock";
+
+                    // ESTILO HEADERS
+                    var headerRange = worksheet.Range("A1:G1"); // Revised Range
+                    headerRange.Style.Font.Bold = true;
+                    headerRange.Style.Fill.BackgroundColor = XLColor.LightGray;
+                    headerRange.Style.Border.BottomBorder = XLBorderStyleValues.Thick;
+
+                    int row = 2;
+                    foreach (var p in productos)
+                    {
+                        worksheet.Cell(row, 1).Value = p.Id; // ID INTERNO
+
+                        // Forzar formato texto para Barcode
+                        worksheet.Cell(row, 2).Style.NumberFormat.Format = "@";
+                        worksheet.Cell(row, 2).Value = p.CodigoBarras;
+
+                        worksheet.Cell(row, 3).Value = p.Nombre;
+                        // Cell 4 Price Removed
+                        worksheet.Cell(row, 4).Value = p.CostoPromedio;
+                        worksheet.Cell(row, 5).Value = p.Proveedor;
+                        worksheet.Cell(row, 6).Value = p.Categoria;
+                        worksheet.Cell(row, 7).Value = p.StockBodega;
+
+                        row++;
+                    }
+
+                    // AUTO-FIT COLUMNS
+                    worksheet.Columns().AdjustToContents();
+
+                    using (var stream = new MemoryStream())
+                    {
+                        workbook.SaveAs(stream);
+                        return stream.ToArray();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ ERROR EXPORT: {ex.Message}");
+                throw;
+            }
         }
     }
 }

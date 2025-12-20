@@ -29,13 +29,28 @@ namespace VendingManager.Web.Controllers
             {
                 using (var stream = file.OpenReadStream())
                 {
-                    await _inventarioService.ImportarCatalogoAsync(stream, file.FileName);
+                    string resultado = await _inventarioService.ImportarCatalogoAsync(stream, file.FileName);
+                    return Ok(new { message = resultado });
                 }
-                return Ok(new { message = "CatÃ¡logo importado correctamente." });
             }
             catch (Exception ex)
             {
                 return StatusCode(500, $"Error interno: {ex.Message}");
+            }
+        }
+
+        [HttpGet("exportar-catalogo")]
+        public async Task<IActionResult> ExportarCatalogo()
+        {
+            try
+            {
+                var archivo = await _inventarioService.ExportarCatalogoAsync();
+                var nombreArchivo = $"Catalogo_Productos_{DateTime.Now:yyyyMMdd_HHmm}.xlsx";
+                return File(archivo, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", nombreArchivo);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Error interno al exportar: {ex.Message}");
             }
         }
 

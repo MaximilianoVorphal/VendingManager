@@ -58,9 +58,14 @@ namespace VendingManager.Infrastructure.Services
             }
         }
 
-        public async Task ImportarCatalogoAsync(Stream stream, string fileName)
+        public async Task<string> ImportarCatalogoAsync(Stream stream, string fileName)
         {
-            await _excelService.ImportarCatalogoProductos(stream, fileName);
+            return await _excelService.ImportarCatalogoProductos(stream, fileName);
+        }
+
+        public async Task<byte[]> ExportarCatalogoAsync()
+        {
+            return await _excelService.ExportarCatalogoProductos();
         }
     }
 }
