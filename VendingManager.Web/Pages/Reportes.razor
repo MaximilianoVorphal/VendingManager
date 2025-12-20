@@ -21,7 +21,6 @@
             <div class="row align-items-end g-3">
                 <div class="col-md-3 col-12">
                     <label class="fw-bold small text-uppercase mb-1">UNIDAD:</label>
-                    <!-- Added py-2 for better vertical centering of text in select -->
                     <select class="form-select border-dark rounded-0 fw-bold py-2" @bind="MaquinaSeleccionada">
                         <option value="0">:: TODAS LAS UNIDADES ::</option>
                         @if (ListaMaquinas != null)
@@ -33,7 +32,6 @@
                         }
                     </select>
                 </div>
-                <!-- Fechas grouped for mobile 2-col layout -->
                 <div class="col-6 col-md-3">
                     <label class="fw-bold small text-uppercase mb-1">DESDE:</label>
                     <input type="date" @bind="FechaInicio" class="form-control border-dark rounded-0 fw-bold" />
@@ -47,6 +45,12 @@
                         disabled="@Cargando">
                         @(Cargando ? "PROCESANDO..." : "EJECUTAR QUERY")
                     </button>
+                    <!-- Finaciero Button -->
+                    <button class="btn btn-primary rounded-0 fw-bold border-dark py-2" @onclick="VerInformeFinanciero"
+                        title="Ver Estado de Resultados">
+                        <i class="bi bi-graph-up-arrow"></i>
+                    </button>
+                    <!-- Excel Button -->
                     <button class="btn btn-success rounded-0 fw-bold border-dark py-2" @onclick="ExportarExcel"
                         title="Exportar a Excel" style="width: 50px;">
                         <i class="bi bi-file-earmark-excel"></i>
@@ -73,31 +77,33 @@
     else if (Datos != null)
     {
         <!-- KPI CARDS -->
-        <!-- KPI CARDS (4 Column Layout) -->
         <div class="row g-3 mb-4">
-            <!-- 1. LA REALIDAD (BANCO) -->
-        <div class="col-6 col-md-3">
-                <div class="text-white bg-success p-3 h-100 shadow-sm border border-2 border-dark position-relative">
-                    <div class="fw-bold text-uppercase small" style="letter-spacing: 1px; opacity: 0.9;">1. Realidad (Banco)
+
+            <!-- 1. UTILIDAD REAL (NUEVO) -->
+        <div class="col-12 col-md-3">
+                <div class="text-white bg-primary p-3 h-100 shadow-sm border border-2 border-dark position-relative"
+                style="background: linear-gradient(45deg, #0d6efd, #0a58ca);">
+                    <div class="fw-bold text-uppercase small" style="letter-spacing: 1px; opacity: 0.9;">Utilidad (Ganancia)
                     </div>
                     <h3 class="fw-bold mt-2 text-white" style="letter-spacing: -1px;">
-                        $@Datos.MontoPagado.ToString("N0")
+                        $@Datos.GananciaTotal.ToString("N0")
                     </h3>
                     <div class="mt-2 border-top border-white pt-2" style="opacity: 0.8;">
-                        <small class="fw-bold text-uppercase" style="font-size: 0.7rem;">Dinero Recibido</small>
+                        <small class="fw-bold text-uppercase" style="font-size: 0.7rem;">Margen Neto Calculado</small>
                     </div>
                 </div>
             </div>
 
-            <!-- 2. EL PROBLEMA (MÁQUINA) -->
+            <!-- 2. VENTAS TOTALES -->
         <div class="col-6 col-md-3">
                 <div class="bg-white p-3 h-100 shadow-sm border border-2 border-dark">
-                    <div class="text-muted fw-bold text-uppercase small" style="letter-spacing: 1px;">2. Máquina (Excel)
-                    </div>
-                    $@((Datos.MontoTotal - Datos.MontoPhantom - Datos.MontoPendiente).ToString("N0"))
+                    <div class="text-muted fw-bold text-uppercase small" style="letter-spacing: 1px;">Ventas Totales</div>
+                    <h3 class="fw-bold mt-2 text-dark" style="letter-spacing: -1px;">
+                        $@Datos.MontoTotal.ToString("N0")
+                    </h3>
                     <div class="mt-2 border-top border-dark pt-2">
                         <small class="text-muted fw-bold text-uppercase" style="font-size: 0.7rem;">
-                            Registrados: @(Datos.TotalVentas - Datos.Detalle.Count(d => d.Slot == "-1"))
+                            @Datos.TotalVentas Transacciones
                         </small>
                     </div>
                 </div>
@@ -105,32 +111,28 @@
 
             <!-- 3. LA DIFERENCIA (FANTASMA) -->
         <div class="col-6 col-md-3">
-                <div class="bg-white p-3 h-100 shadow-sm border border-2 border-dark position-relative">
-                    <div class="text-danger fw-bold text-uppercase small" style="letter-spacing: 1px;">3. Diferencia</div>
+                <div class="bg-white p-3 h-100 shadow-sm border border-2 border-dark">
+                    <div class="text-danger fw-bold text-uppercase small" style="letter-spacing: 1px;">Diferencias (Phantom)
+                    </div>
                     <h3 class="fw-bold mt-2 text-danger" style="letter-spacing: -1px;">
                         $@Datos.MontoPhantom.ToString("N0")
                     </h3>
-
-                    @if (Datos.MontoPhantom > 0)
-                    {
-                        <div class="mt-2 border-top border-dark pt-2">
-                            <small class="text-danger fw-bold text-uppercase" style="font-size: 0.7rem;">Cobros Fantasma</small>
-                            <span class="badge bg-danger rounded-0 border border-dark ms-1">@Datos.Detalle.Count(d => d.Slot ==
-                        "-1")</span>
-                        </div>
-                    }
-                    else
-                    {
-                        <div class="mt-2 border-top border-dark pt-2">
-                            <small class="text-success fw-bold text-uppercase" style="font-size: 0.7rem;">Sin
-                                Diferencias</small>
-                        </div>
-                    }
+                    <div class="mt-2 border-top border-dark pt-2">
+                        @if (Datos.MontoPhantom > 0)
+                        {
+                            <small class="text-danger fw-bold text-uppercase" style="font-size: 0.7rem;">Requiere
+                                Revisión</small>
+                        }
+                        else
+                        {
+                            <small class="text-success fw-bold text-uppercase" style="font-size: 0.7rem;">Sin Errores</small>
+                        }
+                    </div>
                 </div>
             </div>
 
             <!-- 4. PENDIENTE -->
-        <div class="col-6 col-md-3">
+        <div class="col-12 col-md-3">
                 <div class="bg-light p-3 h-100 shadow-sm border border-2 border-dark">
                     <div class="text-warning fw-bold text-uppercase small"
                     style="letter-spacing: 1px; color: #d39e00 !important;">Pendiente / Cash</div>
@@ -288,6 +290,57 @@
     }
 </div>
 
+<!-- MODAL INFORME FINANCIERO -->
+@if (MostrarModalFinanciero && Financiero != null)
+{
+    <div class="modal show d-block" style="background: rgba(0,0,0,0.5);" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content rounded-0 border-2 border-dark shadow-lg">
+                <div class="modal-header bg-dark text-white rounded-0">
+                    <h5 class="modal-title fw-bold text-uppercase">💰 Estado de Resultados</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CerrarModalFinanciero"></button>
+                </div>
+                <div class="modal-body p-4" style="background-color: #f8f9fa;">
+
+                    <div class="d-flex justify-content-between mb-2">
+                        <span class="fw-bold">Ingresos por Ventas:</span>
+                        <span class="font-monospace text-dark">$@Financiero.VentasTotales.ToString("N0")</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-3">
+                        <span class="fw-bold text-muted">(-) Costo de Ventas (COGS):</span>
+                        <span class="font-monospace text-danger">-$@Financiero.CostoVentas.ToString("N0")</span>
+                    </div>
+
+                    <div class="border-top border-dark my-2"></div>
+
+                    <div class="d-flex justify-content-between mb-3 bg-white p-2 border border-secondary">
+                        <span class="fw-bold">MARGEN BRUTO:</span>
+                        <span class="font-monospace fw-bold text-primary">$@Financiero.MargenBruto.ToString("N0")
+                            (@Financiero.MargenPorcentaje.ToString("F1")%)</span>
+                    </div>
+
+                    <div class="d-flex justify-content-between mb-3">
+                        <span class="fw-bold text-muted">(-) Gastos Operativos (Caja):</span>
+                        <span class="font-monospace text-danger">-$@Financiero.GastosOperativos.ToString("N0")</span>
+                    </div>
+
+                    <div class="border-top border-3 border-dark my-2"></div>
+
+                    <div class="d-flex justify-content-between mt-3 p-3 bg-success text-white border border-dark">
+                        <h4 class="m-0 fw-bold text-uppercase">UTILIDAD NETA:</h4>
+                        <h4 class="m-0 font-monospace fw-bold">$@Financiero.UtilidadNeta.ToString("N0")</h4>
+                    </div>
+
+                </div>
+                <div class="modal-footer bg-light rounded-0">
+                    <button type="button" class="btn btn-dark rounded-0 fw-bold"
+                    @onclick="CerrarModalFinanciero">CERRAR</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 <style>
     .sortable-header {
         cursor: pointer;
@@ -304,6 +357,7 @@
     // --- VARIABLES DE ESTADO ---
     private bool Cargando = false;
     private string MensajeError = "";
+    private bool MostrarModalFinanciero = false;
 
     // --- VARIABLES DE DATOS ---
     private DateTime FechaInicio = DateTime.Today.AddDays(-30);
@@ -311,6 +365,7 @@
     private int MaquinaSeleccionada = 0;
 
     private ReporteDto? Datos;
+    private InformeFinancieroDto? Financiero;
     private List<MaquinaSimpleDto>? ListaMaquinas;
 
     // --- CONTROL DE ORDEN ---
@@ -320,7 +375,7 @@
     // --- MÉTODOS ---
     protected override async Task OnInitializedAsync()
     {
-        // 1. PROCESAR QUERY PARAMS (Synchronous)
+        // 1. PROCESAR QUERY PARAMS
         try
         {
             var uri = NavManager.ToAbsoluteUri(NavManager.Uri);
@@ -372,36 +427,53 @@
         {
             string inicio = FechaInicio.ToString("yyyy-MM-dd");
             string fin = FechaFin.ToString("yyyy-MM-dd");
-            string url =
-            $"api/Ventas/reporte-rango?inicio={inicio}&fin={fin}&maquinaId={MaquinaSeleccionada}";
+            string url = $"api/Ventas/reporte-rango?inicio={inicio}&fin={fin}&maquinaId={MaquinaSeleccionada}";
 
             Logger.LogDebug("Reportes: CargarReporte inicio. Url={Url}", url);
 
             Datos = await Http.GetFromJsonAsync<ReporteDto>(url);
 
-            if (Datos == null) // ✅ Validar si llegó null
+            if (Datos == null)
             {
                 MensajeError = "El servidor no retornó datos válidos.";
                 Logger.LogWarning("Reportes: respuesta nula del servidor para {Url}", url);
                 return;
             }
 
-            Logger.LogDebug("Reportes: datos recibidos. TotalVentas={TotalVentas}, MontoTotal={MontoTotal}", Datos.TotalVentas,
-            Datos.MontoTotal);
             AplicarOrdenamiento();
-            await InvokeAsync(StateHasChanged);
         }
         catch (Exception ex)
         {
             MensajeError = $"ERROR: {ex.Message}";
             Logger.LogError(ex, "Reportes: excepción en CargarReporte");
-            Console.WriteLine($"[Reportes] Stack: {ex}"); // redundante pero útil en F12 si Logger no aparece
         }
         finally
         {
             Cargando = false;
             await InvokeAsync(StateHasChanged);
         }
+    }
+
+    private async Task VerInformeFinanciero()
+    {
+        try
+        {
+            string inicio = FechaInicio.ToString("yyyy-MM-dd");
+            string fin = FechaFin.ToString("yyyy-MM-dd");
+            string url = $"api/Ventas/informe-financiero?inicio={inicio}&fin={fin}&maquinaId={MaquinaSeleccionada}";
+
+            Financiero = await Http.GetFromJsonAsync<InformeFinancieroDto>(url);
+            MostrarModalFinanciero = true;
+        }
+        catch (Exception ex)
+        {
+            MensajeError = "Error al cargar informe financiero: " + ex.Message;
+        }
+    }
+
+    private void CerrarModalFinanciero()
+    {
+        MostrarModalFinanciero = false;
     }
 
     private void OrdenarPor(string columna)
@@ -499,7 +571,7 @@
         }
     }
 
-    // --- CLASES DTO ---
+    // --- CLASES DTO LOCALES (Espejo del Backend) ---
     public class MaquinaSimpleDto
     {
         public int Id { get; set; }
@@ -513,13 +585,13 @@
         public decimal MontoTotal { get; set; }
         public decimal MontoPagado { get; set; }
         public decimal MontoPendiente { get; set; }
-        public decimal MontoPhantom { get; set; } // Cobros extra (TB-EXTRA)
+        public decimal MontoPhantom { get; set; }
+        public decimal GananciaTotal { get; set; } // Agregado
         public List<DetalleVentaDto> Detalle { get; set; } = new();
     }
 
     public class DetalleVentaDto
     {
-
         public DateTime FechaRaw { get; set; }
         public string Maquina { get; set; } = string.Empty;
         public decimal Monto { get; set; }
@@ -527,5 +599,15 @@
         public string Slot { get; set; } = string.Empty;
         public string Producto { get; set; } = string.Empty;
         public decimal Ganancia { get; set; }
+    }
+
+    public class InformeFinancieroDto
+    {
+        public decimal VentasTotales { get; set; }
+        public decimal CostoVentas { get; set; }
+        public decimal MargenBruto { get; set; }
+        public decimal GastosOperativos { get; set; }
+        public decimal UtilidadNeta { get; set; }
+        public decimal MargenPorcentaje { get; set; }
     }
 }

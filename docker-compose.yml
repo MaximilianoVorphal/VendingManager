@@ -21,7 +21,9 @@ services:
       - TZ=America/Santiago
     volumes:
       - mssql_data:/var/opt/mssql
-      - ./backups:/var/opt/mssql/backup # <-- Añade esta línea
+      #- type: bind
+      #- source: ./backups
+      #- target: /var/opt/mssql/backup
     ports:
       - "1433:1433"
 

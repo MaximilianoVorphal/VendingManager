@@ -266,5 +266,58 @@ namespace VendingManager.Infrastructure.Services
                 .ThenBy(s => s.NumeroSlot)
                 .ToListAsync();
         }
+
+        public async Task RecalcularCostosHistoricosAsync()
+        {
+            // 1. Cargar Configuración de Slots para fallback (optimizado en memoria)
+            var slots = await _context.ConfiguracionSlots
+                .Include(s => s.Producto)
+                .Where(s => s.ProductoId != 0 && s.Producto != null)
+                .ToListAsync();
+
+            // Usamos una clave compuesta (MaquinaId + Slot)
+            var slotMap = slots
+                .GroupBy(s => new { s.MaquinaId, s.NumeroSlot })
+                .ToDictionary(g => g.Key, g => g.First());
+
+            // 2. Cargar todas las ventas
+            var ventas = await _context.Ventas
+                .Include(v => v.Producto)
+                .ToListAsync();
+
+            int updated = 0;
+            foreach (var v in ventas)
+            {
+                Producto? p = v.Producto;
+
+                // Si la venta no tiene producto linkeado (ej. carga antigua), 
+                // intentamos buscar qué producto está AHORA en ese slot.
+                if (p == null)
+                {
+                    if (slotMap.TryGetValue(new { v.MaquinaId, v.NumeroSlot }, out var config))
+                    {
+                        p = config.Producto;
+                        v.ProductoId = config.ProductoId; // Linkeamos para el futuro
+                    }
+                }
+
+                // Si encontramos un producto válido, actualizamos el "Snapshot" del costo
+                if (p != null)
+                {
+                    // Sobrescribimos el CostoVenta con el CostoPromedio actual del producto
+                    // Esto es lo que el usuario quiere para arreglar su carga inicial errónea
+                    if (v.CostoVenta != p.CostoPromedio)
+                    {
+                        v.CostoVenta = p.CostoPromedio;
+                        updated++;
+                    }
+                }
+            }
+
+            if (updated > 0)
+            {
+                await _context.SaveChangesAsync();
+            }
+        }
     }
 }
