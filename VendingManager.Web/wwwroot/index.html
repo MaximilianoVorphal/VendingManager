@@ -35,6 +35,27 @@
     <script src="js/ChartJsInterop.js?v=2.0" defer></script>
     <script src="_framework/blazor.webassembly.js"></script>
     <script src="js/app.js" defer></script>
+    <script>
+        window.descargarArchivo = async (url, nombre) => {
+            try {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error('Network response was not ok');
+                const blob = await response.blob();
+                const urlBlob = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = urlBlob;
+                a.download = nombre;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(urlBlob);
+                document.body.removeChild(a);
+            } catch (error) {
+                console.error('Error downloading file:', error);
+                alert('Error al descargar el archivo: ' + error.message);
+            }
+        }
+    </script>
 </body>
 
 </html>

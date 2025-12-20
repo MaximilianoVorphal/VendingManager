@@ -10,6 +10,7 @@ namespace VendingManager.Core.Interfaces
         Task UpdateProductoAsync(int id, Producto producto);
         Task DeleteProductoAsync(int id);
         Task AjustarStockAsync(int productoId, int nuevoStock);
-        Task ImportarCatalogoAsync(Stream stream, string fileName);
+        Task<string> ImportarCatalogoAsync(Stream stream, string fileName);
+        Task<byte[]> ExportarCatalogoAsync();
     }
 }

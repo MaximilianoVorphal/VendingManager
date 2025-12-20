@@ -6,6 +6,7 @@ namespace VendingManager.Core.Interfaces
     {
         Task ImportarVentasMaquina(Stream fileStream, string nombreArchivo);
         Task ImportarTransbank(Stream fileStream, string nombreArchivo);
-        Task ImportarCatalogoProductos(Stream fileStream, string nombreArchivo);
+        Task<string> ImportarCatalogoProductos(Stream fileStream, string nombreArchivo);
+        Task<byte[]> ExportarCatalogoProductos();
     }
 }
