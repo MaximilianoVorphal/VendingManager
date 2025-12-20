@@ -35,6 +35,13 @@ namespace VendingManager.Web.Controllers
             return Ok("Fechas corregidas.");
         }
 
+        [HttpGet("recalcular-costos")]
+        public async Task<IActionResult> RecalcularCostos()
+        {
+            await _ventasService.RecalcularCostosHistoricosAsync();
+            return Ok("Costos históricos recalculados basándose en el producto actual.");
+        }
+
         [HttpPost("subir-transbank")]
         public async Task<IActionResult> SubirTransbank(IFormFile file)
         {
