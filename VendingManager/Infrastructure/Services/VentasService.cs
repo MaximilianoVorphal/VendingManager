@@ -70,7 +70,7 @@ namespace VendingManager.Infrastructure.Services
             };
         }
 
-        public async Task<ReporteDto> GetReporteRangoAsync(DateTime inicio, DateTime fin, int maquinaId)
+        public async Task<ReporteDto> GetReporteRangoAsync(DateTime inicio, DateTime fin, int maquinaId, bool includePhantom = false)
         {
             DateTime finAjustado = fin.Date.AddDays(1).AddTicks(-1);
             DateTime inicioAjustado = inicio.Date;
@@ -104,6 +104,9 @@ namespace VendingManager.Infrastructure.Services
 
             foreach (var v in listaVentas)
             {
+                // FILTRO: Si no se piden fantasmas y esto es un fantasma, saltar.
+                if (!includePhantom && v.IdOrdenMaquina == "TB-EXTRA") continue;
+
                 decimal costo = v.CostoVenta;
                 if (costo == 0 && v.Producto != null) costo = v.Producto.CostoPromedio;
 
@@ -133,15 +136,28 @@ namespace VendingManager.Infrastructure.Services
             DateTime finAjustado = fin.Date.AddDays(1).AddTicks(-1);
             DateTime inicioAjustado = inicio.Date;
 
+            // FIX: Usar FechaLocal para consistencia con Dashboard y Filtros
             var queryVentas = _context.Ventas
-                .Where(v => v.Pagado && v.FechaHora >= inicioAjustado && v.FechaHora <= finAjustado);
+                .Include(v => v.Producto)
+                .Where(v => v.Pagado && v.FechaLocal >= inicioAjustado && v.FechaLocal <= finAjustado);
 
             if (maquinaId > 0) queryVentas = queryVentas.Where(v => v.MaquinaId == maquinaId);
 
-            var listaVentas = await queryVentas.Select(v => new { v.PrecioVenta, v.CostoVenta }).ToListAsync();
+            var listaVentas = await queryVentas.ToListAsync();
 
-            decimal ingresosVentas = listaVentas.Sum(v => v.PrecioVenta);
-            decimal costoVentas = listaVentas.Sum(v => v.CostoVenta);
+            decimal ingresosVentas = 0;
+            decimal costoVentas = 0;
+
+            foreach (var v in listaVentas)
+            {
+                ingresosVentas += v.PrecioVenta;
+
+                // FIX: Lógica de Fallback de Costos (Igual que en Dashboard)
+                decimal costo = v.CostoVenta;
+                if (costo == 0 && v.Producto != null) costo = v.Producto.CostoPromedio;
+
+                costoVentas += costo;
+            }
 
             decimal gastosOperativos = 0;
             if (maquinaId == 0)
@@ -164,9 +180,9 @@ namespace VendingManager.Infrastructure.Services
             };
         }
 
-        public async Task<(byte[] content, string fileName)> ExportarReporteAsync(DateTime inicio, DateTime fin, int maquinaId)
+        public async Task<(byte[] content, string fileName)> ExportarReporteAsync(DateTime inicio, DateTime fin, int maquinaId, bool includePhantom = false)
         {
-            var reporte = await GetReporteRangoAsync(inicio, fin, maquinaId);
+            var reporte = await GetReporteRangoAsync(inicio, fin, maquinaId, includePhantom);
 
             if (reporte == null || reporte.Detalle.Count == 0)
                 throw new InvalidOperationException("No hay datos para exportar en el rango seleccionado.");

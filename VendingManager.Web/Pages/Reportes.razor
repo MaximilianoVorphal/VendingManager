@@ -57,6 +57,16 @@
                     </button>
                 </div>
             </div>
+            <div class="row mt-2">
+                <div class="col-12 d-flex align-items-center">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="checkFantasmas" @bind="MostrarFantasmas">
+                        <label class="form-check-label fw-bold small text-uppercase" for="checkFantasmas">
+                            Incluir Ventas Fantasma (Diferencias Transbank)
+                        </label>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -118,14 +128,15 @@
 
             <!-- 2. VENTAS CONFIRMADAS (SOLO PAGADO) -->
         <div class="col-6 col-md-3">
-                <div class="bg-white p-3 h-100 shadow-sm border border-2 border-dark">
-                    <div class="text-muted fw-bold text-uppercase small" style="letter-spacing: 1px;">Ventas Confirmadas
+                <div class="bg-success text-white p-3 h-100 shadow-sm border border-2 border-dark">
+                    <div class="text-white fw-bold text-uppercase small" style="letter-spacing: 1px; opacity: 0.9;">Ventas
+                        Confirmadas
                     </div>
-                    <h3 class="fw-bold mt-2 text-dark" style="letter-spacing: -1px;">
+                    <h3 class="fw-bold mt-2 text-white" style="letter-spacing: -1px;">
                         $@Datos.MontoPagado.ToString("N0")
                     </h3>
-                    <div class="mt-2 border-top border-dark pt-2">
-                        <small class="text-muted fw-bold text-uppercase" style="font-size: 0.7rem;">
+                    <div class="mt-2 border-top border-white pt-2" style="opacity: 0.9;">
+                        <small class="text-white fw-bold text-uppercase" style="font-size: 0.7rem;">
                             @Datos.Detalle.Count(x => x.Estado == "Pagado") Transacciones
                         </small>
                     </div>
@@ -134,21 +145,22 @@
 
             <!-- 3. LA DIFERENCIA (FANTASMA) -->
         <div class="col-6 col-md-3">
-                <div class="bg-white p-3 h-100 shadow-sm border border-2 border-dark">
-                    <div class="text-danger fw-bold text-uppercase small" style="letter-spacing: 1px;">Diferencias Transbank
+                <div class="p-3 h-100 shadow-sm border border-2 border-dark text-white" style="background-color: #e6007e;">
+                    <div class="text-white fw-bold text-uppercase small" style="letter-spacing: 1px; opacity: 0.9;">
+                        Diferencias Transbank
                     </div>
-                    <h3 class="fw-bold mt-2 text-danger" style="letter-spacing: -1px;">
+                    <h3 class="fw-bold mt-2 text-white" style="letter-spacing: -1px;">
                         $@Datos.MontoPhantom.ToString("N0")
                     </h3>
-                    <div class="mt-2 border-top border-dark pt-2">
+                    <div class="mt-2 border-top border-white pt-2" style="opacity: 0.9;">
                         @if (Datos.MontoPhantom > 0)
                         {
-                            <small class="text-danger fw-bold text-uppercase" style="font-size: 0.7rem;">Requiere
+                            <small class="text-white fw-bold text-uppercase" style="font-size: 0.7rem;">Requiere
                                 Revisión</small>
                         }
                         else
                         {
-                            <small class="text-success fw-bold text-uppercase" style="font-size: 0.7rem;">Sin Errores</small>
+                            <small class="text-white fw-bold text-uppercase" style="font-size: 0.7rem;">Sin Errores</small>
                         }
                     </div>
                 </div>
@@ -156,14 +168,14 @@
 
             <!-- 4. PENDIENTE -->
         <div class="col-12 col-md-3">
-                <div class="bg-light p-3 h-100 shadow-sm border border-2 border-dark">
-                    <div class="text-warning fw-bold text-uppercase small"
-                    style="letter-spacing: 1px; color: #d39e00 !important;">Pendiente / Cash</div>
+                <div class="bg-warning text-dark p-3 h-100 shadow-sm border border-2 border-dark">
+                    <div class="text-dark fw-bold text-uppercase small" style="letter-spacing: 1px; opacity: 0.8;">Pendiente
+                        / Cash</div>
                     <h3 class="fw-bold mt-2 text-dark" style="letter-spacing: -1px;">
                         $@Datos.MontoPendiente.ToString("N0")
                     </h3>
-                    <div class="mt-2 border-top border-dark pt-2">
-                        <small class="text-muted fw-bold text-uppercase" style="font-size: 0.7rem;">Por Confirmar</small>
+                    <div class="mt-2 border-top border-dark pt-2" style="opacity: 0.8;">
+                        <small class="text-dark fw-bold text-uppercase" style="font-size: 0.7rem;">Por Confirmar</small>
                     </div>
                 </div>
             </div>
@@ -381,6 +393,7 @@
     private bool Cargando = false;
     private string MensajeError = "";
     private bool MostrarModalFinanciero = false;
+    private bool MostrarFantasmas = false; // Por defecto FALSE
 
     // --- VARIABLES DE DATOS ---
     private DateTime FechaInicio = DateTime.Today.AddDays(-30);
@@ -450,7 +463,8 @@
         {
             string inicio = FechaInicio.ToString("yyyy-MM-dd");
             string fin = FechaFin.ToString("yyyy-MM-dd");
-            string url = $"api/Ventas/reporte-rango?inicio={inicio}&fin={fin}&maquinaId={MaquinaSeleccionada}";
+            string url =
+            $"api/Ventas/reporte-rango?inicio={inicio}&fin={fin}&maquinaId={MaquinaSeleccionada}&includePhantom={MostrarFantasmas}";
 
             Logger.LogDebug("Reportes: CargarReporte inicio. Url={Url}", url);
 
@@ -565,7 +579,8 @@
         {
             string inicio = FechaInicio.ToString("yyyy-MM-dd");
             string fin = FechaFin.ToString("yyyy-MM-dd");
-            string url = $"api/Ventas/exportar?inicio={inicio}&fin={fin}&maquinaId={MaquinaSeleccionada}";
+            string url =
+            $"api/Ventas/exportar?inicio={inicio}&fin={fin}&maquinaId={MaquinaSeleccionada}&includePhantom={MostrarFantasmas}";
 
             Logger.LogDebug("Exportando: {Url}", url);
 

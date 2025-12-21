@@ -299,9 +299,20 @@ namespace VendingManager.Infrastructure.Services
                         var venta = await FindBestMatch(rec.Monto, rec.Fecha, inicio, fin, includePaid: false, processedIds);
 
                         // A.2) INTENTO MATCH HOLGADO CON TOLERANCIA
+                        // A.2) INTENTO MATCH HOLGADO CON TOLERANCIA
                         if (venta == null)
                         {
                             venta = await FindBestMatchWithTolerance(rec.Monto, rec.Fecha, inicio, fin, includePaid: false, processedIds);
+                        }
+
+                        // A.3) NUEVO: INTENTO MATCH EN PAGADOS (Recuperación de ventas desfasadas > 5 min que ya figuraban pagadas)
+                        // NOTA: Usamos una ventana más acotada (15 min) que la holgada general (60 min) para evitar falsos positivos con ventas pagadas muy antiguas.
+                        if (venta == null)
+                        {
+                            int paidWindow = 15;
+                            DateTime inicioPaid = rec.Fecha.AddMinutes(-paidWindow);
+                            DateTime finPaid = rec.Fecha.AddMinutes(paidWindow);
+                            venta = await FindBestMatch(rec.Monto, rec.Fecha, inicioPaid, finPaid, includePaid: true, processedIds);
                         }
 
                         if (venta != null)

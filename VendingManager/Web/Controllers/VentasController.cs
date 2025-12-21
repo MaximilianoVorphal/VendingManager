@@ -76,9 +76,9 @@ namespace VendingManager.Web.Controllers
         }
 
         [HttpGet("reporte-rango")]
-        public async Task<ActionResult<ReporteDto>> GetReporteRango(DateTime inicio, DateTime fin, int maquinaId = 0)
+        public async Task<ActionResult<ReporteDto>> GetReporteRango(DateTime inicio, DateTime fin, int maquinaId = 0, bool includePhantom = false)
         {
-            return await _ventasService.GetReporteRangoAsync(inicio, fin, maquinaId);
+            return await _ventasService.GetReporteRangoAsync(inicio, fin, maquinaId, includePhantom);
         }
 
         [HttpGet("informe-financiero")]
@@ -88,11 +88,11 @@ namespace VendingManager.Web.Controllers
         }
 
         [HttpGet("exportar")]
-        public async Task<IActionResult> ExportarReporte([FromQuery] DateTime inicio, [FromQuery] DateTime fin, [FromQuery] int maquinaId = 0)
+        public async Task<IActionResult> ExportarReporte([FromQuery] DateTime inicio, [FromQuery] DateTime fin, [FromQuery] int maquinaId = 0, [FromQuery] bool includePhantom = false)
         {
             try
             {
-                var (content, fileName) = await _ventasService.ExportarReporteAsync(inicio, fin, maquinaId);
+                var (content, fileName) = await _ventasService.ExportarReporteAsync(inicio, fin, maquinaId, includePhantom);
                 return File(content, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
             }
             catch (InvalidOperationException ex)
