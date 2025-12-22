@@ -8,6 +8,6 @@ namespace VendingManager.Core.Interfaces
         Task ImportarTransbank(Stream fileStream, string nombreArchivo);
         Task<string> ImportarCatalogoProductos(Stream fileStream, string nombreArchivo);
         Task<byte[]> ExportarCatalogoProductos();
-        Task<string> SincronizarDesdePortal();
+        Task<string> SincronizarDesdePortal(int maquinaId);
     }
 }

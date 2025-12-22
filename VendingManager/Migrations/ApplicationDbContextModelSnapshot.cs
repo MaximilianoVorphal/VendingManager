@@ -216,6 +216,9 @@ namespace VendingManager.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("IdTransaccionPago")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<int>("MaquinaId")
                         .HasColumnType("int");
 

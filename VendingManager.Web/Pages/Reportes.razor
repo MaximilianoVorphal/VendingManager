@@ -27,7 +27,7 @@
                         {
                             @foreach (var m in ListaMaquinas)
                             {
-                                <option value="@m.Id">@m.Nombre.ToUpper()</option>
+                                        <option value="@m.Id">@m.Nombre.ToUpper()</option>
                             }
                         }
                     </select>
@@ -60,11 +60,11 @@
                         disabled="@Sincronizando" title="Sincronizar con Ourvend">
                         @if (Sincronizando)
                         {
-                            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
                         }
                         else
                         {
-                            <i class="bi bi-cloud-arrow-down-fill text-white"></i>
+                                <i class="bi bi-cloud-arrow-down-fill text-white"></i>
                         }
                     </button>
                 </div>
@@ -84,22 +84,22 @@
 
     @if (!string.IsNullOrEmpty(MensajeError))
     {
-        <div class="alert alert-danger border-2 border-dark rounded-0 mb-4 shadow-sm fw-bold">
-            <i class="bi bi-exclamation-triangle-fill me-2"></i> ERROR DE SISTEMA: @MensajeError
-        </div>
+            <div class="alert alert-danger border-2 border-dark rounded-0 mb-4 shadow-sm fw-bold">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i> ERROR DE SISTEMA: @MensajeError
+            </div>
     }
 
     @if (Cargando)
     {
-        <div class="text-center py-5 border border-dark border-2 bg-light">
-            <div class="spinner-grow text-dark" role="status"></div>
-            <p class="mt-2 fw-bold text-uppercase" style="letter-spacing: 2px;">Conectando Base de Datos...</p>
-        </div>
+            <div class="text-center py-5 border border-dark border-2 bg-light">
+                <div class="spinner-grow text-dark" role="status"></div>
+                <p class="mt-2 fw-bold text-uppercase" style="letter-spacing: 2px;">Conectando Base de Datos...</p>
+            </div>
     }
     else if (Datos != null)
     {
-        <!-- KPI CARDS -->
-        <div class="row g-3 mb-4">
+            <!-- KPI CARDS -->
+            <div class="row g-3 mb-4">
             @{
                 // CALCULO EN CALIENTE DE LA GANANCIA CONFIRMADA (SOLO PAGADO)
                 // Filtrar solo las ventas con Estado 'Pagado' (asumiendo que en ReporteDto.Detalle viene el estado)
@@ -110,136 +110,136 @@
                 var ventasConfirmadas = Datos.MontoPagado;
             }
 
-            <!-- 1. UTILIDAD REAL (SOLO CONFIRMADO) -->
+                <!-- 1. UTILIDAD REAL (SOLO CONFIRMADO) -->
         <div class="col-12 col-md-3">
-                <div class="text-white bg-primary p-3 h-100 shadow-sm border border-2 border-dark position-relative"
+                    <div class="text-white bg-primary p-3 h-100 shadow-sm border border-2 border-dark position-relative"
                 style="background: linear-gradient(45deg, #0d6efd, #0a58ca);">
-                    <div class="fw-bold text-uppercase small" style="letter-spacing: 1px; opacity: 0.9;">Utilidad (Real /
-                        Pagada)
-                    </div>
-                    <h3 class="fw-bold mt-2 text-white" style="letter-spacing: -1px;">
-                        $@gananciaConfirmada.ToString("N0")
-                    </h3>
-                    <div class="mt-2 border-top border-white pt-2 d-flex justify-content-between align-items-center"
+                        <div class="fw-bold text-uppercase small" style="letter-spacing: 1px; opacity: 0.9;">Utilidad (Real /
+                            Pagada)
+                        </div>
+                        <h3 class="fw-bold mt-2 text-white" style="letter-spacing: -1px;">
+                            $@gananciaConfirmada.ToString("N0")
+                        </h3>
+                        <div class="mt-2 border-top border-white pt-2 d-flex justify-content-between align-items-center"
                     style="opacity: 0.9;">
-                        <small class="fw-bold text-uppercase" style="font-size: 0.7rem;">Margen Neto Real</small>
+                            <small class="fw-bold text-uppercase" style="font-size: 0.7rem;">Margen Neto Real</small>
                         @if (ventasConfirmadas > 0)
                         {
-                            <span class="badge bg-white text-primary fw-bold border border-white"
+                                    <span class="badge bg-white text-primary fw-bold border border-white"
                         style="color: #0d6efd !important;">
                                 @((gananciaConfirmada / ventasConfirmadas * 100).ToString("F1"))%
-                            </span>
+                                    </span>
                         }
                         else
                         {
-                            <span class="badge bg-white text-muted fw-bold border border-white">0.0%</span>
+                                    <span class="badge bg-white text-muted fw-bold border border-white">0.0%</span>
                         }
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            <!-- 2. VENTAS CONFIRMADAS (SOLO PAGADO) -->
+                <!-- 2. VENTAS CONFIRMADAS (SOLO PAGADO) -->
         <div class="col-6 col-md-3">
-                <div class="bg-success text-white p-3 h-100 shadow-sm border border-2 border-dark">
-                    <div class="text-white fw-bold text-uppercase small" style="letter-spacing: 1px; opacity: 0.9;">Ventas
-                        Confirmadas
-                    </div>
-                    <h3 class="fw-bold mt-2 text-white" style="letter-spacing: -1px;">
-                        $@Datos.MontoPagado.ToString("N0")
-                    </h3>
-                    <div class="mt-2 border-top border-white pt-2" style="opacity: 0.9;">
-                        <small class="text-white fw-bold text-uppercase" style="font-size: 0.7rem;">
+                    <div class="bg-success text-white p-3 h-100 shadow-sm border border-2 border-dark">
+                        <div class="text-white fw-bold text-uppercase small" style="letter-spacing: 1px; opacity: 0.9;">Ventas
+                            Confirmadas
+                        </div>
+                        <h3 class="fw-bold mt-2 text-white" style="letter-spacing: -1px;">
+                            $@Datos.MontoPagado.ToString("N0")
+                        </h3>
+                        <div class="mt-2 border-top border-white pt-2" style="opacity: 0.9;">
+                            <small class="text-white fw-bold text-uppercase" style="font-size: 0.7rem;">
                             @Datos.Detalle.Count(x => x.Estado == "Pagado") Transacciones
-                        </small>
+                            </small>
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            <!-- 3. LA DIFERENCIA (FANTASMA) -->
+                <!-- 3. LA DIFERENCIA (FANTASMA) -->
         <div class="col-6 col-md-3">
-                <div class="p-3 h-100 shadow-sm border border-2 border-dark text-white" style="background-color: #e6007e;">
-                    <div class="text-white fw-bold text-uppercase small" style="letter-spacing: 1px; opacity: 0.9;">
-                        Diferencias Transbank
-                    </div>
-                    <h3 class="fw-bold mt-2 text-white" style="letter-spacing: -1px;">
-                        $@Datos.MontoPhantom.ToString("N0")
-                    </h3>
-                    <div class="mt-2 border-top border-white pt-2" style="opacity: 0.9;">
+                    <div class="p-3 h-100 shadow-sm border border-2 border-dark text-white" style="background-color: #e6007e;">
+                        <div class="text-white fw-bold text-uppercase small" style="letter-spacing: 1px; opacity: 0.9;">
+                            Diferencias Transbank
+                        </div>
+                        <h3 class="fw-bold mt-2 text-white" style="letter-spacing: -1px;">
+                            $@Datos.MontoPhantom.ToString("N0")
+                        </h3>
+                        <div class="mt-2 border-top border-white pt-2" style="opacity: 0.9;">
                         @if (Datos.MontoPhantom > 0)
                         {
-                            <small class="text-white fw-bold text-uppercase" style="font-size: 0.7rem;">Requiere
-                                Revisión</small>
+                                    <small class="text-white fw-bold text-uppercase" style="font-size: 0.7rem;">Requiere
+                                        Revisión</small>
                         }
                         else
                         {
-                            <small class="text-white fw-bold text-uppercase" style="font-size: 0.7rem;">Sin Errores</small>
+                                    <small class="text-white fw-bold text-uppercase" style="font-size: 0.7rem;">Sin Errores</small>
                         }
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            <!-- 4. PENDIENTE -->
+                <!-- 4. PENDIENTE -->
         <div class="col-12 col-md-3">
-                <div class="bg-warning text-dark p-3 h-100 shadow-sm border border-2 border-dark">
-                    <div class="text-dark fw-bold text-uppercase small" style="letter-spacing: 1px; opacity: 0.8;">Pendiente
-                        / Cash</div>
-                    <h3 class="fw-bold mt-2 text-dark" style="letter-spacing: -1px;">
-                        $@Datos.MontoPendiente.ToString("N0")
-                    </h3>
-                    <div class="mt-2 border-top border-dark pt-2" style="opacity: 0.8;">
-                        <small class="text-dark fw-bold text-uppercase" style="font-size: 0.7rem;">Por Confirmar</small>
+                    <div class="bg-warning text-dark p-3 h-100 shadow-sm border border-2 border-dark">
+                        <div class="text-dark fw-bold text-uppercase small" style="letter-spacing: 1px; opacity: 0.8;">Pendiente
+                            / Cash</div>
+                        <h3 class="fw-bold mt-2 text-dark" style="letter-spacing: -1px;">
+                            $@Datos.MontoPendiente.ToString("N0")
+                        </h3>
+                        <div class="mt-2 border-top border-dark pt-2" style="opacity: 0.8;">
+                            <small class="text-dark fw-bold text-uppercase" style="font-size: 0.7rem;">Por Confirmar</small>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
 
-        <!-- MAIN DATA TABLE -->
-        <div class="card border-2 border-dark rounded-0 shadow-sm mb-4">
-            <div class="card-header bg-dark text-white rounded-0 fw-bold border-bottom border-dark text-uppercase">
-                <i class="bi bi-table me-2"></i>Detalle de Operaciones
-            </div>
-            <div class="table-responsive" style="max-height: 550px; overflow-y: auto;">
-                <table class="table table-hover table-bordered border-dark m-0" style="min-width: 600px;">
-                    <thead class="bg-secondary text-white text-uppercase small">
-                        <tr>
-                            <th role="button" class="sortable-header" @onclick='() => OrdenarPor("Fecha")'>
-                                FECHA LOCAL @RenderIcono("Fecha")
-                            </th>
-                            <th role="button" class="sortable-header" @onclick='() => OrdenarPor("Maquina")'>
-                                UNIDAD @RenderIcono("Maquina")
-                            </th>
-                            <th role="button" class="sortable-header text-center" @onclick='() => OrdenarPor("Slot")'>
-                                SLOT @RenderIcono("Slot")
-                            </th>
-                            <th>PRODUCTO</th>
-                            <th role="button" class="sortable-header text-end" @onclick='() => OrdenarPor("Monto")'>
-                                MONTO @RenderIcono("Monto")
-                            </th>
-                            <th class="text-end">GANANCIA</th>
-                            <th role="button" class="sortable-header text-center" @onclick='() => OrdenarPor("Estado")'>
-                                ESTADO @RenderIcono("Estado")
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody class="bg-white">
+            <!-- MAIN DATA TABLE -->
+            <div class="card border-2 border-dark rounded-0 shadow-sm mb-4">
+                <div class="card-header bg-dark text-white rounded-0 fw-bold border-bottom border-dark text-uppercase">
+                    <i class="bi bi-table me-2"></i>Detalle de Operaciones
+                </div>
+                <div class="table-responsive" style="max-height: 550px; overflow-y: auto;">
+                    <table class="table table-hover table-bordered border-dark m-0" style="min-width: 600px;">
+                        <thead class="bg-secondary text-white text-uppercase small">
+                            <tr>
+                                <th role="button" class="sortable-header" @onclick='() => OrdenarPor("Fecha")'>
+                                    FECHA LOCAL @RenderIcono("Fecha")
+                                </th>
+                                <th role="button" class="sortable-header" @onclick='() => OrdenarPor("Maquina")'>
+                                    UNIDAD @RenderIcono("Maquina")
+                                </th>
+                                <th role="button" class="sortable-header text-center" @onclick='() => OrdenarPor("Slot")'>
+                                    SLOT @RenderIcono("Slot")
+                                </th>
+                                <th>PRODUCTO</th>
+                                <th role="button" class="sortable-header text-end" @onclick='() => OrdenarPor("Monto")'>
+                                    MONTO @RenderIcono("Monto")
+                                </th>
+                                <th class="text-end">GANANCIA</th>
+                                <th role="button" class="sortable-header text-center" @onclick='() => OrdenarPor("Estado")'>
+                                    ESTADO @RenderIcono("Estado")
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white">
                         @if (Datos.Detalle != null && Datos.Detalle.Count > 0)
                         {
-                            <Virtualize Items="@Datos.Detalle" Context="v" SpacerElement="tr" OverscanCount="20">
-                                <tr>
-                                    <td class="font-monospace small">@v.FechaRaw.ToString("dd/MM/yyyy HH:mm")</td>
-                                    <td class="fw-bold small">@v.Maquina</td>
-                                    <td class="text-center font-monospace small">@v.Slot</td>
-                                    <td class="fw-bold small text-uppercase">@v.Producto</td>
-                                    <td class="text-end font-monospace">$@v.Monto.ToString("N0")</td>
-                                    <td class="text-end font-monospace text-success">$@v.Ganancia.ToString("N0")</td>
-                                    <td class="text-center">
+                                    <Virtualize Items="@Datos.Detalle" Context="v" SpacerElement="tr" OverscanCount="20">
+                                        <tr>
+                                            <td class="font-monospace small">@v.FechaRaw.ToString("dd/MM/yyyy HH:mm")</td>
+                                            <td class="fw-bold small">@v.Maquina</td>
+                                            <td class="text-center font-monospace small">@v.Slot</td>
+                                            <td class="fw-bold small text-uppercase">@v.Producto</td>
+                                            <td class="text-end font-monospace">$@v.Monto.ToString("N0")</td>
+                                            <td class="text-end font-monospace text-success">$@v.Ganancia.ToString("N0")</td>
+                                            <td class="text-center">
                                         @if (v.Estado == "Pagado")
                                 {
-                                    <span class="badge bg-success rounded-0 border border-dark text-white">OK</span>
+                                        <span class="badge bg-success rounded-0 border border-dark text-white">OK</span>
                                 }
                                 else
                                 {
-                                    <span class="badge bg-warning rounded-0 border border-dark text-dark">PEND</span>
+                                        <span class="badge bg-warning rounded-0 border border-dark text-dark">PEND</span>
                                 }
                             </td>
                         </tr>
@@ -247,145 +247,145 @@
                         }
                         else
                         {
-                            <tr>
-                                <td colspan="7" class="text-center py-4 text-muted fw-bold fst-italic">NO SE ENCONTRARON
-                                    REGISTROS EN ESTE RANGO.</td>
-                            </tr>
+                                    <tr>
+                                        <td colspan="7" class="text-center py-4 text-muted fw-bold fst-italic">NO SE ENCONTRARON
+                                            REGISTROS EN ESTE RANGO.</td>
+                                    </tr>
                         }
-                    </tbody>
-                </table>
+                        </tbody>
+                    </table>
+                </div>
             </div>
-        </div>
 
-        <!-- TABLAS AGRUPADAS -->
-        <div class="row g-4 mb-4">
-            <!-- POR MAQUINA -->
+            <!-- TABLAS AGRUPADAS -->
+            <div class="row g-4 mb-4">
+                <!-- POR MAQUINA -->
         <div class="col-md-6">
-                <div class="card border-2 border-dark rounded-0 h-100 shadow-sm">
-                    <div class="card-header bg-dark text-white rounded-0 fw-bold text-uppercase">
-                        <i class="bi bi-hdd-rack me-2"></i>Rendimiento por Máquina
-                    </div>
-                    <div class="table-responsive">
-                        <table class="table table-sm table-bordered border-dark m-0 table-hover">
-                            <thead class="bg-light text-uppercase small">
-                                <tr>
-                                    <th>MÁQUINA</th>
-                                    <th class="text-end">VTAS</th>
-                                    <th class="text-end">TOTAL</th>
-                                    <th class="text-end">GANANCIA</th>
-                                </tr>
-                            </thead>
-                            <tbody>
+                    <div class="card border-2 border-dark rounded-0 h-100 shadow-sm">
+                        <div class="card-header bg-dark text-white rounded-0 fw-bold text-uppercase">
+                            <i class="bi bi-hdd-rack me-2"></i>Rendimiento por Máquina
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered border-dark m-0 table-hover">
+                                <thead class="bg-light text-uppercase small">
+                                    <tr>
+                                        <th>MÁQUINA</th>
+                                        <th class="text-end">VTAS</th>
+                                        <th class="text-end">TOTAL</th>
+                                        <th class="text-end">GANANCIA</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
                                 @foreach (var m in (Datos.Detalle ?? new List<DetalleVentaDto>()).GroupBy(x =>
-                               x.Maquina).Select(g => new
-                               {
-                                   Nombre = g.Key,
-                                   Count = g.Count(),
-                                   Total = g.Sum(x => x.Monto),
-                                   Ganancia = g.Sum(x => x.Ganancia)
-                               }).OrderByDescending(x => x.Total))
+                              x.Maquina).Select(g => new
+                              {
+                                  Nombre = g.Key,
+                                  Count = g.Count(),
+                                  Total = g.Sum(x => x.Monto),
+                                  Ganancia = g.Sum(x => x.Ganancia)
+                              }).OrderByDescending(x => x.Total))
                                 {
-                                    <tr>
-                                        <td class="small fw-bold">@m.Nombre</td>
-                                        <td class="text-end font-monospace">@m.Count</td>
-                                        <td class="text-end font-monospace">$@m.Total.ToString("N0")</td>
-                                        <td class="text-end font-monospace text-success">$@m.Ganancia.ToString("N0")</td>
-                                    </tr>
+                                            <tr>
+                                                <td class="small fw-bold">@m.Nombre</td>
+                                                <td class="text-end font-monospace">@m.Count</td>
+                                                <td class="text-end font-monospace">$@m.Total.ToString("N0")</td>
+                                                <td class="text-end font-monospace text-success">$@m.Ganancia.ToString("N0")</td>
+                                            </tr>
                                 }
-                            </tbody>
-                        </table>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            <!-- TOP PRODUCTOS -->
+                <!-- TOP PRODUCTOS -->
         <div class="col-md-6">
-                <div class="card border-2 border-dark rounded-0 h-100 shadow-sm">
-                    <div class="card-header bg-dark text-white rounded-0 fw-bold text-uppercase">
-                        <i class="bi bi-star-fill me-2"></i>Top Productos
-                    </div>
-                    <div class="table-responsive">
-                        <table class="table table-sm table-bordered border-dark m-0 table-hover">
-                            <thead class="bg-light text-uppercase small">
-                                <tr>
-                                    <th>PRODUCTO</th>
-                                    <th class="text-end">CANT</th>
-                                    <th class="text-end">TOTAL</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var p in (Datos.Detalle ?? new List<DetalleVentaDto>()).GroupBy(x =>
-                               x.Producto).Select(g => new
-                               {
-                                   Nombre = g.Key,
-                                   Count = g.Count(),
-                                   Total = g.Sum(x => x.Monto)
-                               }).OrderByDescending(x => x.Count).Take(10))
-                                {
+                    <div class="card border-2 border-dark rounded-0 h-100 shadow-sm">
+                        <div class="card-header bg-dark text-white rounded-0 fw-bold text-uppercase">
+                            <i class="bi bi-star-fill me-2"></i>Top Productos
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered border-dark m-0 table-hover">
+                                <thead class="bg-light text-uppercase small">
                                     <tr>
-                                        <td class="small fw-bold text-uppercase">@p.Nombre</td>
-                                        <td class="text-end font-monospace">@p.Count</td>
-                                        <td class="text-end font-monospace">$@p.Total.ToString("N0")</td>
+                                        <th>PRODUCTO</th>
+                                        <th class="text-end">CANT</th>
+                                        <th class="text-end">TOTAL</th>
                                     </tr>
+                                </thead>
+                                <tbody>
+                                @foreach (var p in (Datos.Detalle ?? new List<DetalleVentaDto>()).GroupBy(x =>
+                              x.Producto).Select(g => new
+                              {
+                                  Nombre = g.Key,
+                                  Count = g.Count(),
+                                  Total = g.Sum(x => x.Monto)
+                              }).OrderByDescending(x => x.Count).Take(10))
+                                {
+                                            <tr>
+                                                <td class="small fw-bold text-uppercase">@p.Nombre</td>
+                                                <td class="text-end font-monospace">@p.Count</td>
+                                                <td class="text-end font-monospace">$@p.Total.ToString("N0")</td>
+                                            </tr>
                                 }
-                            </tbody>
-                        </table>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
     }
 </div>
 
 <!-- MODAL INFORME FINANCIERO -->
 @if (MostrarModalFinanciero && Financiero != null)
 {
-    <div class="modal show d-block" style="background: rgba(0,0,0,0.5);" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content rounded-0 border-2 border-dark shadow-lg">
-                <div class="modal-header bg-dark text-white rounded-0">
-                    <h5 class="modal-title fw-bold text-uppercase">💰 Estado de Resultados</h5>
-                    <button type="button" class="btn-close btn-close-white" @onclick="CerrarModalFinanciero"></button>
-                </div>
-                <div class="modal-body p-4" style="background-color: #f8f9fa;">
-
-                    <div class="d-flex justify-content-between mb-2">
-                        <span class="fw-bold">Ingresos por Ventas:</span>
-                        <span class="font-monospace text-dark">$@Financiero.VentasTotales.ToString("N0")</span>
+        <div class="modal show d-block" style="background: rgba(0,0,0,0.5);" tabindex="-1">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content rounded-0 border-2 border-dark shadow-lg">
+                    <div class="modal-header bg-dark text-white rounded-0">
+                        <h5 class="modal-title fw-bold text-uppercase">💰 Estado de Resultados</h5>
+                        <button type="button" class="btn-close btn-close-white" @onclick="CerrarModalFinanciero"></button>
                     </div>
-                    <div class="d-flex justify-content-between mb-3">
-                        <span class="fw-bold text-muted">(-) Costo de Ventas (COGS):</span>
-                        <span class="font-monospace text-danger">-$@Financiero.CostoVentas.ToString("N0")</span>
+                    <div class="modal-body p-4" style="background-color: #f8f9fa;">
+
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="fw-bold">Ingresos por Ventas:</span>
+                            <span class="font-monospace text-dark">$@Financiero.VentasTotales.ToString("N0")</span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-3">
+                            <span class="fw-bold text-muted">(-) Costo de Ventas (COGS):</span>
+                            <span class="font-monospace text-danger">-$@Financiero.CostoVentas.ToString("N0")</span>
+                        </div>
+
+                        <div class="border-top border-dark my-2"></div>
+
+                        <div class="d-flex justify-content-between mb-3 bg-white p-2 border border-secondary">
+                            <span class="fw-bold">MARGEN BRUTO:</span>
+                            <span class="font-monospace fw-bold text-primary">$@Financiero.MargenBruto.ToString("N0")
+                                (@Financiero.MargenPorcentaje.ToString("F1")%)</span>
+                        </div>
+
+                        <div class="d-flex justify-content-between mb-3">
+                            <span class="fw-bold text-muted">(-) Gastos Operativos (Caja):</span>
+                            <span class="font-monospace text-danger">-$@Financiero.GastosOperativos.ToString("N0")</span>
+                        </div>
+
+                        <div class="border-top border-3 border-dark my-2"></div>
+
+                        <div class="d-flex justify-content-between mt-3 p-3 bg-success text-white border border-dark">
+                            <h4 class="m-0 fw-bold text-uppercase">UTILIDAD NETA:</h4>
+                            <h4 class="m-0 font-monospace fw-bold">$@Financiero.UtilidadNeta.ToString("N0")</h4>
+                        </div>
+
                     </div>
-
-                    <div class="border-top border-dark my-2"></div>
-
-                    <div class="d-flex justify-content-between mb-3 bg-white p-2 border border-secondary">
-                        <span class="fw-bold">MARGEN BRUTO:</span>
-                        <span class="font-monospace fw-bold text-primary">$@Financiero.MargenBruto.ToString("N0")
-                            (@Financiero.MargenPorcentaje.ToString("F1")%)</span>
-                    </div>
-
-                    <div class="d-flex justify-content-between mb-3">
-                        <span class="fw-bold text-muted">(-) Gastos Operativos (Caja):</span>
-                        <span class="font-monospace text-danger">-$@Financiero.GastosOperativos.ToString("N0")</span>
-                    </div>
-
-                    <div class="border-top border-3 border-dark my-2"></div>
-
-                    <div class="d-flex justify-content-between mt-3 p-3 bg-success text-white border border-dark">
-                        <h4 class="m-0 fw-bold text-uppercase">UTILIDAD NETA:</h4>
-                        <h4 class="m-0 font-monospace fw-bold">$@Financiero.UtilidadNeta.ToString("N0")</h4>
-                    </div>
-
-                </div>
-                <div class="modal-footer bg-light rounded-0">
-                    <button type="button" class="btn btn-dark rounded-0 fw-bold"
+                    <div class="modal-footer bg-light rounded-0">
+                        <button type="button" class="btn btn-dark rounded-0 fw-bold"
                     @onclick="CerrarModalFinanciero">CERRAR</button>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
 }
 
 <style>
@@ -624,12 +624,18 @@
 
     private async Task SincronizarPortal()
     {
+        if (MaquinaSeleccionada <= 0)
+        {
+            await JS.InvokeVoidAsync("alert", "⚠️ Por favor, seleccione una UNIDAD específica antes de sincronizar.");
+            return;
+        }
+
         try
         {
             Sincronizando = true;
             StateHasChanged(); // Mostrar spinner
 
-            var response = await Http.PostAsync("api/Ventas/sync-portal", null);
+            var response = await Http.PostAsync($"api/Ventas/sync-portal?maquinaId={MaquinaSeleccionada}", null);
             if (response.IsSuccessStatusCode)
             {
                 var msg = await response.Content.ReadAsStringAsync();

@@ -69,11 +69,22 @@ namespace VendingManager.Infrastructure.Services
                 using (var scope = _serviceProvider.CreateScope())
                 {
                     var excelService = scope.ServiceProvider.GetRequiredService<IExcelService>();
+                    var ventasService = scope.ServiceProvider.GetRequiredService<IVentasService>(); // Necesario para obtener lista
 
-                    // Delegamos todo el trabajo pesado al servicio compartido
-                    var resultado = await excelService.SincronizarDesdePortal();
-
-                    _logger.LogInformation($"Resultado Sincronización Automática: {resultado}");
+                    // Sincronizamos TODAS las máquinas una por una
+                    var maquinas = await ventasService.GetMaquinasAsync();
+                    foreach (var m in maquinas)
+                    {
+                        try
+                        {
+                            var resultado = await excelService.SincronizarDesdePortal(m.Id);
+                            _logger.LogInformation($"[AutoSync] Máquina '{m.Nombre}': {resultado}");
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError($"[AutoSync] Error en Máquina '{m.Nombre}': {ex.Message}");
+                        }
+                    }
                 }
             }
             catch (Exception ex)
