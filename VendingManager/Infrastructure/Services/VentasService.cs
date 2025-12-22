@@ -97,24 +97,30 @@ namespace VendingManager.Infrastructure.Services
                 MontoPendiente = listaVentas.Where(v => !v.Pagado).Sum(v => v.PrecioVenta),
 
                 // Calculamos los cobros fantasma (TB-EXTRA)
-                MontoPhantom = listaVentas.Where(v => v.IdOrdenMaquina == "TB-EXTRA").Sum(v => v.PrecioVenta),
+                MontoPhantom = listaVentas.Where(v => v.IdOrdenMaquina == "TB-EXTRA" || v.IdOrdenMaquina == "TB-SIN-VENTA").Sum(v => v.PrecioVenta),
 
                 Detalle = new List<DetalleVentaDto>()
             };
 
+            // AJUSTE: Restamos los Fantasmas de los totales generales para que las Kpis (Verde/Azul)
+            // reflejen solo la operación "Limpia". La plata extra queda aislada en la tarjeta Rosa.
+            reporte.TotalVentas -= listaVentas.Count(v => v.IdOrdenMaquina == "TB-EXTRA" || v.IdOrdenMaquina == "TB-SIN-VENTA");
+            reporte.MontoTotal -= reporte.MontoPhantom;
+            reporte.MontoPagado -= reporte.MontoPhantom; // Asumiendo que los fantasmas siempre están pagados
+
+
             foreach (var v in listaVentas)
             {
-                // FILTRO: Si no se piden fantasmas y esto es un fantasma, saltar.
-                if (!includePhantom && v.IdOrdenMaquina == "TB-EXTRA") continue;
+                // DETECTAR SI ES FANTASMA
+                bool esFantasma = (v.IdOrdenMaquina == "TB-EXTRA" || v.IdOrdenMaquina == "TB-SIN-VENTA");
 
                 decimal costo = v.CostoVenta;
                 if (costo == 0 && v.Producto != null) costo = v.Producto.CostoPromedio;
 
                 decimal ganancia = v.PrecioVenta - costo;
 
-                reporte.Detalle.Add(new DetalleVentaDto
+                var detalleDto = new DetalleVentaDto
                 {
-
                     FechaRaw = v.FechaLocal,
                     Maquina = v.Maquina?.Nombre ?? "Desconocida",
                     Slot = v.NumeroSlot,
@@ -123,7 +129,19 @@ namespace VendingManager.Infrastructure.Services
                     CostoUnitario = costo,
                     Ganancia = ganancia,
                     Estado = v.Pagado ? "Pagado" : "Pendiente"
-                });
+                };
+
+                // 1. SIEMPRE AGREGAR A LA LISTA DE FANTASMAS SI CORRESPONDE (Para el Modal)
+                if (esFantasma)
+                {
+                    reporte.Fantasmas.Add(detalleDto);
+                }
+
+                // 2. AGREGAR A LA LISTA PRINCIPAL SOLO SI CUMPLE EL FILTRO
+                if (!esFantasma || includePhantom)
+                {
+                    reporte.Detalle.Add(detalleDto);
+                }
             }
 
             reporte.GananciaTotal = reporte.Detalle.Sum(d => d.Ganancia);
