@@ -146,9 +146,9 @@ namespace VendingManager.Web.Controllers
         }
 
         [HttpPost("sync-portal")]
-        public async Task<IActionResult> SincronizarPortal()
+        public async Task<IActionResult> SincronizarPortal([FromQuery] int maquinaId)
         {
-            var resultado = await _excelService.SincronizarDesdePortal();
+            var resultado = await _excelService.SincronizarDesdePortal(maquinaId);
             if (resultado.StartsWith("Error")) return BadRequest(resultado);
             return Ok(resultado);
         }

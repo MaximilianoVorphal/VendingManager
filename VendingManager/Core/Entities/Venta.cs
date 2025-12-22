@@ -18,5 +18,7 @@ public class Venta
     public decimal CostoVenta { get; set; } = 0; // Costo histórico al momento de la venta
     public string IdOrdenMaquina { get; set; } = string.Empty; // Para evitar duplicados
 
+    public string? IdTransaccionPago { get; set; } // Identificador de pago/match (ej. "TB-MATCH", "TB-SIN-VENTA")
+
     public bool Pagado { get; set; } = false; // Por defecto es falso
 }
