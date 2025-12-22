@@ -157,7 +157,7 @@
 
                 <!-- 3. LA DIFERENCIA (FANTASMA) -->
         <div class="col-6 col-md-3">
-                    <div class="p-3 h-100 shadow-sm border border-2 border-dark text-white" style="background-color: #e6007e;">
+                    <div role="button" @onclick="VerFantasmas" class="p-3 h-100 shadow-sm border border-2 border-dark text-white position-relative" style="background-color: #e6007e; cursor: pointer;">
                         <div class="text-white fw-bold text-uppercase small" style="letter-spacing: 1px; opacity: 0.9;">
                             Diferencias Transbank
                         </div>
@@ -168,7 +168,7 @@
                         @if (Datos.MontoPhantom > 0)
                         {
                                     <small class="text-white fw-bold text-uppercase" style="font-size: 0.7rem;">Requiere
-                                        Revisión</small>
+                                        Revisión (Click para ver)</small>
                         }
                         else
                         {
@@ -388,6 +388,59 @@
         </div>
 }
 
+<!-- MODAL FANTASMAS -->
+@if (MostrarModalFantasmas && Datos?.Fantasmas != null)
+{
+    <div class="modal show d-block" style="background: rgba(0,0,0,0.5);" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content rounded-0 border-2 border-dark shadow-lg">
+                <div class="modal-header bg-danger text-white rounded-0">
+                    <h5 class="modal-title fw-bold text-uppercase">⚠️ Diferencias Transbank (Ventas Fantasma)</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CerrarModalFantasmas"></button>
+                </div>
+                <div class="modal-body p-0">
+                    <div class="alert alert-warning rounded-0 m-0 border-0 border-bottom border-dark">
+                        <small class="fw-bold">
+                            <i class="bi bi-info-circle-fill me-1"></i> Estos montos fueron cobrados en Transbank pero NO tienen una venta de máquina asociada. Verifica inventario.
+                        </small>
+                    </div>
+                    <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                        <table class="table table-striped table-hover m-0">
+                            <thead class="bg-light sticky-top">
+                                <tr>
+                                    <th>FECHA Y HORA</th>
+                                    <th>MÁQUINA ASIGNADA</th>
+                                    <th class="text-end">MONTO COBRADO</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if (Datos.Fantasmas.Any())
+                                {
+                                    @foreach (var f in Datos.Fantasmas.OrderByDescending(x => x.FechaRaw))
+                                    {
+                                        <tr>
+                                            <td class="font-monospace">@f.FechaRaw.ToString("dd/MM/yyyy HH:mm:ss")</td>
+                                            <td>@f.Maquina</td>
+                                            <td class="text-end font-monospace fw-bold text-danger">$@f.Monto.ToString("N0")</td>
+                                        </tr>
+                                    }
+                                }
+                                else
+                                {
+                                    <tr><td colspan="3" class="text-center py-4">No hay diferencias registradas en este período.</td></tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light rounded-0">
+                    <button type="button" class="btn btn-dark rounded-0 fw-bold" @onclick="CerrarModalFantasmas">CERRAR</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 <style>
     .sortable-header {
         cursor: pointer;
@@ -405,7 +458,8 @@
     private bool Cargando = false;
     private string MensajeError = "";
     private bool MostrarModalFinanciero = false;
-    private bool MostrarFantasmas = false; // Por defecto FALSE
+    private bool MostrarModalFantasmas = false; // Nuevo Modal
+    private bool MostrarFantasmas = false; // Checkbox Filtro (para tabla principal)
     private bool Sincronizando = false;
 
     // --- VARIABLES DE DATOS ---
@@ -521,10 +575,11 @@
         }
     }
 
-    private void CerrarModalFinanciero()
-    {
-        MostrarModalFinanciero = false;
-    }
+    private void CerrarModalFinanciero() => MostrarModalFinanciero = false;
+
+    // NUEVO: CONTROL MODAL FANTASMAS
+    private void VerFantasmas() => MostrarModalFantasmas = true;
+    private void CerrarModalFantasmas() => MostrarModalFantasmas = false;
 
     private void OrdenarPor(string columna)
     {
@@ -677,6 +732,7 @@
         public decimal MontoPhantom { get; set; }
         public decimal GananciaTotal { get; set; } // Agregado
         public List<DetalleVentaDto> Detalle { get; set; } = new();
+        public List<DetalleVentaDto> Fantasmas { get; set; } = new(); // Nueva lista
     }
 
     public class DetalleVentaDto
