@@ -55,6 +55,18 @@
                         title="Exportar a Excel" style="width: 50px;">
                         <i class="bi bi-file-earmark-excel"></i>
                     </button>
+                    <!-- SYNC BUTTON -->
+                    <button class="btn btn-info rounded-0 fw-bold border-dark py-2" @onclick="SincronizarPortal"
+                        disabled="@Sincronizando" title="Sincronizar con Ourvend">
+                        @if (Sincronizando)
+                        {
+                            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                        }
+                        else
+                        {
+                            <i class="bi bi-cloud-arrow-down-fill text-white"></i>
+                        }
+                    </button>
                 </div>
             </div>
             <div class="row mt-2">
@@ -394,6 +406,7 @@
     private string MensajeError = "";
     private bool MostrarModalFinanciero = false;
     private bool MostrarFantasmas = false; // Por defecto FALSE
+    private bool Sincronizando = false;
 
     // --- VARIABLES DE DATOS ---
     private DateTime FechaInicio = DateTime.Today.AddDays(-30);
@@ -606,6 +619,38 @@
         {
             MensajeError = "Error: " + ex.Message;
             Logger.LogError(ex, "Error en ExportarExcel");
+        }
+    }
+
+    private async Task SincronizarPortal()
+    {
+        try
+        {
+            Sincronizando = true;
+            StateHasChanged(); // Mostrar spinner
+
+            var response = await Http.PostAsync("api/Ventas/sync-portal", null);
+            if (response.IsSuccessStatusCode)
+            {
+                var msg = await response.Content.ReadAsStringAsync();
+                // Alertar éxito (podrías usar un toast mejor)
+                await JS.InvokeVoidAsync("alert", "Sincronización Completada: " + msg);
+                // Recargar reporte para ver los datos nuevos
+                await CargarReporte();
+            }
+            else
+            {
+                MensajeError = "Error al sincronizar: " + await response.Content.ReadAsStringAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            MensajeError = "Error crítico de sync: " + ex.Message;
+        }
+        finally
+        {
+            Sincronizando = false;
+            StateHasChanged();
         }
     }
 

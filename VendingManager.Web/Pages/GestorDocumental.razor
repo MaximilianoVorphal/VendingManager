@@ -1,0 +1,200 @@
+@page "/documentos"
+@inject HttpClient Http
+@inject IJSRuntime JS
+@using System.Net.Http.Headers
+
+<div class="container-fluid px-2 px-md-4 mt-4" style="font-family: 'Segoe UI', Consolas, monospace;">
+
+    <!-- HEADER -->
+    <div class="row align-items-center mb-4 border-bottom border-3 border-dark pb-3">
+        <div class="col-12">
+            <h2 class="m-0 fw-bold text-uppercase" style="letter-spacing: -1px;">GESTOR DOCUMENTAL</h2>
+            <small class="text-muted fw-bold">MINI NUBE DE ARCHIVOS Y REPORTES</small>
+        </div>
+    </div>
+
+    <!-- UPLOAD PANEL -->
+    <div class="card border-2 border-dark rounded-0 shadow-sm mb-4">
+        <div class="card-header bg-dark text-white rounded-0 fw-bold text-uppercase">
+            <i class="bi bi-cloud-upload col-2"></i> Subir Nuevo Documento
+        </div>
+        <div class="card-body bg-light p-3">
+            <div class="row align-items-center">
+                <div class="col-md-8 col-12 mb-2 mb-md-0">
+                    <InputFile OnChange="@SubirArchivo" class="form-control border-dark rounded-0 fw-bold" />
+                    <small class="text-muted fst-italic">Formatos soportados: PDF, Excel, Word, Imágenes. Máx 2GB.</small>
+                </div>
+                <div class="col-md-4 col-12 text-end">
+                    @if (Subiendo)
+                    {
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Subiendo...</span>
+                            </div>
+                    }
+                </div>
+            </div>
+            @if (!string.IsNullOrEmpty(Mensaje))
+            {
+                    <div class="alert alert-info mt-3 mb-0 rounded-0 border-dark fw-bold">
+                    @Mensaje
+                    </div>
+            }
+        </div>
+    </div>
+
+    <!-- LISTA DE ARCHIVOS -->
+    <div class="card border-2 border-dark rounded-0 shadow-sm">
+        <div class="card-header bg-dark text-white rounded-0 fw-bold text-uppercase">
+            <i class="bi bi-folder2-open me-2"></i> Documentos Almacenados
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover table-bordered border-dark m-0">
+                <thead class="bg-secondary text-white text-uppercase small">
+                    <tr>
+                        <th>NOMBRE</th>
+                        <th class="text-center">FECHA SUBIDA</th>
+                        <th class="text-center">TIPO</th>
+                        <th class="text-center" style="width: 150px;">ACCIONES</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white">
+                    @if (ListaInformes == null)
+                    {
+                            <tr>
+                                <td colspan="4" class="text-center py-3">Cargando documentos...</td>
+                            </tr>
+                    }
+                    else if (ListaInformes.Count == 0)
+                    {
+                            <tr>
+                                <td colspan="4" class="text-center py-3 text-muted fw-bold">NO HAY DOCUMENTOS GUARDADOS.</td>
+                            </tr>
+                    }
+                    else
+                    {
+                        @foreach (var file in ListaInformes)
+                        {
+                                    <tr>
+                                        <td class="align-middle fw-bold">
+                                            <i class="bi bi-file-earmark-text me-2"></i>@file.Nombre@file.Extension
+                                        </td>
+                                        <td class="align-middle text-center font-monospace small">
+                                    @file.FechaSubida.ToString("dd/MM/yyyy HH:mm")
+                                        </td>
+                                        <td class="align-middle text-center small text-uppercase">
+                                    @file.Extension.Replace(".", "")
+                                        </td>
+                                        <td class="align-middle text-center">
+                                            <div class="btn-group">
+                                                <a href="api/informes/@file.Id" target="_blank" class="btn btn-sm btn-primary rounded-0 border-dark" title="Descargar/Ver">
+                                                    <i class="bi bi-download"></i>
+                                                </a>
+                                                <button class="btn btn-sm btn-danger rounded-0 border-dark" @onclick="() => EliminarArchivo(file.Id)" title="Eliminar">
+                                                    <i class="bi bi-trash-fill"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<InformeDto>? ListaInformes;
+    private bool Subiendo = false;
+    private string Mensaje = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarDocumentos();
+    }
+
+    private async Task CargarDocumentos()
+    {
+        try
+        {
+            ListaInformes = await Http.GetFromJsonAsync<List<InformeDto>>("api/informes");
+        }
+        catch (Exception ex)
+        {
+            Mensaje = "Error al cargar lista: " + ex.Message;
+        }
+    }
+
+    private async Task SubirArchivo(InputFileChangeEventArgs e)
+    {
+        Subiendo = true;
+        Mensaje = "";
+        try
+        {
+            var file = e.File;
+            // Limite de tamaño: 2GB (usar long)
+            long maxFileSize = 2L * 1024 * 1024 * 1024;
+
+            using var content = new MultipartFormDataContent();
+            // Importante: Usar OpenReadStream con maxAllowedSize suficiente
+            var fileContent = new StreamContent(file.OpenReadStream(maxFileSize));
+            fileContent.Headers.ContentType = new MediaTypeHeaderValue(file.ContentType);
+
+            content.Add(fileContent, "file", file.Name);
+
+            var response = await Http.PostAsync("api/informes", content);
+
+            if (response.IsSuccessStatusCode)
+            {
+                Mensaje = "Archivo subido exitosamente.";
+                await CargarDocumentos();
+            }
+            else
+            {
+                Mensaje = "Error al subir: " + response.ReasonPhrase;
+            }
+        }
+        catch (Exception ex)
+        {
+            Mensaje = "Error: " + ex.Message;
+        }
+        finally
+        {
+            Subiendo = false;
+        }
+    }
+
+    private async Task EliminarArchivo(int id)
+    {
+        bool confirmado = await JS.InvokeAsync<bool>("confirm", "¿Estás seguro de eliminar este archivo permanentemente?");
+        if (confirmado)
+        {
+            try
+            {
+                var response = await Http.DeleteAsync($"api/informes/{id}");
+                if (response.IsSuccessStatusCode)
+                {
+                    await CargarDocumentos();
+                }
+                else
+                {
+                    Mensaje = "Error al eliminar.";
+                }
+            }
+            catch (Exception ex)
+            {
+                Mensaje = "Error: " + ex.Message;
+            }
+        }
+    }
+
+    // DTO Local
+    public class InformeDto
+    {
+        public int Id { get; set; }
+        public string Nombre { get; set; } = string.Empty;
+        public string Extension { get; set; } = string.Empty;
+        public string TipoContenido { get; set; } = string.Empty;
+        public DateTime FechaSubida { get; set; }
+    }
+}

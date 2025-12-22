@@ -1,6 +1,8 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Hosting;
 using System.IO;
+using VendingManager.Core.Entities;
+using VendingManager.Core.Interfaces;
 
 namespace VendingManager.Infrastructure.Services
 {
@@ -8,11 +10,41 @@ namespace VendingManager.Infrastructure.Services
     {
         private readonly ApplicationDbContext _context;
         private readonly IWebHostEnvironment _environment;
+        private readonly IInformesService _informesService;
 
-        public CajaService(ApplicationDbContext context, IWebHostEnvironment environment)
+        public CajaService(ApplicationDbContext context, IWebHostEnvironment environment, IInformesService informesService)
         {
             _context = context;
             _environment = environment;
+            _informesService = informesService;
+        }
+
+        // 2. UploadImageAsync
+        public async Task<string> UploadImageAsync(Stream fileStream, string fileName, string? webRootPath = null)
+        {
+            using (var memoryStream = new MemoryStream())
+            {
+                await fileStream.CopyToAsync(memoryStream);
+                var content = memoryStream.ToArray();
+
+                var informe = new Informe
+                {
+                    Nombre = Path.GetFileNameWithoutExtension(fileName) + "_CAJA",
+                    Extension = Path.GetExtension(fileName),
+                    TipoContenido = "image/" + Path.GetExtension(fileName).TrimStart('.'), // Simple MIME inference or guess
+                    Contenido = content,
+                    FechaSubida = DateTime.Now
+                };
+
+                // Create a more robust MIME type detection if needed, but for now extension based is likely fine or passed in? 
+                // The filename has extension.
+
+                // Actually, I can just use a generic image type or try to get it. 
+                // But let's check what Controller passes. It passes file.FileName.
+
+                var saved = await _informesService.SubirInformeAsync(informe);
+                return $"api/informes/{saved.Id}";
+            }
         }
 
         public async Task<CajaResumenDto> GetResumenAsync(int month, int year)
@@ -87,25 +119,7 @@ namespace VendingManager.Infrastructure.Services
             await _context.SaveChangesAsync();
         }
 
-        public async Task<string> UploadImageAsync(Stream fileStream, string fileName, string? webRootPath = null)
-        {
-            // Use injected env if webRootPath not provided
-            string root = webRootPath ?? _environment.WebRootPath;
-            string uploadsFolder = Path.Combine(root, "uploads");
 
-            if (!Directory.Exists(uploadsFolder))
-                Directory.CreateDirectory(uploadsFolder);
-
-            string uniqueName = Guid.NewGuid().ToString() + Path.GetExtension(fileName);
-            string filePath = Path.Combine(uploadsFolder, uniqueName);
-
-            using (var stream = new FileStream(filePath, FileMode.Create))
-            {
-                await fileStream.CopyToAsync(stream);
-            }
-
-            return $"uploads/{uniqueName}";
-        }
 
         public bool IsMonthLocked(int month, int year)
         {

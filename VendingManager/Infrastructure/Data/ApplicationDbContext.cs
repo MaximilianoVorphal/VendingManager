@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using VendingManager.Core.Entities;
 
 namespace VendingManager.Infrastructure.Data
 {
@@ -11,6 +12,7 @@ namespace VendingManager.Infrastructure.Data
         public DbSet<ConfiguracionSlot> ConfiguracionSlots { get; set; } = null!;
         public DbSet<Venta> Ventas { get; set; } = null!;
         public DbSet<MovimientoCaja> MovimientosCaja { get; set; } = null!;
+        public DbSet<Informe> Informes { get; set; } = null!;
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             // Configuramos precios como decimales (importante para dinero)
