@@ -3,16 +3,82 @@ using ClosedXML.Excel;
 using Microsoft.EntityFrameworkCore;
 using System.Data;
 using System.IO;
+using System.Net.Http.Json;
 
 namespace VendingManager.Infrastructure.Services
 {
     public class ExcelService : IExcelService
     {
         private readonly ApplicationDbContext _context;
+        private readonly IHttpClientFactory _httpClientFactory;
+        private readonly IConfiguration _configuration;
 
-        public ExcelService(ApplicationDbContext context)
+        public ExcelService(ApplicationDbContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration)
         {
             _context = context;
+            _httpClientFactory = httpClientFactory;
+            _configuration = configuration;
+        }
+
+        // =============================================
+        // 0. SINCRONIZACIÓN AUTOMÁTICA (ORQUESTADOR)
+        // =============================================
+        public async Task<string> SincronizarDesdePortal()
+        {
+            try
+            {
+                // 1. Configurar cliente y fechas
+                var scraperUrl = _configuration["ScraperServiceUrl"] ?? "http://scraper:8000";
+                var client = _httpClientFactory.CreateClient();
+
+                var today = DateTime.Now;
+                var startDate = new DateTime(today.Year, today.Month, 1).ToString("yyyy-MM-dd");
+                // Pedimos hasta MAÑANA para cubrir el desfase horario con China (+11h)
+                var endDate = today.AddDays(1).ToString("yyyy-MM-dd");
+                var machineId = "2410280012";
+
+                var requestData = new
+                {
+                    machine_id = machineId,
+                    start_date = startDate,
+                    end_date = endDate
+                };
+
+                // 2. Llamar al Scraper
+                Console.WriteLine($"[Sync] Solicitando reporte a {scraperUrl}...");
+                // Aumentar Timeout para Playwright
+                client.Timeout = TimeSpan.FromMinutes(2);
+
+                var response = await client.PostAsJsonAsync($"{scraperUrl}/download", requestData);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    return $"Error llamando al Scraper: {response.StatusCode}";
+                }
+
+                // 3. Procesar el Stream directamente (Sin volumen compartido)
+                Console.WriteLine($"[Sync] Respuesta recibida. Procesando stream...");
+
+                using (var stream = await response.Content.ReadAsStreamAsync())
+                {
+                    string nombreArchivo = response.Content.Headers.ContentDisposition?.FileName?.Trim('"') ?? $"Report_{machineId}_{today:yyyyMMdd}.xls";
+
+                    // Si el stream no es seekable (net stream), lo copiamos a memoria para seguridad de ExcelDataReader
+                    using (var ms = new MemoryStream())
+                    {
+                        await stream.CopyToAsync(ms);
+                        ms.Position = 0;
+                        await ImportarVentasMaquina(ms, nombreArchivo);
+                    }
+                }
+
+                return "Sincronización Exitosa. Archivo procesado en memoria.";
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Sync] Error Crítico: {ex.Message}");
+                return $"Error: {ex.Message}";
+            }
         }
 
         // =============================================
@@ -116,8 +182,19 @@ namespace VendingManager.Infrastructure.Services
                             continue;
                         }
 
+                        // FIX: Ajuste horario según máquina (MOVIDO ANTES DEL PROCESAMIENTO)
+                        int offset = machineId.Trim() == "2410280012" ? 1 : -11;
+                        DateTime fechaLocal = fecha.AddHours(offset);
+
                         // 4. Procesar Venta (Insertar)
                         var configSlot = maquina.Slots.FirstOrDefault(s => s.NumeroSlot == slot); // String comparison
+
+                        // FECHA DE CORTE HISTÓRICA: Si es anterior al 18 de Diciembre 2025 (HORA LOCAL), NO asignamos producto ni descontamos stock.
+                        if (fechaLocal.Date < new DateTime(2025, 12, 18))
+                        {
+                            configSlot = null;
+                        }
+
                         int? prodId = configSlot?.ProductoId;
                         decimal cost = configSlot?.Producto?.CostoPromedio ?? 0;
 
@@ -129,13 +206,10 @@ namespace VendingManager.Infrastructure.Services
                             // Por ahora lo dejamos permitir negativo para reconciliación posterior o si el stock estaba mal.
                         }
 
-                        // FIX: Ajuste horario según máquina
-                        int offset = machineId.Trim() == "2410280012" ? 1 : -11;
-
                         _context.Ventas.Add(new Venta
                         {
                             FechaHora = fecha,
-                            FechaLocal = fecha.AddHours(offset),
+                            FechaLocal = fechaLocal,
                             PrecioVenta = precio,
                             NumeroSlot = slot,
                             IdOrdenMaquina = orderNumber,

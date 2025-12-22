@@ -1,4 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using VendingManager.Core.Entities;
+using VendingManager.Core.Interfaces;
 
 namespace VendingManager.Web.Controllers
 {
@@ -7,10 +9,14 @@ namespace VendingManager.Web.Controllers
     public class VentasController : ControllerBase
     {
         private readonly IVentasService _ventasService;
+        private readonly IInformesService _informesService;
+        private readonly IExcelService _excelService;
 
-        public VentasController(IVentasService ventasService)
+        public VentasController(IVentasService ventasService, IInformesService informesService, IExcelService excelService)
         {
             _ventasService = ventasService;
+            _informesService = informesService;
+            _excelService = excelService;
         }
 
         [HttpPost("subir-ventas-maquina")]
@@ -19,11 +25,28 @@ namespace VendingManager.Web.Controllers
             if (file == null || file.Length == 0) return BadRequest("Archivo vacío.");
             try
             {
-                using (var stream = file.OpenReadStream())
+                // 1. Guardar copia en Documentos (Auto-Save)
+                using (var memoryStream = new MemoryStream())
                 {
-                    await _ventasService.ImportarVentasMaquinaAsync(stream, file.FileName);
+                    await file.CopyToAsync(memoryStream);
+
+                    // Guardar en BD
+                    var informe = new Informe
+                    {
+                        Nombre = Path.GetFileNameWithoutExtension(file.FileName) + "_AUTO_SAVE",
+                        Extension = Path.GetExtension(file.FileName),
+                        TipoContenido = file.ContentType,
+                        Contenido = memoryStream.ToArray(),
+                        FechaSubida = DateTime.Now
+                    };
+                    await _informesService.SubirInformeAsync(informe);
+
+                    // 2. Procesar el archivo (resetear stream o usar nuevo)
+                    memoryStream.Position = 0;
+                    await _ventasService.ImportarVentasMaquinaAsync(memoryStream, file.FileName);
                 }
-                return Ok("Archivo de MÁQUINA procesado correctamente.");
+
+                return Ok("Archivo de MÁQUINA procesado y guardado en Documentos correctamente.");
             }
             catch (Exception ex) { return StatusCode(500, ex.Message); }
         }
@@ -48,11 +71,28 @@ namespace VendingManager.Web.Controllers
             if (file == null || file.Length == 0) return BadRequest("Archivo vacío.");
             try
             {
-                using (var stream = file.OpenReadStream())
+                // 1. Guardar copia en Documentos (Auto-Save)
+                using (var memoryStream = new MemoryStream())
                 {
-                    await _ventasService.ImportarTransbankAsync(stream, file.FileName);
+                    await file.CopyToAsync(memoryStream);
+
+                    // Guardar en BD
+                    var informe = new Informe
+                    {
+                        Nombre = Path.GetFileNameWithoutExtension(file.FileName) + "_TRANSBANK_AUTO",
+                        Extension = Path.GetExtension(file.FileName),
+                        TipoContenido = file.ContentType,
+                        Contenido = memoryStream.ToArray(),
+                        FechaSubida = DateTime.Now
+                    };
+                    await _informesService.SubirInformeAsync(informe);
+
+                    // 2. Procesar el archivo
+                    memoryStream.Position = 0;
+                    await _ventasService.ImportarTransbankAsync(memoryStream, file.FileName);
                 }
-                return Ok("Archivo de TRANSBANK procesado correctamente.");
+
+                return Ok("Archivo de TRANSBANK procesado y guardado en Documentos correctamente.");
             }
             catch (Exception ex) { return StatusCode(500, ex.Message); }
         }
@@ -103,6 +143,14 @@ namespace VendingManager.Web.Controllers
             {
                 return BadRequest("Error al generar Excel: " + ex.Message);
             }
+        }
+
+        [HttpPost("sync-portal")]
+        public async Task<IActionResult> SincronizarPortal()
+        {
+            var resultado = await _excelService.SincronizarDesdePortal();
+            if (resultado.StartsWith("Error")) return BadRequest(resultado);
+            return Ok(resultado);
         }
     }
 }
