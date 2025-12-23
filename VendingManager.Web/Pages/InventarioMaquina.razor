@@ -69,7 +69,7 @@
                         }
                         else
                         {
-                            @foreach (var s in Slots.OrderBy(x => x.NumeroSlot))
+                            @foreach (var s in Slots.OrderBy(x => x.SlotNumberSort))
                             {
                                             <tr class="@(s.ProductoId == 0 ? "table-warning" : "")">
                                                 <td class="text-center font-monospace bg-light fs-5">@s.NumeroSlot</td>
@@ -410,5 +410,7 @@
         public int StockActual { get; set; }
         public int CapacidadMaxima { get; set; }
         public decimal PrecioVenta { get; set; }
+
+        public int SlotNumberSort => int.TryParse(NumeroSlot, out int n) ? n : int.MaxValue;
     }
 }

@@ -112,6 +112,8 @@ namespace VendingManager.Infrastructure.Services
                     int colSlot = tabla.Columns.IndexOf("Slot Number");
                     int colPrecio = tabla.Columns.IndexOf("Price");
                     int colTiempo = tabla.Columns.IndexOf("Machine Time");
+                    int colServerTime = tabla.Columns.IndexOf("Server time");
+                    if (colServerTime == -1) colServerTime = tabla.Columns.IndexOf("Server Time");
                     int colOrden = tabla.Columns.IndexOf("Order Number");
 
                     if (colId == -1)
@@ -155,6 +157,18 @@ namespace VendingManager.Infrastructure.Services
                         string slot = row[colSlot]?.ToString()?.Trim() ?? ""; // AHORA ES STRING
                         DateTime.TryParse(row[colTiempo]?.ToString(), out DateTime fecha);
 
+                        // FALLBACK: Si la fecha es absurda (ej: 2013) y tenemos Server Time, usamos eso.
+                        bool usandingServerTime = false;
+                        if (fecha.Year < 2024 && colServerTime != -1)
+                        {
+                            if (DateTime.TryParse(row[colServerTime]?.ToString(), out DateTime fechaServer))
+                            {
+                                fecha = fechaServer;
+                                usandingServerTime = true;
+                                // Console.WriteLine($"   ⚠️FIX: Usando ServerTime {fechaServer} para {machineId}");
+                            }
+                        }
+
                         string orderNumber = colOrden != -1 ? row[colOrden]?.ToString() ?? "" : "";
 
                         // FIX: Detectar notación científica (ej: 2.41028E+09)
@@ -164,19 +178,23 @@ namespace VendingManager.Infrastructure.Services
                         }
 
                         // 3. Chequear Duplicados (Lógica Híbrida)
+                        // 3. Chequear Duplicados (CORREGIDO)
                         bool esDuplicado = false;
 
-                        // A) Si tiene un ID de Orden válido (no vacio, no "0"), confiamos en él.
+                        // MODIFICACIÓN: Agregamos validación de fecha al chequeo por ID de Orden
                         if (!string.IsNullOrEmpty(orderNumber) && orderNumber != "0")
                         {
                             esDuplicado = await _context.Ventas.AnyAsync(v =>
                                 v.IdOrdenMaquina == orderNumber &&
-                                v.MaquinaId == maquina.Id);
+                                v.MaquinaId == maquina.Id &&
+                                // 🔥 NUEVO: Solo es duplicado si ocurrió dentro de las últimas 24 horas de la fecha que estamos procesando
+                                v.FechaHora >= fecha.AddHours(-24) && 
+                                v.FechaHora <= fecha.AddHours(24)
+                            );
                         }
-                        // B) Si NO tiene ID (es "0" o vacío), usamos Fecha + Slot + Precio (Máquinas de Café)
                         else
                         {
-                            // Buscamos si ya existe una venta EXACTAMENTE igual en fecha y máquina
+                            // B) Lógica de respaldo (se mantiene igual)
                             esDuplicado = await _context.Ventas.AnyAsync(v =>
                                 v.MaquinaId == maquina.Id &&
                                 v.FechaHora == fecha &&
@@ -190,8 +208,20 @@ namespace VendingManager.Infrastructure.Services
                             continue;
                         }
 
-                        // FIX: Ajuste horario según máquina (MOVIDO ANTES DEL PROCESAMIENTO)
-                        int offset = machineId.Trim() == "2410280012" ? 1 : -11;
+                        // FIX: Ajuste horario según máquina
+                        // FIX: Ajuste horario según máquina
+                        int offset;
+                        if (usandingServerTime) 
+                        {
+                            // CÁLCULO: ServerTime 02:00 (día 24) -> Transbank 12:00 (día 23) = -14 Horas de diferencia
+                            offset = -14; 
+                        }
+                        else 
+                        {
+                            // Cuando la máquina tiene la hora buena, tu lógica de +1 funciona perfecto.
+                            offset = machineId.Trim() == "2410280012" ? 1 : -11;
+                        }
+
                         DateTime fechaLocal = fecha.AddHours(offset);
 
                         // 4. Procesar Venta (Insertar)
@@ -337,22 +367,29 @@ namespace VendingManager.Infrastructure.Services
                     // VENTANA DE TOLERANCIA: 
                     // Usamos una ventana amplia (90 min) porque priorizamos encontrar el producto.
                     // La fiabilidad se da por la cercanía (OrderBy) y no solo por estar "dentro" del rango.
-                    var inicioVentana = pago.Fecha.AddMinutes(-90);
-                    var finVentana = pago.Fecha.AddMinutes(90);
+// DENTRO DE ImportarTransbank -> PASADA 1
 
-                    // 🔍 BUSCAR MEJOR CANDIDATO DISPONIBLE
+// 1. Ampliamos la ventana al MÁXIMO (12 horas atrás y adelante)
+// Esto permite cruzar la venta de las 14:00 con el registro de las 12:09 sin problemas.
+                    var inicioVentana = pago.Fecha.AddHours(-12);
+                    var finVentana = pago.Fecha.AddHours(12);
+
                     var candidato = ventasCandidatas
                         .Where(v => !v.Pagado &&
-                                    !ventasAsignadasEnEstaSesion.Contains(v.Id) && // Que no se haya usado ya
-                                    v.PrecioVenta == pago.Monto && // Coincidencia exacta de precio
+                                    !ventasAsignadasEnEstaSesion.Contains(v.Id) &&
+                                    v.PrecioVenta == pago.Monto && // EL PRECIO ES LO QUE MANDA
                                     v.FechaLocal >= inicioVentana &&
                                     v.FechaLocal <= finVentana)
+                        // 2. Aquí está el truco:
+                        // Si hay varias opciones, elegimos la que tenga el ID más bajo (la primera que entró)
+                        // o la que esté más cerca en tiempo. Al haber "compresión", el tiempo no es fiable,
+                        // pero el OrderBy temporal sigue siendo la mejor apuesta inicial.
                         .Select(v => new
                         {
                             Venta = v,
                             DiffSegundos = Math.Abs((v.FechaLocal - pago.Fecha).TotalSeconds)
                         })
-                        .OrderBy(x => x.DiffSegundos) // EL MÁS CERCANO GANA
+                        .OrderBy(x => x.DiffSegundos) 
                         .FirstOrDefault();
 
                     if (candidato != null)

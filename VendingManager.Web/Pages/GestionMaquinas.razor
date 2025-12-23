@@ -50,7 +50,7 @@
                 <table class="table table-hover table-bordered border-dark m-0 align-middle">
                     <thead class="bg-secondary text-white text-uppercase" style="font-size: 0.85rem;">
                         <tr>
-                            <th class="text-center">ID</th>
+                            
                             <th>NOMBRE REFERENCIA</th>
                             <th>UBICACIÓN</th>
                             <th>ID INTERNO</th>
@@ -62,7 +62,7 @@
                         @if (!FilteredMaquinas.Any())
                         {
                             <tr>
-                                <td colspan="6" class="text-center p-4 text-muted">
+                                <td colspan="5" class="text-center p-4 text-muted">
                                     No se encontraron máquinas que coincidan con "@SearchTerm".
                                 </td>
                             </tr>
@@ -72,7 +72,7 @@
                             @foreach (var m in FilteredMaquinas)
                             {
                                 <tr>
-                                    <td class="text-center">@m.Id</td>
+                                    
                                     <td>@m.Nombre.ToUpper()</td>
                                     <td class="text-muted">@m.Ubicacion.ToUpper()</td>
                                     <td class="font-monospace text-primary">@m.IdInternoMaquina</td>
