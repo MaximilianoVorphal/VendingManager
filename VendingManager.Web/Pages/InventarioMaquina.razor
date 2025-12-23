@@ -24,7 +24,7 @@
                     {
                         @foreach (var m in Maquinas)
                         {
-                            <option value="@m.Id">@m.Nombre.ToUpper()</option>
+                                    <option value="@m.Id">@m.Nombre.ToUpper()</option>
                         }
                     }
                 </select>
@@ -34,157 +34,157 @@
 
     @if (!string.IsNullOrEmpty(Mensaje))
     {
-        <div class="alert @AlertClass border-dark rounded-0 fw-bold mb-4 shadow-sm fade show">
+            <div class="alert @AlertClass border-dark rounded-0 fw-bold mb-4 shadow-sm fade show">
             @Mensaje
-        </div>
+            </div>
     }
 
     @if (MaquinaIdSeleccionada > 0)
     {
-        <div class="card border-2 border-dark rounded-0 shadow my-4">
-            <div class="card-header bg-dark text-white rounded-0 fw-bold d-flex justify-content-between align-items-center flex-wrap">
-                <span>CONFIGURACIÓN DE SLOTS</span>
-                <button class="btn btn-sm btn-light rounded-0 fw-bold text-dark border-secondary" @onclick="NuevoSlot">
-                    <i class="bi bi-plus-lg me-1"></i>AGREGAR SLOT
-                </button>
-            </div>
-            <div class="table-responsive">
-                <table class="table table-hover table-bordered border-dark m-0 align-middle">
-                    <thead class="bg-secondary text-white text-uppercase small">
-                        <tr>
-                            <th class="text-center" width="80">SLOT</th>
-                            <th>PRODUCTO ASIGNADO</th>
-                            <th class="text-end" width="120">PRECIO</th>
-                            <th class="text-center" width="120">STOCK</th>
-                            <th class="text-center" width="120">CAPACIDAD</th>
-                            <th class="text-center" width="150">ACCIONES</th>
-                        </tr>
-                    </thead>
-                    <tbody class="bg-white fw-bold small">
+            <div class="card border-2 border-dark rounded-0 shadow my-4">
+                <div class="card-header bg-dark text-white rounded-0 fw-bold d-flex justify-content-between align-items-center flex-wrap">
+                    <span>CONFIGURACIÓN DE SLOTS</span>
+                    <button class="btn btn-sm btn-light rounded-0 fw-bold text-dark border-secondary" @onclick="NuevoSlot">
+                        <i class="bi bi-plus-lg me-1"></i>AGREGAR SLOT
+                    </button>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover table-bordered border-dark m-0 align-middle">
+                        <thead class="bg-secondary text-white text-uppercase small">
+                            <tr>
+                                <th class="text-center" width="80">SLOT</th>
+                                <th>PRODUCTO ASIGNADO</th>
+                                <th class="text-end" width="120">PRECIO</th>
+                                <th class="text-center" width="120">STOCK</th>
+                                <th class="text-center" width="120">CAPACIDAD</th>
+                                <th class="text-center" width="150">ACCIONES</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white fw-bold small">
                         @if (Slots.Count == 0)
                         {
-                            <tr>
-                                <td colspan="6" class="text-center p-4 text-muted">No hay slots configurados para esta máquina.</td>
-                            </tr>
+                                    <tr>
+                                        <td colspan="6" class="text-center p-4 text-muted">No hay slots configurados para esta máquina.</td>
+                                    </tr>
                         }
                         else
                         {
                             @foreach (var s in Slots.OrderBy(x => x.NumeroSlot))
                             {
-                                <tr class="@(s.ProductoId == 0 ? "table-warning" : "")">
-                                    <td class="text-center font-monospace bg-light fs-5">@s.NumeroSlot</td>
-                                    <td>
+                                            <tr class="@(s.ProductoId == 0 ? "table-warning" : "")">
+                                                <td class="text-center font-monospace bg-light fs-5">@s.NumeroSlot</td>
+                                                <td>
                                         @if (s.Producto != null)
                                         {
-                                            <div class="d-flex flex-column">
-                                                <span class="text-uppercase">@s.Producto.Nombre</span>
-                                                <span class="text-muted small font-monospace">@s.Producto.CodigoBarras</span>
-                                            </div>
+                                                            <div class="d-flex flex-column">
+                                                                <span class="text-uppercase">@s.Producto.Nombre</span>
+                                                                <span class="text-muted small font-monospace">@s.Producto.CodigoBarras</span>
+                                                            </div>
                                         }
                                         else
                                         {
-                                            <span class="text-danger fst-italic">SIN ASIGNAR</span>
+                                                            <span class="text-danger fst-italic">SIN ASIGNAR</span>
                                         }
-                                    </td>
-                                    <td class="text-end font-monospace text-success">$@s.PrecioVenta.ToString("N0")</td>
-                                    
-                                    <td class="text-center">
-                                        <div class="d-flex align-items-center justify-content-center gap-1">
+                                                </td>
+                                                <td class="text-end font-monospace text-success">$@s.PrecioVenta.ToString("N0")</td>
+
+                                                <td class="text-center">
+                                                    <div class="d-flex align-items-center justify-content-center gap-1">
                                             @if (s.StockActual >= 0 && s.StockActual <= 2)
                                             {
-                                                <span class="fs-5 fw-bold text-danger">@s.StockActual</span>
-                                                <span class="badge bg-danger ms-1">CRÍTICO</span>
+                                                                <span class="fs-5 fw-bold text-danger">@s.StockActual</span>
+                                                                <span class="badge bg-danger ms-1">CRÍTICO</span>
                                             }
                                             else
                                             {
-                                                <span class="fs-6 text-dark">@s.StockActual</span>
+                                                                <span class="fs-6 text-dark">@s.StockActual</span>
                                             }
-                                        </div>
-                                    </td>
-                                    <td class="text-center text-muted">@s.CapacidadMaxima</td>
+                                                    </div>
+                                                </td>
+                                                <td class="text-center text-muted">@s.CapacidadMaxima</td>
 
-                                    <td class="text-center">
-                                        <div class="d-flex justify-content-center gap-2">
-                                            <button class="btn btn-sm btn-outline-warning rounded-0 border-dark text-dark"
+                                                <td class="text-center">
+                                                    <div class="d-flex justify-content-center gap-2">
+                                                        <button class="btn btn-sm btn-outline-warning rounded-0 border-dark text-dark"
                                                     title="Editar Configuración" @onclick="() => EditarSlot(s)">
-                                                <i class="bi bi-gear-fill"></i>
-                                            </button>
-                                            <button class="btn btn-sm btn-outline-primary rounded-0 border-dark text-dark"
+                                                            <i class="bi bi-gear-fill"></i>
+                                                        </button>
+                                                        <button class="btn btn-sm btn-outline-primary rounded-0 border-dark text-dark"
                                                     title="Reponer Stock" @onclick="() => AbrirModalReposicion(s)">
-                                                <i class="bi bi-box-arrow-in-up"></i>
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
+                                                            <i class="bi bi-box-arrow-in-up"></i>
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
                             }
                         }
-                    </tbody>
-                </table>
+                        </tbody>
+                    </table>
+                </div>
             </div>
-        </div>
     }
     else
     {
-        <div class="text-center py-5 text-muted border border-2 border-dark border-dashed my-4 bg-light">
-            <h4 class="fw-bold">SELECCIONE UNA MÁQUINA PARA COMENZAR</h4>
-            <p class="mb-0">Use el selector superior para cargar la configuración.</p>
-        </div>
+            <div class="text-center py-5 text-muted border border-2 border-dark border-dashed my-4 bg-light">
+                <h4 class="fw-bold">SELECCIONE UNA MÁQUINA PARA COMENZAR</h4>
+                <p class="mb-0">Use el selector superior para cargar la configuración.</p>
+            </div>
     }
 </div>
 
 <!-- MODAL EDICIÓN SLOT -->
 @if (MostrarModalEditar && SlotEnEdicion != null)
 {
-    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5);">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content rounded-0 border-2 border-dark shadow-lg">
-                <div class="modal-header bg-warning text-dark rounded-0 border-bottom border-dark">
-                    <h5 class="modal-title fw-bold"><i class="bi bi-gear-fill me-2"></i>CONFIGURAR SLOT @SlotEnEdicion.NumeroSlot</h5>
-                    <button type="button" class="btn-close" @onclick="CerrarModal"></button>
-                </div>
-                <div class="modal-body p-4">
-                    <div class="mb-3">
-                        <label class="form-label fw-bold small">NUMERO DE SLOT (ID)</label>
-                        <input type="text" class="form-control rounded-0 border-dark font-monospace text-uppercase" 
-                               @bind="SlotEnEdicion.NumeroSlot" placeholder="EJ: A1, 10, B5" />
+        <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5);">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content rounded-0 border-2 border-dark shadow-lg">
+                    <div class="modal-header bg-warning text-dark rounded-0 border-bottom border-dark">
+                        <h5 class="modal-title fw-bold"><i class="bi bi-gear-fill me-2"></i>CONFIGURAR SLOT @SlotEnEdicion.NumeroSlot</h5>
+                        <button type="button" class="btn-close" @onclick="CerrarModal"></button>
                     </div>
+                    <div class="modal-body p-4">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold small">NUMERO DE SLOT (ID)</label>
+                            <input type="text" class="form-control rounded-0 border-dark font-monospace text-uppercase" 
+                               @bind="SlotEnEdicion.NumeroSlot" placeholder="EJ: A1, 10, B5" />
+                        </div>
 
-                    <div class="mb-3">
-                        <label class="form-label fw-bold small">PRODUCTO ASIGNADO</label>
-                        <select class="form-select rounded-0 border-dark" @bind="SlotEnEdicion.ProductoId">
-                            <option value="0">-- SIN PRODUCTO --</option>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold small">PRODUCTO ASIGNADO</label>
+                            <select class="form-select rounded-0 border-dark" @bind="SlotEnEdicion.ProductoId">
+                                <option value="0">-- SIN PRODUCTO --</option>
                             @if (ProductosDisponibles != null)
                             {
                                 @foreach (var p in ProductosDisponibles.OrderBy(x => x.Nombre))
                                 {
-                                    <option value="@p.Id">@p.Nombre (@p.StockBodega en Bodega)</option>
+                                                <option value="@p.Id">@p.Nombre (@p.StockBodega en Bodega)</option>
                                 }
                             }
-                        </select>
-                    </div>
+                            </select>
+                        </div>
 
-                    <div class="row g-3">
-                        <div class="col-6">
-                            <label class="form-label fw-bold small text-success">PRECIO VENTA</label>
-                            <input type="number" class="form-control rounded-0 border-dark fw-bold text-success" 
+                        <div class="row g-3">
+                            <div class="col-6">
+                                <label class="form-label fw-bold small text-success">PRECIO VENTA</label>
+                                <input type="number" class="form-control rounded-0 border-dark fw-bold text-success" 
                                    @bind="SlotEnEdicion.PrecioVenta" />
-                        </div>
-                        <div class="col-6">
-                            <label class="form-label fw-bold small text-muted">CAPACIDAD MAX</label>
-                            <input type="number" class="form-control rounded-0 border-dark fw-bold" 
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label fw-bold small text-muted">CAPACIDAD MAX</label>
+                                <input type="number" class="form-control rounded-0 border-dark fw-bold" 
                                    @bind="SlotEnEdicion.CapacidadMaxima" />
+                            </div>
                         </div>
                     </div>
-                </div>
-                <div class="modal-footer bg-light rounded-0">
-                    <button type="button" class="btn btn-outline-dark rounded-0 fw-bold" @onclick="CerrarModal">CANCELAR</button>
-                    <button type="button" class="btn btn-warning rounded-0 border-dark fw-bold px-4" @onclick="GuardarSlot">
-                        <i class="bi bi-save me-2"></i>GUARDAR
-                    </button>
+                    <div class="modal-footer bg-light rounded-0">
+                        <button type="button" class="btn btn-outline-dark rounded-0 fw-bold" @onclick="CerrarModal">CANCELAR</button>
+                        <button type="button" class="btn btn-warning rounded-0 border-dark fw-bold px-4" @onclick="GuardarSlot">
+                            <i class="bi bi-save me-2"></i>GUARDAR
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
 }
 
 <!-- MODAL REPOSICIÓN -->
@@ -194,56 +194,56 @@
     int maxReponer = prod != null ? prod.StockBodega : 0;
     int espacioLibre = SlotEnEdicion.CapacidadMaxima - SlotEnEdicion.StockActual;
     int sugerido = Math.Min(maxReponer, espacioLibre);
-    if(CantidadReposicion == 0) CantidadReposicion = sugerido > 0 ? sugerido : 1;
+    if (CantidadReposicion == 0) CantidadReposicion = sugerido > 0 ? sugerido : 1;
 
-    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5);">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content rounded-0 border-2 border-dark shadow-lg">
-                <div class="modal-header bg-primary text-white rounded-0 border-bottom border-dark">
-                    <h5 class="modal-title fw-bold"><i class="bi bi-box-arrow-in-up me-2"></i>REPONER SLOT @SlotEnEdicion.NumeroSlot</h5>
-                    <button type="button" class="btn-close btn-close-white" @onclick="CerrarModal"></button>
-                </div>
-                <div class="modal-body p-4">
-                    <div class="alert alert-info rounded-0 border-dark mb-4">
-                        <h6 class="fw-bold mb-1">Producto: @(prod?.Nombre ?? "DESCONOCIDO")</h6>
-                        <div class="d-flex justify-content-between small font-monospace">
-                            <span>Bodega: @(prod?.StockBodega ?? 0)</span>
-                            <span>Máquina: @SlotEnEdicion.StockActual / @SlotEnEdicion.CapacidadMaxima</span>
-                        </div>
+        <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5);">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content rounded-0 border-2 border-dark shadow-lg">
+                    <div class="modal-header bg-primary text-white rounded-0 border-bottom border-dark">
+                        <h5 class="modal-title fw-bold"><i class="bi bi-box-arrow-in-up me-2"></i>REPONER SLOT @SlotEnEdicion.NumeroSlot</h5>
+                        <button type="button" class="btn-close btn-close-white" @onclick="CerrarModal"></button>
                     </div>
+                    <div class="modal-body p-4">
+                        <div class="alert alert-info rounded-0 border-dark mb-4">
+                            <h6 class="fw-bold mb-1">Producto: @(prod?.Nombre ?? "DESCONOCIDO")</h6>
+                            <div class="d-flex justify-content-between small font-monospace">
+                                <span>Bodega: @(prod?.StockBodega ?? 0)</span>
+                                <span>Máquina: @SlotEnEdicion.StockActual / @SlotEnEdicion.CapacidadMaxima</span>
+                            </div>
+                        </div>
 
-                    <label class="form-label fw-bold small">CANTIDAD A TRASLADAR (BODEGA -> MÁQUINA)</label>
-                    <input type="number" class="form-control form-control-lg rounded-0 border-dark fw-bold text-center"
+                        <label class="form-label fw-bold small">CANTIDAD A TRASLADAR (BODEGA -> MÁQUINA)</label>
+                        <input type="number" class="form-control form-control-lg rounded-0 border-dark fw-bold text-center"
                            @bind="CantidadReposicion" min="1" max="@maxReponer" />
-                    
+
                     @if (CantidadReposicion > maxReponer)
                     {
-                        <div class="text-danger small mt-2 fw-bold">No hay suficiente stock en bodega.</div>
+                                <div class="text-danger small mt-2 fw-bold">No hay suficiente stock en bodega.</div>
                     }
-                </div>
-                <div class="modal-footer bg-light rounded-0">
-                     <button type="button" class="btn btn-outline-dark rounded-0 fw-bold" @onclick="CerrarModal">CANCELAR</button>
-                    <button type="button" class="btn btn-primary rounded-0 border-dark fw-bold px-4" 
+                    </div>
+                    <div class="modal-footer bg-light rounded-0">
+                         <button type="button" class="btn btn-outline-dark rounded-0 fw-bold" @onclick="CerrarModal">CANCELAR</button>
+                        <button type="button" class="btn btn-primary rounded-0 border-dark fw-bold px-4" 
                             @onclick="ConfirmarReposicion" disabled="@(CantidadReposicion > maxReponer || CantidadReposicion <= 0)">
-                        <i class="bi bi-check-lg me-2"></i>CONFIRMAR
-                    </button>
+                            <i class="bi bi-check-lg me-2"></i>CONFIRMAR
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
 }
 
 @code {
     // DATA
-    private List<MaquinaSimpleDto> Maquinas;
+    private List<MaquinaSimpleDto> Maquinas = new();
     private List<ConfiguracionSlotDto> Slots = new();
-    private List<ProductoSimpleDto> ProductosDisponibles;
-    
+    private List<ProductoSimpleDto> ProductosDisponibles = new();
+
     // STATE
     private int MaquinaIdSeleccionada = 0;
     private string Mensaje = "";
     private string AlertClass = "alert-info";
-    
+
     // MODALS
     private bool MostrarModalEditar = false;
     private bool MostrarModalRepo = false;
@@ -264,7 +264,7 @@
 
     private async Task CargarProductos()
     {
-         try { ProductosDisponibles = await Http.GetFromJsonAsync<List<ProductoSimpleDto>>("api/Inventario/lista") ?? new(); }
+        try { ProductosDisponibles = await Http.GetFromJsonAsync<List<ProductoSimpleDto>>("api/Inventario/lista") ?? new(); }
         catch { }
     }
 
@@ -292,11 +292,11 @@
     private void EditarSlot(ConfiguracionSlotDto slot)
     {
         // Clone simple
-        SlotEnEdicion = new ConfiguracionSlotDto 
-        { 
+        SlotEnEdicion = new ConfiguracionSlotDto
+        {
             Id = slot.Id,
-            MaquinaId = slot.MaquinaId, 
-            NumeroSlot = slot.NumeroSlot, 
+            MaquinaId = slot.MaquinaId,
+            NumeroSlot = slot.NumeroSlot,
             ProductoId = slot.ProductoId,
             PrecioVenta = slot.PrecioVenta,
             StockActual = slot.StockActual,
@@ -327,15 +327,15 @@
         }
         catch (Exception ex)
         {
-             Mensaje = $"❌ Error: {ex.Message}";
-             AlertClass = "alert-danger";
+            Mensaje = $"❌ Error: {ex.Message}";
+            AlertClass = "alert-danger";
         }
     }
 
     // --- ACCIONES REPOSICION ---
     private void AbrirModalReposicion(ConfiguracionSlotDto slot)
     {
-        if(slot.ProductoId == 0) 
+        if (slot.ProductoId == 0)
         {
             Mensaje = "⚠️ Debes asignar un producto antes de reponer.";
             AlertClass = "alert-warning";
@@ -343,17 +343,17 @@
         }
         SlotEnEdicion = slot; // Reference is okay here as we only update stock locally then sync
         MostrarModalRepo = true;
-        CantidadReposicion = 0; 
+        CantidadReposicion = 0;
     }
 
     private async Task ConfirmarReposicion()
     {
         if (SlotEnEdicion == null) return;
-        
+
         // 1. Decrement Bodega (Reuse existing API logic or create new combined one?)
         // Ideally we need a transactional move. For now we will do client-orchestrated or better yet, new endpoint.
         // Let's us the AjustarStock endpoint for Bodega decrement, then update Slot.
-        
+
         try
         {
             var prod = ProductosDisponibles.FirstOrDefault(p => p.Id == SlotEnEdicion.ProductoId);
@@ -364,30 +364,30 @@
             var dto = new { ProductoId = prod.Id, NuevoStock = nuevoStockBodega };
             var resp1 = await Http.PostAsJsonAsync("api/productos/ajustar-stock", dto); // Using existing endpoint assumed from prev files
 
-             if (!resp1.IsSuccessStatusCode) throw new Exception("Fallo al descontar de bodega.");
+            if (!resp1.IsSuccessStatusCode) throw new Exception("Fallo al descontar de bodega.");
 
             // B. Increment Machine
             SlotEnEdicion.StockActual += CantidadReposicion;
-             var resp2 = await Http.PostAsJsonAsync($"api/Maquinas/{MaquinaIdSeleccionada}/slots", SlotEnEdicion);
-             
-             if (!resp2.IsSuccessStatusCode) throw new Exception("Fallo al actualizar stock máquina.");
+            var resp2 = await Http.PostAsJsonAsync($"api/Maquinas/{MaquinaIdSeleccionada}/slots", SlotEnEdicion);
 
-             // Success
-             prod.StockBodega = nuevoStockBodega; // Update local view
-             Mensaje = $"✅ Reposición exitosa: +{CantidadReposicion} unidades.";
-             AlertClass = "alert-success";
-             MostrarModalRepo = false;
-             
-             // Reload slots
-             Slots = await Http.GetFromJsonAsync<List<ConfiguracionSlotDto>>($"api/Maquinas/{MaquinaIdSeleccionada}/slots") ?? new();
+            if (!resp2.IsSuccessStatusCode) throw new Exception("Fallo al actualizar stock máquina.");
+
+            // Success
+            prod.StockBodega = nuevoStockBodega; // Update local view
+            Mensaje = $"✅ Reposición exitosa: +{CantidadReposicion} unidades.";
+            AlertClass = "alert-success";
+            MostrarModalRepo = false;
+
+            // Reload slots
+            Slots = await Http.GetFromJsonAsync<List<ConfiguracionSlotDto>>($"api/Maquinas/{MaquinaIdSeleccionada}/slots") ?? new();
         }
         catch (Exception ex)
         {
-             Mensaje = $"❌ Error en reposición: {ex.Message}";
-             AlertClass = "alert-danger";
+            Mensaje = $"❌ Error en reposición: {ex.Message}";
+            AlertClass = "alert-danger";
         }
     }
-    
+
     private void CerrarModal()
     {
         MostrarModalEditar = false;
@@ -397,8 +397,8 @@
 
     // DTOs Helpers
     class MaquinaSimpleDto { public int Id { get; set; } public string Nombre { get; set; } = ""; }
-    class ProductoSimpleDto { public int Id { get; set; } public string Nombre { get; set; } = ""; public string CodigoBarras { get; set; } = ""; public int StockBodega { get; set;} }
-    
+    class ProductoSimpleDto { public int Id { get; set; } public string Nombre { get; set; } = ""; public string CodigoBarras { get; set; } = ""; public int StockBodega { get; set; } }
+
     // Use Local DTO to avoid namespace issues
     class ConfiguracionSlotDto
     {

@@ -237,9 +237,6 @@ namespace VendingManager.Infrastructure.Services
         }
 
         // =============================================
-        // 2. IMPORTAR TRANSBANK (DOBLE PASADA: ESTRICTA + HOLGADA)
-        // =============================================
-        // =============================================
         // 2. IMPORTAR TRANSBANK (MODO FIABILIDAD TOTAL)
         // =============================================
         public async Task ImportarTransbank(Stream fileStream, string nombreArchivo)
@@ -332,6 +329,9 @@ namespace VendingManager.Infrastructure.Services
                 int matches = 0;
                 int fantasmas = 0;
 
+                // =================================================================================
+                // PASADA 1: MATCH SIMPLE (1 a 1) - LA MÁS FIABLE
+                // =================================================================================
                 foreach (var pago in tbRecords)
                 {
                     // VENTANA DE TOLERANCIA: 
@@ -379,37 +379,91 @@ namespace VendingManager.Infrastructure.Services
 
                         ventasAsignadasEnEstaSesion.Add(venta.Id); // BLOQUEAR: Nadie más puede usar esta venta
                         matches++;
+                        pago.Matched = true; // Marcar cobro como resuelto para que no entre en la Pasada 2
                     }
-                    else
+                }
+
+                // =================================================================================
+                // PASADA 2: MATCH COMBINADO (CARRITO DE COMPRAS) - SOLO PARA LO QUE SOBRÓ
+                // =================================================================================
+
+                // 1. Identificar qué nos quedó sin conciliar
+                var cobrosPendientes = tbRecords.Where(r => !r.Matched).OrderBy(r => r.Fecha).ToList();
+                var ventasLibres = ventasCandidatas.Where(v => !v.Pagado && !ventasAsignadasEnEstaSesion.Contains(v.Id)).ToList();
+
+                Console.WriteLine($"🛒 INICIANDO PASADA 2 (CARRITO): {cobrosPendientes.Count} cobros vs {ventasLibres.Count} ventas libres.");
+
+                foreach (var cobro in cobrosPendientes)
+                {
+                    // A. DEFINIR VENTANA ESTRICTA (Ej: -30 seg a +120 seg del cobro)
+                    // El cliente paga y LUEGO la máquina dispensa los productos uno por uno.
+                    var inicio = cobro.Fecha.AddSeconds(-60);
+                    var fin = cobro.Fecha.AddSeconds(120);
+
+                    // B. BUSCAR CANDIDATOS EN ESA VENTANA
+                    var candidatosCercanos = ventasLibres
+                        .Where(v => v.FechaLocal >= inicio && v.FechaLocal <= fin)
+                        .ToList();
+
+                    // Solo intentamos si hay al menos 2 productos (si fuera 1, lo habría atrapado la Pasada 1)
+                    if (candidatosCercanos.Count < 2) continue;
+
+                    // C. ALGORITMO COMBINATORIO (Busca qué subconjunto suma el monto exacto)
+                    var comboGanador = EncontrarCombinacionExacta(candidatosCercanos, cobro.Monto);
+
+                    if (comboGanador != null)
                     {
-                        // ⚠️ COBRO FANTASMA (El dinero existe, el producto no)
-                        // Para ser fiables, debemos registrar este dinero.
-                        fantasmas++;
-
-                        int targetMaquinaId = 0;
-                        if (!string.IsNullOrEmpty(pago.PosCode) && maquinaMap.TryGetValue(pago.PosCode, out int mappedId))
-                            targetMaquinaId = mappedId;
-                        else
-                            targetMaquinaId = (await _context.Maquinas.FirstOrDefaultAsync())?.Id ?? 0;
-
-                        var fantasma = new Venta
+                        // ✅ ¡MATCH DE CARRITO ENCONTRADO!
+                        foreach (var venta in comboGanador)
                         {
-                            FechaHora = pago.Fecha,
-                            FechaLocal = pago.Fecha,
-                            PrecioVenta = pago.Monto,
-                            Pagado = true,
+                            venta.Pagado = true;
+                            venta.IdTransaccionPago = "TB-BUNDLE"; // Marca especial para auditoría
+                            venta.IdOrdenMaquina = $"BUNDLE-{cobro.PosCode}-{cobro.Fecha:HHmm}"; // Opcional: Agrupar visualmente
 
-                            // MARCAS CLARAS DE ERROR
-                            NumeroSlot = "ERR",
-                            IdOrdenMaquina = "TB-SIN-VENTA",
-                            ProductoId = null,
-                            CostoVenta = 0,
-                            MaquinaId = targetMaquinaId
-                        };
+                            ventasAsignadasEnEstaSesion.Add(venta.Id); // Bloquear
+                            ventasLibres.Remove(venta); // Sacar de la lista local para no reusar
+                        }
 
-                        nuevasVentasFantasma.Add(fantasma);
-                        Console.WriteLine($" ⚠️ FANTASMA DETECTADO: ${pago.Monto} el {pago.Fecha}");
+                        cobro.Matched = true; // Marcar cobro como resuelto
+                        matches++;
+                        Console.WriteLine($" 🛒 BUNDLE MATCH: ${cobro.Monto} = {string.Join("+", comboGanador.Select(v => v.PrecioVenta))}");
                     }
+                }
+
+                // =================================================================================
+                // PASO FINAL: REGISTRAR LO QUE REALMENTE SOBRÓ (FANTASMAS)
+                // =================================================================================
+                var cobrosSinNada = tbRecords.Where(r => !r.Matched).ToList();
+
+                foreach (var pago in cobrosSinNada)
+                {
+                    // ⚠️ COBRO FANTASMA (El dinero existe, el producto no)
+                    // Para ser fiables, debemos registrar este dinero.
+                    fantasmas++;
+
+                    int targetMaquinaId = 0;
+                    if (!string.IsNullOrEmpty(pago.PosCode) && maquinaMap.TryGetValue(pago.PosCode, out int mappedId))
+                        targetMaquinaId = mappedId;
+                    else
+                        targetMaquinaId = (await _context.Maquinas.FirstOrDefaultAsync())?.Id ?? 0;
+
+                    var fantasma = new Venta
+                    {
+                        FechaHora = pago.Fecha,
+                        FechaLocal = pago.Fecha,
+                        PrecioVenta = pago.Monto,
+                        Pagado = true,
+
+                        // MARCAS CLARAS DE ERROR
+                        NumeroSlot = "ERR",
+                        IdOrdenMaquina = "TB-SIN-VENTA",
+                        ProductoId = null,
+                        CostoVenta = 0,
+                        MaquinaId = targetMaquinaId
+                    };
+
+                    nuevasVentasFantasma.Add(fantasma);
+                    Console.WriteLine($" ⚠️ FANTASMA DETECTADO: ${pago.Monto} el {pago.Fecha}");
                 }
 
                 // D. GUARDADO FINAL (Commit)
@@ -430,6 +484,7 @@ namespace VendingManager.Infrastructure.Services
                 throw;
             }
         }
+
         // ====================================================
         // HELPERS PRIVADOS
         // ====================================================
@@ -442,118 +497,32 @@ namespace VendingManager.Infrastructure.Services
             public bool Matched { get; set; } = false;
         }
 
-        private async Task<Venta?> FindBestMatch(decimal monto, DateTime fechaTB, DateTime inicio, DateTime fin, bool includePaid, HashSet<int> processedIds)
+        private List<Venta>? EncontrarCombinacionExacta(List<Venta> candidatos, decimal meta)
         {
-            var query = _context.Ventas
-                .Where(v => v.PrecioVenta == monto &&
-                            v.FechaLocal >= inicio &&
-                            v.FechaLocal <= fin);
+            // Optimización: Si la suma total es menor que la meta, ni intentar.
+            if (candidatos.Sum(v => v.PrecioVenta) < meta) return null;
 
-            if (!includePaid)
-            {
-                query = query.Where(v => !v.Pagado);
-            }
+            // Límite de seguridad: No combinar más de 5 productos para evitar falsos positivos matemáticos
+            if (candidatos.Count > 5) candidatos = candidatos.Take(5).ToList();
 
-            var candidatos = await query.ToListAsync();
-
-            // Filter out already processed in this session
-            candidatos = candidatos.Where(v => !processedIds.Contains(v.Id)).ToList();
-
-            if (!candidatos.Any()) return null;
-
-            return candidatos
-                .OrderBy(v => Math.Abs((v.FechaLocal - fechaTB).TotalSeconds))
-                .First();
+            return BuscarRecursivo(candidatos, meta, new List<Venta>(), 0);
         }
 
-        private async Task<Venta?> FindBestMatchWithTolerance(decimal montoTB, DateTime fechaTB, DateTime inicio, DateTime fin, bool includePaid, HashSet<int> processedIds)
+        private List<Venta>? BuscarRecursivo(List<Venta> pool, decimal meta, List<Venta> actual, int index)
         {
-            var query = _context.Ventas
-                .Where(v => v.PrecioVenta > montoTB &&
-                            v.PrecioVenta <= (montoTB / 0.90m) &&
-                            v.FechaLocal >= inicio &&
-                            v.FechaLocal <= fin);
+            decimal sumaActual = actual.Sum(v => v.PrecioVenta);
 
-            if (!includePaid)
-            {
-                query = query.Where(v => !v.Pagado);
-            }
+            if (sumaActual == meta) return actual; // ¡Encontrado!
+            if (sumaActual > meta) return null;    // Nos pasamos
+            if (index >= pool.Count) return null;  // Se acabaron los candidatos
 
-            var candidatos = await query.ToListAsync();
+            // Opción A: Incluir el ítem actual
+            var nuevoIntento = new List<Venta>(actual) { pool[index] };
+            var resultado = BuscarRecursivo(pool, meta, nuevoIntento, index + 1);
+            if (resultado != null) return resultado;
 
-            // Filter out already processed
-            candidatos = candidatos.Where(v => !processedIds.Contains(v.Id)).ToList();
-
-            var match = candidatos
-                .Where(v => montoTB >= v.PrecioVenta * 0.94m)
-                .OrderBy(v => Math.Abs((v.FechaLocal - fechaTB).TotalSeconds))
-                .FirstOrDefault();
-
-            return match;
-        }
-
-        private async Task<bool> TryMatchCombinado(TransbankRecord rec, DateTime inicio, DateTime fin, HashSet<int> processedIds)
-        {
-            var candidatosMix = await _context.Ventas
-                .Where(v => v.FechaLocal >= inicio &&
-                            v.FechaLocal <= fin &&
-                            !v.Pagado)
-                .OrderBy(v => v.FechaLocal)
-                .ToListAsync();
-
-            // Filter out already processed
-            candidatosMix = candidatosMix.Where(v => !processedIds.Contains(v.Id)).ToList();
-
-            if (candidatosMix.Count < 2) return false;
-
-            var combinations = FindBestCombinations(candidatosMix, rec.Monto);
-            if (combinations.Any())
-            {
-                var mejorCombo = combinations.First();
-                foreach (var v in mejorCombo)
-                {
-                    v.Pagado = true;
-                    v.FechaLocal = rec.Fecha; // Synced
-                    processedIds.Add(v.Id);
-                }
-
-                rec.Matched = true;
-                string ids = string.Join(",", mejorCombo.Select(v => v.Id));
-                decimal totalLocal = mejorCombo.Sum(v => v.PrecioVenta);
-                string tipoMatch = totalLocal == rec.Monto ? "Exacto" : "AJUSTE";
-
-                Console.WriteLine($"   ✅ Match [COMBINADO {tipoMatch}]: ${rec.Monto} (vs ${totalLocal}) | TB:{rec.Fecha} -> IDs:[{ids}]");
-                return true;
-            }
-            return false;
-        }
-
-        private async Task LogDebugExtended(decimal monto, DateTime fechaTB)
-        {
-            Console.WriteLine($"      -> No hay ventas en rango horario estricto (+/- 60m).");
-            DateTime inicioDebug = fechaTB.AddHours(-24);
-            DateTime finDebug = fechaTB.AddHours(24);
-
-            var rawCandidatos = await _context.Ventas
-                .Where(v => v.PrecioVenta == monto &&
-                            v.FechaLocal >= inicioDebug &&
-                            v.FechaLocal <= finDebug)
-                .ToListAsync();
-
-            var candidatosLejanos = rawCandidatos
-                .OrderBy(v => Math.Abs((v.FechaLocal - fechaTB).TotalMinutes))
-                .Take(3)
-                .ToList();
-
-            if (candidatosLejanos.Any())
-            {
-                Console.WriteLine($"      💡 PISTA DEBUG: Encontré ventas con el MISMO precio (${monto}) fuera del rango:");
-                foreach (var c in candidatosLejanos)
-                {
-                    double diffHoras = (c.FechaLocal - fechaTB).TotalHours;
-                    Console.WriteLine($"         -> Id:{c.Id} | Local:{c.FechaLocal} | Diferencia: {diffHoras:F1} horas | Pagado:{c.Pagado}");
-                }
-            }
+            // Opción B: Saltar el ítem actual
+            return BuscarRecursivo(pool, meta, actual, index + 1);
         }
 
         // =============================================
@@ -567,13 +536,12 @@ namespace VendingManager.Infrastructure.Services
                 {
                     var conf = new ExcelDataSetConfiguration
                     {
-                        ConfigureDataTable = _ => new ExcelDataReader.ExcelDataTableConfiguration { UseHeaderRow = true }
+                        ConfigureDataTable = _ => new ExcelDataTableConfiguration { UseHeaderRow = true }
                     };
                     var dataSet = reader.AsDataSet(conf);
                     var tabla = dataSet.Tables[0];
                     Console.WriteLine($"📦 CATÁLOGO: Procesando {tabla.Rows.Count} productos...");
 
-                    // Mapeo de columnas (Insensible a mayúsculas) (Prioriza la primera aparición)
                     // Mapeo de columnas (Insensible a mayúsculas) (Prioriza la primera aparición)
                     int colId = -1, colBarcode = -1, colName = -1, colPrice = -1, colCost = -1, colSupplier = -1, colType = -1, colStock = -1;
 
@@ -594,8 +562,6 @@ namespace VendingManager.Infrastructure.Services
                     }
 
                     Console.WriteLine($"🔍 Mapeo: ID={colId}, Barcode={colBarcode}, Name={colName}, Cost={colCost}, Stock={colStock}");
-
-                    Console.WriteLine($"🔍 Mapeo: ID={colId}, Barcode={colBarcode}, Name={colName}, Cost={colCost}");
 
                     // VALIDACIÓN MÍNIMA: Necesitamos AL MENOS (ID O Barcode) Y Name
                     if ((colId == -1 && colBarcode == -1) || colName == -1)
@@ -652,8 +618,7 @@ namespace VendingManager.Infrastructure.Services
 
                         if (producto == null)
                         {
-                            // CREAR NUEVO (Solo si tenemos un barcode válido para identificarlo a futuro, o si decidimos permitir crear sin barcode)
-                            // Para mantener integridad, exigimos Barcode para crear nuevos.
+                            // CREAR NUEVO (Solo si tenemos un barcode válido para identificarlo a futuro)
                             if (string.IsNullOrEmpty(barcode))
                             {
                                 Console.WriteLine($"   ⚠️ Imposible crear nuevo: Barcode vacio para '{nombre}'");
@@ -684,13 +649,12 @@ namespace VendingManager.Infrastructure.Services
                                 producto.CodigoBarras = barcode;
                             }
 
-                            // Actualizar precio solo si es > 0, para no sobreescribir con 0 si la col no estaba
+                            // Actualizar precio solo si es > 0
                             if (precio > 0) producto.PrecioVenta = precio;
 
                             // El costo SIEMPRE se actualiza
                             if (colCost != -1)
                             {
-                                if (actualizados < 3) Console.WriteLine($"   🕵️ DEBUG: '{producto.Nombre}' Costo Antes: {producto.CostoPromedio} -> ExcelRaw: '{row[colCost]}' -> Parsed: {costo}");
                                 producto.CostoPromedio = costo;
                             }
 
@@ -720,120 +684,24 @@ namespace VendingManager.Infrastructure.Services
             }
         }
 
-        // HEPER PARSEO ROBUSTO
         private decimal ParseDecimal(object? value)
         {
             if (value == null || value == DBNull.Value) return 0;
-
-            // 1. Si ya es numérico, retornar directo
-            if (value is decimal d) return d;
-            if (value is double db) return (decimal)db;
-            if (value is int i) return (decimal)i;
-            if (value is float f) return (decimal)f;
-
-            // 2. Si es string, limpiar y parsear
-            string s = (value.ToString() ?? "").Trim();
+            string s = value.ToString()?.Trim() ?? "";
             if (string.IsNullOrEmpty(s)) return 0;
 
-            // Limpieza de símbolos
-            s = s.Replace("$", "").Replace("€", "").Trim();
+            // Limpieza básica (quitar $, espacios)
+            s = s.Replace("$", "").Replace(" ", "");
 
-            // Intento 1: Cultura Actual
-            if (decimal.TryParse(s, out decimal res)) return res;
-
-            // Intento 2: Invariante (Punto decimal)
-            if (decimal.TryParse(s, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out res)) return res;
-
-            return 0; // Fallback
-        }
-
-        // =============================================
-        // HELPERS PARA COMBINACIONES (FUZZY / TOLERANCIA)
-        // =============================================
-        private List<List<Venta>> FindBestCombinations(List<Venta> candidates, decimal targetTotal)
-        {
-            var results = new List<List<Venta>>();
-
-            // Ordenamos por fecha
-            var sorted = candidates.OrderBy(v => v.FechaLocal).ToList();
-
-            // Iteramos cada elemento como posible "inicio" de la combinación
-            for (int i = 0; i < sorted.Count; i++)
+            // Intentar parseo directo
+            if (decimal.TryParse(s, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out decimal result))
             {
-                var startNode = sorted[i];
-
-                // Definimos una ventana de tiempo estricta (5 mins)
-                var window = new List<Venta> { startNode };
-                for (int j = i + 1; j < sorted.Count; j++)
-                {
-                    if ((sorted[j].FechaLocal - startNode.FechaLocal).TotalMinutes <= 5)
-                        window.Add(sorted[j]);
-                    else break;
-                }
-
-                // Generar todos los subconjuntos DE LA VENTANA (Power Set)
-                // Como la ventana es pequeña (ej: max 10 items), 2^10 = 1024 iteraciones -> Rápido.
-                // Limitamos tamaño del subset a 5 items.
-                var validSubsets = GetSubsets(window, 5);
-
-                foreach (var subset in validSubsets)
-                {
-                    decimal sum = subset.Sum(v => v.PrecioVenta);
-
-                    // 1. MATCH EXACTO
-                    if (sum == targetTotal)
-                    {
-                        results.Insert(0, subset); // Prioridad máxima
-                        return results;
-                    }
-
-                    // 2. MATCH CON COMISIÓN (Tolerancia ~4-5%)
-                    // Transbank a veces deposita menos (Neto vs Bruto).
-                    // Ejemplo: Venta $1600 -> TB $1536 (96%).
-                    // Rango aceptable: TB debe ser <= Suma y >= Suma * 0.94
-                    if (targetTotal < sum && targetTotal >= sum * 0.94m)
-                    {
-                        // Verificación Doble: Que la diferencia se parezca a una comisión (2% a 5%)
-                        decimal diff = sum - targetTotal;
-                        decimal pct = diff / sum; // ej: 0.04
-
-                        if (pct >= 0.02m && pct <= 0.06m)
-                        {
-                            results.Add(subset);
-                        }
-                    }
-                }
+                return result;
             }
 
-            // Si no hay exactos, devolvemos los aproximados (si existen)
-            return results;
+            return 0;
         }
 
-        // Generador de Subsets (Iterativo)
-        private List<List<Venta>> GetSubsets(List<Venta> set, int maxSize)
-        {
-            var subsets = new List<List<Venta>>();
-            int count = set.Count;
-            int powerSetCount = 1 << count; // 2^n
-
-            for (int i = 1; i < powerSetCount; i++) // Empezar de 1 para saltar vacío
-            {
-                var subset = new List<Venta>();
-                for (int j = 0; j < count; j++)
-                {
-                    if ((i & (1 << j)) > 0)
-                    {
-                        subset.Add(set[j]);
-                    }
-                }
-
-                if (subset.Count <= maxSize)
-                {
-                    subsets.Add(subset);
-                }
-            }
-            return subsets;
-        }
         // =============================================
         // 4. EXPORTAR CATÁLOGO DE PRODUCTOS (PLANTILLA)
         // =============================================
