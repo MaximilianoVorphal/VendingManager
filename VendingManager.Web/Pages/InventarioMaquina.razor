@@ -71,7 +71,7 @@
                         {
                             @foreach (var s in Slots.OrderBy(x => x.SlotNumberSort))
                             {
-                                            <tr class="@(s.ProductoId == 0 ? "table-warning" : "")">
+                                            <tr class="@((s.ProductoId == null || s.ProductoId == 0) ? "table-warning" : "")">
                                                 <td class="text-center font-monospace bg-light fs-5">@s.NumeroSlot</td>
                                                 <td>
                                         @if (s.Producto != null)
@@ -152,7 +152,7 @@
                         <div class="mb-3">
                             <label class="form-label fw-bold small">PRODUCTO ASIGNADO</label>
                             <select class="form-select rounded-0 border-dark" @bind="SlotEnEdicion.ProductoId">
-                                <option value="0">-- SIN PRODUCTO --</option>
+                                <option value="">-- SIN PRODUCTO --</option>
                             @if (ProductosDisponibles != null)
                             {
                                 @foreach (var p in ProductosDisponibles.OrderBy(x => x.Nombre))
@@ -335,7 +335,7 @@
     // --- ACCIONES REPOSICION ---
     private void AbrirModalReposicion(ConfiguracionSlotDto slot)
     {
-        if (slot.ProductoId == 0)
+        if (slot.ProductoId == null || slot.ProductoId == 0)
         {
             Mensaje = "⚠️ Debes asignar un producto antes de reponer.";
             AlertClass = "alert-warning";
@@ -405,7 +405,7 @@
         public int Id { get; set; }
         public int MaquinaId { get; set; }
         public string NumeroSlot { get; set; } = "";
-        public int ProductoId { get; set; }
+        public int? ProductoId { get; set; }
         public ProductoSimpleDto? Producto { get; set; }
         public int StockActual { get; set; }
         public int CapacidadMaxima { get; set; }

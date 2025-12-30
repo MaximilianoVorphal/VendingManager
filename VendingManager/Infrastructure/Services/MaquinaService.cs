@@ -100,7 +100,7 @@ namespace VendingManager.Infrastructure.Services
 
                     // Apply updates to target
                     existing.NumeroSlot = slot.NumeroSlot;
-                    existing.ProductoId = slot.ProductoId;
+                    existing.ProductoId = (slot.ProductoId == 0) ? null : slot.ProductoId;
                     existing.PrecioVenta = slot.PrecioVenta;
                     existing.StockActual = slot.StockActual;
                     existing.CapacidadMaxima = slot.CapacidadMaxima;
@@ -124,7 +124,7 @@ namespace VendingManager.Infrastructure.Services
                 {
                     MaquinaId = slot.MaquinaId,
                     NumeroSlot = slot.NumeroSlot,
-                    ProductoId = slot.ProductoId,
+                    ProductoId = (slot.ProductoId == 0) ? null : slot.ProductoId,
                     PrecioVenta = slot.PrecioVenta,
                     StockActual = slot.StockActual,
                     CapacidadMaxima = slot.CapacidadMaxima
