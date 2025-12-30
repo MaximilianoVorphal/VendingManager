@@ -9,8 +9,8 @@ public class ConfiguracionSlot
 
     public string NumeroSlot { get; set; } = string.Empty; // Ej: "10", "A1"
 
-    public int ProductoId { get; set; }
-    public Producto Producto { get; set; } = null!;
+    public int? ProductoId { get; set; }
+    public Producto? Producto { get; set; }
 
     public int StockActual { get; set; } = 0;
     public int CapacidadMaxima { get; set; } = 10; // Valor por defecto

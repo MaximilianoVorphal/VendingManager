@@ -12,6 +12,9 @@ namespace VendingManager.Infrastructure.Services
         private readonly IWebHostEnvironment _environment;
         private readonly IInformesService _informesService;
 
+        // FECHA DE INICIO GLOBAL PARA EL CUADRE DE CAJA
+        private static readonly DateTime GlobalStartDate = new DateTime(2025, 12, 18);
+
         public CajaService(ApplicationDbContext context, IWebHostEnvironment environment, IInformesService informesService)
         {
             _context = context;
@@ -53,27 +56,29 @@ namespace VendingManager.Infrastructure.Services
             DateTime endOfMonth = startOfMonth.AddMonths(1).AddSeconds(-1);
 
             // 1. SALDO ANTERIOR
+            // Se considera todo lo anterior al inicio de mes, PERO respetando la fecha global de inicio
             var prevIngresosVentas = await _context.Ventas
-                .Where(v => v.Pagado && v.FechaHora < startOfMonth)
+                .Where(v => v.Pagado && v.FechaHora < startOfMonth && v.FechaHora >= GlobalStartDate)
                 .SumAsync(v => v.PrecioVenta);
 
             var prevMovimientos = await _context.MovimientosCaja
-                .Where(m => m.Fecha < startOfMonth)
+                .Where(m => m.Fecha < startOfMonth && m.Fecha >= GlobalStartDate)
                 .SumAsync(m => m.Monto);
 
             decimal saldoAnterior = prevIngresosVentas + prevMovimientos;
 
             // 2. MOVIMIENTOS DEL MES
+            // Solo considerar si están dentro del rango global
             var monthIngresosVentas = await _context.Ventas
-                .Where(v => v.Pagado && v.FechaHora >= startOfMonth && v.FechaHora <= endOfMonth)
+                .Where(v => v.Pagado && v.FechaHora >= startOfMonth && v.FechaHora <= endOfMonth && v.FechaHora >= GlobalStartDate)
                 .SumAsync(v => v.PrecioVenta);
 
             var monthGastos = await _context.MovimientosCaja
-                .Where(m => m.Fecha >= startOfMonth && m.Fecha <= endOfMonth && m.Monto < 0)
+                .Where(m => m.Fecha >= startOfMonth && m.Fecha <= endOfMonth && m.Fecha >= GlobalStartDate && m.Monto < 0)
                 .SumAsync(m => m.Monto);
 
             var monthAportes = await _context.MovimientosCaja
-                .Where(m => m.Fecha >= startOfMonth && m.Fecha <= endOfMonth && m.Monto > 0)
+                .Where(m => m.Fecha >= startOfMonth && m.Fecha <= endOfMonth && m.Fecha >= GlobalStartDate && m.Monto > 0)
                 .SumAsync(m => m.Monto);
 
             return new CajaResumenDto
@@ -90,7 +95,7 @@ namespace VendingManager.Infrastructure.Services
         public async Task<List<MovimientoCaja>> GetMovimientosAsync(int month, int year)
         {
             return await _context.MovimientosCaja
-                .Where(m => m.Fecha.Month == month && m.Fecha.Year == year)
+                .Where(m => m.Fecha.Month == month && m.Fecha.Year == year && m.Fecha >= GlobalStartDate)
                 .OrderByDescending(m => m.Fecha)
                 .ToListAsync();
         }
@@ -101,7 +106,20 @@ namespace VendingManager.Infrastructure.Services
 
             if (IsMonthLocked(mov.Fecha.Month, mov.Fecha.Year))
             {
-                throw new InvalidOperationException($"El mes {mov.Fecha:MM/yyyy} estÃ¡ cerrado y no se puede modificar.");
+                throw new InvalidOperationException($"El mes {mov.Fecha:MM/yyyy} está cerrado y no se puede modificar.");
+            }
+
+            // Validar que no se registren movimientos antes de la fecha global
+            if (mov.Fecha < GlobalStartDate)
+            {
+                // Opcional: Permitir registro pero advertir, o bloquear duro. 
+                // Dado el requerimiento "desde el dia 18... hacer el cuadre", 
+                // bloquear registros antiguos parece coherente para mantener la integridad.
+                // Sin embargo, el usuario podría querer registrar algo antiguo como "histórico".
+                // Pero si el sistema filtra por GlobalStartDate, ese registro no se vería nunca.
+                // Mejor lo dejamos pasar pero sabiendo que no sumará, O lanzamos error.
+                // Voy a lanzar error para evitar data "fantasma".
+                 throw new InvalidOperationException($"No se pueden registrar movimientos anteriores al inicio del cuadre ({GlobalStartDate:dd/MM/yyyy}).");
             }
 
             if (mov.Tipo == "GASTO" || mov.Tipo == "RETIRO")
@@ -137,22 +155,22 @@ namespace VendingManager.Infrastructure.Services
         {
             var resumen = await GetResumenAsync(month, year);
             var movimientos = await _context.MovimientosCaja
-                .Where(m => m.Fecha.Month == month && m.Fecha.Year == year)
+                .Where(m => m.Fecha.Month == month && m.Fecha.Year == year && m.Fecha >= GlobalStartDate)
                 .OrderBy(m => m.Fecha)
                 .ToListAsync();
 
             var ventas = await _context.Ventas
                 .Include(v => v.Maquina)
                 .Include(v => v.Producto)
-                .Where(v => v.Pagado && v.FechaHora.Month == month && v.FechaHora.Year == year)
+                .Where(v => v.Pagado && v.FechaHora.Month == month && v.FechaHora.Year == year && v.FechaHora >= GlobalStartDate)
                 .OrderBy(v => v.FechaHora)
                 .ToListAsync();
 
             using (var workbook = new ClosedXML.Excel.XLWorkbook())
             {
-                // ImplementaciÃ³n de lÃ³gica de exportaciÃ³n... (copiada de ExportarCaja en Controller)
-                // ... (Simplificado para no repetir todo el cÃ³digo literal, pero importante incluirlo)
-                // Voy a incluir la lÃ³gica completa
+                // Implementación de lógica de exportación... (copiada de ExportarCaja en Controller)
+                // ... (Simplificado para no repetir todo el código literal, pero importante incluirlo)
+                // Voy a incluir la lógica completa
 
                 var s1 = workbook.Worksheets.Add("Resumen Financiero");
                 s1.Cell(1, 1).Value = "REPORTE FINANCIERO MENSUAL";
@@ -185,8 +203,8 @@ namespace VendingManager.Infrastructure.Services
                 var s2 = workbook.Worksheets.Add("Libro Caja");
                 s2.Cell(1, 1).Value = "Fecha";
                 s2.Cell(1, 2).Value = "Tipo";
-                s2.Cell(1, 3).Value = "CategorÃ­a";
-                s2.Cell(1, 4).Value = "DescripciÃ³n";
+                s2.Cell(1, 3).Value = "Categoría";
+                s2.Cell(1, 4).Value = "Descripción";
                 s2.Cell(1, 5).Value = "Monto";
                 s2.Row(1).Style.Font.Bold = true;
 
@@ -205,11 +223,11 @@ namespace VendingManager.Infrastructure.Services
 
                 var s3 = workbook.Worksheets.Add("Detalle Ventas");
                 s3.Cell(1, 1).Value = "Fecha";
-                s3.Cell(1, 2).Value = "MÃ¡quina";
+                s3.Cell(1, 2).Value = "Máquina";
                 s3.Cell(1, 3).Value = "Slot";
                 s3.Cell(1, 4).Value = "Producto";
                 s3.Cell(1, 5).Value = "P. Venta";
-                s3.Cell(1, 6).Value = "P. Costo (HistÃ³rico)";
+                s3.Cell(1, 6).Value = "P. Costo (Histórico)";
                 s3.Cell(1, 7).Value = "Margen $";
                 s3.Row(1).Style.Font.Bold = true;
 
@@ -239,7 +257,7 @@ namespace VendingManager.Infrastructure.Services
         public async Task<(byte[] content, string fileName)> ExportarMovimientosAsync(int month, int year)
         {
             var movimientos = await _context.MovimientosCaja
-                .Where(m => m.Fecha.Month == month && m.Fecha.Year == year)
+                .Where(m => m.Fecha.Month == month && m.Fecha.Year == year && m.Fecha >= GlobalStartDate)
                 .OrderBy(m => m.Fecha)
                 .ToListAsync();
 
