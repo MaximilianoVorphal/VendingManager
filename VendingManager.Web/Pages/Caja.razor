@@ -41,41 +41,47 @@
     @if (Resumen != null)
     {
                 <div class="row g-3 mb-5">
+                    <!-- 1. VENTAS (Operación) -->
                     <div class="col-md-3">
-                        <div class="border border-2 border-dark bg-light p-3 h-100">
-                            <small class="text-muted fw-bold text-uppercase">SALDO ANTERIOR</small>
-                            <h3 class="text-secondary fw-bold mt-2">$@Resumen.SaldoAnterior.ToString("N0")</h3>
-                            <small class="text-muted" style="font-size: 0.7rem;">ACUMULADO HISTÓRICO</small>
-                        </div>
-                    </div>
-
-                    <div class="col-md-3">
-                        <div class="border border-2 border-dark bg-white p-3 h-100 position-relative">
-                            <div class="position-absolute top-0 end-0 bg-success text-white px-2 py-1 small fw-bold" style="font-size: 0.6rem;">ENTRADAS</div>
-                            <small class="text-muted fw-bold text-uppercase">INGRESOS VENTAS</small>
+                        <div class="border border-2 border-dark bg-white p-3 h-100 position-relative shadow-sm">
+                            <div class="position-absolute top-0 end-0 bg-success text-white px-2 py-1 small fw-bold" style="font-size: 0.6rem;">OPERACIÓN</div>
+                            <small class="text-muted fw-bold text-uppercase">VENTAS DEL MES</small>
                             <h3 class="text-success fw-bold mt-2">$@Resumen.IngresosVentas.ToString("N0")</h3>
-                            <small class="text-success fw-bold" style="font-size: 0.7rem;">(ESTE MES)</small>
+                            <small class="text-muted" style="font-size: 0.7rem;">Ingresos por operación</small>
                         </div>
                     </div>
 
+                    <!-- 2. GASTOS (Salidas) -->
                     <div class="col-md-3">
-                        <div class="border border-2 border-dark bg-white p-3 h-100 position-relative">
+                        <div class="border border-2 border-dark bg-white p-3 h-100 position-relative shadow-sm">
                             <div class="position-absolute top-0 end-0 bg-danger text-white px-2 py-1 small fw-bold" style="font-size: 0.6rem;">SALIDAS</div>
-                            <small class="text-muted fw-bold text-uppercase">GASTOS + RETIROS</small>
-                            <h3 class="text-danger fw-bold mt-2">$@((Resumen.GastosOperativos).ToString("N0"))</h3>
-                            <small class="text-danger fw-bold" style="font-size: 0.7rem;">(ESTE MES)</small>
+                            <small class="text-muted fw-bold text-uppercase">GASTOS TOTALES</small>
+                            <h3 class="text-danger fw-bold mt-2">-$@Resumen.GastosOperativos.ToString("N0")</h3>
+                            <small class="text-muted" style="font-size: 0.7rem;">Mercadería, Bencina</small>
                         </div>
                     </div>
 
+                    <!-- 3. APORTES (Financiamiento) -->
+                    <div class="col-md-3">
+                        <div class="border border-2 border-dark bg-white p-3 h-100 position-relative shadow-sm">
+                            <div class="position-absolute top-0 end-0 bg-primary text-white px-2 py-1 small fw-bold" style="font-size: 0.6rem;">CAPITAL</div>
+                            <small class="text-muted fw-bold text-uppercase">APORTES / INYECCIONES</small>
+                            <h3 class="text-primary fw-bold mt-2">$@Resumen.AportesExtra.ToString("N0")</h3>
+                            <small class="text-muted" style="font-size: 0.7rem;">Capital ingresado externo</small>
+                        </div>
+                    </div>
+
+                    <!-- 4. SALDO FINAL (Resultado) -->
                     <div class="col-md-3">
                         <div class="border border-2 border-dark bg-dark text-white p-3 h-100 shadow">
                             <div class="d-flex justify-content-between align-items-center border-bottom border-light pb-2 mb-2">
-                                <small class="fw-bold text-uppercase">SALDO FINAL</small>
+                                <small class="fw-bold text-uppercase">DISPONIBLE EN CAJA</small>
                                 <span class="badge bg-light text-dark rounded-0">TOTAL</span>
                             </div>
                             <div class="d-flex align-items-center justify-content-between">
                                 <h2 class="fw-bold m-0">$@Resumen.SaldoFinal.ToString("N0")</h2>
                             </div>
+                            <small class="text-white-50 mt-2 d-block" style="font-size: 0.7rem;">Total Real (Incluye Histórico)</small>
                         </div>
                     </div>
                 </div>
@@ -158,18 +164,18 @@
                     </div>
 
                     <div class="mb-3">
-                        <label class="fw-bold small text-uppercase mb-1">6. ADJUNTAR IMAGEN (OPCIONAL):</label>
-                        <InputFile OnChange="@LoadFiles" class="form-control border-dark rounded-0" accept="image/*" />
+                        <label class="fw-bold small text-uppercase mb-1">6. ADJUNTAR COMPROBANTE (OPCIONAL):</label>
+                        <InputFile OnChange="@LoadFiles" class="form-control border-dark rounded-0" accept=".jpg,.jpeg,.png,.pdf" />
                         @if (fileToUpload != null)
                         {
-                                    <small class="text-success fw-bold">Imagen seleccionada: @fileToUpload.Name</small>
+                                    <small class="text-success fw-bold">Archivo seleccionado: @fileToUpload.Name</small>
                         }
                     </div>
 
                     <button class="btn btn-dark w-100 rounded-0 fw-bold py-2 mt-2 border-2 border-dark shadow" @onclick="Registrar" disabled="@(Resumen?.IsLocked == true || IsUploading)">
                         @if (IsUploading)
                         { 
-                                <span>SUBIENDO IMAGEN...</span>
+                                <span>SUBIENDO ARCHIVO...</span>
                         }
                         else
                         { 
@@ -198,7 +204,7 @@
                                 <th style="width: 15%">FECHA</th>
                                 <th style="width: 15%">CATEGORÍA</th>
                                 <th>DESCRIPCIÓN</th>
-                                <th class="text-center">IMG</th>
+                                <th class="text-center" style="width: 50px;">IMG</th>
                                 <th class="text-end" style="width: 15%">MONTO</th>
                             </tr>
                         </thead>
@@ -217,9 +223,20 @@
                                             <td class="text-center">
                                         @if (!string.IsNullOrEmpty(mov.ImagenPath))
                                         {
+                                            bool isPdf = mov.ImagenPath.Contains(".pdf", StringComparison.OrdinalIgnoreCase);
+
+                                            if (isPdf)
+                                            {
+                                                            <a href="@mov.ImagenPath" target="_blank" class="text-decoration-none" title="Ver Documento PDF">
+                                                                📄
+                                                            </a>
+                                            }
+                                            else
+                                            {
                                                             <a href="@mov.ImagenPath" target="_blank" class="text-decoration-none" title="Ver Comprobante">
                                                                 📷
                                                             </a>
+                                            }
                                         }
                                         else
                                         {

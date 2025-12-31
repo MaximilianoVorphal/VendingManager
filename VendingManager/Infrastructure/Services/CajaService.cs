@@ -22,19 +22,26 @@ namespace VendingManager.Infrastructure.Services
             _informesService = informesService;
         }
 
-        // 2. UploadImageAsync
-        public async Task<string> UploadImageAsync(Stream fileStream, string fileName, string? webRootPath = null)
+        // 2. UploadComprobanteAsync
+        public async Task<string> UploadComprobanteAsync(Stream fileStream, string fileName, string? webRootPath = null)
         {
             using (var memoryStream = new MemoryStream())
             {
                 await fileStream.CopyToAsync(memoryStream);
                 var content = memoryStream.ToArray();
 
+                string extension = Path.GetExtension(fileName).ToLower();
+                string contentType = "application/octet-stream";
+
+                if (extension == ".pdf") contentType = "application/pdf";
+                else if (extension == ".jpg" || extension == ".jpeg") contentType = "image/jpeg";
+                else if (extension == ".png") contentType = "image/png";
+
                 var informe = new Informe
                 {
                     Nombre = Path.GetFileNameWithoutExtension(fileName) + "_CAJA",
-                    Extension = Path.GetExtension(fileName),
-                    TipoContenido = "image/" + Path.GetExtension(fileName).TrimStart('.'), // Simple MIME inference or guess
+                    Extension = extension,
+                    TipoContenido = contentType,
                     Contenido = content,
                     FechaSubida = DateTime.Now
                 };
@@ -46,7 +53,8 @@ namespace VendingManager.Infrastructure.Services
                 // But let's check what Controller passes. It passes file.FileName.
 
                 var saved = await _informesService.SubirInformeAsync(informe);
-                return $"api/informes/{saved.Id}";
+                // Append extension as query param to allow client-side type detection
+                return $"api/informes/{saved.Id}?ext={extension}";
             }
         }
 

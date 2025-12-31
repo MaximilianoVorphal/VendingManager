@@ -53,7 +53,7 @@ namespace VendingManager.Web.Controllers
                 using (var stream = file.OpenReadStream())
                 {
                     // Service handles path logic. We can pass null for webRootPath if service has it injected.
-                    string path = await _cajaService.UploadImageAsync(stream, file.FileName, null);
+                    string path = await _cajaService.UploadComprobanteAsync(stream, file.FileName, null);
                     return Ok(new { Path = path });
                 }
             }
