@@ -25,6 +25,18 @@ builder.Services.AddCors(options =>
     });
 });
 
+// Auth
+builder.Services.AddAuthentication(Microsoft.AspNetCore.Authentication.Cookies.CookieAuthenticationDefaults.AuthenticationScheme)
+    .AddCookie(options =>
+    {
+        options.Cookie.Name = "auth_token";
+        options.LoginPath = "/login";
+        options.Cookie.SameSite = SameSiteMode.Strict;
+        // options.Cookie.SecurePolicy = CookieSecurePolicy.Always; // Uncomment if HTTPS only
+    });
+
+builder.Services.AddAuthorization();
+
 // 2. Base de Datos (SQL Express)
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
@@ -66,6 +78,18 @@ using (var scope = app.Services.CreateScope())
     {
         var context = services.GetRequiredService<VendingManager.Infrastructure.Data.ApplicationDbContext>();
         context.Database.Migrate();
+
+        // Seed default user if not exists
+        if (!context.Users.Any())
+        {
+            var adminUser = new VendingManager.Core.Entities.User
+            {
+                Username = "admin",
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword("admin")
+            };
+            context.Users.Add(adminUser);
+            context.SaveChanges();
+        }
     }
     catch (Exception ex)
     {
@@ -90,6 +114,9 @@ app.UseStaticFiles();
 app.UseAntiforgery();
 app.UseResponseCompression();
 app.UseCors("PermitirBlazor"); // Activar CORS
+
+app.UseAuthentication();
+app.UseAuthorization();
 
 // 5. Mapear componentes y API
 app.MapStaticAssets();

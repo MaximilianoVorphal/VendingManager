@@ -89,6 +89,16 @@ namespace VendingManager.Infrastructure.Services
                 .Where(m => m.Fecha >= startOfMonth && m.Fecha <= endOfMonth && m.Fecha >= GlobalStartDate && m.Monto > 0)
                 .SumAsync(m => m.Monto);
 
+            // 3. UTILIDAD (PrecioVenta - CostoVenta)
+            var monthUtilidad = await _context.Ventas
+                .Where(v => v.Pagado && v.FechaHora >= startOfMonth && v.FechaHora <= endOfMonth && v.FechaHora >= GlobalStartDate)
+                .SumAsync(v => v.PrecioVenta - v.CostoVenta);
+
+            // 4. GASTOS MERCADERIA (Categoria "MERCADERIA")
+            var monthGastosMercaderia = await _context.MovimientosCaja
+                .Where(m => m.Fecha >= startOfMonth && m.Fecha <= endOfMonth && m.Fecha >= GlobalStartDate && m.Monto < 0 && m.Categoria == "MERCADERIA")
+                .SumAsync(m => m.Monto);
+
             return new CajaResumenDto
             {
                 SaldoAnterior = saldoAnterior,
@@ -96,6 +106,8 @@ namespace VendingManager.Infrastructure.Services
                 GastosOperativos = Math.Abs(monthGastos),
                 AportesExtra = monthAportes,
                 SaldoFinal = saldoAnterior + monthIngresosVentas + monthAportes + monthGastos,
+                UtilidadTotal = monthUtilidad,
+                GastosMercaderia = Math.Abs(monthGastosMercaderia),
                 IsLocked = IsMonthLocked(month, year)
             };
         }

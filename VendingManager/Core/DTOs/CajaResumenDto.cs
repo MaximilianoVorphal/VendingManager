@@ -7,6 +7,8 @@
         public decimal GastosOperativos { get; set; }
         public decimal AportesExtra { get; set; }
         public decimal SaldoFinal { get; set; }
+        public decimal UtilidadTotal { get; set; }
+        public decimal GastosMercaderia { get; set; }
         public bool IsLocked { get; set; }
     }
 }
