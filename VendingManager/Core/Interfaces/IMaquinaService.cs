@@ -9,6 +9,7 @@ namespace VendingManager.Core.Interfaces
         Task UpdateMaquinaAsync(int id, Maquina maquina);
         Task<List<DTOs.ConfiguracionSlotDto>> GetSlotsAsync(int maquinaId);
         Task UpdateSlotAsync(DTOs.ConfiguracionSlotDto slot);
+        Task ProcesarMovimientosLoteAsync(int maquinaId, List<DTOs.SlotActionDto> acciones);
         Task DeleteMaquinaAsync(int id);
     }
 }

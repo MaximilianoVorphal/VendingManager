@@ -1,0 +1,491 @@
+@page "/reposicion"
+@inject HttpClient Http
+@inject IJSRuntime JS
+
+<PageTitle>REPOSICIÓN VISUAL</PageTitle>
+
+<div class="container-fluid px-4 mt-4" style="font-family: 'Segoe UI', Consolas, monospace;">
+
+    <!-- HEADER: TITLE + MACHINE SELECT -->
+    <div class="row align-items-center mb-4 border-bottom border-3 border-dark pb-3 g-3">
+        <div class="col-md-4 col-12">
+            <h2 class="m-0 fw-bold text-uppercase" style="letter-spacing: -1px; color: #333;">
+                <i class="bi bi-grid-3x3-gap-fill me-2"></i>REPOSICIÓN V2
+            </h2>
+            <small class="text-muted fw-bold">CARGA POR PISOS & HERRAMIENTAS</small>
+        </div>
+
+        <div class="col-md-8 col-12">
+            <div class="d-flex flex-wrap gap-3 justify-content-md-end align-items-center">
+                <!-- TOOLBAR -->
+                 <div class="btn-group shadow-sm border border-dark rounded-0" role="group">
+                    <input type="radio" class="btn-check" name="btnradio" id="modeRefill" autocomplete="off" 
+                           checked="@(CurrentTool == "REFILL")" @onchange="@(() => SelectTool("REFILL"))">
+                    <label class="btn btn-outline-dark fw-bold rounded-0 @(CurrentTool == "REFILL" ? "active-tool" : "")" for="modeRefill">
+                        <i class="bi bi-box-seam me-1"></i>RELLENAR
+                    </label>
+
+                    <input type="radio" class="btn-check" name="btnradio" id="modeEmpty" autocomplete="off" 
+                           checked="@(CurrentTool == "EMPTY")" @onchange="@(() => SelectTool("EMPTY"))">
+                    <label class="btn btn-outline-dark fw-bold rounded-0 @(CurrentTool == "EMPTY" ? "active-tool" : "")" for="modeEmpty">
+                        <i class="bi bi-trash me-1"></i>VACIAR
+                    </label>
+
+                    <input type="radio" class="btn-check" name="btnradio" id="modeSwap" autocomplete="off" 
+                           checked="@(CurrentTool == "SWAP")" @onchange="@(() => SelectTool("SWAP"))">
+                    <label class="btn btn-outline-dark fw-bold rounded-0 @(CurrentTool == "SWAP" ? "active-tool" : "")" for="modeSwap">
+                        <i class="bi bi-arrow-repeat me-1"></i>CAMBIAR PROD
+                    </label>
+                </div>
+
+                <div class="border-start border-dark mx-2 ps-3">
+                     <select class="form-select border-dark rounded-0 fw-bold shadow-sm" style="min-width: 250px;"
+                            @onchange="CargarSlotsMaquina">
+                        <option value="0">:: SELECCIONE MÁQUINA ::</option>
+                        @if (Maquinas != null)
+                        {
+                            @foreach (var m in Maquinas)
+                            {
+                                <option value="@m.Id">@m.Nombre.ToUpper()</option>
+                            }
+                        }
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(Mensaje))
+    {
+        <div class="alert @AlertClass border-dark rounded-0 fw-bold mb-4 shadow-sm fade show">
+            @Mensaje
+        </div>
+    }
+
+    @if (MaquinaIdSeleccionada > 0)
+    {
+         <div class="card border-2 border-dark rounded-0 shadow my-4">
+            <div class="card-header bg-dark text-white rounded-0 fw-bold d-flex justify-content-between align-items-center">
+                <span>VISTA DE ESTANTERÍA (SHELVES)</span>
+                <div>
+                   <span class="badge bg-light text-dark rounded-0 me-2">@PendingActions.Count ACCIONES</span>
+                    <button class="btn btn-sm btn-light rounded-0 fw-bold border-secondary text-success" 
+                        disabled="@(PendingActions.Count == 0)" @onclick="ConfirmarAcciones">
+                        <i class="bi bi-save me-2"></i>GUARDAR CAMBIOS
+                    </button>
+                </div>
+            </div>
+            
+            <div class="card-body bg-secondary bg-opacity-10 p-4">
+                @if (Slots.Count == 0)
+                {
+                    <div class="text-center text-muted">No hay slots configurados para visualizar.</div>
+                }
+                else
+                {
+                    // GROUP BY SHELF (Assuming First Digit = Shelf, simple integer division by 10)
+                    // Example: 11-19 -> Shelf 1. 21-29 -> Shelf 2.
+                    var shelves = Slots.GroupBy(s => s.SlotNumberSort / 10).OrderBy(g => g.Key);
+
+                    <div class="d-flex flex-column gap-4 machine-chassis">
+                        @foreach (var shelf in shelves)
+                        {
+                            <div class="shelf-container p-2 border border-dark bg-white shadow-sm">
+                                <div class="shelf-label badge bg-dark text-white rounded-0 mb-2">PISO @shelf.Key</div>
+                                
+                                <!-- FLEX WRAP CONTAINER FOR SLOTS -->
+                                <div class="d-flex flex-wrap justify-content-center gap-2">
+                                    @foreach (var s in shelf.OrderBy(x => x.SlotNumberSort))
+                                    {
+                                        var action = PendingActions.FirstOrDefault(a => a.SlotId == s.Id);
+                                        string statusClass = GetSlotStatusClass(s, action);
+                                        
+                                        <div class="slot-unit @statusClass" @onclick="() => HandleSlotClick(s)">
+                                            <!-- TOP: Number & Icon -->
+                                            <div class="d-flex justify-content-between align-items-start border-bottom border-dark pb-1 mb-1 w-100">
+                                                <span class="font-monospace fw-bold bg-white text-dark px-1 border border-dark rounded-0" style="font-size:0.8rem;">@s.NumeroSlot</span>
+                                                @if(action != null) 
+                                                { 
+                                                    @if(action.ActionType == "REFILL") { <i class="bi bi-plus-circle-fill"></i> }
+                                                    else if(action.ActionType == "EMPTY") { <i class="bi bi-trash-fill text-white"></i> }
+                                                    else if(action.ActionType == "SWAP") { <i class="bi bi-arrow-repeat text-white"></i> }
+                                                }
+                                            </div>
+
+                                            <!-- MIDDLE: Product Name -->
+                                            <div class="slot-product-name text-center lh-1 my-1">
+                                                @if (action?.ActionType == "SWAP" && action.NewProductoDto != null)
+                                                {
+                                                    <span class="text-warning fw-bold">@action.NewProductoDto.Nombre</span>
+                                                }
+                                                else
+                                                {
+                                                     @(s.Producto?.Nombre ?? "VACÍO")
+                                                }
+                                            </div>
+
+                                            <!-- BOTTOM: Stock Info -->
+                                            <div class="mt-auto w-100 pt-1 border-top border-dark d-flex justify-content-between align-items-end" style="font-size:0.75rem;">
+                                                <div class="d-flex flex-column lh-1">
+                                                    <span class="opacity-75">STOCK</span>
+                                                    <span class="fw-bold fs-6">@s.StockActual</span>
+                                                </div>
+                                                
+                                                @if (action?.ActionType == "REFILL")
+                                                {
+                                                    <div class="badge bg-white text-primary border border-dark rounded-0">+@action.Cantidad</div>
+                                                }
+                                                else
+                                                {
+                                                    <span class="opacity-50">/@s.CapacidadMaxima</span>
+                                                }
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    }
+    else
+    {
+         <div class="text-center py-5 text-muted border border-2 border-dark border-dashed my-4 bg-light">
+             <i class="bi bi-ui-checks-grid display-1 mb-3"></i>
+            <h4 class="fw-bold">SELECCIONE UNA MÁQUINA</h4>
+            <p class="mb-0">Visualice y gestione los slots de forma visual.</p>
+        </div>
+    }
+
+</div>
+
+<!-- MODAL SWAP PRODUCTO -->
+@if (ShowSwapModal && SlotForSwap != null)
+{
+    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content rounded-0 border-2 border-dark shadow-lg">
+                <div class="modal-header bg-warning text-dark rounded-0 border-bottom border-dark">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-arrow-repeat me-2"></i>CAMBIAR PRODUCTO SLOT @SlotForSwap.NumeroSlot</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <label class="form-label fw-bold">SELECCIONE NUEVO PRODUCTO:</label>
+                    <select class="form-select rounded-0 border-dark mb-3" @bind="SelectedSwapProductId">
+                        <option value="0">-- ELIMINAR PRODUCTO (VACÍO) --</option>
+                        @if(ProductosDisponibles != null)
+                        {
+                            @foreach(var p in ProductosDisponibles.OrderBy(x=>x.Nombre))
+                            {
+                                <option value="@p.Id">@p.Nombre (Bodega: @p.StockBodega)</option>
+                            }
+                        }
+                    </select>
+
+                    <label class="form-label fw-bold">PRECIO VENTA:</label>
+                    <div class="input-group mb-3">
+                        <span class="input-group-text rounded-0 border-dark">$</span>
+                        <input type="number" class="form-control rounded-0 border-dark" @bind="SelectedSwapPrice" />
+                    </div>
+
+                </div>
+                <div class="modal-footer bg-light rounded-0">
+                    <button type="button" class="btn btn-outline-dark rounded-0 fw-bold" @onclick="CloseModal">CANCELAR</button>
+                    <button type="button" class="btn btn-warning rounded-0 border-dark fw-bold px-4" @onclick="ConfirmSwap">
+                        CONFIRMAR CAMBIO
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<style>
+    .active-tool {
+        background-color: #000 !important;
+        color: #fff !important;
+        box-shadow: inset 0 3px 5px rgba(0,0,0,0.125);
+    }
+    /* Mobile-First tweaks */
+    .machine-chassis {
+        background-color: #222;
+        padding: 5px; /* Reduced from 15px */
+        border-radius: 4px;
+        border: 2px solid #444; /* Reduced border */
+    }
+    .shelf-container {
+        border-bottom: 4px solid #666 !important; 
+        background-color: #ddd !important;
+        padding: 5px !important; /* Tighter shelf padding */
+    }
+    .slot-unit {
+        /* Standard size, but flex allows shrinking/growing */
+        flex: 1 0 85px; /* Grow to fill, min-width 85px (fits 4-5 on small screen) */
+        min-height: 100px;
+        border: 2px solid #333;
+        padding: 4px;
+        font-family: 'Segoe UI', sans-serif;
+        font-weight: bold;
+        transition: all 0.1s;
+        cursor: pointer;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        background-color: white;
+        margin-bottom: 2px;
+    }
+    
+    /* On very small screens, ensure we use max width */
+    @@media (max-width: 576px) {
+        .container-fluid { padding-left: 5px !important; padding-right: 5px !important; }
+        .card-body { padding: 5px !important; }
+    }
+
+    .slot-unit:active {
+        transform: scale(0.95);
+    }
+    .slot-product-name {
+        font-size: 0.7rem; /* Slightly smaller text */
+        line-height: 1.1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        word-break: break-word; /* Ensure wrapping */
+    }
+
+    /* STATES */
+    .slot-empty { background-color: #f8d7da; border-color: #dc3545; color: #721c24; }
+    .slot-full { background-color: #d1e7dd; border-color: #198754; color: #0f5132; }
+    .slot-partial { background-color: #fff3cd; border-color: #ffc107; color: #555; }
+    
+    /* ACTION OVERLAYS - Make borders thicker to see action clearly */
+    .action-refill { background-color: #cfe2ff !important; border: 3px solid #0d6efd !important; color: #084298 !important; }
+    .action-empty { background-color: #dc3545 !important; border: 3px solid #b02a37 !important; color: white !important; }
+    .action-swap { background-color: #6f42c1 !important; border: 3px solid #59359a !important; color: white !important; }
+</style>
+
+@code {
+    // --- MODELS ---
+    class MaquinaSimpleDto { public int Id { get; set; } public string Nombre { get; set; } = ""; }
+    class ProductoSlotDto { public int Id { get; set; } public string Nombre { get; set; } = ""; public int StockBodega { get; set; } }
+    
+    // Using local SlotActionDto to ensure compilation success
+    class SlotActionDto
+    {
+        public int SlotId { get; set; }
+        public string ActionType { get; set; } = "REFILL"; 
+        public int Cantidad { get; set; }
+        public int? NewProductoId { get; set; }
+        public decimal? NewPrecioVenta { get; set; } // Added Price
+        
+        // Helper for UI only
+        public ProductoSlotDto? NewProductoDto { get; set; }
+    }
+
+    class ConfiguracionSlotDto
+    {
+        public int Id { get; set; }
+        public int MaquinaId { get; set; }
+        public string NumeroSlot { get; set; } = "";
+        public int? ProductoId { get; set; }
+        public ProductoSlotDto? Producto { get; set; }
+        public int StockActual { get; set; }
+        public int CapacidadMaxima { get; set; }
+        public decimal PrecioVenta { get; set; } // Existing price for pre-fill
+        public int SlotNumberSort => int.TryParse(NumeroSlot, out int n) ? n : int.MaxValue;
+    }
+
+    // --- STATE ---
+    private List<MaquinaSimpleDto> Maquinas = new();
+    private List<ConfiguracionSlotDto> Slots = new();
+    private List<ProductoSlotDto> ProductosDisponibles = new();
+    
+    private int MaquinaIdSeleccionada = 0;
+    private string Mensaje = "";
+    private string AlertClass = "alert-info";
+    private string CurrentTool = "REFILL"; // REFILL, EMPTY, SWAP
+
+    private List<SlotActionDto> PendingActions = new();
+
+    // SWAP MODAL STATE
+    private bool ShowSwapModal = false;
+    private ConfiguracionSlotDto? SlotForSwap;
+    private int SelectedSwapProductId = 0;
+    private decimal SelectedSwapPrice = 0; // State for price input
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarMaquinas();
+        await CargarProductos();
+    }
+
+    private async Task CargarMaquinas()
+    {
+        try { Maquinas = await Http.GetFromJsonAsync<List<MaquinaSimpleDto>>("api/Maquinas") ?? new(); }
+        catch { }
+    }
+
+    private async Task CargarProductos()
+    {
+        try { ProductosDisponibles = await Http.GetFromJsonAsync<List<ProductoSlotDto>>("api/Inventario/lista") ?? new(); }
+        catch { }
+    }
+
+    private async Task CargarSlotsMaquina(ChangeEventArgs e)
+    {
+        PendingActions.Clear();
+        Mensaje = "";
+        
+        if (int.TryParse(e.Value?.ToString(), out int id) && id > 0)
+        {
+            MaquinaIdSeleccionada = id;
+            Slots = await Http.GetFromJsonAsync<List<ConfiguracionSlotDto>>($"api/Maquinas/{id}/slots") ?? new();
+        }
+        else
+        {
+            MaquinaIdSeleccionada = 0;
+            Slots.Clear();
+        }
+    }
+
+    private void SelectTool(string tool)
+    {
+        CurrentTool = tool;
+    }
+
+    private void HandleSlotClick(ConfiguracionSlotDto slot)
+    {
+        // 1. Remove existing action if any
+        var existing = PendingActions.FirstOrDefault(a => a.SlotId == slot.Id);
+        if (existing != null)
+        {
+            PendingActions.Remove(existing);
+            // If clicking same slot allows toggle OFF.
+            // If tool is different, maybe overwrite? For now toggle off is intuitive.
+            return;
+        }
+
+        // 2. Add new action based on Tool
+        if (CurrentTool == "REFILL")
+        {
+            if (slot.ProductoId == null) return; // Can't refill empty slot
+            int maxFill = slot.CapacidadMaxima - slot.StockActual;
+            if (maxFill <= 0) return; // Full
+
+            PendingActions.Add(new SlotActionDto
+            {
+                SlotId = slot.Id,
+                ActionType = "REFILL",
+                Cantidad = maxFill
+            });
+        }
+        else if (CurrentTool == "EMPTY")
+        {
+             // Allow empty if there is stock OR if there is a product assigned (to unassign it)
+             if (slot.StockActual == 0 && slot.ProductoId == null) return; 
+
+             PendingActions.Add(new SlotActionDto
+             {
+                 SlotId = slot.Id,
+                 ActionType = "EMPTY"
+             });
+        }
+        else if (CurrentTool == "SWAP")
+        {
+            // Open Modal
+            SlotForSwap = slot;
+            SelectedSwapProductId = slot.ProductoId ?? 0;
+            SelectedSwapPrice = slot.PrecioVenta; // Pre-fill with current price
+            ShowSwapModal = true;
+        }
+    }
+
+    // --- SWAP LOGIC ---
+    private void CloseModal()
+    {
+        ShowSwapModal = false;
+        SlotForSwap = null;
+    }
+
+
+
+    private void ConfirmSwap()
+    {
+        if (SlotForSwap == null) return;
+
+        var newProd = ProductosDisponibles.FirstOrDefault(p => p.Id == SelectedSwapProductId);
+        
+        PendingActions.Add(new SlotActionDto
+        {
+            SlotId = SlotForSwap.Id,
+            ActionType = "SWAP",
+            NewProductoId = SelectedSwapProductId,
+            NewProductoDto = newProd,
+            Cantidad = 5, // User requested default 5 on swap
+            NewPrecioVenta = SelectedSwapPrice // Send new price
+        });
+
+        if (SelectedSwapProductId > 0)
+        {
+             PendingActions.Add(new SlotActionDto
+            {
+                SlotId = SlotForSwap.Id,
+                ActionType = "REFILL",
+                Cantidad = 5
+            });
+        }
+
+        ShowSwapModal = false;
+        SlotForSwap = null;
+    }
+
+
+    private string GetSlotStatusClass(ConfiguracionSlotDto s, SlotActionDto? action)
+    {
+        if (action != null)
+        {
+            if (action.ActionType == "REFILL") return "action-refill";
+            if (action.ActionType == "EMPTY") return "action-empty";
+            if (action.ActionType == "SWAP") return "action-swap";
+        }
+
+        if (s.Producto == null) return "bg-light opacity-50"; // Unassigned
+        if (s.StockActual <= 0) return "slot-empty";
+        if (s.StockActual <= 2) return "slot-empty"; // Critical visual same as empty-ish
+        if (s.StockActual >= s.CapacidadMaxima) return "slot-full";
+        return "slot-partial"; 
+    }
+
+    private async Task ConfirmarAcciones()
+    {
+        if (PendingActions.Count == 0) return;
+
+        try
+        {
+            var response = await Http.PostAsJsonAsync($"api/Maquinas/{MaquinaIdSeleccionada}/batch-actions", PendingActions);
+            if (response.IsSuccessStatusCode)
+            {
+                Mensaje = $"✅ Acciones procesadas correctamente: {PendingActions.Count}";
+                AlertClass = "alert-success";
+                PendingActions.Clear();
+                // Reload
+                Slots = await Http.GetFromJsonAsync<List<ConfiguracionSlotDto>>($"api/Maquinas/{MaquinaIdSeleccionada}/slots") ?? new();
+            }
+            else
+            {
+                var err = await response.Content.ReadAsStringAsync();
+                Mensaje = $"❌ Error: {err}";
+                AlertClass = "alert-danger";
+            }
+        }
+        catch (Exception ex)
+        {
+             Mensaje = $"❌ Error: {ex.Message}";
+             AlertClass = "alert-danger";
+        }
+    }
+}

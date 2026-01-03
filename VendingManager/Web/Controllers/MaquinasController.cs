@@ -67,5 +67,19 @@ namespace VendingManager.Web.Controllers
             await _maquinaService.UpdateSlotAsync(slot);
             return Ok();
         }
+
+        [HttpPost("{id}/batch-actions")]
+        public async Task<IActionResult> ProcesarMovimientos(int id, [FromBody] List<SlotActionDto> acciones)
+        {
+            try
+            {
+                await _maquinaService.ProcesarMovimientosLoteAsync(id, acciones);
+                return Ok();
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ex.Message);
+            }
+        }
     }
 }

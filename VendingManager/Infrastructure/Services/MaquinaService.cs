@@ -134,5 +134,103 @@ namespace VendingManager.Infrastructure.Services
 
             await _context.SaveChangesAsync();
         }
+
+
+        public async Task ProcesarMovimientosLoteAsync(int maquinaId, List<SlotActionDto> acciones)
+        {
+            if (acciones == null || !acciones.Any()) return;
+
+            var maquina = await _context.Maquinas.FindAsync(maquinaId);
+            string nombreMaquina = maquina?.Nombre ?? $"ID {maquinaId}";
+            var logDetalle = new List<string>();
+
+            foreach (var accion in acciones)
+            {
+                var slot = await _context.ConfiguracionSlots
+                    .Include(s => s.Producto)
+                    .FirstOrDefaultAsync(s => s.Id == accion.SlotId);
+
+                if (slot == null) continue;
+
+                // --- ACCIÓN: VACIAR ---
+                // --- ACCIÓN: VACIAR ---
+                if (accion.ActionType == "EMPTY")
+                {
+                    // Always clear, even if stock is 0, because user wants to unassign.
+                    string prod = slot.Producto?.Nombre ?? "VACÍO";
+                    logDetalle.Add($"[VACIADO] Slot {slot.NumeroSlot} ({prod}): {slot.StockActual} -> 0 (Desasignado)");
+                    
+                    slot.StockActual = 0;
+                    slot.ProductoId = null; // Remove product assignment
+                    _context.Entry(slot).State = EntityState.Modified;
+                    
+                    continue; // Done with this slot
+                }
+
+                // --- ACCIÓN: CAMBIAR PRODUCTO ---
+                if (accion.ActionType == "SWAP")
+                {
+                    if (accion.NewProductoId.HasValue && accion.NewProductoId > 0)
+                    {
+                        var nuevoProd = await _context.Productos.FindAsync(accion.NewProductoId.Value);
+                        if (nuevoProd != null)
+                        {
+                            string ant = slot.Producto?.Nombre ?? "VACÍO";
+                            logDetalle.Add($"[CAMBIO] Slot {slot.NumeroSlot}: {ant} -> {nuevoProd.Nombre}");
+                            
+                            slot.ProductoId = nuevoProd.Id;
+                            slot.StockActual = 0; 
+                            
+                            // Update price if provided
+                            if (accion.NewPrecioVenta.HasValue)
+                            {
+                                slot.PrecioVenta = accion.NewPrecioVenta.Value;
+                                logDetalle.Add($"[PRECIO] Slot {slot.NumeroSlot}: {slot.PrecioVenta:C0}");
+                            }
+                            
+                            _context.Entry(slot).State = EntityState.Modified;
+                        }
+                    }
+                    else if (accion.NewProductoId == null || accion.NewProductoId == 0)
+                    {
+                        // Clearing product
+                         logDetalle.Add($"[BORRADO] Slot {slot.NumeroSlot}: {slot.Producto?.Nombre} -> VACÍO");
+                         slot.ProductoId = null;
+                         slot.StockActual = 0;
+                         _context.Entry(slot).State = EntityState.Modified;
+                    }
+                    continue;
+                }
+
+                // --- ACCIÓN: RELLENAR (DEFAULT) ---
+                if (accion.Cantidad <= 0) continue;
+                if (slot.Producto == null) continue;
+
+                // Logica original de Reposicion
+                slot.Producto.StockBodega -= accion.Cantidad;
+                _context.Entry(slot.Producto).State = EntityState.Modified;
+
+                slot.StockActual += accion.Cantidad;
+                if (slot.StockActual > slot.CapacidadMaxima) slot.StockActual = slot.CapacidadMaxima;
+                _context.Entry(slot).State = EntityState.Modified;
+
+                logDetalle.Add($"Slot {slot.NumeroSlot}: +{accion.Cantidad} ({slot.Producto.Nombre})");
+            }
+
+            // 4. Crear Movimiento de Caja 
+            if (logDetalle.Any())
+            {
+                var movimiento = new MovimientoCaja
+                {
+                    Fecha = DateTime.Now,
+                    Tipo = "OPERACIONAL", 
+                    Categoria = "LOTES",
+                    Monto = 0, 
+                    Descripcion = $"Lote {nombreMaquina}: " + string.Join(", ", logDetalle)
+                };
+                _context.MovimientosCaja.Add(movimiento);
+                await _context.SaveChangesAsync();
+            }
+        }
     }
 }
