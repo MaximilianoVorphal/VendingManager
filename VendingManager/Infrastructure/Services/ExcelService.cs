@@ -27,12 +27,20 @@ namespace VendingManager.Infrastructure.Services
         {
             try
             {
-                // 0. Validar Input
-                if (maquinaId <= 0) return "Error: Debe seleccionar una máquina específica para sincronizar.";
-
-                var maquina = await _context.Maquinas.FindAsync(maquinaId);
-                if (maquina == null) return $"Error: Máquina con ID {maquinaId} no encontrada.";
-                if (string.IsNullOrEmpty(maquina.IdInternoMaquina)) return $"Error: La máquina '{maquina.Nombre}' no tiene ID Interno configurado.";
+                // 0. Validar Input (Permitir 0 para Global)
+                string targetMachineId = "";
+                
+                if (maquinaId > 0)
+                {
+                    var maquina = await _context.Maquinas.FindAsync(maquinaId);
+                    if (maquina == null) return $"Error: Máquina con ID {maquinaId} no encontrada.";
+                    if (string.IsNullOrEmpty(maquina.IdInternoMaquina)) return $"Error: La máquina '{maquina.Nombre}' no tiene ID Interno configurado.";
+                    targetMachineId = maquina.IdInternoMaquina;
+                }
+                else
+                {
+                    Console.WriteLine("[Sync] Modo Global: Solicitando TODAS las máquinas.");
+                }
 
                 // 1. Configurar cliente y fechas
                 var scraperUrl = _configuration["ScraperServiceUrl"] ?? "http://scraper:8000";
@@ -43,11 +51,9 @@ namespace VendingManager.Infrastructure.Services
                 // Pedimos hasta MAÑANA para cubrir el desfase horario con China (+11h)
                 var endDate = today.AddDays(1).ToString("yyyy-MM-dd");
 
-                var targetMachineId = maquina.IdInternoMaquina;
-
                 var requestData = new
                 {
-                    machine_id = targetMachineId,
+                    machine_id = targetMachineId, // Si va vacío, el scraper/portal trae todo
                     start_date = startDate,
                     end_date = endDate
                 };

@@ -679,16 +679,17 @@
 
     private async Task SincronizarPortal()
     {
+        // YA NO SE BLOQUEA si MaquinaSeleccionada <= 0.
+        // Si es 0, el backend (ExcelService) entrará en modo "Global Sync".
+
         if (MaquinaSeleccionada <= 0)
         {
-            await JS.InvokeVoidAsync("alert", "⚠️ Por favor, seleccione una UNIDAD específica antes de sincronizar.");
-            return;
+             // Opcional: Avisar al usuario que será una operación larga
         }
 
         try
         {
             Sincronizando = true;
-            StateHasChanged(); // Mostrar spinner
 
             var response = await Http.PostAsync($"api/Ventas/sync-portal?maquinaId={MaquinaSeleccionada}", null);
             if (response.IsSuccessStatusCode)
