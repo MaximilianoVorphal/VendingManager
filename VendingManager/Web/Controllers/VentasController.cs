@@ -152,5 +152,10 @@ namespace VendingManager.Web.Controllers
             if (resultado.StartsWith("Error")) return BadRequest(resultado);
             return Ok(resultado);
         }
+        [HttpGet("analisis-productos")]
+        public async Task<ActionResult<List<AnalisisProductoDto>>> GetAnalisisProductos([FromQuery] DateTime inicio, [FromQuery] DateTime fin, [FromQuery] int maquinaId = 0)
+        {
+            return await _ventasService.GetAnalisisProductosAsync(inicio, fin, maquinaId);
+        }
     }
 }

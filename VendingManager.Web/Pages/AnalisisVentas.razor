@@ -1,0 +1,234 @@
+@page "/analisis-ventas"
+@inject HttpClient Http
+@inject Microsoft.Extensions.Logging.ILogger<AnalisisVentas> Logger
+@inject NavigationManager NavManager
+@using Microsoft.AspNetCore.WebUtilities
+
+<div class="container-fluid px-2 px-md-4 mt-4" style="font-family: 'Segoe UI', Consolas, monospace;">
+    
+    <!-- HEADER -->
+    <div class="row align-items-center mb-4 border-bottom border-3 border-dark pb-3">
+        <div class="col-12">
+            <h2 class="m-0 fw-bold text-uppercase" style="letter-spacing: -1px;">ANÁLISIS DE PRODUCTOS</h2>
+            <small class="text-muted fw-bold">DETALLE ESTRATÉGICO DE VENTAS Y RENDIMIENTO</small>
+        </div>
+    </div>
+
+    <!-- FILTROS -->
+    <div class="card border-2 border-dark rounded-0 shadow-sm mb-4">
+        <div class="card-body bg-light p-3">
+             <div class="row align-items-end g-3">
+                <div class="col-md-3 col-12">
+                     <label class="fw-bold small text-uppercase mb-1">UNIDAD:</label>
+                     <select class="form-select border-dark rounded-0 fw-bold py-2" @bind="MaquinaSeleccionada">
+                         <option value="0">:: TODAS LAS UNIDADES ::</option>
+                         @if (ListaMaquinas != null)
+                         {
+                             @foreach (var m in ListaMaquinas)
+                             {
+                                 <option value="@m.Id">@m.Nombre.ToUpper()</option>
+                             }
+                         }
+                     </select>
+                </div>
+                 <div class="col-6 col-md-3">
+                     <label class="fw-bold small text-uppercase mb-1">DESDE:</label>
+                     <input type="date" @bind="FechaInicio" class="form-control border-dark rounded-0 fw-bold" />
+                 </div>
+                 <div class="col-6 col-md-3">
+                     <label class="fw-bold small text-uppercase mb-1">HASTA:</label>
+                     <input type="date" @bind="FechaFin" class="form-control border-dark rounded-0 fw-bold" />
+                 </div>
+                 <div class="col-12 col-md-3">
+                     <button class="btn btn-dark w-100 rounded-0 fw-bold py-2" @onclick="CargarDatos" disabled="@Cargando">
+                         @(Cargando ? "PROCESANDO..." : "ANALIZAR")
+                     </button>
+                 </div>
+             </div>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(MensajeError))
+    {
+        <div class="alert alert-danger border-2 border-dark rounded-0 mb-4 shadow-sm fw-bold">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i> @MensajeError
+        </div>
+    }
+
+    @if (Cargando)
+    {
+        <div class="text-center py-5 border border-dark border-2 bg-light">
+            <div class="spinner-grow text-dark" role="status"></div>
+            <p class="mt-2 fw-bold text-uppercase" style="letter-spacing: 2px;">Calculando Métricas...</p>
+        </div>
+    }
+    else if (Productos != null)
+    {
+        <div class="card border-2 border-dark rounded-0 shadow-sm mb-4">
+             <div class="card-header bg-dark text-white rounded-0 fw-bold border-bottom border-dark text-uppercase d-flex justify-content-between align-items-center">
+                 <span><i class="bi bi-list-stars me-2"></i>Ranking de Productos</span>
+                 <span class="badge bg-white text-dark border border-white">@Productos.Count items</span>
+             </div>
+             <div class="table-responsive" style="max-height: 600px; overflow-y: auto;">
+                 <table class="table table-hover table-bordered border-dark m-0 table-sm align-middle">
+                     <thead class="bg-secondary text-white text-uppercase small sticky-top">
+                         <tr>
+                             <th role="button" @onclick='() => OrdenarPor("Nombre")'>PRODUCTO @RenderIcono("Nombre")</th>
+                             <th role="button" @onclick='() => OrdenarPor("Categoria")'>CATEGORÍA @RenderIcono("Categoria")</th>
+                             <th role="button" class="text-center" @onclick='() => OrdenarPor("Cantidad")'>CANT. VENDIDA @RenderIcono("Cantidad")</th>
+                             <th role="button" class="text-end" @onclick='() => OrdenarPor("Ventas")'>INGRESOS @RenderIcono("Ventas")</th>
+                             <th role="button" class="text-end" @onclick='() => OrdenarPor("Ganancia")'>GANANCIA @RenderIcono("Ganancia")</th>
+                             <th role="button" class="text-center" @onclick='() => OrdenarPor("Margen")'>MARGEN % @RenderIcono("Margen")</th>
+                         </tr>
+                     </thead>
+                     <tbody class="bg-white">
+                         @foreach(var p in Productos)
+                         {
+                             <tr class="@(p.CantidadVendida == 0 ? "bg-light text-muted" : "")">
+                                 <td class="fw-bold text-uppercase">@p.Nombre</td>
+                                 <td class="small">@p.Categoria</td>
+                                 <td class="text-center font-monospace @(p.CantidadVendida == 0 ? "text-danger fw-bold" : "fw-bold")" style="font-size: 1.1em;">
+                                     @p.CantidadVendida
+                                 </td>
+                                 <td class="text-end font-monospace">$@p.TotalVentas.ToString("N0")</td>
+                                 <td class="text-end font-monospace text-success fw-bold">$@p.TotalGanancia.ToString("N0")</td>
+                                 <td class="text-center small">
+                                     @if(p.TotalVentas > 0) {
+                                         <span class="badge rounded-pill @(p.MargenPromedio > 40 ? "bg-success" : p.MargenPromedio > 20 ? "bg-warning text-dark" : "bg-danger")">
+                                             @p.MargenPromedio.ToString("F1")%
+                                         </span>
+                                     }
+                                     else {
+                                         <span>-</span>
+                                     }
+                                 </td>
+                             </tr>
+                         }
+                     </tbody>
+                 </table>
+             </div>
+        </div>
+    }
+
+</div>
+
+@code {
+    private bool Cargando = false;
+    private string MensajeError = "";
+    private DateTime FechaInicio = DateTime.Today.AddDays(-30);
+    private DateTime FechaFin = DateTime.Today;
+    private int MaquinaSeleccionada = 0;
+
+    private List<MaquinaSimpleDto>? ListaMaquinas;
+    private List<AnalisisProductoDto>? Productos;
+
+    // Sorting
+    private string ColumnaOrden = "Cantidad";
+    private bool Ascendente = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarMaquinas();
+        await CargarDatos();
+    }
+
+    private async Task CargarMaquinas()
+    {
+        try {
+            ListaMaquinas = await Http.GetFromJsonAsync<List<MaquinaSimpleDto>>("api/Ventas/lista-maquinas");
+        } catch {}
+    }
+
+    private async Task CargarDatos()
+    {
+        Cargando = true;
+        MensajeError = "";
+        Productos = null;
+        StateHasChanged();
+
+        try
+        {
+            string inicio = FechaInicio.ToString("yyyy-MM-dd");
+            string fin = FechaFin.ToString("yyyy-MM-dd");
+            string url = $"api/Ventas/analisis-productos?inicio={inicio}&fin={fin}&maquinaId={MaquinaSeleccionada}";
+
+            Productos = await Http.GetFromJsonAsync<List<AnalisisProductoDto>>(url);
+            AplicarOrdenamiento();
+        }
+        catch (Exception ex)
+        {
+            MensajeError = "Error al cargar análisis: " + ex.Message;
+        }
+        finally
+        {
+            Cargando = false;
+        }
+    }
+
+    private void OrdenarPor(string col)
+    {
+        if (ColumnaOrden == col) Ascendente = !Ascendente;
+        else { ColumnaOrden = col; Ascendente = true; } // Default Asc for text? Custom logic below.
+
+        // Default desc for numbers usually better
+        if (col == "Cantidad" || col == "Ventas" || col == "Ganancia" || col == "Margen")
+        {
+             if (ColumnaOrden != col) Ascendente = false; // Reset to desc
+        }
+        
+        AplicarOrdenamiento();
+    }
+
+    private void AplicarOrdenamiento()
+    {
+        if (Productos == null) return;
+
+        switch (ColumnaOrden)
+        {
+            case "Nombre":
+                Productos = Ascendente ? Productos.OrderBy(x => x.Nombre).ToList() : Productos.OrderByDescending(x => x.Nombre).ToList();
+                break;
+            case "Categoria":
+                Productos = Ascendente ? Productos.OrderBy(x => x.Categoria).ToList() : Productos.OrderByDescending(x => x.Categoria).ToList();
+                break;
+            case "Cantidad":
+                Productos = Ascendente ? Productos.OrderBy(x => x.CantidadVendida).ToList() : Productos.OrderByDescending(x => x.CantidadVendida).ToList();
+                break;
+            case "Ventas":
+                Productos = Ascendente ? Productos.OrderBy(x => x.TotalVentas).ToList() : Productos.OrderByDescending(x => x.TotalVentas).ToList();
+                break;
+            case "Ganancia":
+                Productos = Ascendente ? Productos.OrderBy(x => x.TotalGanancia).ToList() : Productos.OrderByDescending(x => x.TotalGanancia).ToList();
+                break;
+            case "Margen":
+                Productos = Ascendente ? Productos.OrderBy(x => x.MargenPromedio).ToList() : Productos.OrderByDescending(x => x.MargenPromedio).ToList();
+                break;
+        }
+    }
+
+    private string RenderIcono(string col)
+    {
+        if (ColumnaOrden != col) return "";
+        return Ascendente ? "▲" : "▼";
+    }
+
+    // DTOs Locales
+    public class MaquinaSimpleDto
+    {
+        public int Id { get; set; }
+        public string Nombre { get; set; } = string.Empty;
+    }
+
+    public class AnalisisProductoDto
+    {
+        public int ProductoId { get; set; }
+        public string Nombre { get; set; } = string.Empty;
+        public string Codigo { get; set; } = string.Empty;
+        public string Categoria { get; set; } = string.Empty;
+        public int CantidadVendida { get; set; }
+        public decimal TotalVentas { get; set; }
+        public decimal TotalGanancia { get; set; }
+        public decimal PrecioPromedio => CantidadVendida > 0 ? TotalVentas / CantidadVendida : 0;
+        public decimal MargenPromedio => TotalVentas > 0 ? (TotalGanancia / TotalVentas) * 100 : 0;
+    }
+}

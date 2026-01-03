@@ -353,5 +353,63 @@ namespace VendingManager.Infrastructure.Services
                 await _context.SaveChangesAsync();
             }
         }
+        public async Task<List<AnalisisProductoDto>> GetAnalisisProductosAsync(DateTime inicio, DateTime fin, int maquinaId)
+        {
+            DateTime finAjustado = fin.Date.AddDays(1).AddTicks(-1);
+            DateTime inicioAjustado = inicio.Date;
+
+            // 1. Get ALL products (to show 0 sales items)
+            var allProducts = await _context.Productos.ToListAsync();
+
+            // 2. Get Sales in Range
+            var query = _context.Ventas.Where(v => v.Pagado && v.FechaLocal >= inicioAjustado && v.FechaLocal <= finAjustado);
+            if (maquinaId > 0)
+            {
+                query = query.Where(v => v.MaquinaId == maquinaId);
+            }
+
+            var sales = await query.Select(v => new { v.ProductoId, v.PrecioVenta, v.CostoVenta, v.Producto }).ToListAsync();
+
+            // 3. Group Sales by Product
+            var salesGrouped = sales.GroupBy(s => s.ProductoId)
+                                    .ToDictionary(g => g.Key, g => new
+                                    {
+                                        Count = g.Count(),
+                                        TotalVentas = g.Sum(x => x.PrecioVenta),
+                                        TotalCosto = g.Sum(x => x.CostoVenta > 0 ? x.CostoVenta : (x.Producto != null ? x.Producto.CostoPromedio : 0))
+                                    });
+
+            // 4. Merge
+            var result = new List<AnalisisProductoDto>();
+            foreach (var p in allProducts)
+            {
+                var dto = new AnalisisProductoDto
+                {
+                    ProductoId = p.Id,
+                    Nombre = p.Nombre,
+                    Codigo = !string.IsNullOrEmpty(p.SKU) ? p.SKU : p.CodigoBarras ?? "",
+                    Categoria = p.Categoria ?? "General"
+                };
+
+                if (salesGrouped.TryGetValue(p.Id, out var stats))
+                {
+                    dto.CantidadVendida = stats.Count;
+                    dto.TotalVentas = stats.TotalVentas;
+                    var totalCosto = stats.TotalCosto;
+                    dto.TotalGanancia = dto.TotalVentas - totalCosto;
+                }
+                else
+                {
+                    // 0 Sales
+                    dto.CantidadVendida = 0;
+                    dto.TotalVentas = 0;
+                    dto.TotalGanancia = 0;
+                }
+
+                result.Add(dto);
+            }
+
+            return result.OrderByDescending(x => x.CantidadVendida).ToList();
+        }
     }
 }
