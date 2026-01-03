@@ -15,37 +15,47 @@
                 [ PANEL DE CONTROL ]
             </NavLink>
 
-            <NavLink class="industrial-link" href="reportes" @onclick="CloseNavMenu">
-                [ VENTAS ]
-            </NavLink>
+            <!-- Dropdown GESTIÓN -->
+            <div class="industrial-dropdown">
+                <button class="industrial-dropdown-toggle" @onclick="ToggleGestionMenu">
+                    [ GESTIÓN ▾ ]
+                </button>
+                <div class="industrial-dropdown-content @(showGestionMenu ? "show" : "")">
+                    <NavLink class="industrial-link" href="reportes" @onclick="CloseNavMenu">
+                        VENTAS
+                    </NavLink>
+                    <NavLink class="industrial-link" href="analisis-ventas" @onclick="CloseNavMenu">
+                        ANÁLISIS PRODUCTOS
+                    </NavLink>
+                    <NavLink class="industrial-link" href="finanzas" @onclick="CloseNavMenu">
+                        FINANZAS
+                    </NavLink>
+                    <NavLink class="industrial-link" href="caja" @onclick="CloseNavMenu">
+                        CAJA
+                    </NavLink>
+                </div>
+            </div>
 
-            <NavLink class="industrial-link" href="analisis-ventas" @onclick="CloseNavMenu">
-                [ ANÁLISIS PRODUCTOS ]
-            </NavLink>
-
-            <NavLink class="industrial-link" href="finanzas" @onclick="CloseNavMenu">
-                [ FINANZAS ]
-            </NavLink>
-
-            <NavLink class="industrial-link" href="maquinas" @onclick="CloseNavMenu">
-                [ MÁQUINAS ]
-            </NavLink>
-
-            <NavLink class="industrial-link" href="caja" @onclick="CloseNavMenu">
-                [ CAJA ]
-            </NavLink>
-
-            <NavLink class="industrial-link" href="inventario" @onclick="CloseNavMenu">
-                [ BODEGA ]
-            </NavLink>
-
-            <NavLink class="industrial-link" href="inventario-maquina" @onclick="CloseNavMenu">
-                [ CONFIG-MAQ ]
-            </NavLink>
-
-            <NavLink class="industrial-link" href="reposicion" @onclick="CloseNavMenu">
-                [ VISUAL ]
-            </NavLink>
+            <!-- Dropdown OPERACIONES -->
+            <div class="industrial-dropdown">
+                <button class="industrial-dropdown-toggle" @onclick="ToggleOperacionesMenu">
+                    [ OPERACIONES ▾ ]
+                </button>
+                <div class="industrial-dropdown-content @(showOperacionesMenu ? "show" : "")">
+                    <NavLink class="industrial-link" href="maquinas" @onclick="CloseNavMenu">
+                        MÁQUINAS
+                    </NavLink>
+                    <NavLink class="industrial-link" href="inventario" @onclick="CloseNavMenu">
+                        BODEGA
+                    </NavLink>
+                    <NavLink class="industrial-link" href="inventario-maquina" @onclick="CloseNavMenu">
+                        CONFIG-MAQ
+                    </NavLink>
+                    <NavLink class="industrial-link" href="reposicion" @onclick="CloseNavMenu">
+                        VISUAL
+                    </NavLink>
+                </div>
+            </div>
 
             <NavLink class="industrial-link" href="documentos" @onclick="CloseNavMenu">
                 [ DOCUMENTOS ]
@@ -57,6 +67,8 @@
 
 @code {
     private bool collapseNavMenu = true;
+    private bool showGestionMenu = false;
+    private bool showOperacionesMenu = false;
 
     private string? NavMenuCssClass => collapseNavMenu ? null : "show";
 
@@ -68,5 +80,19 @@
     private void CloseNavMenu()
     {
         collapseNavMenu = true;
+        showGestionMenu = false;
+        showOperacionesMenu = false;
+    }
+
+    private void ToggleGestionMenu()
+    {
+        showGestionMenu = !showGestionMenu;
+        if (showGestionMenu) showOperacionesMenu = false;
+    }
+
+    private void ToggleOperacionesMenu()
+    {
+        showOperacionesMenu = !showOperacionesMenu;
+        if (showOperacionesMenu) showGestionMenu = false;
     }
 }
