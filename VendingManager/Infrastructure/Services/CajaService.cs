@@ -99,15 +99,87 @@ namespace VendingManager.Infrastructure.Services
                 .Where(m => m.Fecha >= startOfMonth && m.Fecha <= endOfMonth && m.Fecha >= GlobalStartDate && m.Monto < 0 && m.Categoria == "MERCADERIA")
                 .SumAsync(m => m.Monto);
 
+            // [NEW] COSTO DE VENTA (Suma de los costos de los productos vendidos)
+            var monthCostoVenta = await _context.Ventas
+                .Where(v => v.Pagado && v.FechaHora >= startOfMonth && v.FechaHora <= endOfMonth && v.FechaHora >= GlobalStartDate)
+                .SumAsync(v => v.CostoVenta);
+
+            // [NEW] MERMAS (Category "MERMA") - Treated as negative revenue or expense? User pic says "(-) Mermas".
+            // Typically Mermas are negative amounts in MovimientosCaja.
+            var monthMermas = await _context.MovimientosCaja
+                .Where(m => m.Fecha >= startOfMonth && m.Fecha <= endOfMonth && m.Fecha >= GlobalStartDate && m.Monto < 0 && m.Categoria == "MERMA")
+                .SumAsync(m => m.Monto);
+            decimal mermasAbs = Math.Abs(monthMermas);
+            
+            // Re-adding missing variable
+            decimal gastosMercaderiaAbs = Math.Abs(monthGastosMercaderia); 
+
+            // [NEW] GASTOS VARIABLES (Logística)
+            // Categories: LOGISTICA, PEAJES, INSUMOS, MANTENCION
+            var categoriesVariables = new[] { "LOGISTICA", "PEAJES", "INSUMOS", "MANTENCION" };
+            var monthGastosVariables = await _context.MovimientosCaja
+                 .Where(m => m.Fecha >= startOfMonth && m.Fecha <= endOfMonth && m.Fecha >= GlobalStartDate && m.Monto < 0 && categoriesVariables.Contains(m.Categoria))
+                 .SumAsync(m => m.Monto);
+            decimal gastosVariablesAbs = Math.Abs(monthGastosVariables);
+
+            // [NEW] GASTOS FIJOS (Estructurales)
+            // Categories: INFRA, ARRIENDO_POS, INTERNET, COMISIONES, OTROS
+            var categoriesFijos = new[] { "INFRA", "ARRIENDO_POS", "INTERNET", "COMISIONES", "OTROS" };
+             var monthGastosFijos = await _context.MovimientosCaja
+                 .Where(m => m.Fecha >= startOfMonth && m.Fecha <= endOfMonth && m.Fecha >= GlobalStartDate && m.Monto < 0 && categoriesFijos.Contains(m.Categoria))
+                 .SumAsync(m => m.Monto);
+            decimal gastosFijosAbs = Math.Abs(monthGastosFijos);
+
+            // NOTE: GastosOperativos in DTO was previously "Fijos". Now strictly separated.
+            // The user wants "Gastos Operativos" block split in two.
+            
+            // [NEW] UTILIDAD OPERACIONAL (EBITDA)
+            // Formulas from user Image:
+            // 1. Bloque Ventas: Ventas Brutas - Mermas
+            decimal ventasNetas = monthIngresosVentas - mermasAbs; 
+
+            // 2. Bloque Costo Directo:
+            // Margen Bruto = (Ventas - CostoVenta). 
+            // Note: Does "Ventas" here imply Net? Usually CostoVenta matches generated sales.
+            // Let's stick to standard: Margen = (Ventas Brutas - Costo Venta) - Mermas? 
+            // User pic: "(-) Costo de Venta". "(=) Margen Bruto".
+            // Let's assume Mermas is a deduction from Gross Sales top level.
+            decimal margenBruto = (monthIngresosVentas - monthCostoVenta); 
+
+            // 3. Gastos
+            decimal totalGastosOps = gastosVariablesAbs + gastosFijosAbs;
+
+            decimal utilidadOperacional = margenBruto - mermasAbs - totalGastosOps;
+
+            // 4. Resultado Final
+            decimal sueldoEsperado = 600000m; // Hardcoded goal
+            decimal utilidadNetaReal = utilidadOperacional - sueldoEsperado;
+
             return new CajaResumenDto
             {
                 SaldoAnterior = saldoAnterior,
                 IngresosVentas = monthIngresosVentas,
-                GastosOperativos = Math.Abs(monthGastos),
+                
+                // En el reporte, "Gastos Operativos" será solo el gasto fijo
+                // En el reporte, "Gastos Operativos" será la suma de Fijos + Variables para retrocompatibilidad si se usa asi,
+                // Pero llenamos los campos especificos.
+                GastosOperativos = totalGastosOps, 
+                
                 AportesExtra = monthAportes,
-                SaldoFinal = saldoAnterior + monthIngresosVentas + monthAportes + monthGastos,
-                UtilidadTotal = monthUtilidad,
-                GastosMercaderia = Math.Abs(monthGastosMercaderia),
+                SaldoFinal = saldoAnterior + monthIngresosVentas + monthAportes + monthGastos, 
+                
+                UtilidadTotal = margenBruto, 
+                GastosMercaderia = gastosMercaderiaAbs,
+                
+                // Nuevos campos
+                TotalCostoVenta = monthCostoVenta,
+                Mermas = mermasAbs,
+                GastosVariables = gastosVariablesAbs,
+                GastosFijos = gastosFijosAbs,
+                UtilidadOperacional = utilidadOperacional,
+                SueldoEsperado = sueldoEsperado,
+                UtilidadNeta = utilidadNetaReal,
+
                 IsLocked = IsMonthLocked(month, year)
             };
         }
