@@ -371,7 +371,8 @@ namespace VendingManager.Infrastructure.Services
             var sales = await query.Select(v => new { v.ProductoId, v.PrecioVenta, v.CostoVenta, v.Producto }).ToListAsync();
 
             // 3. Group Sales by Product
-            var salesGrouped = sales.GroupBy(s => s.ProductoId)
+            var salesGrouped = sales.Where(s => s.ProductoId.HasValue)
+                                    .GroupBy(s => s.ProductoId.Value)
                                     .ToDictionary(g => g.Key, g => new
                                     {
                                         Count = g.Count(),
