@@ -14,5 +14,6 @@ namespace VendingManager.Core.Interfaces
         Task ImportarTransbankAsync(Stream stream, string fileName);
         Task<List<StockCriticoDto>> GetStockCriticoAsync(int maquinaId);
         Task RecalcularCostosHistoricosAsync();
+        Task<List<AnalisisProductoDto>> GetAnalisisProductosAsync(DateTime inicio, DateTime fin, int maquinaId);
     }
 }
