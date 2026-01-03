@@ -131,11 +131,23 @@
                         <select @bind="Nuevo.Categoria" class="form-select border-dark rounded-0 bg-white">
                             @if (Nuevo.Tipo == "GASTO")
                             {
-                                        <option value="MERCADERIA">📦 MERCADERÍA (Stock)</option>
-                                        <option value="LOGISTICA">⛽ LOGÍSTICA / COMBUSTIBLE</option>
-                                        <option value="MANTENCION">🔧 MANTENCIÓN / REPUESTOS</option>
-                                        <option value="INFRA">💡 INFRAESTRUCTURA / ARRIENDO</option>
-                                        <option value="OTROS">📝 OTROS GASTOS</option>
+                                        <optgroup label="📦 STOCK Y COSTOS">
+                                            <option value="MERCADERIA">Mercadería (Reposición)</option>
+                                            <option value="MERMA">Merma / Pérdida</option>
+                                        </optgroup>
+                                        <optgroup label="⛽ GASTOS VARIABLES (OPERACIÓN)">
+                                            <option value="LOGISTICA">Logística (Bencina/Fletes)</option>
+                                            <option value="PEAJES">Peajes / Estacionamiento</option>
+                                            <option value="INSUMOS">Insumos (Limpieza/Bolsas)</option>
+                                            <option value="MANTENCION">Mantención / Repuestos</option>
+                                        </optgroup>
+                                        <optgroup label="🏢 GASTOS FIJOS (ESTRUCTURA)">
+                                            <option value="INFRA">Infraestructura (Luz/Agua/Arriendo)</option>
+                                            <option value="ARRIENDO_POS">Arriendo POS (Transbank)</option>
+                                            <option value="INTERNET">Internet (Planes/Chips)</option>
+                                            <option value="COMISIONES">Comisiones Bancarias</option>
+                                            <option value="OTROS">Otros Gastos Fijos</option>
+                                        </optgroup>
                             }
                             else if (Nuevo.Tipo == "APORTE")
                             {
@@ -415,6 +427,15 @@
         public decimal GastosOperativos { get; set; }
         public decimal AportesExtra { get; set; }
         public decimal SaldoFinal { get; set; }
+        public decimal UtilidadTotal { get; set; }
+        public decimal GastosMercaderia { get; set; }
+        public decimal TotalCostoVenta { get; set; } 
+        public decimal Mermas { get; set; }          
+        public decimal GastosVariables { get; set; } 
+        public decimal GastosFijos { get; set; }     
+        public decimal UtilidadOperacional { get; set; } 
+        public decimal SueldoEsperado { get; set; } 
+        public decimal UtilidadNeta { get; set; }   
         public bool IsLocked { get; set; }
     }
 

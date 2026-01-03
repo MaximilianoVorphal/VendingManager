@@ -3,6 +3,7 @@ using Scalar.AspNetCore;
 using VendingManager.Infrastructure.Data;
 using VendingManager.Infrastructure.Services;
 using VendingManager.Web;
+using Microsoft.AspNetCore.Components.Authorization;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -54,9 +55,13 @@ builder.Services.AddHttpClient(); // Necesario para que el servicio llame a la A
 builder.Services.AddHostedService<AutomatedReportService>();
 
 // 4. Configuración Blazor
+// 4. Configuración Blazor
 builder.Services.AddControllers();
 builder.Services.AddRazorComponents()
     .AddInteractiveWebAssemblyComponents();
+
+builder.Services.AddCascadingAuthenticationState();
+builder.Services.AddScoped<VendingManager.Web.Auth.PersistingAuthenticationStateProvider>();
 
 builder.Services.AddOpenApi();
 
