@@ -194,7 +194,8 @@ namespace VendingManager.Infrastructure.Services
 
         public async Task RegistrarMovimientoAsync(MovimientoCaja mov)
         {
-            if (mov.Monto == 0) throw new ArgumentException("El monto no puede ser cero.");
+            // Allow 0 only if it is a MERMA (will be calculated later)
+            if (mov.Monto == 0 && mov.Categoria != "MERMA") throw new ArgumentException("El monto no puede ser cero.");
 
             if (IsMonthLocked(mov.Fecha.Month, mov.Fecha.Year))
             {
@@ -214,16 +215,53 @@ namespace VendingManager.Infrastructure.Services
                  throw new InvalidOperationException($"No se pueden registrar movimientos anteriores al inicio del cuadre ({GlobalStartDate:dd/MM/yyyy}).");
             }
 
-            if (mov.Tipo == "GASTO" || mov.Tipo == "RETIRO")
+            if (mov.Fecha == DateTime.MinValue) mov.Fecha = DateTime.Now;
+
+            // --- LOGICA DE MERMAS CON PRODUCTO ---
+            if (mov.Categoria == "MERMA" && mov.ProductoId.HasValue && mov.ProductoId > 0)
             {
-                if (mov.Monto > 0) mov.Monto = -mov.Monto;
+                var producto = await _context.Productos.FindAsync(mov.ProductoId);
+                if (producto != null)
+                {
+                    // 1. Auto-Calculate Amount if not provided (or overwrite to ensure accuracy)
+                    // Merma Amount = Costo Promedio * Cantidad
+                    // We assume the user might input Qty but not accurate Cost Amount, so we calculate it.
+                    // If user provided a specific Amount manually, we could respect it, but let's automate for consistency.
+                    
+                    decimal costoTotal = producto.CostoPromedio * mov.Cantidad;
+                    
+                    // Asegurar que sea negativo porque es GASTO
+                    mov.Monto = -Math.Abs(costoTotal);
+                    
+                    // Update description to include details if not present
+                    if (!mov.Descripcion.Contains(producto.Nombre))
+                    {
+                        mov.Descripcion = $"{mov.Descripcion} - {producto.Nombre} x{mov.Cantidad}";
+                    }
+
+                    // 2. Deduct Stock from Bodega
+                    // We simply reduce the stock.
+                    producto.StockBodega -= mov.Cantidad;
+                    
+                    // Optional: Prevent negative stock? 
+                    // No, allow negative for correction flexibility, or clamp to 0? 
+                    // Let's allow it for now to highlight discrepancies.
+                    
+                    _context.Productos.Update(producto);
+                }
             }
             else
             {
-                if (mov.Monto < 0) mov.Monto = -mov.Monto;
+                // Normal logic for other movements
+                if (mov.Tipo == "GASTO" || mov.Tipo == "RETIRO")
+                {
+                    if (mov.Monto > 0) mov.Monto = -mov.Monto;
+                }
+                else
+                {
+                    if (mov.Monto < 0) mov.Monto = -mov.Monto;
+                }
             }
-
-            if (mov.Fecha == DateTime.MinValue) mov.Fecha = DateTime.Now;
 
             _context.MovimientosCaja.Add(mov);
             await _context.SaveChangesAsync();

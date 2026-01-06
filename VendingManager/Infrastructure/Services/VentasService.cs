@@ -380,8 +380,15 @@ namespace VendingManager.Infrastructure.Services
                                         TotalCosto = g.Sum(x => x.CostoVenta > 0 ? x.CostoVenta : (x.Producto != null ? x.Producto.CostoPromedio : 0))
                                     });
 
-            // 4. Merge
+            // 4. Merge & Calculate Advanced Metrics
             var result = new List<AnalisisProductoDto>();
+            
+            // Auxiliar variables for categorization
+            // We need DaysInPeriod to calculate velocity
+            // If inicio == fin, it's 1 day.
+            double daysInPeriod = (finAjustado - inicioAjustado).TotalDays;
+            if (daysInPeriod < 1) daysInPeriod = 1;
+
             foreach (var p in allProducts)
             {
                 var dto = new AnalisisProductoDto
@@ -405,6 +412,53 @@ namespace VendingManager.Infrastructure.Services
                     dto.CantidadVendida = 0;
                     dto.TotalVentas = 0;
                     dto.TotalGanancia = 0;
+                }
+
+                // --- NEW CALCULATIONS ---
+                
+                // 1. Velocity (Rotacion Diaria)
+                dto.RotacionDiaria = (decimal)(dto.CantidadVendida / daysInPeriod);
+
+                // 2. Classification Logic (Heuristics based on User Request)
+                // Estrellas: High Vol, Good Margin (Good Margin is subjective, let's say > 30% or just High Vol)
+                // Joyas: Low Vol, High Margin (> 50%?)
+                // Cachos: Low Vol, Low Margin
+                
+                // Thresholds (Adjustable)
+                decimal MarginThreshold = 40.0m; // 40% margin is "Good"
+                decimal VolumeHighThreshold = (decimal)(2.0 / 30.0); // > 2 unit per month is "High"?? No, let's look at the data.
+                                                                     // User example: 4.6/day is HIGH. 0.5/day is LOW.
+                                                                     // Let's set High Velocity > 1.0 (1 per day) is Super High.
+                                                                     // Maybe > 0.5 (1 every 2 days) is decent.
+                                                                     // Let's use 0.3 (approx 10/month) as the cut-off for "Low Vol".
+                
+                // Note: User said "Maní: 0.5 bags/day" is Low Volume but High Margin ("Joya").
+                // User said "Coca Cola: 4.6 cans/day" is High Volume ("Vaca Lechera" / "Estrella").
+                
+                // Refinamos los Thresholds
+                decimal TH_Rotacion_Alta = 1.0m; // > 1 per day
+                decimal TH_Rotacion_Media = 0.2m; // > 0.2 per day (6 per month)
+
+                decimal TH_Margen_Alto = 50.0m; // > 50%
+                decimal TH_Margen_Bajo = 30.0m; // < 30%
+
+                // Calculate Margin % locally
+                decimal margenPct = dto.TotalVentas > 0 ? (dto.TotalGanancia / dto.TotalVentas) * 100 : 0;
+
+                if (dto.RotacionDiaria >= TH_Rotacion_Alta)
+                {
+                    dto.Clasificacion = "Estrella"; // Vende mucho
+                }
+                else if (dto.RotacionDiaria < TH_Rotacion_Media) // Vende poco
+                {
+                    if (margenPct >= TH_Margen_Alto)
+                        dto.Clasificacion = "Joya"; // Poco volumen, mucho margen
+                    else
+                        dto.Clasificacion = "Cacho"; // Poco volumen, poco (o normal) margen
+                }
+                else
+                {
+                    dto.Clasificacion = "Normal"; // Ni fu ni fa
                 }
 
                 result.Add(dto);

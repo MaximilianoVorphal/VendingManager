@@ -18,7 +18,7 @@
 
         <div class="card">
             <div class="card-body">
-                <EditForm Model="@loginDto" OnValidSubmit="HandleLogin">
+                <EditForm Model="@loginDto" OnValidSubmit="HandleLogin" FormName="loginForm">
                     <DataAnnotationsValidator />
                     <ValidationSummary />
 

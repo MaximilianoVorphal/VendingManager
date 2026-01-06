@@ -7,10 +7,12 @@ namespace VendingManager.Web.Controllers
     public class CajaController : ControllerBase
     {
         private readonly ICajaService _cajaService;
+        private readonly Core.Interfaces.IInventarioService _inventarioService;
 
-        public CajaController(ICajaService cajaService)
+        public CajaController(ICajaService cajaService, Core.Interfaces.IInventarioService inventarioService)
         {
             _cajaService = cajaService;
+            _inventarioService = inventarioService;
         }
 
         [HttpGet("resumen")]
@@ -27,6 +29,14 @@ namespace VendingManager.Web.Controllers
             int targetMonth = month ?? DateTime.Now.Month;
             int targetYear = year ?? DateTime.Now.Year;
             return await _cajaService.GetMovimientosAsync(targetMonth, targetYear);
+        }
+
+        [HttpGet("productos-simple")]
+        public async Task<ActionResult<IEnumerable<dynamic>>> GetProductosSimple()
+        {
+            // Retornamos lista simple para el select
+            var productos = await _inventarioService.GetProductosAsync();
+            return Ok(productos.Select(p => new { p.Id, p.Nombre, p.StockBodega }));
         }
 
         [HttpPost("registrar")]

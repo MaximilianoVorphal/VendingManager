@@ -21,4 +21,8 @@ public class MovimientoCaja
     public string Categoria { get; set; } = "GENERAL"; // "MERCADERÍA", "LOGÍSTICA", etc.
 
     public string? ImagenPath { get; set; }
+
+    // Campos opcionales para Mermas / Gestión de Stock
+    public int? ProductoId { get; set; }
+    public int Cantidad { get; set; } = 0;
 }
