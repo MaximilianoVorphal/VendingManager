@@ -45,3 +45,5 @@ services:
       - "8000:8000" # Opcional: solo para pruebas locales, interno no hace falta exponerlo
     environment:
       - TZ=America/Santiago
+      - OURVEND_USER=${OURVEND_USER}
+      - OURVEND_PASS=${OURVEND_PASS}
