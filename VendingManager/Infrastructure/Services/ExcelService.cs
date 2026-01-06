@@ -3,21 +3,18 @@ using ClosedXML.Excel;
 using Microsoft.EntityFrameworkCore;
 using System.Data;
 using System.IO;
-using System.Net.Http.Json;
 
 namespace VendingManager.Infrastructure.Services
 {
     public class ExcelService : IExcelService
     {
         private readonly ApplicationDbContext _context;
-        private readonly IHttpClientFactory _httpClientFactory;
-        private readonly IConfiguration _configuration;
+        private readonly VendingManager.Core.Interfaces.IScraperClient _scraperClient;
 
-        public ExcelService(ApplicationDbContext context, IHttpClientFactory httpClientFactory, IConfiguration configuration)
+        public ExcelService(ApplicationDbContext context, VendingManager.Core.Interfaces.IScraperClient scraperClient)
         {
             _context = context;
-            _httpClientFactory = httpClientFactory;
-            _configuration = configuration;
+            _scraperClient = scraperClient;
         }
 
         // =============================================
@@ -42,48 +39,26 @@ namespace VendingManager.Infrastructure.Services
                     Console.WriteLine("[Sync] Modo Global: Solicitando TODAS las máquinas.");
                 }
 
-                // 1. Configurar cliente y fechas
-                var scraperUrl = _configuration["ScraperServiceUrl"] ?? "http://scraper:8000";
-                var client = _httpClientFactory.CreateClient();
-
+                // 1. Configurar fechas
                 var today = DateTime.Now;
-                var startDate = new DateTime(today.Year, today.Month, 1).ToString("yyyy-MM-dd");
+                var startDate = new DateTime(today.Year, today.Month, 1);
                 // Pedimos hasta MAÑANA para cubrir el desfase horario con China (+11h)
-                var endDate = today.AddDays(1).ToString("yyyy-MM-dd");
+                var endDate = today.AddDays(1);
 
-                var requestData = new
-                {
-                    machine_id = targetMachineId, // Si va vacío, el scraper/portal trae todo
-                    start_date = startDate,
-                    end_date = endDate
-                };
+                Console.WriteLine($"[Sync] Solicitando reporte para ID: '{targetMachineId}'...");
 
-                // 2. Llamar al Scraper
-                Console.WriteLine($"[Sync] Solicitando reporte a {scraperUrl}...");
-                // Aumentar Timeout para Playwright
-                client.Timeout = TimeSpan.FromMinutes(2);
+                // 2. Llamar al Scraper (vía Client)
+                var result = await _scraperClient.DownloadReportAsync(targetMachineId, startDate, endDate);
 
-                var response = await client.PostAsJsonAsync($"{scraperUrl}/download", requestData);
-
-                if (!response.IsSuccessStatusCode)
-                {
-                    return $"Error llamando al Scraper: {response.StatusCode}";
-                }
-
-                // 3. Procesar el Stream directamente (Sin volumen compartido)
+                // 3. Procesar el Stream
                 Console.WriteLine($"[Sync] Respuesta recibida. Procesando stream...");
 
-                using (var stream = await response.Content.ReadAsStreamAsync())
+                // Si el stream no es seekable (net stream), lo copiamos a memoria para seguridad de ExcelDataReader
+                using (var ms = new MemoryStream())
                 {
-                    string nombreArchivo = response.Content.Headers.ContentDisposition?.FileName?.Trim('"') ?? $"Report_{targetMachineId}_{today:yyyyMMdd}.xls";
-
-                    // Si el stream no es seekable (net stream), lo copiamos a memoria para seguridad de ExcelDataReader
-                    using (var ms = new MemoryStream())
-                    {
-                        await stream.CopyToAsync(ms);
-                        ms.Position = 0;
-                        await ImportarVentasMaquina(ms, nombreArchivo);
-                    }
+                    await result.FileStream.CopyToAsync(ms);
+                    ms.Position = 0;
+                    await ImportarVentasMaquina(ms, result.FileName);
                 }
 
                 return "Sincronización Exitosa. Archivo procesado en memoria.";

@@ -10,7 +10,6 @@
 	<ItemGroup>
 		<PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
 		<PackageReference Include="ClosedXML" Version="0.105.0" />
-		<PackageReference Include="DotNetSeleniumExtras.WaitHelpers" Version="3.11.0" />
 		<PackageReference Include="ExcelDataReader" Version="3.8.0" />
 		<PackageReference Include="ExcelDataReader.DataSet" Version="3.8.0" />
 		<PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.1" />
@@ -25,8 +24,6 @@
 		</PackageReference>
 		<PackageReference Include="MiniExcel" Version="1.35.0" />
 		<PackageReference Include="Scalar.AspNetCore" Version="2.11.5" />
-		<PackageReference Include="Selenium.WebDriver" Version="4.39.0" />
-		<PackageReference Include="Selenium.WebDriver.ChromeDriver" Version="143.0.7499.4200" />
 	</ItemGroup>
 
 	<ItemGroup>
