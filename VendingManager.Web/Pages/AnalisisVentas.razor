@@ -74,8 +74,9 @@
                      <thead class="bg-secondary text-white text-uppercase small sticky-top">
                          <tr>
                              <th role="button" @onclick='() => OrdenarPor("Nombre")'>PRODUCTO @RenderIcono("Nombre")</th>
-                             <th role="button" @onclick='() => OrdenarPor("Categoria")'>CATEGORÍA @RenderIcono("Categoria")</th>
-                             <th role="button" class="text-center" @onclick='() => OrdenarPor("Cantidad")'>CANT. VENDIDA @RenderIcono("Cantidad")</th>
+                             <th role="button" @onclick='() => OrdenarPor("Clasificacion")'>ESTRATEGIA @RenderIcono("Clasificacion")</th>
+                             <th role="button" class="text-center" @onclick='() => OrdenarPor("Rotacion")'>ROTACIÓN/DÍA @RenderIcono("Rotacion")</th>
+                             <th role="button" class="text-center" @onclick='() => OrdenarPor("Cantidad")'>TOTAL UNID. @RenderIcono("Cantidad")</th>
                              <th role="button" class="text-end" @onclick='() => OrdenarPor("Ventas")'>INGRESOS @RenderIcono("Ventas")</th>
                              <th role="button" class="text-end" @onclick='() => OrdenarPor("Ganancia")'>GANANCIA @RenderIcono("Ganancia")</th>
                              <th role="button" class="text-center" @onclick='() => OrdenarPor("Margen")'>MARGEN % @RenderIcono("Margen")</th>
@@ -86,7 +87,12 @@
                          {
                              <tr class="@(p.CantidadVendida == 0 ? "bg-light text-muted" : "")">
                                  <td class="fw-bold text-uppercase">@p.Nombre</td>
-                                 <td class="small">@p.Categoria</td>
+                                 <td class="text-center">
+                                     <span class="badge rounded-pill @p.ColorClasificacion" style="font-size: 0.8em;">@p.Clasificacion.ToUpper()</span>
+                                 </td>
+                                 <td class="text-center font-monospace">
+                                     @p.RotacionDiaria.ToString("F1")
+                                 </td>
                                  <td class="text-center font-monospace @(p.CantidadVendida == 0 ? "text-danger fw-bold" : "fw-bold")" style="font-size: 1.1em;">
                                      @p.CantidadVendida
                                  </td>
@@ -188,8 +194,13 @@
             case "Nombre":
                 Productos = Ascendente ? Productos.OrderBy(x => x.Nombre).ToList() : Productos.OrderByDescending(x => x.Nombre).ToList();
                 break;
-            case "Categoria":
-                Productos = Ascendente ? Productos.OrderBy(x => x.Categoria).ToList() : Productos.OrderByDescending(x => x.Categoria).ToList();
+            case "Clasificacion":
+                // Custom sort for Clasificacion (Estrella > Joya > Normal > Cacho)
+                int Rank(string c) => c switch { "Estrella" => 4, "Joya" => 3, "Normal" => 2, "Cacho" => 1, _ => 0 };
+                Productos = Ascendente ? Productos.OrderBy(x => Rank(x.Clasificacion)).ToList() : Productos.OrderByDescending(x => Rank(x.Clasificacion)).ToList();
+                break;
+            case "Rotacion":
+                Productos = Ascendente ? Productos.OrderBy(x => x.RotacionDiaria).ToList() : Productos.OrderByDescending(x => x.RotacionDiaria).ToList();
                 break;
             case "Cantidad":
                 Productos = Ascendente ? Productos.OrderBy(x => x.CantidadVendida).ToList() : Productos.OrderByDescending(x => x.CantidadVendida).ToList();
@@ -228,7 +239,20 @@
         public int CantidadVendida { get; set; }
         public decimal TotalVentas { get; set; }
         public decimal TotalGanancia { get; set; }
+        
+        public decimal RotacionDiaria { get; set; }
+        public string Clasificacion { get; set; } = "Normal";
+
         public decimal PrecioPromedio => CantidadVendida > 0 ? TotalVentas / CantidadVendida : 0;
         public decimal MargenPromedio => TotalVentas > 0 ? (TotalGanancia / TotalVentas) * 100 : 0;
+        
+        // Helper UI Color
+        public string ColorClasificacion => Clasificacion switch
+        {
+            "Estrella" => "bg-warning text-dark",
+            "Joya" => "bg-info text-dark",
+            "Cacho" => "bg-danger text-white",
+            _ => "bg-light text-muted border"
+        };
     }
 }

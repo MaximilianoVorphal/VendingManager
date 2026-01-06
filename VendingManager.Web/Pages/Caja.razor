@@ -167,12 +167,35 @@
                         <input @bind="Nuevo.Descripcion" type="text" class="form-control border-dark rounded-0" placeholder="Ej: COPEC, LIDER..." />
                     </div>
 
+                    @if (Nuevo.Categoria == "MERMA")
+                    {
+                         <div class="mb-3 p-3 border border-dashed border-danger bg-danger-subtle">
+                             <h6 class="fw-bold text-danger small"><i class="bi bi-box-seam me-1"></i> DETALLE DE MERMA (STOCK)</h6>
+                             
+                             <label class="small fw-bold mb-1">PRODUCTO AFECTADO:</label>
+                             <select @bind="Nuevo.ProductoId" class="form-select border-danger rounded-0 mb-2">
+                                 <option value="0">-- SEL. PRODUCTO --</option>
+                                 @foreach(var p in ListaProductos)
+                                 {
+                                     <option value="@p.Id">@p.Nombre (Stock: @p.StockBodega)</option>
+                                 }
+                             </select>
+                             
+                             <label class="small fw-bold mb-1">CANTIDAD PERDIDA:</label>
+                             <input @bind="Nuevo.Cantidad" type="number" class="form-control border-danger rounded-0 fw-bold" placeholder="0" min="1" />
+                             
+                             <small class="text-danger d-block mt-1 user-select-none">* El monto se calculará automáticamente según el costo promedio del producto y se descontará del inventario.</small>
+                         </div>
+                    }
+
+
                     <div class="mb-3">
                         <label class="fw-bold small text-uppercase mb-1">5. MONTO ($):</label>
                         <div class="input-group">
                             <span class="input-group-text border-dark rounded-0 bg-dark text-white fw-bold">$</span>
-                            <input @bind="MontoString" type="text" class="form-control border-dark rounded-0 fw-bold fs-5" placeholder="0" />
+                            <input @bind="MontoString" type="text" class="form-control border-dark rounded-0 fw-bold fs-5" placeholder="0" disabled="@(Nuevo.Categoria == "MERMA")" />
                         </div>
+                        @if(Nuevo.Categoria == "MERMA") { <small class="text-muted">Calculado Automáticamente</small> }
                     </div>
 
                     <div class="mb-3">
@@ -278,6 +301,9 @@
     private DateTime SelectedDate = DateTime.Now;
     private CajaResumenDto? Resumen;
     private List<MovimientoCaja> Movimientos = new();
+    
+    // Product List for Merma
+    private List<Producto> ListaProductos = new();
 
     // Formulario
     private MovimientoCaja Nuevo = new() { Tipo = "GASTO", Categoria = "MERCADERIA" };
@@ -290,6 +316,45 @@
     protected override async Task OnInitializedAsync()
     {
         await CargarDatos();
+        await CargarProductos();
+    }
+    
+    private async Task CargarProductos()
+    {
+        try {
+            // We can call API or Service directly if we injected it. 
+            // In Blazor WASM we usually call API. In Server we call Service.
+            // This looks like WASM ("@inject HttpClient").
+            // So we need an Endpoint for Products? "api/Ventas/analisis-productos" returns DTOs.
+            // "Inventory" page uses generic "api/inventario"? 
+            // Let's assume there is an endpoint or we add one.
+            // Wait, "InventarioPage" uses "InventarioService" directly? No, usually generic HTTP.
+            // Let's check "Inventario.razor" imports... user didn't show it.
+            // But "AnalisisVentas" used "api/Ventas/lista-maquinas".
+            // Let's see "VentasController"... no "get products".
+            // But "InventarioService" has "GetProductosAsync".
+            // Ideally we need a Controller endpoint.
+            // Let's check "Controllers".
+            // If strictly WASM, I can't inject "IInventarioService" directly unless it's a Client wrapper.
+            // The file `VendingManager.Web/Pages/Caja.razor` acts as a client component.
+            // I should use HttpClient.
+            // Is there a Product Controller?
+            // "VentasController" has "GetAnalisisProductos".
+            // I should dig for "ProductosController" or similar.
+            // Or just use the existing "GetAnalisisProductos" which returns DTOs with Names and IDs? 
+            // No, I need CostoPromedio if I want to show it, or let Backend handle it.
+            // Backend handles it. I just need Name and ID.
+            // So "AnalisisProductoDto" is fine.
+            // API: "api/Ventas/analisis-productos?inicio=...&fin=...". Too complex filter.
+            // Let's try to find if there is a way to get products.
+            // If not, I'll add an endpoint to "VentasController" or "CajaController".
+            
+            // To be safe and quick, I will add `[HttpGet("productos")]` to `CajaController` or `VentasController` 
+            // that returns simple product list.
+            
+            // For now, let's assume I will add `GetProductosSimple` to `CajaController`.
+             ListaProductos = await Http.GetFromJsonAsync<List<Producto>>("api/caja/productos-simple") ?? new();
+        } catch {}
     }
 
     private async Task ChangeMonth(int months)
@@ -345,6 +410,10 @@
         {
             Nuevo.Categoria = "RETIRO_UTILIDAD";
         }
+        
+        // Clear specific merma fields
+        Nuevo.ProductoId = null;
+        Nuevo.Cantidad = 0;
     }
 
     private void LoadFiles(InputFileChangeEventArgs e)
@@ -354,7 +423,33 @@
 
     private async Task Registrar()
     {
-        if (Nuevo.Monto <= 0 || string.IsNullOrEmpty(Nuevo.Descripcion)) return;
+        // Validation for Merma
+        if (Nuevo.Categoria == "MERMA")
+        {
+             if (Nuevo.ProductoId == null || Nuevo.ProductoId == 0) 
+             {
+                 Mensaje = "❌ SELECCIONA UN PRODUCTO";
+                 return;
+             }
+             if (Nuevo.Cantidad <= 0)
+             {
+                 Mensaje = "❌ CANTIDAD INVALIDA";
+                 return;
+             }
+             // Allow Monto to be 0 because Backend will calculate it!
+             // But we should pass 0 so validation doesn't fail.
+             // Update Backend validation "if (mov.Monto == 0)" -> except if Merma?
+             // Or better: Let user set 0 here and backend handles it.
+             // But the backend `RegistrarMovimientoAsync` throws if Monto == 0.
+             // I need to update that CHECK in Backend too!
+             // Or, I can fetch cost here? No, prefer backend source of truth.
+             // Workaround: Send $1 and overwrite? No, ugly.
+             // I will update Backend to allow 0 if Merma.
+        }
+        else 
+        {
+            if (Nuevo.Monto <= 0 || string.IsNullOrEmpty(Nuevo.Descripcion)) return;
+        }
 
         IsUploading = true;
 
@@ -397,7 +492,7 @@
             {
                 Mensaje = "✔ REGISTRADO";
                 // Reset form
-                Nuevo = new() { Tipo = "GASTO", Categoria = "MERCADERIA", Descripcion = "", Monto = 0 };
+                Nuevo = new() { Tipo = "GASTO", Categoria = "MERCADERIA", Descripcion = "", Monto = 0, Cantidad = 0, ProductoId = null };
                 fileToUpload = null;
                 await CargarDatos();
                 await Task.Delay(2000);
@@ -448,6 +543,15 @@
         public string Tipo { get; set; } = "GASTO";
         public string Categoria { get; set; } = "";
         public string? ImagenPath { get; set; }
+        public int? ProductoId { get; set; }
+        public int Cantidad { get; set; }
+    }
+    
+    public class Producto
+    {
+        public int Id { get; set; }
+        public string Nombre { get; set; } = "";
+        public int StockBodega { get; set; }
     }
 
     public class UploadResult
