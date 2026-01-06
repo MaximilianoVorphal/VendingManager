@@ -6,8 +6,13 @@ from playwright.async_api import async_playwright, expect
 
 # Configuración
 DOWNLOAD_DIR = os.path.join(os.getcwd(), "downloads")
-USERNAME = "comercialflf"
-PASSWORD = "Flf2121#"
+USERNAME = os.environ.get("OURVEND_USER")
+PASSWORD = os.environ.get("OURVEND_PASS")
+
+if not USERNAME or not PASSWORD:
+    print("❌ ERROR: Credenciales OURVEND_USER / OURVEND_PASS no encontradas en variables de entorno.")
+    # No salimos aquí para permitir que argumentos de CLI (si los hubiera en el futuro) pudieran sobreescribirlo,
+    # pero para este script simple, es crítico.
 
 import argparse
 import sys
