@@ -51,7 +51,7 @@ builder.Services.AddScoped<IMaquinaService, MaquinaService>();
 builder.Services.AddScoped<IInformesService, InformesService>();
 
 // Servicios en segundo plano (Background Workers)
-builder.Services.AddHttpClient(); // Necesario para que el servicio llame a la API del scraper
+builder.Services.AddHttpClient<VendingManager.Core.Interfaces.IScraperClient, VendingManager.Infrastructure.Clients.ScraperClient>(); 
 builder.Services.AddHostedService<AutomatedReportService>();
 
 // 4. Configuración Blazor

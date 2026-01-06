@@ -425,8 +425,6 @@ namespace VendingManager.Infrastructure.Services
                 // Cachos: Low Vol, Low Margin
                 
                 // Thresholds (Adjustable)
-                decimal MarginThreshold = 40.0m; // 40% margin is "Good"
-                decimal VolumeHighThreshold = (decimal)(2.0 / 30.0); // > 2 unit per month is "High"?? No, let's look at the data.
                                                                      // User example: 4.6/day is HIGH. 0.5/day is LOW.
                                                                      // Let's set High Velocity > 1.0 (1 per day) is Super High.
                                                                      // Maybe > 0.5 (1 every 2 days) is decent.
@@ -440,7 +438,6 @@ namespace VendingManager.Infrastructure.Services
                 decimal TH_Rotacion_Media = 0.2m; // > 0.2 per day (6 per month)
 
                 decimal TH_Margen_Alto = 50.0m; // > 50%
-                decimal TH_Margen_Bajo = 30.0m; // < 30%
 
                 // Calculate Margin % locally
                 decimal margenPct = dto.TotalVentas > 0 ? (dto.TotalGanancia / dto.TotalVentas) * 100 : 0;
