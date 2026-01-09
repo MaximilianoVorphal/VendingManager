@@ -39,7 +39,7 @@ namespace VendingManager.Web.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> Upload(IFormFile file)
+        public async Task<IActionResult> Upload(IFormFile file, [FromForm] string? folder = "General")
         {
             if (file == null || file.Length == 0)
                 return BadRequest("No se ha seleccionado ningún archivo.");
@@ -53,6 +53,7 @@ namespace VendingManager.Web.Controllers
                     Nombre = Path.GetFileNameWithoutExtension(file.FileName),
                     Extension = Path.GetExtension(file.FileName),
                     TipoContenido = file.ContentType,
+                    Carpeta = folder ?? "General",
                     Contenido = memoryStream.ToArray(),
                     FechaSubida = DateTime.Now
                 };

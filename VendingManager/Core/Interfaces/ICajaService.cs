@@ -9,7 +9,7 @@ namespace VendingManager.Core.Interfaces
         Task RegistrarMovimientoAsync(MovimientoCaja mov);
         Task<(byte[] content, string fileName)> ExportarCajaAsync(int month, int year);
         Task<(byte[] content, string fileName)> ExportarMovimientosAsync(int month, int year);
-        Task<string> UploadComprobanteAsync(Stream fileStream, string fileName, string? webRootPath);
+        Task<string> UploadComprobanteAsync(Stream fileStream, string fileName, string? webRootPath, string? category = null);
         bool IsMonthLocked(int month, int year);
     }
 }

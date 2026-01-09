@@ -8,51 +8,91 @@
     <!-- HEADER -->
     <div class="row align-items-center mb-4 border-bottom border-3 border-dark pb-3">
         <div class="col-12">
-            <h2 class="m-0 fw-bold text-uppercase" style="letter-spacing: -1px;">GESTOR DOCUMENTAL</h2>
+            <h2 class="m-0 fw-bold text-uppercase" style="letter-spacing: -1px;">GESTOR DOCUMENTOS</h2>
             <small class="text-muted fw-bold">MINI NUBE DE ARCHIVOS Y REPORTES</small>
         </div>
     </div>
 
     <!-- UPLOAD PANEL -->
     <div class="card border-2 border-dark rounded-0 shadow-sm mb-4">
-        <div class="card-header bg-dark text-white rounded-0 fw-bold text-uppercase">
-            <i class="bi bi-cloud-upload col-2"></i> Subir Nuevo Documento
+        <div class="card-header bg-dark text-white rounded-0 fw-bold text-uppercase d-flex justify-content-between align-items-center" style="cursor: pointer;" @onclick="ToggleUpload">
+            <span><i class="bi bi-cloud-upload me-2"></i> Subir Nuevo Documento</span>
+            <i class="bi @(ShowUpload ? "bi-chevron-up" : "bi-chevron-down")"></i>
         </div>
-        <div class="card-body bg-light p-3">
-            <div class="row align-items-center">
-                <div class="col-md-8 col-12 mb-2 mb-md-0">
-                    <InputFile OnChange="@SubirArchivo" class="form-control border-dark rounded-0 fw-bold" />
-                    <small class="text-muted fst-italic">Formatos soportados: PDF, Excel, Word, Imágenes. Máx 2GB.</small>
-                </div>
-                <div class="col-md-4 col-12 text-end">
-                    @if (Subiendo)
-                    {
-                            <div class="spinner-border text-primary" role="status">
-                                <span class="visually-hidden">Subiendo...</span>
-                            </div>
-                    }
-                </div>
-            </div>
-            @if (!string.IsNullOrEmpty(Mensaje))
-            {
-                    <div class="alert alert-info mt-3 mb-0 rounded-0 border-dark fw-bold">
-                    @Mensaje
+        @if (ShowUpload)
+        {
+            <div class="card-body bg-light p-3">
+                <div class="row align-items-center">
+                    <div class="col-md-5 col-12 mb-2">
+                        <label class="small fw-bold mb-1">ARCHIVO:</label>
+                        <InputFile OnChange="@SubirArchivo" class="form-control border-dark rounded-0 fw-bold" />
                     </div>
-            }
-        </div>
+                    <div class="col-md-3 col-12 mb-2">
+                        <label class="small fw-bold mb-1">CARPETA DESTINO:</label>
+                         <input @bind="CarpetaDestino" type="text" list="folderSuggestions" class="form-control border-dark rounded-0" placeholder="Ej: Contratos" />
+                         <datalist id="folderSuggestions">
+                             <option value="General" />
+                             @foreach(var f in AllFolders) { <option value="@f" /> }
+                         </datalist>
+                    </div>
+                    
+                    <div class="col-md-4 col-12 text-end">
+                        @if (Subiendo)
+                        {
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Subiendo...</span>
+                                </div>
+                        }
+                    </div>
+                </div>
+                <small class="text-muted fst-italic">Formatos soportados: PDF, Excel, Word, Imágenes. Máx 2GB.</small>
+                @if (!string.IsNullOrEmpty(Mensaje))
+                {
+                        <div class="alert alert-info mt-3 mb-0 rounded-0 border-dark fw-bold">
+                        @Mensaje
+                        </div>
+                }
+            </div>
+        }
+    </div>
+
+    <!-- BREADCRUMB & UTILS -->
+    <div class="d-flex align-items-center gap-2 mb-3 bg-white p-2 border border-dark border-2 shadow-sm">
+        <button class="btn btn-dark btn-sm rounded-0 fw-bold" @onclick="GoRoot" title="Inicio">
+            <i class="bi bi-hdd-network-fill"></i> ROOT
+        </button>
+        
+        @if (!string.IsNullOrEmpty(CurrentPath))
+        {
+             var parts = CurrentPath.Split('/');
+             string aPath = "";
+             @foreach (var part in parts)
+             {
+                 aPath = string.IsNullOrEmpty(aPath) ? part : aPath + "/" + part;
+                 var target = aPath; // capture for closure
+                 <span class="text-muted">/</span>
+                 <button class="btn btn-outline-dark btn-sm rounded-0 border-0 fw-bold text-uppercase" @onclick="() => NavigateTo(target)">
+                     @part
+                 </button>
+             }
+        }
+        else
+        {
+             <span class="text-muted fw-bold ms-2">/</span>
+        }
     </div>
 
     <!-- LISTA DE ARCHIVOS -->
     <div class="card border-2 border-dark rounded-0 shadow-sm">
         <div class="card-header bg-dark text-white rounded-0 fw-bold text-uppercase">
-            <i class="bi bi-folder2-open me-2"></i> Documentos Almacenados
+            <i class="bi bi-folder2-open me-2"></i> Explorador
         </div>
         <div class="table-responsive">
             <table class="table table-hover table-bordered border-dark m-0">
                 <thead class="bg-secondary text-white text-uppercase small">
                     <tr>
-                        <th>NOMBRE</th>
-                        <th class="text-center">FECHA SUBIDA</th>
+                        <th style="width: 50%">NOMBRE</th>
+                        <th class="text-center">FECHA</th>
                         <th class="text-center">TIPO</th>
                         <th class="text-center" style="width: 150px;">ACCIONES</th>
                     </tr>
@@ -60,41 +100,66 @@
                 <tbody class="bg-white">
                     @if (ListaInformes == null)
                     {
-                            <tr>
-                                <td colspan="4" class="text-center py-3">Cargando documentos...</td>
-                            </tr>
-                    }
-                    else if (ListaInformes.Count == 0)
-                    {
-                            <tr>
-                                <td colspan="4" class="text-center py-3 text-muted fw-bold">NO HAY DOCUMENTOS GUARDADOS.</td>
-                            </tr>
+                        <tr><td colspan="4" class="text-center py-3">Cargando...</td></tr>
                     }
                     else
                     {
-                        @foreach (var file in ListaInformes)
+                        <!-- GO BACK FOLDER -->
+                        @if (!string.IsNullOrEmpty(CurrentPath))
                         {
-                                    <tr>
-                                        <td class="align-middle fw-bold">
-                                            <i class="bi bi-file-earmark-text me-2"></i>@file.Nombre@file.Extension
-                                        </td>
-                                        <td class="align-middle text-center font-monospace small">
+                            <tr class="table-secondary" style="cursor: pointer;" @onclick="GoUp">
+                                <td colspan="4" class="fw-bold text-dark">
+                                    <i class="bi bi-arrow-return-left me-2"></i> ..
+                                </td>
+                            </tr>
+                        }
+
+                        <!-- FOLDERS -->
+                        @foreach (var folder in CurrentFolders)
+                        {
+                            <tr style="cursor: pointer;" @onclick="() => EnterFolder(folder)">
+                                <td class="align-middle fw-bold text-primary">
+                                    <i class="bi bi-folder-fill me-2 text-warning"></i> @folder
+                                </td>
+                                <td class="text-center small text-muted">-</td>
+                                <td class="text-center small text-muted">DIRECTORIO</td>
+                                <td class="text-center">
+                                    <button class="btn btn-sm btn-outline-dark rounded-0 border-0" @onclick:stopPropagation="true" @onclick="() => EnterFolder(folder)">
+                                        <i class="bi bi-arrow-right-circle"></i> Abrir
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+
+                        <!-- FILES -->
+                        @foreach (var file in CurrentFiles)
+                        {
+                            <tr>
+                                <td class="align-middle fw-bold">
+                                    <i class="bi bi-file-earmark-text me-2"></i>@file.Nombre@file.Extension
+                                </td>
+                                <td class="align-middle text-center font-monospace small">
                                     @file.FechaSubida.ToString("dd/MM/yyyy HH:mm")
-                                        </td>
-                                        <td class="align-middle text-center small text-uppercase">
+                                </td>
+                                <td class="align-middle text-center small text-uppercase">
                                     @file.Extension.Replace(".", "")
-                                        </td>
-                                        <td class="align-middle text-center">
-                                            <div class="btn-group">
-                                                <a href="api/informes/@file.Id" target="_blank" class="btn btn-sm btn-primary rounded-0 border-dark" title="Descargar/Ver">
-                                                    <i class="bi bi-download"></i>
-                                                </a>
-                                                <button class="btn btn-sm btn-danger rounded-0 border-dark" @onclick="() => EliminarArchivo(file.Id)" title="Eliminar">
-                                                    <i class="bi bi-trash-fill"></i>
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
+                                </td>
+                                <td class="align-middle text-center">
+                                    <div class="btn-group">
+                                        <a href="api/informes/@file.Id" target="_blank" class="btn btn-sm btn-primary rounded-0 border-dark" title="Descargar/Ver">
+                                            <i class="bi bi-download"></i>
+                                        </a>
+                                        <button class="btn btn-sm btn-danger rounded-0 border-dark" @onclick="() => EliminarArchivo(file.Id)" title="Eliminar">
+                                            <i class="bi bi-trash-fill"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+
+                        @if (CurrentFolders.Count == 0 && CurrentFiles.Count == 0)
+                        {
+                            <tr><td colspan="4" class="text-center py-3 text-muted fw-bold">CARPETA VACÍA</td></tr>
                         }
                     }
                 </tbody>
@@ -106,7 +171,13 @@
 @code {
     private List<InformeDto>? ListaInformes;
     private bool Subiendo = false;
+    private bool ShowUpload = false;
     private string Mensaje = "";
+    private string CurrentPath = "";
+    private string CarpetaDestino = "General";
+
+    // Cache to avoid re-calculating everything
+    private List<string> AllFolders = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -118,12 +189,108 @@
         try
         {
             ListaInformes = await Http.GetFromJsonAsync<List<InformeDto>>("api/informes");
+            RefreshFolderStructure();
         }
         catch (Exception ex)
         {
             Mensaje = "Error al cargar lista: " + ex.Message;
         }
     }
+
+    private void RefreshFolderStructure()
+    {
+        if (ListaInformes == null) return;
+        // Collect all unique full paths
+        AllFolders = ListaInformes
+            .Select(i => i.Carpeta ?? "General")
+            .Distinct()
+            .OrderBy(s => s)
+            .ToList();
+    }
+
+    // --- NAVIGATION LOGIC ---
+    
+    private List<string> CurrentFolders
+    {
+        get
+        {
+            if (ListaInformes == null) return new();
+
+            string prefix = string.IsNullOrEmpty(CurrentPath) ? "" : CurrentPath + "/";
+            
+            return ListaInformes
+                .Select(i => i.Carpeta ?? "General")
+                .Where(c => c.StartsWith(prefix) && c != CurrentPath) // Must start with path, but not be the file's direct folder if strictly equal (files inside)
+                // Actually: Files in "Caja" have Carpeta="Caja".
+                // Files in "Caja/Sub" have Carpeta="Caja/Sub".
+                // When at "Caja", I want to see "Sub" (from "Caja/Sub").
+                // But not "Caja" itself.
+                .Select(c => 
+                {
+                    // Extract the segment after prefix
+                    if (string.IsNullOrEmpty(prefix)) return c.Split('/')[0];
+                    return c.Substring(prefix.Length).Split('/')[0];
+                })
+                .Distinct()
+                .Where(s => !string.IsNullOrEmpty(s))
+                .OrderBy(s => s)
+                .ToList();
+        }
+    }
+
+    private List<InformeDto> CurrentFiles
+    {
+        get
+        {
+            if (ListaInformes == null) return new();
+            // Files that belong EXACTLY to this folder
+             return ListaInformes
+                .Where(i => (i.Carpeta ?? "General") == (string.IsNullOrEmpty(CurrentPath) ? "General" : CurrentPath))
+                // Wait special case: Root.
+                // If CurrentPath is empty. I want to show files with Carpeta=""? 
+                // But I defaulted everything to "General".
+                // So at Root, I only see folders ("General", "Caja"). No files directly unless Carpeta is NULL/Empty.
+                // If Carpeta defaults to "General", then files are inside "General".
+                // So at root you see "General" folder.
+                // Correct.
+                .OrderByDescending(i => i.FechaSubida)
+                .ToList();
+        }
+    }
+
+    private void EnterFolder(string folderName)
+    {
+        if (string.IsNullOrEmpty(CurrentPath)) CurrentPath = folderName;
+        else CurrentPath += "/" + folderName;
+        // Auto update dest folder for upload
+        CarpetaDestino = CurrentPath;
+    }
+
+    private void GoUp()
+    {
+        if (string.IsNullOrEmpty(CurrentPath)) return;
+        int lastSlash = CurrentPath.LastIndexOf('/');
+        if (lastSlash == -1) CurrentPath = "";
+        else CurrentPath = CurrentPath.Substring(0, lastSlash);
+        
+        CarpetaDestino = string.IsNullOrEmpty(CurrentPath) ? "General" : CurrentPath;
+    }
+
+    private void GoRoot()
+    {
+        CurrentPath = "";
+        CarpetaDestino = "General";
+    }
+
+    private void NavigateTo(string path)
+    {
+        CurrentPath = path;
+        CarpetaDestino = path;
+    }
+
+    private void ToggleUpload() => ShowUpload = !ShowUpload;
+
+    // --- UPLOAD LOGIC ---
 
     private async Task SubirArchivo(InputFileChangeEventArgs e)
     {
@@ -132,15 +299,15 @@
         try
         {
             var file = e.File;
-            // Limite de tamaño: 2GB (usar long)
             long maxFileSize = 2L * 1024 * 1024 * 1024;
 
             using var content = new MultipartFormDataContent();
-            // Importante: Usar OpenReadStream con maxAllowedSize suficiente
             var fileContent = new StreamContent(file.OpenReadStream(maxFileSize));
             fileContent.Headers.ContentType = new MediaTypeHeaderValue(file.ContentType);
 
             content.Add(fileContent, "file", file.Name);
+            // Append folder
+            content.Add(new StringContent(CarpetaDestino), "folder");
 
             var response = await Http.PostAsync("api/informes", content);
 
@@ -195,6 +362,7 @@
         public string Nombre { get; set; } = string.Empty;
         public string Extension { get; set; } = string.Empty;
         public string TipoContenido { get; set; } = string.Empty;
+        public string Carpeta { get; set; } = "General";
         public DateTime FechaSubida { get; set; }
     }
 }

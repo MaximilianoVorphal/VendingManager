@@ -20,6 +20,10 @@ namespace VendingManager.Core.Entities
         [MaxLength(100)]
         public string TipoContenido { get; set; } = string.Empty; // MIME type
 
+        [Required]
+        [MaxLength(255)]
+        public string Carpeta { get; set; } = "General";
+
         public DateTime FechaSubida { get; set; } = DateTime.Now;
 
         [Required]
