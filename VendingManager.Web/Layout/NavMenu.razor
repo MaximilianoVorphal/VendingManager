@@ -1,4 +1,4 @@
-﻿<div class="industrial-navbar">
+<div class="industrial-navbar">
     <div class="container d-flex justify-content-between align-items-center position-relative">
 
         <div class="brand-logo">
@@ -7,7 +7,7 @@
 
         <!-- Botón Hamburger (Visible solo en móvil) -->
         <button class="hamburger-btn" @onclick="ToggleNavMenu">
-            <i class="bi bi-list"></i>
+            <i class="bi bi-list" style="visibility: visible; float: none; bottom: 1px; left: 5px; width: 26px; height: 28px"></i>
         </button>
 
         <nav class="nav-links-container @NavMenuCssClass">
@@ -50,6 +50,9 @@
                     </NavLink>
                     <NavLink class="industrial-link" href="reposicion" @onclick="CloseNavMenu">
                         INVENTARIO MAQUINAS
+                    </NavLink>
+                    <NavLink class="industrial-link" href="cargas" @onclick="CloseNavMenu">
+                        CENTRO DE CARGAS
                     </NavLink>
                 </div>
             </div>

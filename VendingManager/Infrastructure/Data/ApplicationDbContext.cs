@@ -13,6 +13,8 @@ namespace VendingManager.Infrastructure.Data
         public DbSet<Venta> Ventas { get; set; } = null!;
         public DbSet<MovimientoCaja> MovimientosCaja { get; set; } = null!;
         public DbSet<Informe> Informes { get; set; } = null!;
+        public DbSet<OrdenCarga> OrdenesCarga { get; set; } = null!;
+        public DbSet<DetalleOrdenCarga> DetallesOrdenCarga { get; set; } = null!;
         public DbSet<Core.Entities.User> Users { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)

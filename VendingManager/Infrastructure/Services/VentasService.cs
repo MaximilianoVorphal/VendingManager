@@ -293,6 +293,7 @@ namespace VendingManager.Infrastructure.Services
                     Maquina = s.Maquina.Nombre,
                     NumeroSlot = s.NumeroSlot,
                     Producto = s.Producto.Nombre,
+                    ProductoId = s.ProductoId ?? 0,
                     StockActual = s.StockActual,
                     CapacidadMaxima = s.CapacidadMaxima
                 })
