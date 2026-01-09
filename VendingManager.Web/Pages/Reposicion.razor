@@ -83,9 +83,8 @@
                 }
                 else
                 {
-                    // GROUP BY SHELF (Assuming First Digit = Shelf, simple integer division by 10)
-                    // Example: 11-19 -> Shelf 1. 21-29 -> Shelf 2.
-                    var shelves = Slots.GroupBy(s => s.SlotNumberSort / 10).OrderBy(g => g.Key);
+                    // GROUP BY SHELF (Using (n-1)/10 to ensure 11-20 -> 1, 51-60 -> 5)
+                    var shelves = Slots.GroupBy(s => (s.SlotNumberSort - 1) / 10).OrderBy(g => g.Key);
 
                     <div class="d-flex flex-column gap-4 machine-chassis">
                         @foreach (var shelf in shelves)
