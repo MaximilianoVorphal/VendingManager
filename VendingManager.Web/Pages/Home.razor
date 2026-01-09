@@ -1,4 +1,4 @@
-﻿@page "/"
+@page "/"
 @inject HttpClient Http
 @inject NavigationManager NavManager
 @inject IJSRuntime JS
@@ -546,8 +546,11 @@ backgroundColor = new[] { "#198754", "#dc3545" }
                     }
                 </div>
                 <div class="modal-footer bg-light rounded-0">
-                    <button type="button" class="btn btn-dark rounded-0 fw-bold px-4" @onclick="CerrarModalCritico">CERRAR
-                        PANTALLA</button>
+                    <button type="button" class="btn btn-dark rounded-0 fw-bold px-4" @onclick="CerrarModalCritico">CERRAR PANTALLA</button>
+                    <button type="button" class="btn btn-danger rounded-0 fw-bold px-4" 
+                            @onclick='() => NavManager.NavigateTo($"cargas?maquinaId={MaquinaActualId}")'>
+                        <i class="bi bi-truck me-2"></i>GESTIONAR CARGA
+                    </button>
                 </div>
             </div>
         </div>
