@@ -23,7 +23,7 @@ namespace VendingManager.Infrastructure.Services
         }
 
         // 2. UploadComprobanteAsync
-        public async Task<string> UploadComprobanteAsync(Stream fileStream, string fileName, string? webRootPath = null)
+        public async Task<string> UploadComprobanteAsync(Stream fileStream, string fileName, string? webRootPath = null, string? category = null)
         {
             using (var memoryStream = new MemoryStream())
             {
@@ -37,10 +37,17 @@ namespace VendingManager.Infrastructure.Services
                 else if (extension == ".jpg" || extension == ".jpeg") contentType = "image/jpeg";
                 else if (extension == ".png") contentType = "image/png";
 
+                string folder = "Caja";
+                if (!string.IsNullOrEmpty(category))
+                {
+                    folder = $"Caja/{category}";
+                }
+
                 var informe = new Informe
                 {
                     Nombre = Path.GetFileNameWithoutExtension(fileName) + "_CAJA",
                     Extension = extension,
+                    Carpeta = folder,
                     TipoContenido = contentType,
                     Contenido = content,
                     FechaSubida = DateTime.Now

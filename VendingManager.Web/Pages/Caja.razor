@@ -469,6 +469,7 @@
                 using var fileContent = new StreamContent(fileToUpload.OpenReadStream(5120000));
                 fileContent.Headers.ContentType = new MediaTypeHeaderValue(fileToUpload.ContentType);
                 content.Add(fileContent, "file", fileToUpload.Name);
+                content.Add(new StringContent(Nuevo.Categoria), "category");
 
                 var uploadResponse = await Http.PostAsync("api/caja/upload", content);
                 if (uploadResponse.IsSuccessStatusCode)

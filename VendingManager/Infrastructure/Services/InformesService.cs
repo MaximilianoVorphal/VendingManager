@@ -34,6 +34,7 @@ namespace VendingManager.Infrastructure.Services
                     Nombre = i.Nombre,
                     Extension = i.Extension,
                     TipoContenido = i.TipoContenido,
+                    Carpeta = i.Carpeta,
                     FechaSubida = i.FechaSubida,
                     Contenido = new byte[0] // Asignamos array vacío o null
                 })

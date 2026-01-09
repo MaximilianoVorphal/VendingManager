@@ -53,7 +53,7 @@ namespace VendingManager.Web.Controllers
         }
 
         [HttpPost("upload")]
-        public async Task<IActionResult> UploadImage(IFormFile file)
+        public async Task<IActionResult> UploadImage(IFormFile file, [FromForm] string? category)
         {
             if (file == null || file.Length == 0)
                 return BadRequest("No file uploaded");
@@ -63,7 +63,7 @@ namespace VendingManager.Web.Controllers
                 using (var stream = file.OpenReadStream())
                 {
                     // Service handles path logic. We can pass null for webRootPath if service has it injected.
-                    string path = await _cajaService.UploadComprobanteAsync(stream, file.FileName, null);
+                    string path = await _cajaService.UploadComprobanteAsync(stream, file.FileName, null, category);
                     return Ok(new { Path = path });
                 }
             }
