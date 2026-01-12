@@ -69,7 +69,7 @@
                  <span><i class="bi bi-list-stars me-2"></i>Ranking de Productos</span>
                  <span class="badge bg-white text-dark border border-white">@Productos.Count items</span>
              </div>
-             <div class="table-responsive" style="max-height: 600px; overflow-y: auto;">
+             <div class="table-responsive industrial-stack-table" style="max-height: 600px; overflow-y: auto;">
                  <table class="table table-hover table-bordered border-dark m-0 table-sm align-middle">
                      <thead class="bg-secondary text-white text-uppercase small sticky-top">
                          <tr>
@@ -86,19 +86,19 @@
                          @foreach(var p in Productos)
                          {
                              <tr class="@(p.CantidadVendida == 0 ? "bg-light text-muted" : "")">
-                                 <td class="fw-bold text-uppercase">@p.Nombre</td>
-                                 <td class="text-center">
+                                 <td class="fw-bold text-uppercase" data-label="PRODUCTO">@p.Nombre</td>
+                                 <td class="text-center" data-label="ESTRATEGIA">
                                      <span class="badge rounded-pill @p.ColorClasificacion" style="font-size: 0.8em;">@p.Clasificacion.ToUpper()</span>
                                  </td>
-                                 <td class="text-center font-monospace">
+                                 <td class="text-center font-monospace" data-label="ROTACIÓN/DÍA">
                                      @p.RotacionDiaria.ToString("F1")
                                  </td>
-                                 <td class="text-center font-monospace @(p.CantidadVendida == 0 ? "text-danger fw-bold" : "fw-bold")" style="font-size: 1.1em;">
+                                 <td class="text-center font-monospace @(p.CantidadVendida == 0 ? "text-danger fw-bold" : "fw-bold")" style="font-size: 1.1em;" data-label="TOTAL UNID.">
                                      @p.CantidadVendida
                                  </td>
-                                 <td class="text-end font-monospace">$@p.TotalVentas.ToString("N0")</td>
-                                 <td class="text-end font-monospace text-success fw-bold">$@p.TotalGanancia.ToString("N0")</td>
-                                 <td class="text-center small">
+                                 <td class="text-end font-monospace" data-label="INGRESOS">$@p.TotalVentas.ToString("N0")</td>
+                                 <td class="text-end font-monospace text-success fw-bold" data-label="GANANCIA">$@p.TotalGanancia.ToString("N0")</td>
+                                 <td class="text-center small" data-label="MARGEN %">
                                      @if(p.TotalVentas > 0) {
                                          <span class="badge rounded-pill @(p.MargenPromedio > 40 ? "bg-success" : p.MargenPromedio > 20 ? "bg-warning text-dark" : "bg-danger")">
                                              @p.MargenPromedio.ToString("F1")%

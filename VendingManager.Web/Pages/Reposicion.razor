@@ -7,51 +7,53 @@
 <div class="container-fluid px-4 mt-4" style="font-family: 'Segoe UI', Consolas, monospace;">
 
     <!-- HEADER: TITLE + MACHINE SELECT -->
-    <div class="row align-items-center mb-4 border-bottom border-3 border-dark pb-3 g-3">
-        <div class="col-md-4 col-12">
+    <!-- HEADER: TITLE ONLY -->
+    <div class="row align-items-center mb-2 border-bottom border-3 border-dark pb-2">
+        <div class="col-12">
             <h2 class="m-0 fw-bold text-uppercase" style="letter-spacing: -1px; color: #333;">
                 <i class="bi bi-grid-3x3-gap-fill me-2"></i>INVENTARIO MAQUINAS
             </h2>
             <small class="text-muted fw-bold">CARGA POR PISOS & HERRAMIENTAS</small>
         </div>
+    </div>
 
-        <div class="col-md-8 col-12">
-            <div class="d-flex flex-wrap gap-3 justify-content-md-end align-items-center">
-                <!-- TOOLBAR -->
-                 <div class="btn-group shadow-sm border border-dark rounded-0" role="group">
-                    <input type="radio" class="btn-check" name="btnradio" id="modeRefill" autocomplete="off" 
-                           checked="@(CurrentTool == "REFILL")" @onchange="@(() => SelectTool("REFILL"))">
-                    <label class="btn btn-outline-dark fw-bold rounded-0 @(CurrentTool == "REFILL" ? "active-tool" : "")" for="modeRefill">
-                        <i class="bi bi-box-seam me-1"></i>RELLENAR
-                    </label>
+    <!-- STICKY TOOLBAR -->
+    <div class="sticky-tools-header py-2 mb-3">
+        <div class="btn-group w-100 shadow-sm border border-dark rounded-0 bg-white" role="group">
+            <input type="radio" class="btn-check" name="btnradio" id="modeRefill" autocomplete="off" 
+                    checked="@(CurrentTool == "REFILL")" @onchange="@(() => SelectTool("REFILL"))">
+            <label class="btn btn-outline-dark fw-bold rounded-0 py-3 @(CurrentTool == "REFILL" ? "active-tool" : "")" for="modeRefill">
+                <i class="bi bi-box-seam d-block fs-4"></i>RELLENAR
+            </label>
 
-                    <input type="radio" class="btn-check" name="btnradio" id="modeEmpty" autocomplete="off" 
-                           checked="@(CurrentTool == "EMPTY")" @onchange="@(() => SelectTool("EMPTY"))">
-                    <label class="btn btn-outline-dark fw-bold rounded-0 @(CurrentTool == "EMPTY" ? "active-tool" : "")" for="modeEmpty">
-                        <i class="bi bi-trash me-1"></i>VACIAR
-                    </label>
+            <input type="radio" class="btn-check" name="btnradio" id="modeEmpty" autocomplete="off" 
+                    checked="@(CurrentTool == "EMPTY")" @onchange="@(() => SelectTool("EMPTY"))">
+            <label class="btn btn-outline-dark fw-bold rounded-0 py-3 @(CurrentTool == "EMPTY" ? "active-tool" : "")" for="modeEmpty">
+                <i class="bi bi-trash d-block fs-4"></i>VACIAR
+            </label>
 
-                    <input type="radio" class="btn-check" name="btnradio" id="modeSwap" autocomplete="off" 
-                           checked="@(CurrentTool == "SWAP")" @onchange="@(() => SelectTool("SWAP"))">
-                    <label class="btn btn-outline-dark fw-bold rounded-0 @(CurrentTool == "SWAP" ? "active-tool" : "")" for="modeSwap">
-                        <i class="bi bi-arrow-repeat me-1"></i>CAMBIAR PROD
-                    </label>
-                </div>
+            <input type="radio" class="btn-check" name="btnradio" id="modeSwap" autocomplete="off" 
+                    checked="@(CurrentTool == "SWAP")" @onchange="@(() => SelectTool("SWAP"))">
+            <label class="btn btn-outline-dark fw-bold rounded-0 py-3 @(CurrentTool == "SWAP" ? "active-tool" : "")" for="modeSwap">
+                <i class="bi bi-arrow-repeat d-block fs-4"></i>CAMBIAR
+            </label>
+        </div>
+    </div>
 
-                <div class="border-start border-dark mx-2 ps-3">
-                     <select class="form-select border-dark rounded-0 fw-bold shadow-sm" style="min-width: 250px;"
-                            @onchange="CargarSlotsMaquina">
-                        <option value="0">:: SELECCIONE MÁQUINA ::</option>
-                        @if (Maquinas != null)
-                        {
-                            @foreach (var m in Maquinas)
-                            {
-                                <option value="@m.Id">@m.Nombre.ToUpper()</option>
-                            }
-                        }
-                    </select>
-                </div>
-            </div>
+    <!-- MACHINE SELECTOR (SCROLLS AWAY) -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <select class="form-select border-dark rounded-0 fw-bold shadow-sm py-2" style="width: 100%;"
+                    @onchange="CargarSlotsMaquina">
+                <option value="0">:: SELECCIONE MÁQUINA A GESTIONAR ::</option>
+                @if (Maquinas != null)
+                {
+                    @foreach (var m in Maquinas)
+                    {
+                        <option value="@m.Id">@m.Nombre.ToUpper()</option>
+                    }
+                }
+            </select>
         </div>
     </div>
 
@@ -265,6 +267,19 @@
     .action-refill { background-color: #cfe2ff !important; border: 3px solid #0d6efd !important; color: #084298 !important; }
     .action-empty { background-color: #dc3545 !important; border: 3px solid #b02a37 !important; color: white !important; }
     .action-swap { background-color: #6f42c1 !important; border: 3px solid #59359a !important; color: white !important; }
+
+    /* STICKY HEADER */
+    .sticky-tools-header {
+        position: sticky;
+        top: 0;
+        z-index: 1020;
+        background-color: #f4f4f4; /* Match body bg to hide content behind */
+        margin-left: -1.5rem; /* Break out of container padding */
+        margin-right: -1.5rem;
+        padding-left: 1.5rem;
+        padding-right: 1.5rem;
+        border-bottom: 2px solid #000;
+    }
 </style>
 
 @code {
