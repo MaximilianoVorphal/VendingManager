@@ -506,13 +506,13 @@ backgroundColor = new[] { "#198754", "#dc3545" }
                     else
                     {
                         <div class="table-responsive">
-                            <table class="table table-striped table-hover m-0 align-middle">
+                            <table class="table table-striped table-hover m-0 align-middle" style="font-size: 0.75rem;">
                                 <thead class="bg-light text-dark text-uppercase small font-monospace">
                                     <tr>
-                                        <th class="px-3">MÁQUINA</th>
+                                        <th class="px-2">MÁQUINA</th>
                                         <th class="text-center">SLOT</th>
                                         <th>PRODUCTO</th>
-                                        <th class="text-center">STOCK / CAP</th>
+                                        <th class="text-center">STOCK/CAP</th>
                                         <th class="text-center">ESTADO</th>
                                     </tr>
                                 </thead>
@@ -520,11 +520,15 @@ backgroundColor = new[] { "#198754", "#dc3545" }
                                     @foreach (var item in ListaCriticos)
                                     {
                                         <tr>
-                                            <td class="fw-bold px-3 small">@item.Maquina</td>
+                                            <td class="fw-bold px-2">
+                                                <div class="text-truncate" style="max-width: 110px;" title="@item.Maquina">@item.Maquina</div>
+                                            </td>
                                             <td class="text-center font-monospace bg-white border-start border-end">@item.NumeroSlot
                                             </td>
-                                            <td class="text-uppercase small">@item.Producto</td>
-                                            <td class="text-center fw-bold font-monospace">
+                                            <td class="text-uppercase">
+                                                <div class="text-truncate" style="max-width: 140px;" title="@item.Producto">@item.Producto</div>
+                                            </td>
+                                            <td class="text-center fw-bold font-monospace text-nowrap">
                                                 <span class="text-danger">@item.StockActual</span>
                                                 <span class="text-muted"> / @item.CapacidadMaxima</span>
                                             </td>
