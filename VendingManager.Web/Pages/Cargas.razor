@@ -48,9 +48,53 @@
 
     @if (MaquinaActualId == 0)
     {
-        <div class="text-center py-5 bg-light border border-2 border-dark border-dashed">
-            <i class="bi bi-arrow-up-circle fs-1 text-muted"></i>
-            <h4 class="mt-3 fw-bold text-muted text-uppercase">Seleccione una máquina para comenzar</h4>
+        <div class="card border-2 border-dark rounded-0 shadow">
+            <div class="card-header bg-dark text-white fw-bold text-uppercase rounded-0">
+                <i class="bi bi-clock-history me-2"></i>HISTORIAL GLOBAL DE ÓRDENES
+            </div>
+            <div class="list-group list-group-flush rounded-0" style="max-height: 600px; overflow-y: auto;">
+                @if (HistorialGlobal == null)
+                {
+                    <div class="text-center py-4"><div class="spinner-border" role="status"></div></div>
+                }
+                else if (HistorialGlobal.Count == 0)
+                {
+                    <div class="text-center py-5 text-muted fw-bold">No hay órdenes registradas.</div>
+                }
+                else
+                {
+                    @foreach(var ord in HistorialGlobal)
+                    {
+                        <div class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                            <div>
+                                <div class="fw-bold">
+                                    ORDEN #@ord.Id 
+                                    <span class="badge @(ord.Estado == "PENDIENTE" ? "bg-warning text-dark" : "bg-success") rounded-0 ms-2">@ord.Estado</span>
+                                </div>
+                                <small class="text-muted">
+                                    <i class="bi bi-box-seam me-1"></i>@ord.MaquinaNombre | 
+                                    <i class="bi bi-calendar me-1"></i>@ord.FechaCreacion.ToString("dd/MM/yyyy HH:mm") | 
+                                    @ord.Detalles.Count items
+                                </small>
+                            </div>
+                            <div>
+                                @if(ord.Estado == "PENDIENTE")
+                                {
+                                    <button class="btn btn-sm btn-primary rounded-0 fw-bold" @onclick="() => AbrirFinalizar(ord)">
+                                        FINALIZAR
+                                    </button>
+                                }
+                                else
+                                {
+                                    <button class="btn btn-sm btn-outline-dark rounded-0 fw-bold" @onclick="() => AbrirDetalle(ord)">
+                                        VER DETALLE
+                                    </button>
+                                }
+                            </div>
+                        </div>
+                    }
+                }
+            </div>
         </div>
     }
     else
@@ -199,6 +243,10 @@
                                 <tr>
                                     <th class="px-3">Producto</th>
                                     <th class="text-center">Q. Llevada</th>
+                                    @if (EsModoLectura)
+                                    {
+                                        <th class="text-center">Q. Cargada</th>
+                                    }
                                     <th class="text-center" style="width: 150px;">Q. Sobrante (Retorno)</th>
                                 </tr>
                             </thead>
@@ -208,6 +256,12 @@
                                     <tr>
                                         <td class="px-3">@det.ProductoNombre</td>
                                         <td class="text-center fw-bold">@det.CantidadSolicitada</td>
+                                        @if (EsModoLectura)
+                                        {
+                                            <td class="text-center">
+                                                <span class="badge bg-success rounded-0 fs-6">@(det.CantidadSolicitada - det.CantidadRetornada)</span>
+                                            </td>
+                                        }
                                         <td class="text-center">
                                             @if (EsModoLectura)
                                             {
@@ -251,6 +305,7 @@
     private bool CargandoSugerencia = false;
     private List<SugerenciaItemDto>? SugerenciaItems;
     private List<OrdenCargaDto>? HistorialOrdenes;
+    private List<OrdenCargaDto>? HistorialGlobal;
 
     // Modal Finalizar
     private bool MostrarModalFinalizar = false;
@@ -267,6 +322,11 @@
                 MaquinaActualId = QueryMaquinaId.Value;
                 await CargarDatos();
             }
+            else
+            {
+                // Load global history by default
+                await CargarHistorialGlobal();
+            }
         } catch { }
     }
 
@@ -279,6 +339,23 @@
             {
                 await CargarDatos();
             }
+            else
+            {
+                await CargarHistorialGlobal();
+            }
+        }
+    }
+
+    private async Task CargarHistorialGlobal()
+    {
+        try
+        {
+            HistorialGlobal = await Http.GetFromJsonAsync<List<OrdenCargaDto>>("api/OrdenCarga/historial?maquinaId=0");
+        }
+        catch (Exception ex)
+        {
+            Mensaje = "Error cargando historial global: " + ex.Message;
+            AlertClass = "alert-danger";
         }
     }
 
