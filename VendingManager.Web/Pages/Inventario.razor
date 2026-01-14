@@ -286,6 +286,38 @@
                             <input type="number" class="form-control rounded-0 border-dark fw-bold text-muted"
                             @bind="ProductoEditar.CostoPromedio" />
                         </div>
+                        
+                        @if(ProductoEditar.Id != 0) 
+                        {
+                            <div class="col-12 mt-3">
+                                <div class="form-check">
+                                    <input class="form-check-input border-dark" type="checkbox" @bind="RecalcularCostos" id="checkRecalc">
+                                    <label class="form-check-label fw-bold small" for="checkRecalc">
+                                        RECALCULAR COSTOS HISTÓRICOS
+                                    </label>
+                                </div>
+                                
+                                @if(RecalcularCostos)
+                                {
+                                    <div class="mt-2 p-2 bg-light border border-warning">
+                                        <div class="row g-2">
+                                            <div class="col-6">
+                                                <small class="d-block text-muted mb-1 fw-bold">DESDE:</small>
+                                                <input type="datetime-local" class="form-control form-control-sm rounded-0 border-dark" @bind="RecalculoDesde" />
+                                            </div>
+                                            <div class="col-6">
+                                                <small class="d-block text-muted mb-1 fw-bold">HASTA (Opcional):</small>
+                                                <input type="datetime-local" class="form-control form-control-sm rounded-0 border-dark" @bind="RecalculoHasta" />
+                                            </div>
+                                        </div>
+                                        
+                                        <small class="text-danger fw-bold mt-2 d-block" style="font-size: 0.75rem;">
+                                            <i class="bi bi-exclamation-triangle-fill"></i> Se actualizarán las ventas en este rango de fechas.
+                                        </small>
+                                    </div>
+                                }
+                            </div>
+                        }
                     </div>
                 </div>
                 <div class="modal-footer bg-light rounded-0">
@@ -367,6 +399,11 @@
     // Modal Edición State
     private bool MostrarModalEditar = false;
     private ProductoDTO? ProductoEditar;
+    
+    // Recalculo State
+    private bool RecalcularCostos = false;
+    private DateTime RecalculoDesde = DateTime.Now;
+    private DateTime? RecalculoHasta = null;
 
     protected override async Task OnInitializedAsync()
     {
@@ -480,6 +517,9 @@
                 StockBodega = producto.StockBodega
             };
         }
+        RecalcularCostos = false;
+        RecalculoDesde = DateTime.Now.AddDays(-30); 
+        RecalculoHasta = null;
         MostrarModalEditar = true;
     }
 
@@ -507,7 +547,18 @@
             else
             {
                 // PUT (Editar)
-                response = await Http.PutAsJsonAsync($"api/productos/{ProductoEditar.Id}", ProductoEditar);
+                var url = $"api/productos/{ProductoEditar.Id}";
+                if (RecalcularCostos)
+                {
+                    // Use "O" (Round-trip) format for full precision (ISO 8601)
+                    url += $"?recalculateFrom={Uri.EscapeDataString(RecalculoDesde.ToString("O"))}";
+                    
+                    if (RecalculoHasta.HasValue)
+                    {
+                        url += $"&recalculateTo={Uri.EscapeDataString(RecalculoHasta.Value.ToString("O"))}";
+                    }
+                }
+                response = await Http.PutAsJsonAsync(url, ProductoEditar);
             }
 
             if (response.IsSuccessStatusCode)

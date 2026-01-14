@@ -85,12 +85,12 @@ namespace VendingManager.Web.Controllers
         }
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutProducto(int id, Producto producto)
+        public async Task<IActionResult> PutProducto(int id, Producto producto, [FromQuery] DateTime? recalculateFrom = null, [FromQuery] DateTime? recalculateTo = null)
         {
             if (id != producto.Id) return BadRequest();
             try
             {
-                await _inventarioService.UpdateProductoAsync(id, producto);
+                await _inventarioService.UpdateProductoAsync(id, producto, recalculateFrom, recalculateTo);
                 return NoContent();
             }
             catch (Exception)

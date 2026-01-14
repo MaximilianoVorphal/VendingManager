@@ -31,10 +31,33 @@ namespace VendingManager.Infrastructure.Services
             return producto;
         }
 
-        public async Task UpdateProductoAsync(int id, Producto producto)
+        public async Task UpdateProductoAsync(int id, Producto producto, DateTime? recalculateFrom = null, DateTime? recalculateTo = null)
         {
             // Note: In Controller, it checks id != producto.Id. Here we assume validation is done or we check it.
             _context.Entry(producto).State = EntityState.Modified;
+
+            if (recalculateFrom.HasValue)
+            {
+                // Recalculate CostoVenta for sales >= recalculateFrom
+                // We need to fetch sales that involve this product.
+                // Assuming Venta has ProductoId and we want to update CostoVenta based on the NEW producto.CostoPromedio
+                
+                var query = _context.Ventas
+                    .Where(v => v.ProductoId == id && v.FechaLocal >= recalculateFrom.Value);
+
+                if (recalculateTo.HasValue)
+                {
+                    query = query.Where(v => v.FechaLocal <= recalculateTo.Value);
+                }
+
+                var ventasAfectadas = await query.ToListAsync();
+
+                foreach (var venta in ventasAfectadas)
+                {
+                    venta.CostoVenta = producto.CostoPromedio;
+                }
+            }
+
             await _context.SaveChangesAsync();
         }
 
