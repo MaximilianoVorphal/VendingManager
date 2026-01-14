@@ -529,6 +529,21 @@ backgroundColor = new[] { "#198754", "#dc3545" }
         finally { Cargando = false; }
     }
 
+    // Helper to extract short machine code (last 4 digits, e.g., "0012" from "MAQUINA 2410280012...")
+    private string ExtractMachineCode(string machineName)
+    {
+        if (string.IsNullOrEmpty(machineName)) return "---";
+        // Find the numeric part and get last 4 digits
+        var parts = machineName.Replace("MAQUINA", "").Trim().Split(' ');
+        if (parts.Length > 0 && parts[0].Length >= 4)
+        {
+            // Return last 4 digits of the code
+            var code = parts[0];
+            return code.Substring(Math.Max(0, code.Length - 4));
+        }
+        return machineName.Length > 6 ? machineName.Substring(0, 6) : machineName;
+    }
+
 
 
     public class DashboardStats
@@ -587,40 +602,25 @@ backgroundColor = new[] { "#198754", "#dc3545" }
                     {
                         <div class="table-responsive">
                             <table class="table table-striped table-hover m-0 align-middle" style="font-size: 0.75rem;">
-                                <thead class="bg-light text-dark text-uppercase small font-monospace">
+                                <thead class="bg-light text-dark text-uppercase small font-monospace sticky-top">
                                     <tr>
-                                        <th class="px-2">MÁQUINA</th>
-                                        <th class="text-center">SLOT</th>
+                                        <th class="px-2" style="width: 60px;">MÁQ.</th>
+                                        <th class="text-center" style="width: 45px;">SLOT</th>
                                         <th>PRODUCTO</th>
-                                        <th class="text-center">STOCK/CAP</th>
-                                        <th class="text-center">ESTADO</th>
+                                        <th class="text-end" style="width: 60px;">STOCK</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     @foreach (var item in ListaCriticos)
                                     {
-                                        <tr>
-                                            <td class="fw-bold px-2">
-                                                <div class="text-truncate" style="max-width: 110px;" title="@item.Maquina">@item.Maquina</div>
+                                        <tr class="@(item.StockActual == 0 ? "table-danger" : "")">
+                                            <td class="fw-bold px-2 font-monospace" style="font-size: 0.7rem;">@ExtractMachineCode(item.Maquina)</td>
+                                            <td class="text-center font-monospace">@item.NumeroSlot</td>
+                                            <td class="text-uppercase" style="font-size: 0.7rem;">
+                                                <div class="text-truncate" style="max-width: 120px;" title="@item.Producto">@item.Producto</div>
                                             </td>
-                                            <td class="text-center font-monospace bg-white border-start border-end">@item.NumeroSlot
-                                            </td>
-                                            <td class="text-uppercase">
-                                                <div class="text-truncate" style="max-width: 140px;" title="@item.Producto">@item.Producto</div>
-                                            </td>
-                                            <td class="text-center fw-bold font-monospace text-nowrap">
-                                                <span class="text-danger">@item.StockActual</span>
-                                                <span class="text-muted"> / @item.CapacidadMaxima</span>
-                                            </td>
-                                            <td class="text-center">
-                                                @if (item.StockActual == 0)
-                                                {
-                                                    <span class="badge bg-dark rounded-0">AGOTADO</span>
-                                                }
-                                                else
-                                                {
-                                                    <span class="badge bg-danger rounded-0">BAJO</span>
-                                                }
+                                            <td class="text-end fw-bold font-monospace">
+                                                <span class="text-danger">@item.StockActual</span><span class="text-muted">/@item.CapacidadMaxima</span>
                                             </td>
                                         </tr>
                                     }
