@@ -56,7 +56,7 @@
                         <i class="bi bi-file-earmark-excel"></i>
                     </button>
                     <!-- SYNC BUTTON -->
-                    <button class="btn btn-info rounded-0 fw-bold border-dark py-2" @onclick="SincronizarPortal"
+                    <button class="btn btn-info rounded-0 fw-bold border-dark py-2" @onclick="AbrirModalSync"
                         disabled="@Sincronizando" title="Sincronizar con Ourvend">
                         @if (Sincronizando)
                         {
@@ -441,6 +441,41 @@
     </div>
 }
 
+<!-- MODAL CONFIG SYNC -->
+@if (MostrarModalSync)
+{
+    <div class="modal show d-block" style="background: rgba(0,0,0,0.5);" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content rounded-0 border-2 border-dark shadow-lg">
+                <div class="modal-header bg-info text-dark rounded-0 border-bottom border-dark">
+                    <h5 class="modal-title fw-bold text-uppercase"><i class="bi bi-cloud-download-fill me-2"></i>Sincronización Ourvend</h5>
+                    <button type="button" class="btn-close" @onclick="CerrarModalSync"></button>
+                </div>
+                <div class="modal-body p-4" style="background-color: #f8f9fa;">
+                    <p class="mb-3 fw-bold small text-uppercase text-muted">Configuración de Importación</p>
+                    
+                    <div class="alert alert-warning border-dark rounded-0 mb-3 small">
+                        <i class="bi bi-info-circle-fill me-1"></i> Se descargarán las ventas desde el portal.
+                        Puedes limitar hasta qué fecha/hora importar para evitar duplicados o datos parciales.
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small">IMPORTAR VENTAS HASTA (FECHA LOCAL):</label>
+                        <input type="datetime-local" @bind="FechaLimiteSync" class="form-control border-dark rounded-0 fw-bold font-monospace" />
+                        <div class="form-text small fst-italic">Cualquier venta posterior a esta hora será ignorada.</div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light rounded-0 border-top border-dark">
+                    <button type="button" class="btn btn-outline-dark rounded-0 fw-bold" @onclick="CerrarModalSync">CANCELAR</button>
+                    <button type="button" class="btn btn-info rounded-0 fw-bold border-dark" @onclick="EjecutarSync">
+                        <i class="bi bi-play-fill me-1"></i> EJECUTAR
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 <style>
     .sortable-header {
         cursor: pointer;
@@ -461,6 +496,8 @@
     private bool MostrarModalFantasmas = false; // Nuevo Modal
     private bool MostrarFantasmas = false; // Checkbox Filtro (para tabla principal)
     private bool Sincronizando = false;
+    private bool MostrarModalSync = false;
+    private DateTime FechaLimiteSync = DateTime.Now;
 
     // --- VARIABLES DE DATOS ---
     private DateTime FechaInicio = DateTime.Today.AddDays(-30);
@@ -677,6 +714,20 @@
         }
     }
 
+    private void AbrirModalSync()
+    {
+        FechaLimiteSync = DateTime.Now; // Default: Ahora
+        MostrarModalSync = true;
+    }
+
+    private void CerrarModalSync() => MostrarModalSync = false;
+
+    private async Task EjecutarSync()
+    {
+        MostrarModalSync = false;
+        await SincronizarPortal();
+    }
+
     private async Task SincronizarPortal()
     {
         // YA NO SE BLOQUEA si MaquinaSeleccionada <= 0.
@@ -690,8 +741,10 @@
         try
         {
             Sincronizando = true;
-
-            var response = await Http.PostAsync($"api/Ventas/sync-portal?maquinaId={MaquinaSeleccionada}", null);
+            
+            // Formato ISO para la fecha
+            string fechaParam = FechaLimiteSync.ToString("yyyy-MM-ddTHH:mm:ss");
+            var response = await Http.PostAsync($"api/Ventas/sync-portal?maquinaId={MaquinaSeleccionada}&fechaLimite={fechaParam}", null);
             if (response.IsSuccessStatusCode)
             {
                 var msg = await response.Content.ReadAsStringAsync();
