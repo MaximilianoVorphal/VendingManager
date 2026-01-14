@@ -20,7 +20,7 @@ namespace VendingManager.Infrastructure.Services
         // =============================================
         // 0. SINCRONIZACIÓN AUTOMÁTICA (ORQUESTADOR)
         // =============================================
-        public async Task<string> SincronizarDesdePortal(int maquinaId)
+        public async Task<string> SincronizarDesdePortal(int maquinaId, DateTime? fechaLimite = null)
         {
             try
             {
@@ -42,8 +42,17 @@ namespace VendingManager.Infrastructure.Services
                 // 1. Configurar fechas
                 var today = DateTime.Now;
                 var startDate = new DateTime(today.Year, today.Month, 1);
-                // Pedimos hasta MAÑANA para cubrir el desfase horario con China (+11h)
                 var endDate = today.AddDays(1);
+
+                // 🔥 SI HAY FECHA LÍMITE (USUARIO), USAR EL MES DE ESA FECHA
+                if (fechaLimite.HasValue)
+                {
+                    // Si el usuario pide hasta 31/12/2025, debemos bajar el reporte de Diciembre 2025.
+                    startDate = new DateTime(fechaLimite.Value.Year, fechaLimite.Value.Month, 1);
+                    endDate = startDate.AddMonths(1).AddDays(1); // Hasta el principio del mes siguiente (+ margen)
+                    
+                    Console.WriteLine($"[Sync] Ajustando rango de descarga por fecha límite: {startDate:yyyy-MM-dd} a {endDate:yyyy-MM-dd}");
+                }
 
                 Console.WriteLine($"[Sync] Solicitando reporte para ID: '{targetMachineId}'...");
 
@@ -58,7 +67,8 @@ namespace VendingManager.Infrastructure.Services
                 {
                     await result.FileStream.CopyToAsync(ms);
                     ms.Position = 0;
-                    await ImportarVentasMaquina(ms, result.FileName);
+                    string stats = await ImportarVentasMaquina(ms, result.FileName, fechaLimite);
+                    return $"Sincronización Exitosa. {stats}";
                 }
 
                 return "Sincronización Exitosa. Archivo procesado en memoria.";
@@ -73,7 +83,7 @@ namespace VendingManager.Infrastructure.Services
         // =============================================
         // 1. IMPORTAR VENTAS DE MÁQUINA (.XLS CHINO)
         // =============================================
-        public async Task ImportarVentasMaquina(Stream fileStream, string nombreArchivo)
+        public async Task<string> ImportarVentasMaquina(Stream fileStream, string nombreArchivo, DateTime? fechaLimite = null)
         {
             try
             {
@@ -100,13 +110,14 @@ namespace VendingManager.Infrastructure.Services
                     if (colId == -1)
                     {
                         Console.WriteLine("🔥 ERROR: No encuentro la columna 'Machine ID'.");
-                        return;
+                        return "Error: Formato de archivo incorrecto (Falta Machine ID)";
                     }
 
                     int guardados = 0;
                     int duplicados = 0;
                     int maquinaNoEncontrada = 0;
                     int filasVacias = 0;
+                    int ignoradosPorFecha = 0;
 
                     foreach (DataRow row in tabla.Rows)
                     {
@@ -205,6 +216,13 @@ namespace VendingManager.Infrastructure.Services
 
                         DateTime fechaLocal = fecha.AddHours(offset);
 
+                        // 🔥 FILTRO DE FECHA LÍMITE (SOLICITADO POR USUARIO)
+                        if (fechaLimite.HasValue && fechaLocal > fechaLimite.Value)
+                        {
+                            ignoradosPorFecha++;
+                            continue;
+                        }
+
                         // 4. Procesar Venta (Insertar)
                         var configSlot = maquina.Slots.FirstOrDefault(s => s.NumeroSlot == slot); // String comparison
 
@@ -241,16 +259,22 @@ namespace VendingManager.Infrastructure.Services
                     }
 
                     await _context.SaveChangesAsync();
-                    Console.WriteLine($"✅ MÁQUINA: {guardados} nuevas. DETALLES: {duplicados} duplicados | {maquinaNoEncontrada} maq_no_existe | {filasVacias} vacías.");
+                    string reporte = $"PROCESADO: {guardados} nuevas | {duplicados} dupl | {ignoradosPorFecha} fuera_rango | {maquinaNoEncontrada} sin_maq";
+                    Console.WriteLine($"✅ MÁQUINA: {reporte}");
+                    return reporte;
                 }
             }
-            catch (Exception ex) { Console.WriteLine($"❌ ERROR MÁQUINA: {ex.Message}"); }
+            catch (Exception ex) 
+            { 
+                Console.WriteLine($"❌ ERROR MÁQUINA: {ex.Message}");
+                return $"Error: {ex.Message}";
+            }
         }
 
         // =============================================
         // 2. IMPORTAR TRANSBANK (MODO FIABILIDAD TOTAL)
         // =============================================
-        public async Task ImportarTransbank(Stream fileStream, string nombreArchivo)
+        public async Task ImportarTransbank(Stream fileStream, string nombreArchivo, DateTime? fechaLimite = null)
         {
             // 1. LEER EXCEL (Tu lógica original de lectura es correcta, la mantenemos)
             var tbRecords = new List<TransbankRecord>();
@@ -294,6 +318,9 @@ namespace VendingManager.Infrastructure.Services
                             System.Globalization.CultureInfo.InvariantCulture,
                             System.Globalization.DateTimeStyles.None, out DateTime fechaTB))
                         {
+                            // 🔥 FILTRO: Ignorar si excede el límite
+                            if (fechaLimite.HasValue && fechaTB > fechaLimite.Value) continue;
+
                             string posCode = colPos != -1 ? row[colPos]?.ToString()?.Trim() ?? "" : "";
                             tbRecords.Add(new TransbankRecord { Fecha = fechaTB, Monto = montoTB, PosCode = posCode });
                         }
@@ -780,8 +807,131 @@ namespace VendingManager.Infrastructure.Services
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"❌ ERROR EXPORT: {ex.Message}");
+                Console.WriteLine($"Error exportando catálogo: {ex.Message}");
                 throw;
+            }
+        }
+
+        // =============================================
+        // 5. EXPORTAR LISTA DE CARGA (NUEVO)
+        // =============================================
+        public async Task<byte[]> ExportarListaCarga(List<VendingManager.Core.DTOs.StockCriticoDto> items)
+        {
+            try
+            {
+                using (var workbook = new XLWorkbook())
+                {
+                    var worksheet = workbook.Worksheets.Add("Carga Sugerida");
+
+                    // HEADERS
+                    worksheet.Cell(1, 1).Value = "Máquina";
+                    worksheet.Cell(1, 2).Value = "Slot";
+                    worksheet.Cell(1, 3).Value = "Producto";
+                    worksheet.Cell(1, 4).Value = "Stock Actual";
+                    worksheet.Cell(1, 5).Value = "Capacidad";
+                    worksheet.Cell(1, 6).Value = "A Cargar";
+
+                    // ESTILO HEADERS
+                    var headerRange = worksheet.Range("A1:F1");
+                    headerRange.Style.Font.Bold = true;
+                    headerRange.Style.Fill.BackgroundColor = XLColor.LightBlue;
+                    headerRange.Style.Border.BottomBorder = XLBorderStyleValues.Thick;
+
+                    int row = 2;
+                    foreach (var item in items)
+                    {
+                        worksheet.Cell(row, 1).Value = item.Maquina;
+                        worksheet.Cell(row, 2).Value = item.NumeroSlot;
+                        
+                        // Forzar texto para que no se coma ceros o formatee raro si es que aplica
+                        worksheet.Cell(row, 2).Style.NumberFormat.Format = "@";
+
+                        worksheet.Cell(row, 3).Value = item.Producto;
+                        worksheet.Cell(row, 4).Value = item.StockActual;
+                        worksheet.Cell(row, 5).Value = item.CapacidadMaxima;
+                        
+                        // Cálculo de carga sugerida (Capacidad - Stock)
+                        int carga = Math.Max(0, item.CapacidadMaxima - item.StockActual);
+                        worksheet.Cell(row, 6).Value = carga;
+
+                        // Resaltar si hay carga
+                        if (carga > 0)
+                        {
+                            worksheet.Cell(row, 6).Style.Font.Bold = true;
+                            worksheet.Cell(row, 6).Style.Fill.BackgroundColor = XLColor.LightYellow;
+                        }
+
+                        row++;
+                    }
+
+                    // =============================================
+                    // SUMMARY TABLE (Right side)
+                    // =============================================
+                    // Calculate totals
+                    var summary = items
+                        .Select(x => new 
+                        { 
+                            Producto = x.Producto, 
+                            Carga = Math.Max(0, x.CapacidadMaxima - x.StockActual) 
+                        })
+                        .Where(x => x.Carga > 0)
+                        .GroupBy(x => x.Producto)
+                        .Select(g => new { Producto = g.Key, Total = g.Sum(x => x.Carga) })
+                        .OrderBy(x => x.Producto)
+                        .ToList();
+
+                    // Position: Column I (9)
+                    int summaryCol = 9;
+                    
+                    // Headers
+                    worksheet.Cell(1, summaryCol).Value = "Producto (Resumen)";
+                    worksheet.Cell(1, summaryCol + 1).Value = "Total Unidades";
+
+                    var summaryHeader = worksheet.Range(1, summaryCol, 1, summaryCol + 1);
+                    summaryHeader.Style.Font.Bold = true;
+                    summaryHeader.Style.Fill.BackgroundColor = XLColor.LightGreen; 
+                    summaryHeader.Style.Border.BottomBorder = XLBorderStyleValues.Thick;
+                    summaryHeader.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+
+                    // Data
+                    int summaryRow = 2;
+                    foreach(var item in summary)
+                    {
+                        worksheet.Cell(summaryRow, summaryCol).Value = item.Producto;
+                        worksheet.Cell(summaryRow, summaryCol + 1).Value = item.Total;
+                        
+                        // Add some borders for readability
+                         var range = worksheet.Range(summaryRow, summaryCol, summaryRow, summaryCol + 1);
+                         range.Style.Border.BottomBorder = XLBorderStyleValues.Thin;
+
+                        summaryRow++;
+                    }
+                    
+                    // Total Grand Sum
+                    if (summaryRow > 2)
+                    {
+                        worksheet.Cell(summaryRow, summaryCol).Value = "TOTAL GENERAL";
+                        worksheet.Cell(summaryRow, summaryCol).Style.Font.Bold = true;
+                        
+                        worksheet.Cell(summaryRow, summaryCol + 1).FormulaA1 = $"SUM(J2:J{summaryRow-1})";
+                        worksheet.Cell(summaryRow, summaryCol + 1).Style.Font.Bold = true;
+                    }
+
+                    // AUTO-FIT COLUMNS
+                    worksheet.Columns().AdjustToContents();
+
+                    using (var stream = new MemoryStream())
+                    {
+                        workbook.SaveAs(stream);
+                        return stream.ToArray();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error exportando lista de carga: {ex.Message}");
+                // Retornar array vacio o rethrow? Rethrow es mejor para API.
+                throw; 
             }
         }
     }

@@ -20,7 +20,7 @@ namespace VendingManager.Web.Controllers
         }
 
         [HttpPost("subir-ventas-maquina")]
-        public async Task<IActionResult> SubirVentasMaquina(IFormFile file)
+        public async Task<IActionResult> SubirVentasMaquina(IFormFile file, [FromQuery] DateTime? fechaLimite = null)
         {
             if (file == null || file.Length == 0) return BadRequest("Archivo vacío.");
             try
@@ -43,10 +43,9 @@ namespace VendingManager.Web.Controllers
 
                     // 2. Procesar el archivo (resetear stream o usar nuevo)
                     memoryStream.Position = 0;
-                    await _ventasService.ImportarVentasMaquinaAsync(memoryStream, file.FileName);
+                    string resultado = await _ventasService.ImportarVentasMaquinaAsync(memoryStream, file.FileName, fechaLimite);
+                    return Ok($"Archivo procesado. {resultado}");
                 }
-
-                return Ok("Archivo de MÁQUINA procesado y guardado en Documentos correctamente.");
             }
             catch (Exception ex) { return StatusCode(500, ex.Message); }
         }
@@ -66,7 +65,7 @@ namespace VendingManager.Web.Controllers
         }
 
         [HttpPost("subir-transbank")]
-        public async Task<IActionResult> SubirTransbank(IFormFile file)
+        public async Task<IActionResult> SubirTransbank(IFormFile file, [FromQuery] DateTime? fechaLimite = null)
         {
             if (file == null || file.Length == 0) return BadRequest("Archivo vacío.");
             try
@@ -89,7 +88,7 @@ namespace VendingManager.Web.Controllers
 
                     // 2. Procesar el archivo
                     memoryStream.Position = 0;
-                    await _ventasService.ImportarTransbankAsync(memoryStream, file.FileName);
+                    await _ventasService.ImportarTransbankAsync(memoryStream, file.FileName, fechaLimite);
                 }
 
                 return Ok("Archivo de TRANSBANK procesado y guardado en Documentos correctamente.");
@@ -146,9 +145,9 @@ namespace VendingManager.Web.Controllers
         }
 
         [HttpPost("sync-portal")]
-        public async Task<IActionResult> SincronizarPortal([FromQuery] int maquinaId)
+        public async Task<IActionResult> SincronizarPortal([FromQuery] int maquinaId, [FromQuery] DateTime? fechaLimite = null)
         {
-            var resultado = await _excelService.SincronizarDesdePortal(maquinaId);
+            var resultado = await _excelService.SincronizarDesdePortal(maquinaId, fechaLimite);
             if (resultado.StartsWith("Error")) return BadRequest(resultado);
             return Ok(resultado);
         }

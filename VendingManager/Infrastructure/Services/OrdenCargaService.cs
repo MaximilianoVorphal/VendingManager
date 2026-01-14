@@ -144,8 +144,6 @@ namespace VendingManager.Infrastructure.Services
         public async Task<List<StockCriticoDto>> GetSugerenciaCargaAsync(int maquinaId)
         {
              // Returns list of items where StockActual < Capacidad
-             // We use ConfiguracionSlot
-             
              var slots = await _context.ConfiguracionSlots
                 .Include(s => s.Maquina)
                 .Include(s => s.Producto)
@@ -153,7 +151,7 @@ namespace VendingManager.Infrastructure.Services
                 .Where(s => s.StockActual < s.CapacidadMaxima)
                 .ToListAsync();
 
-            return slots.Select(s => new StockCriticoDto
+            var dtos = slots.Select(s => new StockCriticoDto
             {
                 SlotId = s.Id,
                 Maquina = s.Maquina.Nombre,
@@ -162,7 +160,67 @@ namespace VendingManager.Infrastructure.Services
                 ProductoId = s.ProductoId ?? 0,
                 StockActual = s.StockActual,
                 CapacidadMaxima = s.CapacidadMaxima
-            }).OrderBy(x => x.NumeroSlot).ToList();
+            }).ToList();
+
+            // NUMERIC SORT
+            return SortSlotsNumerically(dtos);
+        }
+
+        public async Task<List<StockCriticoDto>> GetSugerenciaGlobalAsync()
+        {
+            var slots = await _context.ConfiguracionSlots
+                .Include(s => s.Maquina)
+                .Include(s => s.Producto)
+                .Where(s => s.ProductoId != null)
+                .Where(s => s.StockActual < s.CapacidadMaxima)
+                .ToListAsync();
+
+            var dtos = slots.Select(s => new StockCriticoDto
+            {
+                SlotId = s.Id,
+                Maquina = s.Maquina.Nombre,
+                NumeroSlot = s.NumeroSlot,
+                Producto = s.Producto?.Nombre ?? "Sin Producto",
+                ProductoId = s.ProductoId ?? 0,
+                StockActual = s.StockActual,
+                CapacidadMaxima = s.CapacidadMaxima
+            }).ToList();
+
+            // Sort by Machine Name then Slot
+            var sorted = SortSlotsNumerically(dtos);
+            return sorted.OrderBy(x => x.Maquina).ThenBy(x => x.NumeroSlot, new NumericStringComparer()).ToList();
+        }
+
+        private List<StockCriticoDto> SortSlotsNumerically(List<StockCriticoDto> list)
+        {
+            return list.OrderBy(x => x.NumeroSlot, new NumericStringComparer()).ToList();
+        }
+
+        // Helper Class for Sorting
+        public class NumericStringComparer : IComparer<string>
+        {
+            public int Compare(string? x, string? y)
+            {
+                if (x == y) return 0;
+                if (string.IsNullOrEmpty(x)) return -1;
+                if (string.IsNullOrEmpty(y)) return 1;
+
+                bool isXNumeric = int.TryParse(x, out int xInt);
+                bool isYNumeric = int.TryParse(y, out int yInt);
+
+                if (isXNumeric && isYNumeric)
+                {
+                    return xInt.CompareTo(yInt);
+                }
+                
+                // If one is numeric and the other isn't, usually numbers come first? or last?
+                // Let's standard string compare if not both numbers.
+                // Or try to parse mixed content? For now simple int parse is enough for "1", "10", etc.
+                if (isXNumeric) return -1; // Numbers first
+                if (isYNumeric) return 1;
+
+                return string.Compare(x, y, StringComparison.OrdinalIgnoreCase);
+            }
         }
 
         private OrdenCargaDto MapToDto(OrdenCarga orden, string maquinaNombre)

@@ -191,6 +191,12 @@
                         <input type="number" class="form-control rounded-0 border-dark" @bind="SelectedSwapPrice" />
                     </div>
 
+                    <label class="form-label fw-bold">CANTIDAD INICIAL:</label>
+                    <div class="input-group mb-3">
+                         <span class="input-group-text rounded-0 border-dark">#</span>
+                        <input type="number" class="form-control rounded-0 border-dark fw-bold" @bind="SelectedSwapQuantity" min="0" />
+                    </div>
+
                 </div>
                 <div class="modal-footer bg-light rounded-0">
                     <button type="button" class="btn btn-outline-dark rounded-0 fw-bold" @onclick="CloseModal">CANCELAR</button>
@@ -330,6 +336,7 @@
     private ConfiguracionSlotDto? SlotForSwap;
     private int SelectedSwapProductId = 0;
     private decimal SelectedSwapPrice = 0; // State for price input
+    private int SelectedSwapQuantity = 0; // State for quantity input
 
     protected override async Task OnInitializedAsync()
     {
@@ -414,6 +421,7 @@
             SlotForSwap = slot;
             SelectedSwapProductId = slot.ProductoId ?? 0;
             SelectedSwapPrice = slot.PrecioVenta; // Pre-fill with current price
+            SelectedSwapQuantity = slot.CapacidadMaxima; // Default to max capacity or let user choose
             ShowSwapModal = true;
         }
     }
@@ -439,17 +447,17 @@
             ActionType = "SWAP",
             NewProductoId = SelectedSwapProductId,
             NewProductoDto = newProd,
-            Cantidad = 5, // User requested default 5 on swap
+            Cantidad = SelectedSwapQuantity, // User requested quantity
             NewPrecioVenta = SelectedSwapPrice // Send new price
         });
 
-        if (SelectedSwapProductId > 0)
+        if (SelectedSwapProductId > 0 && SelectedSwapQuantity > 0)
         {
              PendingActions.Add(new SlotActionDto
             {
                 SlotId = SlotForSwap.Id,
                 ActionType = "REFILL",
-                Cantidad = 5
+                Cantidad = SelectedSwapQuantity
             });
         }
 

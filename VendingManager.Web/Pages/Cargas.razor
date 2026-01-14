@@ -8,7 +8,7 @@
 <PageTitle>GESTIÓN DE CARGAS</PageTitle>
 
 <div class="container-fluid px-4 mt-4" style="font-family: 'Segoe UI', Consolas, monospace;">
-    <div class="row align-items-center mb-4 border-bottom border-3 border-dark pb-3">
+     <div class="row align-items-center mb-4 border-bottom border-3 border-dark pb-3">
         <div class="col-md-6">
             <h2 class="m-0 fw-bold text-uppercase" style="letter-spacing: -1px;">
                 <i class="bi bi-truck me-2"></i>Centro de Cargas
@@ -16,19 +16,25 @@
             <small class="text-muted fw-bold">PLANIFICACIÓN Y LOGÍSTICA DE REPOSICIÓN</small>
         </div>
         <div class="col-md-6 text-end">
-            <!-- MÁQUINA SELECTOR -->
-             <div class="input-group justify-content-end" style="max-width: 400px; margin-left: auto;">
-                <span class="input-group-text bg-dark text-white fw-bold rounded-0">MÁQUINA</span>
-                <select class="form-select border-dark rounded-0 fw-bold" @onchange="CambiarMaquina" value="@MaquinaActualId">
-                    <option value="0">:: SELECCIONE UNIDAD ::</option>
-                    @if (ListaMaquinas != null)
-                    {
-                        @foreach (var m in ListaMaquinas)
+             <div class="d-flex justify-content-end gap-2">
+                 <button class="btn btn-outline-dark rounded-0 fw-bold" @onclick="DescargarGlobal">
+                     <i class="bi bi-globe2 me-2"></i>EXPORTAR TODO
+                 </button>
+
+                 <!-- MÁQUINA SELECTOR -->
+                 <div class="input-group" style="max-width: 400px;">
+                    <span class="input-group-text bg-dark text-white fw-bold rounded-0">MÁQUINA</span>
+                    <select class="form-select border-dark rounded-0 fw-bold" @onchange="CambiarMaquina" value="@MaquinaActualId">
+                        <option value="0">:: SELECCIONE UNIDAD ::</option>
+                        @if (ListaMaquinas != null)
                         {
-                            <option value="@m.Id">@m.Nombre.ToUpper()</option>
+                            @foreach (var m in ListaMaquinas)
+                            {
+                                <option value="@m.Id">@m.Nombre.ToUpper()</option>
+                            }
                         }
-                    }
-                </select>
+                    </select>
+                </div>
             </div>
         </div>
     </div>
@@ -103,6 +109,13 @@
                     </div>
                     <div class="card-footer bg-white border-top border-dark p-3 text-end">
                         @{ var totalItems = SugerenciaItems?.Sum(x => x.CantidadSolicitada) ?? 0; }
+                        
+                        <button class="btn btn-outline-dark rounded-0 fw-bold px-3 me-2"
+                                disabled="@(SugerenciaItems == null || SugerenciaItems.Count == 0)"
+                                @onclick="DescargarPlanilla">
+                            <i class="bi bi-file-earmark-excel me-2"></i>DESCARGAR PLANILLA
+                        </button>
+
                         <button class="btn btn-success rounded-0 fw-bold px-4 shadow-sm"
                                 disabled="@(totalItems == 0)"
                                 @onclick="GenerarOrden">
@@ -145,7 +158,9 @@
                                         }
                                         else
                                         {
-                                            <span class="badge bg-dark rounded-0">FINALIZADA</span>
+                                            <button class="btn btn-sm btn-outline-dark rounded-0 fw-bold" @onclick="() => AbrirDetalle(ord)">
+                                                VER DETALLE
+                                            </button>
                                         }
                                     </div>
                                 </div>
@@ -158,20 +173,26 @@
     }
 </div>
 
-<!-- MODAL FINALIZAR -->
+<!-- MODAL FINALIZAR / DETALLE -->
 @if (MostrarModalFinalizar && OrdenSeleccionada != null)
 {
     <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5);">
         <div class="modal-dialog modal-dialog-centered modal-lg">
             <div class="modal-content rounded-0 border-2 border-dark shadow-lg">
-                <div class="modal-header bg-primary text-white rounded-0">
-                    <h5 class="modal-title fw-bold"><i class="bi bi-clipboard-check me-2"></i>FINALIZAR CARGA #@OrdenSeleccionada.Id</h5>
+                <div class="modal-header @(EsModoLectura ? "bg-secondary" : "bg-primary") text-white rounded-0">
+                    <h5 class="modal-title fw-bold">
+                        <i class="bi @(EsModoLectura ? "bi-eye" : "bi-clipboard-check") me-2"></i>
+                        @(EsModoLectura ? "DETALLE ORDEN" : "FINALIZAR CARGA") #@OrdenSeleccionada.Id
+                    </h5>
                     <button type="button" class="btn-close btn-close-white" @onclick="CerrarModal"></button>
                 </div>
                 <div class="modal-body p-0">
-                    <div class="alert alert-info rounded-0 m-3 small border-info">
-                        <i class="bi bi-info-circle-fill me-2"></i>Ingrese la cantidad de productos que <strong>SOBRARON</strong> (no fueron cargados) para devolverlos a bodega.
-                    </div>
+                    @if (!EsModoLectura)
+                    {
+                        <div class="alert alert-info rounded-0 m-3 small border-info">
+                            <i class="bi bi-info-circle-fill me-2"></i>Ingrese la cantidad de productos que <strong>SOBRARON</strong> (no fueron cargados) para devolverlos a bodega.
+                        </div>
+                    }
                     <div class="table-responsive">
                         <table class="table table-striped m-0 align-middle">
                             <thead class="bg-light small text-uppercase">
@@ -188,8 +209,15 @@
                                         <td class="px-3">@det.ProductoNombre</td>
                                         <td class="text-center fw-bold">@det.CantidadSolicitada</td>
                                         <td class="text-center">
-                                            <input type="number" class="form-control form-control-sm border-dark rounded-0 text-center"
-                                                   @bind="det.CantidadRetornada" min="0" max="@det.CantidadSolicitada" />
+                                            @if (EsModoLectura)
+                                            {
+                                                <span class="badge bg-secondary rounded-0 fs-6">@det.CantidadRetornada</span>
+                                            }
+                                            else
+                                            {
+                                                <input type="number" class="form-control form-control-sm border-dark rounded-0 text-center"
+                                                       @bind="det.CantidadRetornada" min="0" max="@det.CantidadSolicitada" />
+                                            }
                                         </td>
                                     </tr>
                                 }
@@ -198,10 +226,13 @@
                     </div>
                 </div>
                 <div class="modal-footer bg-light rounded-0">
-                    <button type="button" class="btn btn-outline-dark rounded-0 fw-bold" @onclick="CerrarModal">CANCELAR</button>
-                    <button type="button" class="btn btn-primary rounded-0 fw-bold px-4" @onclick="ConfirmarFinalizacion">
-                        CONFIRMAR Y CERRAR
-                    </button>
+                    <button type="button" class="btn btn-outline-dark rounded-0 fw-bold" @onclick="CerrarModal">CERRAR</button>
+                    @if (!EsModoLectura)
+                    {
+                        <button type="button" class="btn btn-primary rounded-0 fw-bold px-4" @onclick="ConfirmarFinalizacion">
+                            CONFIRMAR Y CERRAR
+                        </button>
+                    }
                 </div>
             </div>
         </div>
@@ -223,6 +254,7 @@
 
     // Modal Finalizar
     private bool MostrarModalFinalizar = false;
+    private bool EsModoLectura = false;
     private OrdenCargaDto? OrdenSeleccionada;
 
     protected override async Task OnInitializedAsync()
@@ -321,9 +353,28 @@
         }
     }
 
+    private void DescargarPlanilla()
+    {
+        if (MaquinaActualId == 0) return;
+        NavManager.NavigateTo($"api/OrdenCarga/exportar-sugerencia?maquinaId={MaquinaActualId}", true);
+    }
+
+    private void DescargarGlobal()
+    {
+        NavManager.NavigateTo("api/OrdenCarga/exportar-consolidado", true);
+    }
+
     private void AbrirFinalizar(OrdenCargaDto orden)
     {
         OrdenSeleccionada = orden;
+        EsModoLectura = false;
+        MostrarModalFinalizar = true;
+    }
+
+    private void AbrirDetalle(OrdenCargaDto orden)
+    {
+        OrdenSeleccionada = orden;
+        EsModoLectura = true;
         MostrarModalFinalizar = true;
     }
 

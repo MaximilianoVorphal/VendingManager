@@ -198,7 +198,7 @@
                         <p class="small text-muted mb-2 font-monospace">Archivo fuente: "Give-out record"</p>
 
                         <div class="input-group">
-                            <InputFile OnChange="SubirArchivoMaquina"
+                            <InputFile @key="InputKey" OnChange="SubirArchivoMaquina"
                             class="form-control form-control-sm border-dark rounded-0" accept=".xls,.xlsx" />
                         </div>
                     </div>
@@ -215,7 +215,7 @@
                         <p class="small text-muted mb-2 font-monospace">Archivo fuente: "Transbank/Banco"</p>
 
                         <div class="input-group">
-                            <InputFile OnChange="SubirArchivoTransbank"
+                            <InputFile @key="InputKey" OnChange="SubirArchivoTransbank"
                             class="form-control form-control-sm border-dark rounded-0" accept=".xls,.xlsx,.csv" />
                         </div>
                     </div>
@@ -241,7 +241,41 @@
             }
         </div>
     }
+    }
 </div>
+
+<!-- MODAL FECHA LÍMITE (CARGA MANUAL) -->
+@if (MostrarModalFecha)
+{
+    <div class="modal show d-block" style="background: rgba(0,0,0,0.5);" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content rounded-0 border-2 border-dark shadow-lg">
+                <div class="modal-header bg-dark text-white rounded-0 border-bottom border-dark">
+                    <h5 class="modal-title fw-bold text-uppercase"><i class="bi bi-calendar-event me-2"></i>Configurar Importación</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CancelarCarga"></button>
+                </div>
+                <div class="modal-body p-4" style="background-color: #f8f9fa;">
+                    <div class="alert alert-info border-dark rounded-0 mb-3 small">
+                        <i class="bi bi-file-earmark-excel-fill me-1"></i> Archivo seleccionado: 
+                        <strong>@(PendingFile?.Name ?? "Desconocido")</strong>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small">IMPORTAR VENTAS HASTA (FECHA LOCAL):</label>
+                        <input type="datetime-local" @bind="FechaLimiteCarga" class="form-control border-dark rounded-0 fw-bold font-monospace" />
+                        <div class="form-text small fst-italic">Cualquier venta posterior a esta hora será ignorada.</div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light rounded-0 border-top border-dark">
+                     <button type="button" class="btn btn-outline-dark rounded-0 fw-bold" @onclick="CancelarCarga">CANCELAR</button>
+                    <button type="button" class="btn btn-dark rounded-0 fw-bold border-dark" @onclick="ConfirmarCarga">
+                        <i class="bi bi-upload me-1"></i> SUBIR AHORA
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
 
 <style>
     /* Efecto de parpadeo para el texto de carga */
@@ -276,6 +310,13 @@
 
     private string Mensaje = "";
     private bool Cargando = false;
+
+    // Manual Upload Logic
+    private bool MostrarModalFecha = false;
+    private DateTime FechaLimiteCarga = DateTime.Now;
+    private IBrowserFile? PendingFile;
+    private string PendingType = "MAQUINA"; // MAQUINA or TRANSBANK
+    private int InputKey = 0; // Para resetear el input file
 
     // Critical Stock Modal Logic
     private bool MostrarModalCriticoState = false;
@@ -418,7 +459,47 @@ backgroundColor = new[] { "#198754", "#dc3545" }
         NavManager.NavigateTo(url);
     }
 
-    private async Task SubirArchivo(InputFileChangeEventArgs e, string endpoint)
+
+
+    // INTERCEPTOR PARA MAQUINA: Muestra Modal
+    private void SubirArchivoMaquina(InputFileChangeEventArgs e) => PrepararCarga(e.File, "MAQUINA");
+    private void SubirArchivoTransbank(InputFileChangeEventArgs e) => PrepararCarga(e.File, "TRANSBANK");
+
+    private void PrepararCarga(IBrowserFile file, string tipo)
+    {
+        PendingFile = file;
+        PendingType = tipo;
+        FechaLimiteCarga = DateTime.Now;
+        MostrarModalFecha = true;
+    }
+
+    private void CancelarCarga()
+    {
+        PendingFile = null;
+        MostrarModalFecha = false;
+        InputKey++; // Reseteamos el input para permitir elegir el mismo archivo
+    }
+
+    private async Task ConfirmarCarga()
+    {
+        if (PendingFile == null) return;
+        MostrarModalFecha = false;
+        
+        string fechaParam = FechaLimiteCarga.ToString("yyyy-MM-ddTHH:mm:ss");
+        string endpoint = "";
+
+        if (PendingType == "MAQUINA")
+            endpoint = $"api/Ventas/subir-ventas-maquina?fechaLimite={fechaParam}";
+        else
+            endpoint = $"api/Ventas/subir-transbank?fechaLimite={fechaParam}";
+        
+        await SubirArchivoGenerico(PendingFile, endpoint);
+        PendingFile = null;
+        InputKey++; // Reseteamos el input al finalizar
+    }
+
+    // Refactorización para soportar llamada manual
+    private async Task SubirArchivoGenerico(IBrowserFile file, string endpoint)
     {
         Cargando = true;
         Mensaje = "INICIANDO PROTOCOLO DE CARGA...";
@@ -427,9 +508,9 @@ backgroundColor = new[] { "#198754", "#dc3545" }
         using var content = new MultipartFormDataContent();
         try
         {
-            var fileContent = new StreamContent(e.File.OpenReadStream(20 * 1024 * 1024));
-            fileContent.Headers.ContentType = new MediaTypeHeaderValue(e.File.ContentType);
-            content.Add(fileContent, "file", e.File.Name);
+            var fileContent = new StreamContent(file.OpenReadStream(20 * 1024 * 1024));
+            fileContent.Headers.ContentType = new MediaTypeHeaderValue(file.ContentType);
+            content.Add(fileContent, "file", file.Name);
 
             var resp = await Http.PostAsync(endpoint, content);
 
@@ -448,8 +529,7 @@ backgroundColor = new[] { "#198754", "#dc3545" }
         finally { Cargando = false; }
     }
 
-    private Task SubirArchivoMaquina(InputFileChangeEventArgs e) => SubirArchivo(e, "api/Ventas/subir-ventas-maquina");
-    private Task SubirArchivoTransbank(InputFileChangeEventArgs e) => SubirArchivo(e, "api/Ventas/subir-transbank");
+
 
     public class DashboardStats
     {
