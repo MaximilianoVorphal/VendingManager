@@ -25,7 +25,7 @@
     padding: 15px 0;
     margin-bottom: 20px;
     position: relative;
-    /* Para posicionamiento absoluto del menú móvil si fuera necesario */
+    z-index: 1100; /* Above all page content including sticky headers */
 }
 
 /* Ajuste de padding lateral para que no toque los bordes en movil/tablet landscape */
@@ -213,9 +213,8 @@
     background-color: #ffffff;
     min-width: 220px;
     box-shadow: 4px 4px 0px #000000;
-    /* Sombra dura estilo industrial */
     border: 2px solid #000000;
-    z-index: 1000;
+    z-index: 1150; /* Above navbar and all page content */
     top: 100%;
     left: 0;
     padding: 10px 0;

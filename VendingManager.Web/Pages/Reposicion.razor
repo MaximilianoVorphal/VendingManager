@@ -71,7 +71,7 @@
                 <span>VISTA DE ESTANTERÍA (SHELVES)</span>
                 <div>
                    <span class="badge bg-light text-dark rounded-0 me-2">@PendingActions.Count ACCIONES</span>
-                    <button class="btn btn-sm btn-light rounded-0 fw-bold border-secondary text-success" 
+                    <button class="btn btn-sm btn-light rounded-0 fw-bold border-secondary text-success @(PendingActions.Count == 0 ? "btn-disabled" : "")" 
                         disabled="@(PendingActions.Count == 0)" @onclick="ConfirmarAcciones">
                         <i class="bi bi-save me-2"></i>GUARDAR CAMBIOS
                     </button>
@@ -95,7 +95,7 @@
                                 <div class="shelf-label badge bg-dark text-white rounded-0 mb-2">PISO @shelf.Key</div>
                                 
                                 <!-- FLEX WRAP CONTAINER FOR SLOTS -->
-                                <div class="d-flex flex-wrap justify-content-center gap-2">
+                                <div class="inventory-grid">
                                     @foreach (var s in shelf.OrderBy(x => x.SlotNumberSort))
                                     {
                                         var action = PendingActions.FirstOrDefault(a => a.SlotId == s.Id);
@@ -114,7 +114,7 @@
                                             </div>
 
                                             <!-- MIDDLE: Product Name -->
-                                            <div class="slot-product-name text-center lh-1 my-1">
+                                            <div class="slot-product-name text-center lh-1 my-1" style="font-weight: 600;">
                                                 @if (action?.ActionType == "SWAP" && action.NewProductoDto != null)
                                                 {
                                                     <span class="text-warning fw-bold">@action.NewProductoDto.Nombre</span>
@@ -129,7 +129,7 @@
                                             <div class="mt-auto w-100 pt-1 border-top border-dark d-flex justify-content-between align-items-end" style="font-size:0.75rem;">
                                                 <div class="d-flex flex-column lh-1">
                                                     <span class="opacity-75">STOCK</span>
-                                                    <span class="fw-bold fs-6">@s.StockActual</span>
+                                                    <span class="fw-bold" style="font-size: 0.85rem;">@Math.Max(0, s.StockActual)</span>
                                                 </div>
                                                 
                                                 @if (action?.ActionType == "REFILL")
@@ -160,6 +160,34 @@
         </div>
     }
 
+</div>
+
+<!-- FLOATING ACTION BUTTON (Mobile) -->
+<div class="fab-container">
+    <button class="fab-main @(_isFabOpen ? "fab-open" : "")" @onclick="ToggleFab">
+        <i class="bi @(_isFabOpen ? "bi-x-lg" : "bi-plus-lg")"></i>
+    </button>
+    
+    @if (_isFabOpen)
+    {
+        <div class="fab-menu">
+            <button class="fab-option @(CurrentTool == "REFILL" ? "fab-active" : "")" 
+                    @onclick="@(() => { SelectTool("REFILL"); ToggleFab(); })">
+                <i class="bi bi-box-seam"></i>
+                <span>Rellenar</span>
+            </button>
+            <button class="fab-option @(CurrentTool == "EMPTY" ? "fab-active" : "")" 
+                    @onclick="@(() => { SelectTool("EMPTY"); ToggleFab(); })">
+                <i class="bi bi-trash"></i>
+                <span>Vaciar</span>
+            </button>
+            <button class="fab-option @(CurrentTool == "SWAP" ? "fab-active" : "")" 
+                    @onclick="@(() => { SelectTool("SWAP"); ToggleFab(); })">
+                <i class="bi bi-arrow-repeat"></i>
+                <span>Cambiar</span>
+            </button>
+        </div>
+    }
 </div>
 
 <!-- MODAL SWAP PRODUCTO -->
@@ -218,18 +246,25 @@
     /* Mobile-First tweaks */
     .machine-chassis {
         background-color: #222;
-        padding: 5px; /* Reduced from 15px */
+        padding: 5px;
         border-radius: 4px;
-        border: 2px solid #444; /* Reduced border */
+        border: 2px solid #444;
     }
     .shelf-container {
         border-bottom: 4px solid #666 !important; 
         background-color: #ddd !important;
-        padding: 5px !important; /* Tighter shelf padding */
+        padding: 5px !important;
     }
+    
+    /* INVENTORY GRID - CSS Grid for responsive layout */
+    .inventory-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(85px, 1fr));
+        gap: 8px;
+        padding: 4px;
+    }
+    
     .slot-unit {
-        /* Standard size, but flex allows shrinking/growing */
-        flex: 1 0 85px; /* Grow to fill, min-width 85px (fits 4-5 on small screen) */
         min-height: 100px;
         border: 2px solid #333;
         padding: 4px;
@@ -241,35 +276,39 @@
         flex-direction: column;
         justify-content: space-between;
         background-color: white;
-        margin-bottom: 2px;
     }
     
-    /* On very small screens, ensure we use max width */
+    /* On very small screens */
     @@media (max-width: 576px) {
         .container-fluid { padding-left: 5px !important; padding-right: 5px !important; }
         .card-body { padding: 5px !important; }
+        .inventory-grid {
+            grid-template-columns: repeat(auto-fill, minmax(75px, 1fr));
+            gap: 4px;
+        }
     }
 
     .slot-unit:active {
         transform: scale(0.95);
     }
     .slot-product-name {
-        font-size: 0.7rem; /* Slightly smaller text */
+        font-size: 0.7rem;
         line-height: 1.1;
         overflow: hidden;
         text-overflow: ellipsis;
         display: -webkit-box;
         -webkit-line-clamp: 3;
         -webkit-box-orient: vertical;
-        word-break: break-word; /* Ensure wrapping */
+        word-break: break-word;
     }
 
     /* STATES */
     .slot-empty { background-color: #f8d7da; border-color: #dc3545; color: #721c24; }
     .slot-full { background-color: #d1e7dd; border-color: #198754; color: #0f5132; }
     .slot-partial { background-color: #fff3cd; border-color: #ffc107; color: #555; }
+    .slot-disabled { opacity: 0.5; filter: grayscale(50%); }
     
-    /* ACTION OVERLAYS - Make borders thicker to see action clearly */
+    /* ACTION OVERLAYS */
     .action-refill { background-color: #cfe2ff !important; border: 3px solid #0d6efd !important; color: #084298 !important; }
     .action-empty { background-color: #dc3545 !important; border: 3px solid #b02a37 !important; color: white !important; }
     .action-swap { background-color: #6f42c1 !important; border: 3px solid #59359a !important; color: white !important; }
@@ -279,13 +318,76 @@
         position: sticky;
         top: 0;
         z-index: 1020;
-        background-color: #f4f4f4; /* Match body bg to hide content behind */
-        margin-left: -1.5rem; /* Break out of container padding */
+        background-color: #f4f4f4;
+        margin-left: -1.5rem;
         margin-right: -1.5rem;
         padding-left: 1.5rem;
         padding-right: 1.5rem;
         border-bottom: 2px solid #000;
     }
+    
+    /* DISABLED BUTTON STYLING */
+    .btn-disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+    
+    /* FLOATING ACTION BUTTON */
+    .fab-container {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        z-index: 1050;
+        display: none;
+    }
+    
+    @@media (max-width: 768px) {
+        .fab-container { display: block; }
+        .sticky-tools-header { display: none !important; }
+    }
+    
+    .fab-main {
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        background-color: #000;
+        color: #fff;
+        border: 2px solid #000;
+        font-size: 1.5rem;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        transition: transform 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .fab-main.fab-open { transform: rotate(45deg); }
+    
+    .fab-menu {
+        position: absolute;
+        bottom: 70px;
+        right: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .fab-option {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 16px;
+        background: #fff;
+        border: 2px solid #000;
+        font-weight: bold;
+        font-size: 0.9rem;
+        white-space: nowrap;
+        box-shadow: 2px 2px 0 #000;
+        transition: all 0.1s;
+    }
+    
+    .fab-option:active { transform: scale(0.95); }
+    .fab-active { background-color: #000 !important; color: #fff !important; }
 </style>
 
 @code {
@@ -327,7 +429,11 @@
     private int MaquinaIdSeleccionada = 0;
     private string Mensaje = "";
     private string AlertClass = "alert-info";
-    private string CurrentTool = "REFILL"; // REFILL, EMPTY, SWAP
+    private string CurrentTool = ""; // Empty - require explicit selection
+    
+    // FAB State
+    private bool _isFabOpen = false;
+    private void ToggleFab() => _isFabOpen = !_isFabOpen;
 
     private List<SlotActionDto> PendingActions = new();
 
@@ -476,7 +582,7 @@
         }
 
         if (s.Producto == null) return "bg-light opacity-50"; // Unassigned
-        if (s.StockActual <= 0) return "slot-empty";
+        if (s.StockActual <= 0) return "slot-empty slot-disabled";
         if (s.StockActual <= 2) return "slot-empty"; // Critical visual same as empty-ish
         if (s.StockActual >= s.CapacidadMaxima) return "slot-full";
         return "slot-partial"; 

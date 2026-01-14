@@ -46,11 +46,11 @@
                 <span>UNIDADES REGISTRADAS: @FilteredMaquinas.Count()</span>
             </div>
             
-            <div class="table-responsive">
+            <!-- DESKTOP TABLE VIEW -->
+            <div class="table-responsive d-none d-md-block">
                 <table class="table table-hover table-bordered border-dark m-0 align-middle">
                     <thead class="bg-secondary text-white text-uppercase" style="font-size: 0.85rem;">
                         <tr>
-                            
                             <th>NOMBRE REFERENCIA</th>
                             <th>UBICACIÓN</th>
                             <th>ID INTERNO</th>
@@ -72,7 +72,6 @@
                             @foreach (var m in FilteredMaquinas)
                             {
                                 <tr>
-                                    
                                     <td>@m.Nombre.ToUpper()</td>
                                     <td class="text-muted">@m.Ubicacion.ToUpper()</td>
                                     <td class="font-monospace text-primary">@m.IdInternoMaquina</td>
@@ -94,6 +93,54 @@
                         }
                     </tbody>
                 </table>
+            </div>
+            
+            <!-- MOBILE CARD VIEW -->
+            <div class="d-md-none">
+                @if (!FilteredMaquinas.Any())
+                {
+                    <div class="text-center p-4 text-muted">
+                        No se encontraron máquinas que coincidan con "@SearchTerm".
+                    </div>
+                }
+                else
+                {
+                    <div class="p-2">
+                        @foreach (var m in FilteredMaquinas)
+                        {
+                            <div class="card border-2 border-dark rounded-0 mb-2 shadow-sm">
+                                <div class="card-body p-3">
+                                    <div class="d-flex justify-content-between align-items-start mb-2">
+                                        <div>
+                                            <h6 class="fw-bold m-0 text-uppercase">@m.Nombre</h6>
+                                            <small class="text-muted">@m.Ubicacion.ToUpper()</small>
+                                        </div>
+                                        <div class="d-flex gap-1">
+                                            <button class="btn btn-sm btn-warning rounded-0 border-dark" 
+                                                    @onclick="() => AbrirModal(m)">
+                                                <i class="bi bi-pencil-square"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-danger rounded-0 border-dark" 
+                                                    @onclick="() => Borrar(m)">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="d-flex gap-3 mt-2 pt-2 border-top">
+                                        <div>
+                                            <small class="text-muted d-block" style="font-size: 0.65rem;">ID INTERNO</small>
+                                            <span class="font-monospace text-primary fw-bold" style="font-size: 0.8rem;">@m.IdInternoMaquina</span>
+                                        </div>
+                                        <div>
+                                            <small class="text-muted d-block" style="font-size: 0.65rem;">POS TERMINAL</small>
+                                            <span class="font-monospace text-success fw-bold" style="font-size: 0.8rem;">@m.CodigoTerminalPos</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
             </div>
         </div>
     }

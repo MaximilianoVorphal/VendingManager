@@ -27,117 +27,112 @@
     @if (Resumen != null)
     {
         <!-- 1. BLOQUE DE VENTAS (INGRESOS) -->
-        <div class="row mb-4">
-            <div class="col-12 mb-2">
-                <h5 class="fw-bold text-uppercase border-bottom border-2 border-dark pb-2 mb-0 d-flex align-items-center gap-2">
-                     <span class="bg-primary text-white px-2 py-1 rounded-0" style="font-size: 0.8rem;">01</span>
-                     BLOQUE DE VENTAS (INGRESOS)
-                </h5>
-            </div>
-            
-            <div class="col-md-4 mb-3">
-                 <div class="card h-100 border-2 border-dark rounded-0 shadow-sm">
-                    <div class="card-body bg-light">
-                         <div class="d-flex justify-content-between align-items-center mb-2">
-                             <span class="text-muted fw-bold text-uppercase small">Ventas Brutas</span>
-                             <span class="fw-bold fs-5 text-dark font-monospace">$@Resumen.IngresosVentas.ToString("N0")</span>
-                         </div>
-                         <div class="d-flex justify-content-between align-items-center">
-                             <span class="text-danger fw-bold text-uppercase small">(-) Mermas / Pérdidas</span>
-                             <span class="fw-bold fs-5 text-danger font-monospace">-$@Resumen.Mermas.ToString("N0")</span>
-                         </div>
+        <div class="row mb-2">
+            <div class="col-12">
+                <div class="card border-2 border-dark rounded-0 shadow-sm mb-2">
+                    <div class="card-header bg-primary text-white rounded-0 p-2 cursor-pointer" @onclick="ToggleVentas" style="cursor: pointer;">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="bg-white text-primary px-2 py-1 rounded-0 fw-bold" style="font-size: 0.75rem;">01</span>
+                                <span class="fw-bold text-uppercase">VENTAS NETAS</span>
+                            </div>
+                            <div class="d-flex align-items-center gap-3">
+                                <span class="fs-5 fw-bold font-monospace">$@((Resumen.IngresosVentas - Resumen.Mermas).ToString("N0"))</span>
+                                <i class="bi @(_isVentasExpanded ? "bi-chevron-up" : "bi-chevron-down")"></i>
+                            </div>
+                        </div>
                     </div>
-                </div>
-            </div>
-            <div class="col-md-8 mb-3">
-                <div class="card h-100 border-2 border-dark rounded-0 shadow bg-primary text-white">
-                     <div class="card-body d-flex flex-row justify-content-between align-items-center px-5">
-                         <div class="text-start">
-                              <small class="text-uppercase fw-bold opacity-75 d-block">Resultado Bloque 1</small>
-                              <h2 class="fw-bold m-0 text-uppercase">VENTAS NETAS</h2>
-                         </div>
-                         <h1 class="display-5 fw-bold m-0 font-monospace">$@((Resumen.IngresosVentas - Resumen.Mermas).ToString("N0"))</h1>
-                     </div>
+                    @if (_isVentasExpanded)
+                    {
+                        <div class="card-body bg-light p-3">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="text-muted fw-bold text-uppercase small">Ventas Brutas</span>
+                                <span class="fw-bold fs-6 text-dark font-monospace">$@Resumen.IngresosVentas.ToString("N0")</span>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="text-danger fw-bold text-uppercase small">(-) Mermas / Pérdidas</span>
+                                <span class="fw-bold fs-6 text-danger font-monospace">-$@Resumen.Mermas.ToString("N0")</span>
+                            </div>
+                        </div>
+                    }
                 </div>
             </div>
         </div>
 
         <!-- 2. BLOQUE DE COSTO DIRECTO -->
-        <div class="row mb-4">
-            <div class="col-12 mb-2">
-                <h5 class="fw-bold text-uppercase border-bottom border-2 border-dark pb-2 mb-0 d-flex align-items-center gap-2">
-                     <span class="bg-warning text-dark px-2 py-1 rounded-0" style="font-size: 0.8rem;">02</span>
-                     BLOQUE COSTO DIRECTO
-                </h5>
-            </div>
-
-            <div class="col-md-4 mb-3">
-                 <div class="card h-100 border-2 border-dark rounded-0 shadow-sm">
-                    <div class="card-body bg-light d-flex align-items-center justify-content-between">
-                         <div>
-                            <span class="text-muted fw-bold text-uppercase small d-block">(-) Costo de Venta</span>
-                            <small class="text-muted">Reposición de Mercadería</small>
-                         </div>
-                         <span class="fw-bold fs-4 text-danger font-monospace">-$@Resumen.TotalCostoVenta.ToString("N0")</span>
+        <div class="row mb-2">
+            <div class="col-12">
+                <div class="card border-2 border-dark rounded-0 shadow-sm mb-2">
+                    <div class="card-header bg-warning text-dark rounded-0 p-2 cursor-pointer" @onclick="ToggleCosto" style="cursor: pointer;">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="bg-dark text-white px-2 py-1 rounded-0 fw-bold" style="font-size: 0.75rem;">02</span>
+                                <span class="fw-bold text-uppercase">MARGEN BRUTO</span>
+                            </div>
+                            <div class="d-flex align-items-center gap-3">
+                                <span class="fs-5 fw-bold font-monospace">$@Resumen.UtilidadTotal.ToString("N0")</span>
+                                <span class="badge bg-dark text-white rounded-0 small">@GetMarginPercentage()%</span>
+                                <i class="bi @(_isCostoExpanded ? "bi-chevron-up" : "bi-chevron-down")"></i>
+                            </div>
+                        </div>
                     </div>
-                </div>
-            </div>
-            <div class="col-md-8 mb-3">
-                <div class="card h-100 border-2 border-dark rounded-0 shadow bg-warning text-dark">
-                     <div class="card-body d-flex flex-row justify-content-between align-items-center px-5">
-                         <div class="text-start">
-                             <small class="text-uppercase fw-bold opacity-75 d-block">Resultado Bloque 2</small>
-                             <h2 class="fw-bold m-0 text-uppercase">MARGEN BRUTO</h2>
-                         </div>
-                         <div class="text-end">
-                             <h1 class="display-5 fw-bold m-0 font-monospace">$@Resumen.UtilidadTotal.ToString("N0")</h1>
-                             <span class="badge bg-dark text-white rounded-0 fs-6">@GetMarginPercentage()% DE MARGEN</span>
-                         </div>
-                     </div>
+                    @if (_isCostoExpanded)
+                    {
+                        <div class="card-body bg-light p-3">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <span class="text-muted fw-bold text-uppercase small d-block">(-) Costo de Venta</span>
+                                    <small class="text-muted">Reposición de Mercadería</small>
+                                </div>
+                                <span class="fw-bold fs-5 text-danger font-monospace">-$@Resumen.TotalCostoVenta.ToString("N0")</span>
+                            </div>
+                        </div>
+                    }
                 </div>
             </div>
         </div>
 
         <!-- 3. BLOQUE DE GASTOS DE OPERACIÓN -->
-        <div class="row mb-4">
-             <div class="col-12 mb-2">
-                <h5 class="fw-bold text-uppercase border-bottom border-2 border-dark pb-2 mb-0 d-flex align-items-center gap-2">
-                     <span class="bg-danger text-white px-2 py-1 rounded-0" style="font-size: 0.8rem;">03</span>
-                     GASTOS DE OPERACIÓN
-                </h5>
+        <div class="row mb-2">
+            <div class="col-12">
+                <div class="card border-2 border-danger rounded-0 shadow-sm mb-2">
+                    <div class="card-header bg-danger text-white rounded-0 p-2 cursor-pointer" @onclick="ToggleGastos" style="cursor: pointer;">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="bg-white text-danger px-2 py-1 rounded-0 fw-bold" style="font-size: 0.75rem;">03</span>
+                                <span class="fw-bold text-uppercase">GASTOS OPERACIÓN</span>
+                            </div>
+                            <div class="d-flex align-items-center gap-3">
+                                <span class="fs-5 fw-bold font-monospace">-$@((Resumen.GastosVariables + Resumen.GastosFijos).ToString("N0"))</span>
+                                <i class="bi @(_isGastosExpanded ? "bi-chevron-up" : "bi-chevron-down")"></i>
+                            </div>
+                        </div>
+                    </div>
+                    @if (_isGastosExpanded)
+                    {
+                        <div class="card-body p-3" style="background-color: rgba(220, 53, 69, 0.1);">
+                            <div class="row g-2">
+                                <div class="col-6">
+                                    <div class="bg-white border border-danger rounded-0 p-2">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <span class="fw-bold small text-dark text-uppercase"><i class="bi bi-truck me-1"></i>Variables</span>
+                                            <span class="fw-bold text-danger font-monospace">-$@Resumen.GastosVariables.ToString("N0")</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="bg-white border border-danger rounded-0 p-2">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <span class="fw-bold small text-dark text-uppercase"><i class="bi bi-building me-1"></i>Fijos</span>
+                                            <span class="fw-bold text-danger font-monospace">-$@Resumen.GastosFijos.ToString("N0")</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
             </div>
-
-             <!-- A. GASTOS VARIABLES -->
-             <div class="col-md-6 mb-3">
-                 <div class="card h-100 border-2 border-danger rounded-0 shadow-sm">
-                     <div class="card-header bg-danger text-white fw-bold rounded-0 text-uppercase d-flex justify-content-between">
-                         <span>A. Gastos Variables</span>
-                         <i class="bi bi-truck"></i>
-                     </div>
-                     <div class="card-body">
-                         <div class="d-flex justify-content-between align-items-center mb-2">
-                             <span class="fw-bold small text-muted text-uppercase">Logística, Bencina, Insumos</span>
-                             <span class="fw-bold text-danger fs-5 font-monospace">-$@Resumen.GastosVariables.ToString("N0")</span>
-                         </div>
-                     </div>
-                 </div>
-             </div>
-
-             <!-- B. GASTOS FIJOS -->
-             <div class="col-md-6 mb-3">
-                 <div class="card h-100 border-2 border-danger rounded-0 shadow-sm">
-                     <div class="card-header bg-danger text-white fw-bold rounded-0 text-uppercase d-flex justify-content-between">
-                         <span>B. Gastos Fijos</span>
-                         <i class="bi bi-building"></i>
-                     </div>
-                     <div class="card-body">
-                         <div class="d-flex justify-content-between align-items-center mb-2">
-                             <span class="fw-bold small text-muted text-uppercase">Estructurales, Servicios</span>
-                             <span class="fw-bold text-danger fs-5 font-monospace">-$@Resumen.GastosFijos.ToString("N0")</span>
-                         </div>
-                     </div>
-                 </div>
-             </div>
         </div>
 
         <!-- 4. RESULTADO FINAL -->
@@ -151,12 +146,12 @@
 
             <div class="col-12 mb-3">
                  <div class="card border-2 border-dark shadow rounded-0 bg-dark text-white">
-                     <div class="card-body d-flex justify-content-between align-items-center px-4 py-4">
-                        <div>
-                             <small class="text-white-50 fw-bold text-uppercase d-block mb-1">Resultado Operacional (EBITDA)</small>
-                             <h2 class="m-0 fw-bold text-uppercase">(=) UTILIDAD OPERACIONAL</h2>
+                     <div class="card-body d-flex flex-column flex-md-row justify-content-between align-items-center p-3 p-md-4">
+                        <div class="text-center text-md-start mb-2 mb-md-0">
+                             <small class="text-white-50 fw-bold text-uppercase d-block mb-1" style="font-size: 0.7rem;">Resultado Operacional (EBITDA)</small>
+                             <h4 class="m-0 fw-bold text-uppercase">(=) UTILIDAD OPERACIONAL</h4>
                         </div>
-                        <h1 class="m-0 fw-bold text-white display-4 font-monospace">$@Resumen.UtilidadOperacional.ToString("N0")</h1>
+                        <h2 class="m-0 fw-bold text-white font-monospace">$@Resumen.UtilidadOperacional.ToString("N0")</h2>
                      </div>
                  </div>
             </div>
@@ -197,6 +192,15 @@
 @code {
     private DateTime SelectedDate = DateTime.Now;
     private CajaResumenDto? Resumen;
+    
+    // Accordion state for each financial block
+    private bool _isVentasExpanded = false;
+    private bool _isCostoExpanded = false;
+    private bool _isGastosExpanded = false;
+    
+    private void ToggleVentas() => _isVentasExpanded = !_isVentasExpanded;
+    private void ToggleCosto() => _isCostoExpanded = !_isCostoExpanded;
+    private void ToggleGastos() => _isGastosExpanded = !_isGastosExpanded;
 
     protected override async Task OnInitializedAsync()
     {
