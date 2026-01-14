@@ -227,7 +227,7 @@
                                     <Virtualize Items="@Datos.Detalle" Context="v" SpacerElement="tr" OverscanCount="20">
                                         <tr>
                                             <td class="font-monospace small">@v.FechaRaw.ToString("dd/MM/yyyy HH:mm")</td>
-                                            <td class="fw-bold small">@v.Maquina</td>
+                                            <td class="fw-bold small font-monospace">@ExtractMachineCode(v.Maquina)</td>
                                             <td class="text-center font-monospace small">@v.Slot</td>
                                             <td class="fw-bold small text-uppercase">@v.Producto</td>
                                             <td class="text-end font-monospace">$@v.Monto.ToString("N0")</td>
@@ -676,6 +676,20 @@
     {
         if (ColumnaOrden != columna) return "";
         return Ascendente ? "▲" : "▼";
+    }
+
+    // Helper to extract short machine code (last 4 digits, e.g., "0012" from "MAQUINA 2410280012...")
+    private string ExtractMachineCode(string? machineName)
+    {
+        if (string.IsNullOrEmpty(machineName)) return "---";
+        var parts = machineName.Replace("MAQUINA", "").Trim().Split(' ');
+        if (parts.Length > 0 && parts[0].Length >= 4)
+        {
+            // Return last 4 digits
+            var code = parts[0];
+            return code.Substring(Math.Max(0, code.Length - 4));
+        }
+        return machineName.Length > 6 ? machineName.Substring(0, 6) : machineName;
     }
 
     private async Task ExportarExcel()
