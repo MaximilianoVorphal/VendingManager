@@ -107,15 +107,17 @@ async def run_async(machine_id, start_date, end_date):
             print(f"--> Seleccionando Máquina: {machine_id}")
             # Inyección JS directa para mayor fiabilidad con dropdowns custom
             js_select_machine = f"""
-                var options = document.querySelectorAll('option');
-                for(var i=0; i<options.length; i++){{
-                    if(options[i].text.includes('{machine_id}')){{
-                        options[i].selected = true;
-                        options[i].parentElement.dispatchEvent(new Event('change'));
-                        return true;
+                (() => {{
+                    var options = document.querySelectorAll('option');
+                    for(var i=0; i<options.length; i++){{
+                        if(options[i].text.includes('{machine_id}')){{
+                            options[i].selected = true;
+                            options[i].parentElement.dispatchEvent(new Event('change'));
+                            return true;
+                        }}
                     }}
-                }}
-                return false;
+                    return false;
+                }})()
             """
             found = await target_frame.evaluate(js_select_machine)
             if not found:
@@ -154,23 +156,75 @@ async def run_async(machine_id, start_date, end_date):
                 await export_all.wait_for(state="visible", timeout=5000)
                 await export_all.click()
 
-                # Cerrar modal si aparece
-                close_btn = target_frame.locator("text=Close").or_(target_frame.get_by_role("button", name="Close"))
-                try:
-                    await close_btn.wait_for(state="visible", timeout=5000)
-                    await close_btn.click()
-                except:
-                    pass
+                # Manejo robusto de Modales en bucle (Polling)
+                print("    Gestionando modales de interrupción (Loop)...")
+                
+                # Intentamos gestionar los modales durante 10 segundos
+                # Esto es necesario porque el Role_Message puede tardar en aparecer tras el CheckExportExecl
+                start_time = time.time()
+                while time.time() - start_time < 15:
+                    handled_something = False
+                    
+                    # 1. Modal "CheckExportExecl" (Choose data to export...)
+                    try:
+                        check_export_modal = target_frame.locator("#CheckExportExecl")
+                        if await check_export_modal.is_visible(timeout=500):
+                            print("    Detectado modal CheckExportExecl.")
+                            confirm_btn = check_export_modal.get_by_role("button", name="OK").or_(
+                                          check_export_modal.get_by_role("button", name="Export")).or_(
+                                          check_export_modal.locator(".btn-primary"))
+                            if await confirm_btn.count() > 0:
+                                await confirm_btn.first.click()
+                                await check_export_modal.wait_for(state="hidden", timeout=3000)
+                                handled_something = True
+                    except: pass
+
+                    # 2. Modal "Role_Message" (Alertas de éxito/info)
+                    try:
+                        role_message_modal = target_frame.locator("#Role_Message")
+                        if await role_message_modal.is_visible(timeout=500):
+                            print("    Detectado modal Role_Message.")
+                            # Buscar botón para cerrar (OK/Close)
+                            ok_btn = role_message_modal.get_by_role("button", name="OK").or_(
+                                     role_message_modal.locator("button.btn-primary")).or_(
+                                     role_message_modal.locator("button.btn-default"))
+                            
+                            if await ok_btn.count() > 0:
+                                await ok_btn.first.click()
+                                await role_message_modal.wait_for(state="hidden", timeout=3000)
+                                handled_something = True
+                    except: pass
+                    
+                    if not handled_something:
+                        await asyncio.sleep(0.5)
+                    else:
+                        # Si gestionamos algo, damos un respiro y seguimos por si sale otro
+                        await asyncio.sleep(1)
+
+                
+                # Espera final de seguridad
+                await asyncio.sleep(1)
 
             # 6. Descargar
             print("--> Yendo a ExcelSchedule download...")
+            # Forzamos cierre de cualquier modal residual con JS si sigue ahí, por si acaso
+            await target_frame.evaluate("""
+                $('.modal').modal('hide');
+                $('.modal-backdrop').remove();
+            """)
+            
             await target_frame.get_by_text("ExcelSchedule download").click()
             
-            # Esperar a que aparezca el botón Download en la lista
-            print("--> Esperando link de descarga...")
-            # Selector para el primer link 'Download' en la tabla
-            download_link = target_frame.locator("a", has_text="Download").first
-            await download_link.wait_for(state="visible", timeout=10000)
+            # Esperar a que aparezca el modal con la lista de descargas
+            print("--> Esperando lista de descargas (ReserveList_View)...")
+            reserve_list_modal = target_frame.locator("#ReserveList_View")
+            await reserve_list_modal.wait_for(state="visible", timeout=30000)
+
+            # Selector específico DENTRO del modal
+            # Buscamos el link "Download" dentro del modal #ReserveList_View para evitar ambigüedad
+            print("--> Buscando link de descarga en el modal...")
+            download_link = reserve_list_modal.locator("a", has_text="Download").first
+            await download_link.wait_for(state="visible", timeout=30000)
 
             print("--> Descargando archivo...")
             async with page.expect_download(timeout=60000) as download_info:
