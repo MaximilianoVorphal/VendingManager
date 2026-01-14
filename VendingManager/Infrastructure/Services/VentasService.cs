@@ -363,7 +363,7 @@ namespace VendingManager.Infrastructure.Services
             var allProducts = await _context.Productos.ToListAsync();
 
             // 2. Get Sales in Range
-            var query = _context.Ventas.Where(v => v.Pagado && v.FechaLocal >= inicioAjustado && v.FechaLocal <= finAjustado);
+            var query = _context.Ventas.Where(v => v.FechaLocal >= inicioAjustado && v.FechaLocal <= finAjustado);
             if (maquinaId > 0)
             {
                 query = query.Where(v => v.MaquinaId == maquinaId);
