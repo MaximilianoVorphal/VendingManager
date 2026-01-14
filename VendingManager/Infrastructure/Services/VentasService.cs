@@ -265,14 +265,14 @@ namespace VendingManager.Infrastructure.Services
             await _context.SaveChangesAsync();
         }
 
-        public async Task ImportarVentasMaquinaAsync(Stream stream, string fileName)
+        public async Task<string> ImportarVentasMaquinaAsync(Stream stream, string fileName, DateTime? fechaLimite = null)
         {
-            await _excelService.ImportarVentasMaquina(stream, fileName);
+            return await _excelService.ImportarVentasMaquina(stream, fileName, fechaLimite);
         }
 
-        public async Task ImportarTransbankAsync(Stream stream, string fileName)
+        public async Task ImportarTransbankAsync(Stream stream, string fileName, DateTime? fechaLimite = null)
         {
-            await _excelService.ImportarTransbank(stream, fileName);
+            await _excelService.ImportarTransbank(stream, fileName, fechaLimite);
         }
         public async Task<List<StockCriticoDto>> GetStockCriticoAsync(int maquinaId)
         {

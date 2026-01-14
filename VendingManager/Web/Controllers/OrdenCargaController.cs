@@ -9,10 +9,12 @@ namespace VendingManager.Web.Controllers
     public class OrdenCargaController : ControllerBase
     {
         private readonly IOrdenCargaService _service;
+        private readonly IExcelService _excelService;
 
-        public OrdenCargaController(IOrdenCargaService service)
+        public OrdenCargaController(IOrdenCargaService service, IExcelService excelService)
         {
             _service = service;
+            _excelService = excelService;
         }
 
         [HttpPost]
@@ -61,6 +63,40 @@ namespace VendingManager.Web.Controllers
         public async Task<ActionResult<List<StockCriticoDto>>> GetSugerencia([FromQuery] int maquinaId)
         {
             return await _service.GetSugerenciaCargaAsync(maquinaId);
+        }
+
+        [HttpGet("exportar-sugerencia")]
+        public async Task<IActionResult> ExportarSugerencia([FromQuery] int maquinaId)
+        {
+            try
+            {
+                var sugerencias = await _service.GetSugerenciaCargaAsync(maquinaId);
+                var content = await _excelService.ExportarListaCarga(sugerencias);
+                
+                string fileName = $"Carga_{DateTime.Now:yyyyMMdd_HHmm}.xlsx";
+                return File(content, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest("Error generando archivo: " + ex.Message);
+            }
+        }
+
+        [HttpGet("exportar-consolidado")]
+        public async Task<IActionResult> ExportarConsolidado()
+        {
+            try
+            {
+                var sugerencias = await _service.GetSugerenciaGlobalAsync();
+                var content = await _excelService.ExportarListaCarga(sugerencias);
+                
+                string fileName = $"Carga_GLOBAL_{DateTime.Now:yyyyMMdd_HHmm}.xlsx";
+                return File(content, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest("Error generando archivo global: " + ex.Message);
+            }
         }
     }
 }
