@@ -49,7 +49,9 @@ namespace VendingManager.Infrastructure.Services
                 {
                     // Si el usuario pide hasta 31/12/2025, debemos bajar el reporte de Diciembre 2025.
                     startDate = new DateTime(fechaLimite.Value.Year, fechaLimite.Value.Month, 1);
-                    endDate = startDate.AddMonths(1).AddDays(1); // Hasta el principio del mes siguiente (+ margen)
+                    // Ourvend solo permite períodos de máximo 32 días, así que usamos el último día del mes
+                    endDate = new DateTime(fechaLimite.Value.Year, fechaLimite.Value.Month, 
+                                           DateTime.DaysInMonth(fechaLimite.Value.Year, fechaLimite.Value.Month));
                     
                     Console.WriteLine($"[Sync] Ajustando rango de descarga por fecha límite: {startDate:yyyy-MM-dd} a {endDate:yyyy-MM-dd}");
                 }
