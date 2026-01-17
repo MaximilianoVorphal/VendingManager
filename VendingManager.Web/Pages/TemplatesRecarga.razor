@@ -1,0 +1,472 @@
+@page "/templates-recarga"
+@inject HttpClient Http
+@inject Microsoft.Extensions.Logging.ILogger<TemplatesRecarga> Logger
+@inject NavigationManager NavManager
+
+<div class="container-fluid px-2 px-md-4 mt-4" style="font-family: 'Segoe UI', Consolas, monospace;">
+
+    <!-- HEADER -->
+    <div class="row align-items-center mb-4 border-bottom border-3 border-dark pb-3">
+        <div class="col-12 d-flex justify-content-between align-items-center">
+            <div>
+                <h2 class="m-0 fw-bold text-uppercase" style="letter-spacing: -1px;">
+                    <i class="bi bi-calendar-range me-2"></i>TEMPLATES DE RECARGA
+                </h2>
+                <small class="text-muted fw-bold">DEFINE PERÍODOS ESPECÍFICOS POR MÁQUINA PARA ANÁLISIS</small>
+            </div>
+            <button class="btn btn-success rounded-0 fw-bold border-dark" @onclick="AbrirModalCrear">
+                <i class="bi bi-plus-lg me-1"></i> NUEVO TEMPLATE
+            </button>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(MensajeError))
+    {
+            <div class="alert alert-danger border-2 border-dark rounded-0 mb-4 shadow-sm fw-bold">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i> @MensajeError
+            </div>
+    }
+
+    @if (!string.IsNullOrEmpty(MensajeExito))
+    {
+            <div class="alert alert-success border-2 border-dark rounded-0 mb-4 shadow-sm fw-bold">
+                <i class="bi bi-check-circle-fill me-2"></i> @MensajeExito
+            </div>
+    }
+
+    @if (Cargando)
+    {
+            <div class="text-center py-5 border border-dark border-2 bg-light">
+                <div class="spinner-grow text-dark" role="status"></div>
+                <p class="mt-2 fw-bold text-uppercase" style="letter-spacing: 2px;">Cargando Templates...</p>
+            </div>
+    }
+    else if (Templates != null && Templates.Any())
+    {
+            <div class="row g-4">
+            @foreach (var template in Templates)
+            {
+                        <div class="col-12 col-md-6 col-lg-4">
+                            <div class="card border-2 border-dark rounded-0 shadow-sm h-100">
+                                <div class="card-header bg-dark text-white rounded-0 d-flex justify-content-between align-items-center">
+                                    <span class="fw-bold text-uppercase">@template.Nombre</span>
+                                    <div>
+                                        <button class="btn btn-sm btn-outline-light rounded-0 me-1" 
+                                        @onclick="() => AbrirModalEditar(template)" title="Editar">
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-danger rounded-0" 
+                                        @onclick="() => EliminarTemplate(template.Id)" title="Eliminar">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="card-body">
+                            @if (!string.IsNullOrEmpty(template.Descripcion))
+                            {
+                                            <p class="text-muted small mb-2">@template.Descripcion</p>
+                            }
+                                    <div class="mb-3">
+                                        <small class="text-muted">
+                                            <i class="bi bi-calendar me-1"></i>
+                                    @template.FechaInicioMin?.ToString("dd/MM/yyyy") - @template.FechaFinMax?.ToString("dd/MM/yyyy")
+                                        </small>
+                                    </div>
+
+                                    <h6 class="fw-bold text-uppercase small mb-2">
+                                        <i class="bi bi-geo-alt me-1"></i> @template.CantidadMaquinas Máquinas
+                                    </h6>
+
+                                    <div style="max-height: 150px; overflow-y: auto;">
+                                @foreach (var periodo in template.Periodos)
+                                {
+                                                <div class="d-flex justify-content-between align-items-center border-bottom py-1 small">
+                                                    <span class="fw-bold">@periodo.MaquinaNombre</span>
+                                                    <span class="font-monospace text-muted">
+                                            @periodo.FechaInicio.ToString("dd/MM HH:mm") → @periodo.FechaFin.ToString("dd/MM HH:mm")
+                                                    </span>
+                                                </div>
+                                }
+                                    </div>
+                                </div>
+                                <div class="card-footer bg-light border-top border-dark">
+                                    <button class="btn btn-danger w-100 rounded-0 fw-bold" 
+                                    @onclick="() => AnalizarTemplate(template.Id)">
+                                        <i class="bi bi-graph-up me-1"></i> ANALIZAR STOCKOUT
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+            }
+            </div>
+    }
+    else
+    {
+            <div class="text-center py-5 border border-dark border-2 bg-light">
+                <i class="bi bi-calendar-x fs-1 text-muted"></i>
+                <p class="mt-2 fw-bold text-uppercase">No hay templates creados</p>
+                <button class="btn btn-dark rounded-0 fw-bold" @onclick="AbrirModalCrear">
+                    <i class="bi bi-plus-lg me-1"></i> CREAR PRIMER TEMPLATE
+                </button>
+            </div>
+    }
+
+</div>
+
+<!-- MODAL CREAR/EDITAR -->
+@if (MostrarModal)
+{
+        <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+            <div class="modal-dialog modal-lg modal-dialog-centered">
+                <div class="modal-content border-2 border-dark rounded-0">
+                    <div class="modal-header bg-dark text-white rounded-0 border-bottom border-dark">
+                        <h5 class="modal-title fw-bold text-uppercase">
+                        @(EsEdicion ? "EDITAR TEMPLATE" : "NUEVO TEMPLATE DE RECARGA")
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" @onclick="CerrarModal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <!-- Nombre y Descripción -->
+                    <div class="row g-3 mb-4">
+                            <div class="col-md-6">
+                                <label class="fw-bold small text-uppercase mb-1">NOMBRE DEL TEMPLATE:</label>
+                                <input type="text" @bind="TemplateActual.Nombre" 
+                                   class="form-control border-dark rounded-0 fw-bold" 
+                                   placeholder="Ej: Recarga Nuevo 3" />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="fw-bold small text-uppercase mb-1">DESCRIPCIÓN (OPCIONAL):</label>
+                                <input type="text" @bind="TemplateActual.Descripcion" 
+                                   class="form-control border-dark rounded-0" 
+                                   placeholder="Ej: Recarga semanal enero" />
+                            </div>
+                        </div>
+
+                        <!-- Períodos por Máquina -->
+                    <div class="border border-dark p-3 bg-light">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h6 class="fw-bold text-uppercase m-0">
+                                    <i class="bi bi-clock-history me-1"></i> PERÍODOS POR MÁQUINA
+                                </h6>
+                                <button class="btn btn-sm btn-dark rounded-0" @onclick="AgregarPeriodo">
+                                    <i class="bi bi-plus-lg me-1"></i> Agregar Máquina
+                                </button>
+                            </div>
+
+                        @if (!PeriodosActuales.Any())
+                        {
+                                    <div class="text-center text-muted py-3">
+                                        <i class="bi bi-info-circle"></i> Agrega al menos una máquina con su período
+                                    </div>
+                        }
+                        else
+                        {
+                            @for (int i = 0; i < PeriodosActuales.Count; i++)
+                            {
+                                var periodo = PeriodosActuales[i];
+                                var index = i;
+                                            <div class="card rounded-0 border-dark mb-2">
+                                                <div class="card-body p-2">
+                                                    <div class="row g-2 align-items-end">
+                                                        <div class="col-md-3">
+                                                            <label class="small fw-bold">MÁQUINA:</label>
+                                                            <select class="form-select form-select-sm border-dark rounded-0" 
+                                                        @bind="periodo.MaquinaId">
+                                                                <option value="0">-- Seleccionar --</option>
+                                                    @if (ListaMaquinas != null)
+                                                    {
+                                                        @foreach (var m in ListaMaquinas)
+                                                        {
+                                                                                <option value="@m.Id">@m.Nombre</option>
+                                                        }
+                                                    }
+                                                            </select>
+                                                        </div>
+                                                        <div class="col-md-4">
+                                                            <label class="small fw-bold">DESDE:</label>
+                                                            <input type="datetime-local" 
+                                                       class="form-control form-control-sm border-dark rounded-0"
+                                                       @bind="periodo.FechaInicio" />
+                                                        </div>
+                                                        <div class="col-md-4">
+                                                            <label class="small fw-bold">HASTA:</label>
+                                                            <input type="datetime-local" 
+                                                       class="form-control form-control-sm border-dark rounded-0"
+                                                       @bind="periodo.FechaFin" />
+                                                        </div>
+                                                        <div class="col-md-1">
+                                                            <button class="btn btn-sm btn-outline-danger rounded-0 w-100" 
+                                                        @onclick="() => EliminarPeriodo(index)">
+                                                                <i class="bi bi-x-lg"></i>
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                            }
+                        }
+                        </div>
+                    </div>
+                    <div class="modal-footer border-top border-dark">
+                        <button type="button" class="btn btn-secondary rounded-0" @onclick="CerrarModal">
+                            CANCELAR
+                        </button>
+                        <button type="button" class="btn btn-success rounded-0 fw-bold" 
+                            @onclick="GuardarTemplate" disabled="@Guardando">
+                        @(Guardando ? "GUARDANDO..." : (EsEdicion ? "ACTUALIZAR" : "GUARDAR TEMPLATE"))
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+}
+
+@code {
+    private bool Cargando = false;
+    private bool Guardando = false;
+    private string MensajeError = "";
+    private string MensajeExito = "";
+
+    private List<TemplateRecargaDto>? Templates;
+    private List<MaquinaSimpleDto>? ListaMaquinas;
+
+    // Modal
+    private bool MostrarModal = false;
+    private bool EsEdicion = false;
+    private int TemplateIdEdicion = 0;
+    private TemplateFormModel TemplateActual = new();
+    private List<PeriodoFormModel> PeriodosActuales = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarMaquinas();
+        await CargarTemplates();
+    }
+
+    private async Task CargarMaquinas()
+    {
+        try
+        {
+            ListaMaquinas = await Http.GetFromJsonAsync<List<MaquinaSimpleDto>>("api/Ventas/lista-maquinas");
+        }
+        catch { }
+    }
+
+    private async Task CargarTemplates()
+    {
+        Cargando = true;
+        MensajeError = "";
+        StateHasChanged();
+
+        try
+        {
+            Templates = await Http.GetFromJsonAsync<List<TemplateRecargaDto>>("api/TemplateRecarga");
+        }
+        catch (Exception ex)
+        {
+            MensajeError = "Error al cargar templates: " + ex.Message;
+            Logger.LogError(ex, "Error cargando templates");
+        }
+        finally
+        {
+            Cargando = false;
+        }
+    }
+
+    private void AbrirModalCrear()
+    {
+        EsEdicion = false;
+        TemplateIdEdicion = 0;
+        TemplateActual = new TemplateFormModel();
+        PeriodosActuales = new List<PeriodoFormModel>();
+        MostrarModal = true;
+    }
+
+    private void AbrirModalEditar(TemplateRecargaDto template)
+    {
+        EsEdicion = true;
+        TemplateIdEdicion = template.Id;
+        TemplateActual = new TemplateFormModel
+        {
+            Nombre = template.Nombre,
+            Descripcion = template.Descripcion
+        };
+        PeriodosActuales = template.Periodos.Select(p => new PeriodoFormModel
+        {
+            MaquinaId = p.MaquinaId,
+            FechaInicio = p.FechaInicio,
+            FechaFin = p.FechaFin
+        }).ToList();
+        MostrarModal = true;
+    }
+
+    private void CerrarModal()
+    {
+        MostrarModal = false;
+    }
+
+    private void AgregarPeriodo()
+    {
+        PeriodosActuales.Add(new PeriodoFormModel
+        {
+            FechaInicio = DateTime.Today.AddHours(8),
+            FechaFin = DateTime.Today.AddDays(7).AddHours(18)
+        });
+    }
+
+    private void EliminarPeriodo(int index)
+    {
+        if (index >= 0 && index < PeriodosActuales.Count)
+        {
+            PeriodosActuales.RemoveAt(index);
+        }
+    }
+
+    private async Task GuardarTemplate()
+    {
+        MensajeError = "";
+        MensajeExito = "";
+
+        if (string.IsNullOrWhiteSpace(TemplateActual.Nombre))
+        {
+            MensajeError = "El nombre del template es requerido";
+            return;
+        }
+
+        if (!PeriodosActuales.Any() || PeriodosActuales.All(p => p.MaquinaId == 0))
+        {
+            MensajeError = "Debe agregar al menos un período con una máquina seleccionada";
+            return;
+        }
+
+        Guardando = true;
+        StateHasChanged();
+
+        try
+        {
+            var dto = new CreateTemplateDto
+            {
+                Nombre = TemplateActual.Nombre,
+                Descripcion = TemplateActual.Descripcion,
+                Periodos = PeriodosActuales
+                    .Where(p => p.MaquinaId > 0)
+                    .Select(p => new CreatePeriodoDto
+                    {
+                        MaquinaId = p.MaquinaId,
+                        FechaInicio = p.FechaInicio,
+                        FechaFin = p.FechaFin
+                    }).ToList()
+            };
+
+            HttpResponseMessage response;
+            if (EsEdicion)
+            {
+                response = await Http.PutAsJsonAsync($"api/TemplateRecarga/{TemplateIdEdicion}", dto);
+            }
+            else
+            {
+                response = await Http.PostAsJsonAsync("api/TemplateRecarga", dto);
+            }
+
+            if (response.IsSuccessStatusCode)
+            {
+                MensajeExito = EsEdicion ? "Template actualizado correctamente" : "Template creado correctamente";
+                MostrarModal = false;
+                await CargarTemplates();
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                MensajeError = "Error: " + error;
+            }
+        }
+        catch (Exception ex)
+        {
+            MensajeError = "Error al guardar: " + ex.Message;
+        }
+        finally
+        {
+            Guardando = false;
+        }
+    }
+
+    private async Task EliminarTemplate(int id)
+    {
+        MensajeError = "";
+        MensajeExito = "";
+
+        try
+        {
+            var response = await Http.DeleteAsync($"api/TemplateRecarga/{id}");
+            if (response.IsSuccessStatusCode)
+            {
+                MensajeExito = "Template eliminado";
+                await CargarTemplates();
+            }
+        }
+        catch (Exception ex)
+        {
+            MensajeError = "Error al eliminar: " + ex.Message;
+        }
+    }
+
+    private void AnalizarTemplate(int id)
+    {
+        NavManager.NavigateTo($"/stockout-dashboard?templateId={id}");
+    }
+
+    // DTOs Locales
+    public class MaquinaSimpleDto
+    {
+        public int Id { get; set; }
+        public string Nombre { get; set; } = string.Empty;
+    }
+
+    public class TemplateRecargaDto
+    {
+        public int Id { get; set; }
+        public string Nombre { get; set; } = string.Empty;
+        public string? Descripcion { get; set; }
+        public DateTime FechaCreacion { get; set; }
+        public List<PeriodoRecargaDto> Periodos { get; set; } = new();
+        public int CantidadMaquinas => Periodos.Count;
+        public DateTime? FechaInicioMin => Periodos.Any() ? Periodos.Min(p => p.FechaInicio) : null;
+        public DateTime? FechaFinMax => Periodos.Any() ? Periodos.Max(p => p.FechaFin) : null;
+    }
+
+    public class PeriodoRecargaDto
+    {
+        public int Id { get; set; }
+        public int MaquinaId { get; set; }
+        public string MaquinaNombre { get; set; } = string.Empty;
+        public DateTime FechaInicio { get; set; }
+        public DateTime FechaFin { get; set; }
+    }
+
+    public class TemplateFormModel
+    {
+        public string Nombre { get; set; } = "";
+        public string? Descripcion { get; set; }
+    }
+
+    public class PeriodoFormModel
+    {
+        public int MaquinaId { get; set; }
+        public DateTime FechaInicio { get; set; }
+        public DateTime FechaFin { get; set; }
+    }
+
+    public class CreateTemplateDto
+    {
+        public string Nombre { get; set; } = "";
+        public string? Descripcion { get; set; }
+        public List<CreatePeriodoDto> Periodos { get; set; } = new();
+    }
+
+    public class CreatePeriodoDto
+    {
+        public int MaquinaId { get; set; }
+        public DateTime FechaInicio { get; set; }
+        public DateTime FechaFin { get; set; }
+    }
+}

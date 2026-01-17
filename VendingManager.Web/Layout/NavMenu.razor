@@ -7,7 +7,8 @@
 
         <!-- Botón Hamburger (Visible solo en móvil) -->
         <button class="hamburger-btn" @onclick="ToggleNavMenu">
-            <i class="bi bi-list" style="visibility: visible; float: none; bottom: 1px; left: 5px; width: 26px; height: 28px"></i>
+            <i class="bi bi-list"
+                style="visibility: visible; float: none; bottom: 1px; left: 5px; width: 26px; height: 28px"></i>
         </button>
 
         <nav class="nav-links-container @NavMenuCssClass">
@@ -26,6 +27,12 @@
                     </NavLink>
                     <NavLink class="industrial-link" href="analisis-ventas" @onclick="CloseNavMenu">
                         ANÁLISIS PRODUCTOS
+                    </NavLink>
+                    <NavLink class="industrial-link" href="stockout-dashboard" @onclick="CloseNavMenu">
+                        QUIEBRES DE STOCK
+                    </NavLink>
+                    <NavLink class="industrial-link" href="templates-recarga" @onclick="CloseNavMenu">
+                        TEMPLATES RECARGA
                     </NavLink>
                     <NavLink class="industrial-link" href="finanzas" @onclick="CloseNavMenu">
                         FINANZAS

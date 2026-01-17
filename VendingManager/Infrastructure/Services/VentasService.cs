@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using System.IO;
+using System.Linq.Expressions;
 
 namespace VendingManager.Infrastructure.Services
 {
@@ -70,15 +71,52 @@ namespace VendingManager.Infrastructure.Services
             };
         }
 
-        public async Task<ReporteDto> GetReporteRangoAsync(DateTime inicio, DateTime fin, int maquinaId, bool includePhantom = false)
+        public async Task<ReporteDto> GetReporteRangoAsync(DateTime inicio, DateTime fin, int maquinaId, bool includePhantom = false, int? templateId = null)
         {
-            DateTime finAjustado = fin.Date.AddDays(1).AddTicks(-1);
-            DateTime inicioAjustado = inicio.Date;
-
             var query = _context.Ventas
                 .Include(v => v.Maquina)
                 .Include(v => v.Producto)
-                .Where(v => v.FechaLocal >= inicioAjustado && v.FechaLocal <= finAjustado);
+                .AsQueryable();
+
+            if (templateId.HasValue && templateId.Value > 0)
+            {
+                var periodos = await _context.PeriodosRecarga
+                    .Where(p => p.TemplateRecargaId == templateId)
+                    .ToListAsync();
+
+                if (periodos.Any())
+                {
+                    var parameter = Expression.Parameter(typeof(Venta), "v");
+                    Expression? body = null;
+
+                    foreach (var p in periodos)
+                    {
+                        var maquinaEq = Expression.Equal(Expression.Property(parameter, nameof(Venta.MaquinaId)), Expression.Constant(p.MaquinaId));
+                        var fechaGte = Expression.GreaterThanOrEqual(Expression.Property(parameter, nameof(Venta.FechaLocal)), Expression.Constant(p.FechaInicio));
+                        var fechaLte = Expression.LessThanOrEqual(Expression.Property(parameter, nameof(Venta.FechaLocal)), Expression.Constant(p.FechaFin));
+
+                        var range = Expression.AndAlso(maquinaEq, Expression.AndAlso(fechaGte, fechaLte));
+                        body = body == null ? range : Expression.OrElse(body, range);
+                    }
+
+                    if (body != null)
+                    {
+                        var lambda = Expression.Lambda<Func<Venta, bool>>(body, parameter);
+                        query = query.Where(lambda);
+                    }
+                }
+                else
+                {
+                    // Template vacio, no traer nada
+                    query = query.Where(v => false);
+                }
+            }
+            else
+            {
+                DateTime finAjustado = fin.Date.AddDays(1).AddTicks(-1);
+                DateTime inicioAjustado = inicio.Date;
+                query = query.Where(v => v.FechaLocal >= inicioAjustado && v.FechaLocal <= finAjustado);
+            }
 
             if (maquinaId > 0)
             {
@@ -198,9 +236,9 @@ namespace VendingManager.Infrastructure.Services
             };
         }
 
-        public async Task<(byte[] content, string fileName)> ExportarReporteAsync(DateTime inicio, DateTime fin, int maquinaId, bool includePhantom = false)
+        public async Task<(byte[] content, string fileName)> ExportarReporteAsync(DateTime inicio, DateTime fin, int maquinaId, bool includePhantom = false, int? templateId = null)
         {
-            var reporte = await GetReporteRangoAsync(inicio, fin, maquinaId, includePhantom);
+            var reporte = await GetReporteRangoAsync(inicio, fin, maquinaId, includePhantom, templateId);
 
             if (reporte == null || reporte.Detalle.Count == 0)
                 throw new InvalidOperationException("No hay datos para exportar en el rango seleccionado.");
@@ -383,7 +421,7 @@ namespace VendingManager.Infrastructure.Services
 
             // 4. Merge & Calculate Advanced Metrics
             var result = new List<AnalisisProductoDto>();
-            
+
             // Auxiliar variables for categorization
             // We need DaysInPeriod to calculate velocity
             // If inicio == fin, it's 1 day.
@@ -416,7 +454,7 @@ namespace VendingManager.Infrastructure.Services
                 }
 
                 // --- NEW CALCULATIONS ---
-                
+
                 // 1. Velocity (Rotacion Diaria)
                 dto.RotacionDiaria = (decimal)(dto.CantidadVendida / daysInPeriod);
 
@@ -424,16 +462,16 @@ namespace VendingManager.Infrastructure.Services
                 // Estrellas: High Vol, Good Margin (Good Margin is subjective, let's say > 30% or just High Vol)
                 // Joyas: Low Vol, High Margin (> 50%?)
                 // Cachos: Low Vol, Low Margin
-                
+
                 // Thresholds (Adjustable)
-                                                                     // User example: 4.6/day is HIGH. 0.5/day is LOW.
-                                                                     // Let's set High Velocity > 1.0 (1 per day) is Super High.
-                                                                     // Maybe > 0.5 (1 every 2 days) is decent.
-                                                                     // Let's use 0.3 (approx 10/month) as the cut-off for "Low Vol".
-                
+                // User example: 4.6/day is HIGH. 0.5/day is LOW.
+                // Let's set High Velocity > 1.0 (1 per day) is Super High.
+                // Maybe > 0.5 (1 every 2 days) is decent.
+                // Let's use 0.3 (approx 10/month) as the cut-off for "Low Vol".
+
                 // Note: User said "Maní: 0.5 bags/day" is Low Volume but High Margin ("Joya").
                 // User said "Coca Cola: 4.6 cans/day" is High Volume ("Vaca Lechera" / "Estrella").
-                
+
                 // Refinamos los Thresholds
                 decimal TH_Rotacion_Alta = 1.0m; // > 1 per day
                 decimal TH_Rotacion_Media = 0.2m; // > 0.2 per day (6 per month)
@@ -463,6 +501,161 @@ namespace VendingManager.Infrastructure.Services
             }
 
             return result.OrderByDescending(x => x.CantidadVendida).ToList();
+        }
+
+        /// <summary>
+        /// Análisis de Quiebres de Stock y Costo de Oportunidad.
+        /// Detecta productos que dejaron de venderse mientras la máquina seguía activa,
+        /// calcula velocidad real de venta y estima el dinero perdido.
+        /// </summary>
+        public async Task<List<StockoutAnalysisDto>> GetStockoutAnalysisAsync(
+            DateTime inicio, DateTime fin, int maquinaId, double umbralHorasSilencio = 24)
+        {
+            DateTime finAjustado = fin.Date.AddDays(1).AddTicks(-1);
+            DateTime inicioAjustado = inicio.Date;
+
+            // 1. Obtener todas las ventas del periodo (excluyendo fantasmas)
+            var query = _context.Ventas
+                .Include(v => v.Maquina)
+                .Include(v => v.Producto)
+                .Where(v => v.FechaLocal >= inicioAjustado && v.FechaLocal <= finAjustado)
+                .Where(v => v.IdOrdenMaquina != "TB-EXTRA" && v.IdOrdenMaquina != "TB-SIN-VENTA");
+
+            if (maquinaId > 0)
+            {
+                query = query.Where(v => v.MaquinaId == maquinaId);
+            }
+
+            var ventas = await query.ToListAsync();
+
+            if (!ventas.Any())
+            {
+                return new List<StockoutAnalysisDto>();
+            }
+
+            // 2. Calcular última actividad por máquina (cualquier venta)
+            var ultimaActividadPorMaquina = ventas
+                .GroupBy(v => v.MaquinaId)
+                .ToDictionary(g => g.Key, g => g.Max(v => v.FechaLocal));
+
+            // 3. Agrupar ventas por Máquina + Producto (solo productos con ProductoId válido)
+            var grupos = ventas
+                .Where(v => v.ProductoId.HasValue && v.ProductoId > 0)
+                .GroupBy(v => new { v.MaquinaId, v.ProductoId })
+                .ToList();
+
+            var result = new List<StockoutAnalysisDto>();
+
+            foreach (var grupo in grupos)
+            {
+                var maquinaId_ = grupo.Key.MaquinaId;
+                var productoId = grupo.Key.ProductoId!.Value;
+                var ventasGrupo = grupo.ToList();
+
+                // Datos básicos
+                var primeraVenta = ventasGrupo.Min(v => v.FechaLocal);
+                var ultimaVenta = ventasGrupo.Max(v => v.FechaLocal);
+                var ultimaActividadMaquina = ultimaActividadPorMaquina[maquinaId_];
+                var cantidad = ventasGrupo.Count;
+
+                // Calcular precios y costos promedio
+                var precioPromedio = ventasGrupo.Average(v => v.PrecioVenta);
+                var costoPromedio = ventasGrupo.Average(v =>
+                    v.CostoVenta > 0 ? v.CostoVenta : (v.Producto?.CostoPromedio ?? 0));
+                var gananciaPromedio = precioPromedio - costoPromedio;
+
+                // 4. DETECCIÓN DE SILENCIO (Stockout)
+                // Si la máquina siguió vendiendo OTROS productos después de que ESTE producto
+                // dejó de venderse, es un posible quiebre de stock
+                var horasDiferencia = (ultimaActividadMaquina - ultimaVenta).TotalHours;
+                var posibleQuiebre = horasDiferencia > umbralHorasSilencio;
+
+                // Horas sin stock = desde última venta hasta fin del reporte (o última actividad, lo que sea menor)
+                var fechaReferencia = posibleQuiebre ? ultimaActividadMaquina : finAjustado;
+                var horasSinStock = (fechaReferencia - ultimaVenta).TotalHours;
+                if (horasSinStock < 0) horasSinStock = 0;
+
+                // 5. VELOCIDAD REAL (basada en horas activas, no días calendario)
+                // HorasActivas = tiempo entre primera y última venta
+                var horasActivas = (ultimaVenta - primeraVenta).TotalHours;
+                if (horasActivas < 1) horasActivas = 1; // Mínimo 1 hora para evitar división por cero
+
+                var velocidadPorHora = cantidad / (decimal)horasActivas;
+
+                // 6. COSTO DE OPORTUNIDAD
+                // Solo calcular si hay posible quiebre
+                decimal dineroPerdido = 0;
+                decimal gananciaPerdida = 0;
+
+                if (posibleQuiebre && horasSinStock > 0)
+                {
+                    dineroPerdido = velocidadPorHora * (decimal)horasSinStock * precioPromedio;
+                    gananciaPerdida = velocidadPorHora * (decimal)horasSinStock * gananciaPromedio;
+                }
+
+                // Obtener nombres
+                var maquina = ventasGrupo.First().Maquina;
+                var producto = ventasGrupo.First().Producto;
+                var slots = ventasGrupo.Select(v => v.NumeroSlot).Distinct().ToList();
+
+                result.Add(new StockoutAnalysisDto
+                {
+                    MaquinaId = maquinaId_,
+                    MaquinaNombre = maquina?.Nombre ?? "Desconocida",
+                    ProductoId = productoId,
+                    ProductoNombre = producto?.Nombre ?? "Desconocido",
+                    NumeroSlot = string.Join(", ", slots),
+
+                    PrimeraVenta = primeraVenta,
+                    UltimaVenta = ultimaVenta,
+                    UltimaActividadMaquina = ultimaActividadMaquina,
+                    FinReporte = finAjustado,
+
+                    PosibleQuiebre = posibleQuiebre,
+                    HorasSinStock = horasSinStock,
+
+                    CantidadVendida = cantidad,
+                    HorasActivas = horasActivas,
+                    VelocidadPorHora = Math.Round(velocidadPorHora, 4),
+
+                    PrecioPromedioVenta = Math.Round(precioPromedio, 0),
+                    GananciaPromedio = Math.Round(gananciaPromedio, 0),
+                    DineroPerdidoEstimado = Math.Round(dineroPerdido, 0),
+                    GananciaPerdidaEstimada = Math.Round(gananciaPerdida, 0)
+                });
+            }
+
+            // Ordenar por dinero perdido (mayor primero), luego por posible quiebre
+            return result
+                .OrderByDescending(x => x.DineroPerdidoEstimado)
+                .ThenByDescending(x => x.PosibleQuiebre)
+                .ThenByDescending(x => x.HorasSinStock)
+                .ToList();
+        }
+
+        /// <summary>
+        /// Obtiene las ventas diarias de un producto específico en una máquina
+        /// </summary>
+        public async Task<List<VentaDiariaDto>> GetVentasDiariasAsync(int productoId, int maquinaId, DateTime inicio, DateTime fin)
+        {
+            DateTime finAjustado = fin.Date.AddDays(1).AddTicks(-1);
+            DateTime inicioAjustado = inicio.Date;
+
+            var ventas = await _context.Ventas
+                .Where(v => v.ProductoId == productoId)
+                .Where(v => v.MaquinaId == maquinaId)
+                .Where(v => v.FechaLocal >= inicioAjustado && v.FechaLocal <= finAjustado)
+                .Where(v => v.IdOrdenMaquina != "TB-EXTRA" && v.IdOrdenMaquina != "TB-SIN-VENTA")
+                .GroupBy(v => v.FechaLocal.Date)
+                .Select(g => new VentaDiariaDto
+                {
+                    Fecha = g.Key,
+                    Cantidad = g.Count()
+                })
+                .OrderBy(v => v.Fecha)
+                .ToListAsync();
+
+            return ventas;
         }
     }
 }
