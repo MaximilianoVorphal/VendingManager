@@ -20,6 +20,19 @@
         <div class="card-body bg-light p-3">
             <div class="row align-items-end g-3">
                 <div class="col-md-3 col-12">
+                    <label class="fw-bold small text-uppercase mb-1">TEMPLATE (OPCIONAL):</label>
+                    <select class="form-select border-dark rounded-0 fw-bold py-2" @bind="TemplateSeleccionado">
+                        <option value="0">-- NINGUNO --</option>
+                        @if (ListaTemplates != null)
+                        {
+                            @foreach (var t in ListaTemplates)
+                            {
+                                <option value="@t.Id">@t.Nombre.ToUpper()</option>
+                            }
+                        }
+                    </select>
+                </div>
+                <div class="col-md-3 col-12">
                     <label class="fw-bold small text-uppercase mb-1">UNIDAD:</label>
                     <select class="form-select border-dark rounded-0 fw-bold py-2" @bind="MaquinaSeleccionada">
                         <option value="0">:: TODAS LAS UNIDADES ::</option>
@@ -34,11 +47,11 @@
                 </div>
                 <div class="col-6 col-md-3">
                     <label class="fw-bold small text-uppercase mb-1">DESDE:</label>
-                    <input type="date" @bind="FechaInicio" class="form-control border-dark rounded-0 fw-bold" />
+                    <input type="date" @bind="FechaInicio" class="form-control border-dark rounded-0 fw-bold" disabled="@(TemplateSeleccionado > 0)" />
                 </div>
                 <div class="col-6 col-md-3">
                     <label class="fw-bold small text-uppercase mb-1">HASTA:</label>
-                    <input type="date" @bind="FechaFin" class="form-control border-dark rounded-0 fw-bold" />
+                    <input type="date" @bind="FechaFin" class="form-control border-dark rounded-0 fw-bold" disabled="@(TemplateSeleccionado > 0)" />
                 </div>
                 <div class="col-12 col-md-3 d-flex gap-2">
                     <button class="btn btn-dark flex-grow-1 rounded-0 fw-bold py-2" @onclick="CargarReporte"
@@ -507,6 +520,10 @@
     private ReporteDto? Datos;
     private InformeFinancieroDto? Financiero;
     private List<MaquinaSimpleDto>? ListaMaquinas;
+    private List<TemplateRecargaDto>? ListaTemplates;
+
+    // --- TEMPLATE ---
+    private int TemplateSeleccionado = 0;
 
     // --- CONTROL DE ORDEN ---
     private string ColumnaOrden = "Fecha";
@@ -539,9 +556,10 @@
 
         // 2. LANZAR PETICIONES EN PARALELO
         var taskMaquinas = CargarMaquinas();
+        var taskTemplates = CargarTemplates();
         var taskReporte = CargarReporte();
 
-        await Task.WhenAll(taskMaquinas, taskReporte);
+        await Task.WhenAll(taskMaquinas, taskTemplates, taskReporte);
     }
 
     private async Task CargarMaquinas()
@@ -553,6 +571,18 @@
         catch (Exception ex)
         {
             MensajeError = "ERROR AL CARGAR LISTA DE UNIDADES: " + ex.Message;
+        }
+    }
+
+    private async Task CargarTemplates()
+    {
+        try
+        {
+            ListaTemplates = await Http.GetFromJsonAsync<List<TemplateRecargaDto>>("api/TemplateRecarga");
+        }
+        catch (Exception ex)
+        {
+            MensajeError = "ERROR AL CARGAR TEMPLATES: " + ex.Message;
         }
     }
 
@@ -568,7 +598,7 @@
             string inicio = FechaInicio.ToString("yyyy-MM-dd");
             string fin = FechaFin.ToString("yyyy-MM-dd");
             string url =
-            $"api/Ventas/reporte-rango?inicio={inicio}&fin={fin}&maquinaId={MaquinaSeleccionada}&includePhantom={MostrarFantasmas}";
+            $"api/Ventas/reporte-rango?inicio={inicio}&fin={fin}&maquinaId={MaquinaSeleccionada}&includePhantom={MostrarFantasmas}&templateId={TemplateSeleccionado}";
 
             Logger.LogDebug("Reportes: CargarReporte inicio. Url={Url}", url);
 
@@ -699,7 +729,7 @@
             string inicio = FechaInicio.ToString("yyyy-MM-dd");
             string fin = FechaFin.ToString("yyyy-MM-dd");
             string url =
-            $"api/Ventas/exportar?inicio={inicio}&fin={fin}&maquinaId={MaquinaSeleccionada}&includePhantom={MostrarFantasmas}";
+            $"api/Ventas/exportar?inicio={inicio}&fin={fin}&maquinaId={MaquinaSeleccionada}&includePhantom={MostrarFantasmas}&templateId={TemplateSeleccionado}";
 
             Logger.LogDebug("Exportando: {Url}", url);
 
@@ -798,10 +828,18 @@
         public decimal MontoPagado { get; set; }
         public decimal MontoPendiente { get; set; }
         public decimal MontoPhantom { get; set; }
-        public decimal GananciaTotal { get; set; } // Agregado
+
+        public decimal GananciaTotal { get; set; }
         public List<DetalleVentaDto> Detalle { get; set; } = new();
-        public List<DetalleVentaDto> Fantasmas { get; set; } = new(); // Nueva lista
+        public List<DetalleVentaDto> Fantasmas { get; set; } = new();
     }
+
+    public class TemplateRecargaDto
+    {
+        public int Id { get; set; }
+        public string Nombre { get; set; } = string.Empty;
+    }
+
 
     public class DetalleVentaDto
     {

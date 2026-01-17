@@ -50,9 +50,10 @@ builder.Services.AddScoped<IInventarioService, InventarioService>();
 builder.Services.AddScoped<IMaquinaService, MaquinaService>();
 builder.Services.AddScoped<IInformesService, InformesService>();
 builder.Services.AddScoped<VendingManager.Core.Interfaces.IOrdenCargaService, OrdenCargaService>();
+builder.Services.AddScoped<ITemplateRecargaService, TemplateRecargaService>();
 
 // Servicios en segundo plano (Background Workers)
-builder.Services.AddHttpClient<VendingManager.Core.Interfaces.IScraperClient, VendingManager.Infrastructure.Clients.ScraperClient>(); 
+builder.Services.AddHttpClient<VendingManager.Core.Interfaces.IScraperClient, VendingManager.Infrastructure.Clients.ScraperClient>();
 builder.Services.AddHostedService<AutomatedReportService>();
 
 // 4. Configuración Blazor

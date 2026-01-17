@@ -115,9 +115,9 @@ namespace VendingManager.Web.Controllers
         }
 
         [HttpGet("reporte-rango")]
-        public async Task<ActionResult<ReporteDto>> GetReporteRango(DateTime inicio, DateTime fin, int maquinaId = 0, bool includePhantom = false)
+        public async Task<ActionResult<ReporteDto>> GetReporteRango(DateTime inicio, DateTime fin, int maquinaId = 0, bool includePhantom = false, int? templateId = null)
         {
-            return await _ventasService.GetReporteRangoAsync(inicio, fin, maquinaId, includePhantom);
+            return await _ventasService.GetReporteRangoAsync(inicio, fin, maquinaId, includePhantom, templateId);
         }
 
         [HttpGet("informe-financiero")]
@@ -127,11 +127,11 @@ namespace VendingManager.Web.Controllers
         }
 
         [HttpGet("exportar")]
-        public async Task<IActionResult> ExportarReporte([FromQuery] DateTime inicio, [FromQuery] DateTime fin, [FromQuery] int maquinaId = 0, [FromQuery] bool includePhantom = false)
+        public async Task<IActionResult> ExportarReporte([FromQuery] DateTime inicio, [FromQuery] DateTime fin, [FromQuery] int maquinaId = 0, [FromQuery] bool includePhantom = false, [FromQuery] int? templateId = null)
         {
             try
             {
-                var (content, fileName) = await _ventasService.ExportarReporteAsync(inicio, fin, maquinaId, includePhantom);
+                var (content, fileName) = await _ventasService.ExportarReporteAsync(inicio, fin, maquinaId, includePhantom, templateId);
                 return File(content, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
             }
             catch (InvalidOperationException ex)
@@ -155,6 +155,35 @@ namespace VendingManager.Web.Controllers
         public async Task<ActionResult<List<AnalisisProductoDto>>> GetAnalisisProductos([FromQuery] DateTime inicio, [FromQuery] DateTime fin, [FromQuery] int maquinaId = 0)
         {
             return await _ventasService.GetAnalisisProductosAsync(inicio, fin, maquinaId);
+        }
+
+        /// <summary>
+        /// Análisis de Quiebres de Stock y Costo de Oportunidad.
+        /// Detecta productos con posible falta de stock y calcula dinero perdido estimado.
+        /// </summary>
+        [HttpGet("stockout-analysis")]
+        public async Task<ActionResult<List<StockoutAnalysisDto>>> GetStockoutAnalysis(
+            [FromQuery] DateTime inicio,
+            [FromQuery] DateTime fin,
+            [FromQuery] int maquinaId = 0,
+            [FromQuery] double umbralHoras = 24)
+        {
+            var result = await _ventasService.GetStockoutAnalysisAsync(inicio, fin, maquinaId, umbralHoras);
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Obtiene las ventas diarias de un producto específico en una máquina
+        /// </summary>
+        [HttpGet("ventas-diarias")]
+        public async Task<ActionResult<List<VentaDiariaDto>>> GetVentasDiarias(
+            [FromQuery] int productoId,
+            [FromQuery] int maquinaId,
+            [FromQuery] DateTime inicio,
+            [FromQuery] DateTime fin)
+        {
+            var result = await _ventasService.GetVentasDiariasAsync(productoId, maquinaId, inicio, fin);
+            return Ok(result);
         }
     }
 }
