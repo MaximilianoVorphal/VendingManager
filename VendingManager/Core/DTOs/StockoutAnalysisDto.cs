@@ -45,6 +45,9 @@ public class StockoutAnalysisDto
     // =============================================
     // VELOCIDAD REAL (basada en horas activas, NO días calendario)
     // =============================================
+    /// <summary>Stock inicial según snapshot del template (0 si no hay snapshot)</summary>
+    public int StockInicial { get; set; }
+
     /// <summary>Cantidad total vendida en el periodo</summary>
     public int CantidadVendida { get; set; }
 
