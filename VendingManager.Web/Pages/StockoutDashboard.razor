@@ -2,6 +2,7 @@
 @inject HttpClient Http
 @inject Microsoft.Extensions.Logging.ILogger<StockoutDashboard> Logger
 @inject NavigationManager NavManager
+@inject IJSRuntime JS
 @using Microsoft.AspNetCore.WebUtilities
 
 <div class="container-fluid px-2 px-md-4 mt-4" style="font-family: 'Segoe UI', Consolas, monospace;">
@@ -228,6 +229,8 @@
                             <th role="button" @onclick='() => OrdenarPor("Maquina")'>MÁQUINA @RenderIcono("Maquina")</th>
                             <th role="button" @onclick='() => OrdenarPor("Producto")'>PRODUCTO @RenderIcono("Producto")</th>
                             <th class="text-center">SLOT</th>
+                            <th role="button" class="text-center" @onclick='() => OrdenarPor("PrimeraVenta")'>1ª VENTA
+                                @RenderIcono("PrimeraVenta")</th>
                             <th role="button" class="text-center" @onclick='() => OrdenarPor("UltimaVenta")'>ÚLTIMA VENTA
                                 @RenderIcono("UltimaVenta")</th>
                             <th role="button" class="text-center" @onclick='() => OrdenarPor("DiasAgotado")'>DÍAS AGOTADO
@@ -249,6 +252,14 @@
                                 <td class="fw-bold">@item.ProductoNombre</td>
                                 <td class="text-center font-monospace small">@item.NumeroSlot</td>
                                 <td class="text-center small">
+                                    @if (item.PrimeraVenta.HasValue)
+                                    {
+                                        <span title="@item.PrimeraVenta.Value.ToString("dd/MM/yyyy HH:mm")">
+                                            @item.PrimeraVenta.Value.ToString("dd/MM HH:mm")
+                                        </span>
+                                    }
+                                </td>
+                                <td class="text-center small">
                                     @if (item.UltimaVenta.HasValue)
                                     {
                                         <span title="@item.UltimaVenta.Value.ToString("dd/MM/yyyy HH:mm")">
@@ -263,8 +274,8 @@
                                     @item.VelocidadDiaria.ToString("F2")
                                 </td>
                                 <td
-                            class="text-end font-monospace fw-bold @(item.DineroPerdidoEstimado > 0 ? "text-danger" : "")">
-                                    $@item.DineroPerdidoEstimado.ToString("N0")
+                            class="text-end font-monospace fw-bold @(item.GananciaPerdidaEstimada > 0 ? "text-danger" : "")">
+                                    $@item.GananciaPerdidaEstimada.ToString("N0")
                                 </td>
                                 <td class="text-center">
                                     <span class="badge @item.ColorAlerta">@item.NivelAlerta</span>
@@ -397,6 +408,22 @@
                             <span class="text-muted small ms-2">
                                 Total: @VentasDiarias.Sum(v => v.Cantidad) unidades
                             </span>
+                            
+                            <!-- Badges de Slots y Status -->
+                            @if (productoInfo != null)
+                            {
+                                var slotCount = productoInfo.NumeroSlot.Split(',', StringSplitOptions.RemoveEmptyEntries).Length;
+                                <span class="badge bg-secondary ms-2 small">@slotCount Slots</span>
+
+                                @if (productoInfo.PosibleQuiebre)
+                                {
+                                    <span class="badge bg-danger ms-1 small">AGOTADO</span>
+                                }
+                                else 
+                                {
+                                    <span class="badge bg-success ms-1 small">DISPONIBLE</span>
+                                }
+                            }
                         </div>
                         <div class="small">
                             <span class="badge bg-success me-1">█</span> Con ventas
@@ -404,26 +431,10 @@
                         </div>
                     </div>
 
-                    <!-- Gráfico de barras -->
-                    <div class="d-flex align-items-end gap-1" style="height: 200px; overflow-x: auto;">
-                        @foreach (var dia in VentasDiarias)
-                        {
-                            var heightPct = (dia.Cantidad / (double)maxVentas * 100);
-                            var barColor = dia.Cantidad > 0 ? "bg-success" : "bg-danger";
-                            var opacity = dia.Cantidad > 0 ? "1" : "0.3";
-
-                            <div class="d-flex flex-column align-items-center" style="min-width: 40px;">
-                                <div class="small text-muted mb-1">@dia.Cantidad</div>
-                                <div class="@barColor rounded-top"
-                        style="width: 30px; height: @(dia.Cantidad > 0 ? heightPct : 10)%; min-height: 5px; opacity: @opacity;"
-                        title="@dia.Fecha.ToString("dd/MM/yyyy"): @dia.Cantidad ventas">
-                                </div>
-                                <div class="small text-muted mt-1" style="font-size: 10px;">
-                                    @dia.Fecha.ToString("dd")
-                                </div>
-                            </div>
-                        }
-                    </div>
+                    <!-- Gráfico de barras (Chart.js) -->
+                <div style="height: 300px; position: relative;">
+                     <canvas id="dailySalesChart"></canvas>
+                </div>
 
                     <div class="d-flex justify-content-between small text-muted mt-2 border-top pt-2">
                         <span>@VentasDiarias.First().Fecha.ToString("dd/MM/yyyy")</span>
@@ -433,22 +444,30 @@
                     <!-- Estadísticas -->
                     <div class="row g-2 mt-3">
                         <div class="col-4">
-                            <div class="border border-dark p-2 text-center">
+                            <div class="border border-dark p-2 text-center h-100 d-flex flex-column justify-content-center">
                                 <div class="small text-muted">Días con venta</div>
                                 <div class="fw-bold text-success">@VentasDiarias.Count(v => v.Cantidad > 0)</div>
                             </div>
                         </div>
                         <div class="col-4">
-                            <div class="border border-dark p-2 text-center">
+                            <div class="border border-dark p-2 text-center h-100 d-flex flex-column justify-content-center">
                                 <div class="small text-muted">Días sin venta</div>
                                 <div class="fw-bold text-danger">@VentasDiarias.Count(v => v.Cantidad == 0)</div>
                             </div>
                         </div>
                         <div class="col-4">
-                            <div class="border border-dark p-2 text-center">
-                                <div class="small text-muted">Promedio/día</div>
-                                <div class="fw-bold">@(VentasDiarias.Any() ? (VentasDiarias.Sum(v => v.Cantidad) /
-                            (double)VentasDiarias.Count).ToString("F1") : "0")</div>
+                            <div class="border border-dark p-2 text-center h-100">
+                                <div class="row">
+                                    <div class="col-12 border-bottom pb-1 mb-1">
+                                        <div class="small text-muted" style="font-size: 0.7rem;">Prom. Gráfico</div>
+                                        <div class="fw-bold">@(VentasDiarias.Any() ? (VentasDiarias.Sum(v => v.Cantidad) /
+                            (double)VentasDiarias.Count).ToString("F1") : "0") / día</div>
+                                    </div>
+                                    <div class="col-12">
+                                        <div class="small text-muted" style="font-size: 0.7rem;">Vel. Reposición</div>
+                                        <div class="fw-bold text-primary">@((productoInfo?.VelocidadDiaria ?? 0).ToString("F1")) / día</div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -577,8 +596,8 @@
                 var periodoMaquina = TemplateActual?.Periodos.FirstOrDefault(p => p.MaquinaId == MaquinaFiltroTemplate);
                 if (periodoMaquina != null)
                 {
-                    FechaInicio = periodoMaquina.FechaInicio.Date;
-                    FechaFin = periodoMaquina.FechaFin.Date;
+                    FechaInicio = periodoMaquina.FechaInicio;
+                    FechaFin = periodoMaquina.FechaFin;
                 }
             }
             else
@@ -588,8 +607,8 @@
                 // Actualizar fechas del timeline basado en el template completo
                 if (TemplateActual != null && TemplateActual.Periodos.Any())
                 {
-                    FechaInicio = TemplateActual.Periodos.Min(p => p.FechaInicio).Date;
-                    FechaFin = TemplateActual.Periodos.Max(p => p.FechaFin).Date;
+                    FechaInicio = TemplateActual.Periodos.Min(p => p.FechaInicio);
+                    FechaFin = TemplateActual.Periodos.Max(p => p.FechaFin);
                 }
             }
 
@@ -652,14 +671,16 @@
             x.MaquinaNombre).ToList(),
             "Producto" => Ascendente ? Datos.OrderBy(x => x.ProductoNombre).ToList() : Datos.OrderByDescending(x =>
             x.ProductoNombre).ToList(),
+            "PrimeraVenta" => Ascendente ? Datos.OrderBy(x => x.PrimeraVenta).ToList() : Datos.OrderByDescending(x =>
+            x.PrimeraVenta).ToList(),
             "UltimaVenta" => Ascendente ? Datos.OrderBy(x => x.UltimaVenta).ToList() : Datos.OrderByDescending(x =>
             x.UltimaVenta).ToList(),
             "DiasAgotado" => Ascendente ? Datos.OrderBy(x => x.DiasSinStock).ToList() : Datos.OrderByDescending(x =>
             x.DiasSinStock).ToList(),
             "Velocidad" => Ascendente ? Datos.OrderBy(x => x.VelocidadDiaria).ToList() : Datos.OrderByDescending(x =>
             x.VelocidadDiaria).ToList(),
-            "DineroPerdido" => Ascendente ? Datos.OrderBy(x => x.DineroPerdidoEstimado).ToList() : Datos.OrderByDescending(x =>
-            x.DineroPerdidoEstimado).ToList(),
+            "DineroPerdido" => Ascendente ? Datos.OrderBy(x => x.GananciaPerdidaEstimada).ToList() : Datos.OrderByDescending(x =>
+            x.GananciaPerdidaEstimada).ToList(),
             _ => Datos
         };
     }
@@ -690,7 +711,17 @@
 
             // Usar las fechas del análisis del producto (PrimeraVenta hasta fin del período)
             // Esto asegura que el gráfico coincida con los datos de la tabla de análisis
-            DateTime fechaInicio = productoInfo.PrimeraVenta?.Date ?? FechaInicio;
+            // Usar fecha de inicio del periodo si existe (prioridad), sino primera venta, sino fecha global
+            DateTime fechaInicio = FechaInicio; 
+            if (TemplateActual != null)
+            {
+                 var periodo = TemplateActual.Periodos.FirstOrDefault(p => p.MaquinaId == maquinaId);
+                 if (periodo != null) fechaInicio = periodo.FechaInicio; // Fecha + Hora exacta
+            }
+            else if (productoInfo.PrimeraVenta.HasValue) 
+            {
+                fechaInicio = productoInfo.PrimeraVenta.Value.Date;
+            }
             DateTime fechaFin;
 
             // Determinar la fecha fin basada en el período del template o la última venta
@@ -700,7 +731,7 @@
                 var periodo = TemplateActual.Periodos.FirstOrDefault(p => p.MaquinaId == maquinaId);
                 if (periodo != null)
                 {
-                    fechaFin = periodo.FechaFin.Date;
+                    fechaFin = periodo.FechaFin; // Fecha + Hora exacta
                 }
                 else
                 {
@@ -713,7 +744,8 @@
             }
 
             // Llamar al endpoint para obtener ventas diarias
-            string url = $"api/Ventas/ventas-diarias?productoId={productoId}&maquinaId={maquinaId}&inicio={fechaInicio:yyyy-MM-dd}&fin={fechaFin:yyyy-MM-dd}";
+            // Usamos formato "s" (sortable) para enviar la hora completa: yyyy-MM-ddTHH:mm:ss
+            string url = $"api/Ventas/ventas-diarias?productoId={productoId}&maquinaId={maquinaId}&inicio={fechaInicio:s}&fin={fechaFin:s}";
 
             var ventasApi = await Http.GetFromJsonAsync<List<VentaDiariaDto>>(url);
 
@@ -721,7 +753,7 @@
             {
                 // Asegurar que todos los días estén representados (incluyendo días sin ventas)
                 VentasDiarias = new List<VentaDiariaDto>();
-                for (var date = fechaInicio; date <= fechaFin; date = date.AddDays(1))
+                for (var date = fechaInicio.Date; date <= fechaFin.Date; date = date.AddDays(1))
                 {
                     var ventaDia = ventasApi.FirstOrDefault(v => v.Fecha.Date == date.Date);
                     VentasDiarias.Add(new VentaDiariaDto
@@ -730,12 +762,65 @@
                         Cantidad = ventaDia?.Cantidad ?? 0
                     });
                 }
+                
+                // Renderizar Gráfico
+                // Forzar renderizado para que el elemento <canvas> exista en el DOM
+                StateHasChanged();
+                await Task.Delay(100); // Pequeña pausa para asegurar que el DOM se actualizó
+                await RenderChart();
             }
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Error cargando ventas diarias");
         }
+    }
+
+    private async Task RenderChart()
+    {
+        if (VentasDiarias == null || !VentasDiarias.Any()) return;
+
+        var labels = VentasDiarias.Select(v => v.Fecha.ToString("dd/MM")).ToArray();
+        var data = VentasDiarias.Select(v => v.Cantidad).ToArray();
+        var backgroundColors = VentasDiarias.Select(v => v.Cantidad > 0 ? "#198754" : "#dc3545").ToArray(); // Green/Red
+
+        var config = new
+        {
+            type = "bar",
+            data = new
+            {
+                labels = labels,
+                datasets = new[]
+                {
+                    new
+                    {
+                        label = "Ventas (Unidades)",
+                        data = data,
+                        backgroundColor = backgroundColors,
+                        borderWidth = 1
+                    }
+                }
+            },
+            options = new
+            {
+                responsive = true,
+                maintainAspectRatio = false,
+                scales = new
+                {
+                    y = new
+                    {
+                        beginAtZero = true,
+                        ticks = new { precision = 0 }
+                    }
+                },
+                plugins = new
+                {
+                    legend = new { display = false }
+                }
+            }
+        };
+
+        await JS.InvokeVoidAsync("ChartJsInterop.setupChart", "dailySalesChart", config);
     }
 
     // DTOs Locales

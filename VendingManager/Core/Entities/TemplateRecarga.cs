@@ -51,4 +51,9 @@ public class PeriodoRecarga
     /// Fecha y hora de fin del período (fin del ciclo de análisis)
     /// </summary>
     public DateTime FechaFin { get; set; }
+
+    /// <summary>
+    /// Snapshot del inventario de slots al momento de la recarga
+    /// </summary>
+    public List<SnapshotSlot> SnapshotSlots { get; set; } = new();
 }

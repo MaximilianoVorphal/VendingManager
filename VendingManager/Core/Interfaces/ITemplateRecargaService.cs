@@ -25,4 +25,9 @@ public interface ITemplateRecargaService
     /// Cada máquina se analiza usando su rango de fecha/hora específico.
     /// </summary>
     Task<List<StockoutAnalysisDto>> AnalyzarPorTemplateAsync(int templateId, double umbralHorasSilencio = 24);
+
+    /// <summary>
+    /// Obtiene la configuración actual de slots de una máquina para crear un snapshot
+    /// </summary>
+    Task<List<SnapshotSlotDto>> GetSlotsForMaquinaAsync(int maquinaId);
 }
