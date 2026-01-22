@@ -22,6 +22,14 @@ namespace VendingManager.Infrastructure.Services
                 .ToListAsync();
         }
 
+        public async Task<List<ProductoSimpleDto>> GetProductosAsync()
+        {
+            return await _context.Productos
+                .OrderBy(p => p.Nombre)
+                .Select(p => new ProductoSimpleDto { Id = p.Id, Nombre = p.Nombre })
+                .ToListAsync();
+        }
+
         public async Task<DashboardStats> GetDashboardStatsAsync(int maquinaId)
         {
             var stats = new DashboardStats();
@@ -576,8 +584,8 @@ namespace VendingManager.Infrastructure.Services
                 if (horasSinStock < 0) horasSinStock = 0;
 
                 // 5. VELOCIDAD REAL (basada en horas activas, no días calendario)
-                // HorasActivas = tiempo entre primera y última venta
-                var horasActivas = (ultimaVenta - primeraVenta).TotalHours;
+                // HorasActivas = tiempo desde el inicio del periodo (reposición) hasta la última venta
+                var horasActivas = (ultimaVenta - inicio).TotalHours;
                 if (horasActivas < 1) horasActivas = 1; // Mínimo 1 hora para evitar división por cero
 
                 var velocidadPorHora = cantidad / (decimal)horasActivas;
@@ -638,8 +646,15 @@ namespace VendingManager.Infrastructure.Services
         /// </summary>
         public async Task<List<VentaDiariaDto>> GetVentasDiariasAsync(int productoId, int maquinaId, DateTime inicio, DateTime fin)
         {
-            DateTime finAjustado = fin.Date.AddDays(1).AddTicks(-1);
-            DateTime inicioAjustado = inicio.Date;
+            // Si fin es exactamente media noche (00:00:00), asumimos que es fecha manual (hasta fin del día)
+            // Si tiene hora (ej: 08:49), usamos esa hora estricta (template)
+            DateTime finAjustado;
+            if (fin.TimeOfDay.TotalSeconds == 0)
+                finAjustado = fin.Date.AddDays(1).AddTicks(-1);
+            else
+                finAjustado = fin;
+
+            DateTime inicioAjustado = inicio; // Usamos inicio estricto (ej: 11:13)
 
             var ventas = await _context.Ventas
                 .Where(v => v.ProductoId == productoId)

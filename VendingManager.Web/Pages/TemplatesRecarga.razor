@@ -22,93 +22,94 @@
 
     @if (!string.IsNullOrEmpty(MensajeError))
     {
-            <div class="alert alert-danger border-2 border-dark rounded-0 mb-4 shadow-sm fw-bold">
-                <i class="bi bi-exclamation-triangle-fill me-2"></i> @MensajeError
-            </div>
+        <div class="alert alert-danger border-2 border-dark rounded-0 mb-4 shadow-sm fw-bold">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i> @MensajeError
+        </div>
     }
 
     @if (!string.IsNullOrEmpty(MensajeExito))
     {
-            <div class="alert alert-success border-2 border-dark rounded-0 mb-4 shadow-sm fw-bold">
-                <i class="bi bi-check-circle-fill me-2"></i> @MensajeExito
-            </div>
+        <div class="alert alert-success border-2 border-dark rounded-0 mb-4 shadow-sm fw-bold">
+            <i class="bi bi-check-circle-fill me-2"></i> @MensajeExito
+        </div>
     }
 
     @if (Cargando)
     {
-            <div class="text-center py-5 border border-dark border-2 bg-light">
-                <div class="spinner-grow text-dark" role="status"></div>
-                <p class="mt-2 fw-bold text-uppercase" style="letter-spacing: 2px;">Cargando Templates...</p>
-            </div>
+        <div class="text-center py-5 border border-dark border-2 bg-light">
+            <div class="spinner-grow text-dark" role="status"></div>
+            <p class="mt-2 fw-bold text-uppercase" style="letter-spacing: 2px;">Cargando Templates...</p>
+        </div>
     }
     else if (Templates != null && Templates.Any())
     {
-            <div class="row g-4">
+        <div class="row g-4">
             @foreach (var template in Templates)
             {
-                        <div class="col-12 col-md-6 col-lg-4">
-                            <div class="card border-2 border-dark rounded-0 shadow-sm h-100">
-                                <div class="card-header bg-dark text-white rounded-0 d-flex justify-content-between align-items-center">
-                                    <span class="fw-bold text-uppercase">@template.Nombre</span>
-                                    <div>
-                                        <button class="btn btn-sm btn-outline-light rounded-0 me-1" 
-                                        @onclick="() => AbrirModalEditar(template)" title="Editar">
-                                            <i class="bi bi-pencil"></i>
-                                        </button>
-                                        <button class="btn btn-sm btn-outline-danger rounded-0" 
-                                        @onclick="() => EliminarTemplate(template.Id)" title="Eliminar">
-                                            <i class="bi bi-trash"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                                <div class="card-body">
-                            @if (!string.IsNullOrEmpty(template.Descripcion))
-                            {
-                                            <p class="text-muted small mb-2">@template.Descripcion</p>
-                            }
-                                    <div class="mb-3">
-                                        <small class="text-muted">
-                                            <i class="bi bi-calendar me-1"></i>
-                                    @template.FechaInicioMin?.ToString("dd/MM/yyyy") - @template.FechaFinMax?.ToString("dd/MM/yyyy")
-                                        </small>
-                                    </div>
-
-                                    <h6 class="fw-bold text-uppercase small mb-2">
-                                        <i class="bi bi-geo-alt me-1"></i> @template.CantidadMaquinas Máquinas
-                                    </h6>
-
-                                    <div style="max-height: 150px; overflow-y: auto;">
-                                @foreach (var periodo in template.Periodos)
-                                {
-                                                <div class="d-flex justify-content-between align-items-center border-bottom py-1 small">
-                                                    <span class="fw-bold">@periodo.MaquinaNombre</span>
-                                                    <span class="font-monospace text-muted">
-                                            @periodo.FechaInicio.ToString("dd/MM HH:mm") → @periodo.FechaFin.ToString("dd/MM HH:mm")
-                                                    </span>
-                                                </div>
-                                }
-                                    </div>
-                                </div>
-                                <div class="card-footer bg-light border-top border-dark">
-                                    <button class="btn btn-danger w-100 rounded-0 fw-bold" 
-                                    @onclick="() => AnalizarTemplate(template.Id)">
-                                        <i class="bi bi-graph-up me-1"></i> ANALIZAR STOCKOUT
-                                    </button>
-                                </div>
+                <div class="col-12 col-md-6 col-lg-4">
+                    <div class="card border-2 border-dark rounded-0 shadow-sm h-100">
+                        <div class="card-header bg-dark text-white rounded-0 d-flex justify-content-between align-items-center">
+                            <span class="fw-bold text-uppercase">@template.Nombre</span>
+                            <div>
+                                <button class="btn btn-sm btn-outline-light rounded-0 me-1"
+                            @onclick="() => AbrirModalEditar(template)" title="Editar">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger rounded-0"
+                            @onclick="() => EliminarTemplate(template.Id)" title="Eliminar">
+                                    <i class="bi bi-trash"></i>
+                                </button>
                             </div>
                         </div>
+                        <div class="card-body">
+                            @if (!string.IsNullOrEmpty(template.Descripcion))
+                            {
+                                <p class="text-muted small mb-2">@template.Descripcion</p>
+                            }
+                            <div class="mb-3">
+                                <small class="text-muted">
+                                    <i class="bi bi-calendar me-1"></i>
+                                    @template.FechaInicioMin?.ToString("dd/MM/yyyy") -
+                                    @template.FechaFinMax?.ToString("dd/MM/yyyy")
+                                </small>
+                            </div>
+
+                            <h6 class="fw-bold text-uppercase small mb-2">
+                                <i class="bi bi-geo-alt me-1"></i> @template.CantidadMaquinas Máquinas
+                            </h6>
+
+                            <div style="max-height: 150px; overflow-y: auto;">
+                                @foreach (var periodo in template.Periodos)
+                                {
+                                    <div class="d-flex justify-content-between align-items-center border-bottom py-1 small">
+                                        <span class="fw-bold">@periodo.MaquinaNombre</span>
+                                        <span class="font-monospace text-muted">
+                                            @periodo.FechaInicio.ToString("dd/MM HH:mm") → @periodo.FechaFin.ToString("dd/MM HH:mm")
+                                        </span>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                        <div class="card-footer bg-light border-top border-dark">
+                            <button class="btn btn-danger w-100 rounded-0 fw-bold"
+                        @onclick="() => AnalizarTemplate(template.Id)">
+                                <i class="bi bi-graph-up me-1"></i> ANALIZAR STOCKOUT
+                            </button>
+                        </div>
+                    </div>
+                </div>
             }
-            </div>
+        </div>
     }
     else
     {
-            <div class="text-center py-5 border border-dark border-2 bg-light">
-                <i class="bi bi-calendar-x fs-1 text-muted"></i>
-                <p class="mt-2 fw-bold text-uppercase">No hay templates creados</p>
-                <button class="btn btn-dark rounded-0 fw-bold" @onclick="AbrirModalCrear">
-                    <i class="bi bi-plus-lg me-1"></i> CREAR PRIMER TEMPLATE
-                </button>
-            </div>
+        <div class="text-center py-5 border border-dark border-2 bg-light">
+            <i class="bi bi-calendar-x fs-1 text-muted"></i>
+            <p class="mt-2 fw-bold text-uppercase">No hay templates creados</p>
+            <button class="btn btn-dark rounded-0 fw-bold" @onclick="AbrirModalCrear">
+                <i class="bi bi-plus-lg me-1"></i> CREAR PRIMER TEMPLATE
+            </button>
+        </div>
     }
 
 </div>
@@ -116,48 +117,46 @@
 <!-- MODAL CREAR/EDITAR -->
 @if (MostrarModal)
 {
-        <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
-            <div class="modal-dialog modal-lg modal-dialog-centered">
-                <div class="modal-content border-2 border-dark rounded-0">
-                    <div class="modal-header bg-dark text-white rounded-0 border-bottom border-dark">
-                        <h5 class="modal-title fw-bold text-uppercase">
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content border-2 border-dark rounded-0">
+                <div class="modal-header bg-dark text-white rounded-0 border-bottom border-dark">
+                    <h5 class="modal-title fw-bold text-uppercase">
                         @(EsEdicion ? "EDITAR TEMPLATE" : "NUEVO TEMPLATE DE RECARGA")
-                        </h5>
-                        <button type="button" class="btn-close btn-close-white" @onclick="CerrarModal"></button>
-                    </div>
-                    <div class="modal-body">
-                        <!-- Nombre y Descripción -->
-                    <div class="row g-3 mb-4">
-                            <div class="col-md-6">
-                                <label class="fw-bold small text-uppercase mb-1">NOMBRE DEL TEMPLATE:</label>
-                                <input type="text" @bind="TemplateActual.Nombre" 
-                                   class="form-control border-dark rounded-0 fw-bold" 
-                                   placeholder="Ej: Recarga Nuevo 3" />
-                            </div>
-                            <div class="col-md-6">
-                                <label class="fw-bold small text-uppercase mb-1">DESCRIPCIÓN (OPCIONAL):</label>
-                                <input type="text" @bind="TemplateActual.Descripcion" 
-                                   class="form-control border-dark rounded-0" 
-                                   placeholder="Ej: Recarga semanal enero" />
-                            </div>
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CerrarModal"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Nombre y Descripción -->
+                <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <label class="fw-bold small text-uppercase mb-1">NOMBRE DEL TEMPLATE:</label>
+                            <input type="text" @bind="TemplateActual.Nombre"
+                            class="form-control border-dark rounded-0 fw-bold" placeholder="Ej: Recarga Nuevo 3" />
                         </div>
+                        <div class="col-md-6">
+                            <label class="fw-bold small text-uppercase mb-1">DESCRIPCIÓN (OPCIONAL):</label>
+                            <input type="text" @bind="TemplateActual.Descripcion" class="form-control border-dark rounded-0"
+                            placeholder="Ej: Recarga semanal enero" />
+                        </div>
+                    </div>
 
-                        <!-- Períodos por Máquina -->
-                    <div class="border border-dark p-3 bg-light">
-                            <div class="d-flex justify-content-between align-items-center mb-3">
-                                <h6 class="fw-bold text-uppercase m-0">
-                                    <i class="bi bi-clock-history me-1"></i> PERÍODOS POR MÁQUINA
-                                </h6>
-                                <button class="btn btn-sm btn-dark rounded-0" @onclick="AgregarPeriodo">
-                                    <i class="bi bi-plus-lg me-1"></i> Agregar Máquina
-                                </button>
-                            </div>
+                    <!-- Períodos por Máquina -->
+                <div class="border border-dark p-3 bg-light">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h6 class="fw-bold text-uppercase m-0">
+                                <i class="bi bi-clock-history me-1"></i> PERÍODOS POR MÁQUINA
+                            </h6>
+                            <button class="btn btn-sm btn-dark rounded-0" @onclick="AgregarPeriodo">
+                                <i class="bi bi-plus-lg me-1"></i> Agregar Máquina
+                            </button>
+                        </div>
 
                         @if (!PeriodosActuales.Any())
                         {
-                                    <div class="text-center text-muted py-3">
-                                        <i class="bi bi-info-circle"></i> Agrega al menos una máquina con su período
-                                    </div>
+                            <div class="text-center text-muted py-3">
+                                <i class="bi bi-info-circle"></i> Agrega al menos una máquina con su período
+                            </div>
                         }
                         else
                         {
@@ -165,65 +164,145 @@
                             {
                                 var periodo = PeriodosActuales[i];
                                 var index = i;
-                                            <div class="card rounded-0 border-dark mb-2">
-                                                <div class="card-body p-2">
-                                                    <div class="row g-2 align-items-end">
-                                                        <div class="col-md-3">
-                                                            <label class="small fw-bold">MÁQUINA:</label>
-                                                            <select class="form-select form-select-sm border-dark rounded-0" 
-                                                        @bind="periodo.MaquinaId">
-                                                                <option value="0">-- Seleccionar --</option>
+                                <div class="card rounded-0 border-dark mb-2">
+                                    <div class="card-body p-2">
+                                        <div class="row g-2 align-items-end">
+                                            <div class="col-md-3">
+                                                <label class="small fw-bold">MÁQUINA:</label>
+                                                <select class="form-select form-select-sm border-dark rounded-0"
+                                        @bind="periodo.MaquinaId">
+                                                    <option value="0">-- Seleccionar --</option>
                                                     @if (ListaMaquinas != null)
                                                     {
                                                         @foreach (var m in ListaMaquinas)
                                                         {
-                                                                                <option value="@m.Id">@m.Nombre</option>
+                                                            <option value="@m.Id">@m.Nombre</option>
                                                         }
                                                     }
-                                                            </select>
-                                                        </div>
-                                                        <div class="col-md-4">
-                                                            <label class="small fw-bold">DESDE:</label>
-                                                            <input type="datetime-local" 
-                                                       class="form-control form-control-sm border-dark rounded-0"
-                                                       @bind="periodo.FechaInicio" />
-                                                        </div>
-                                                        <div class="col-md-4">
-                                                            <label class="small fw-bold">HASTA:</label>
-                                                            <input type="datetime-local" 
-                                                       class="form-control form-control-sm border-dark rounded-0"
-                                                       @bind="periodo.FechaFin" />
-                                                        </div>
-                                                        <div class="col-md-1">
-                                                            <button class="btn btn-sm btn-outline-danger rounded-0 w-100" 
-                                                        @onclick="() => EliminarPeriodo(index)">
-                                                                <i class="bi bi-x-lg"></i>
-                                                            </button>
-                                                        </div>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label class="small fw-bold">DESDE:</label>
+                                                <input type="datetime-local"
+                                        class="form-control form-control-sm border-dark rounded-0"
+                                        @bind="periodo.FechaInicio" />
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label class="small fw-bold">HASTA:</label>
+                                                <input type="datetime-local"
+                                        class="form-control form-control-sm border-dark rounded-0"
+                                        @bind="periodo.FechaFin" />
+                                            </div>
+                                            <div class="col-md-2">
+                                                <button class="btn btn-sm btn-outline-primary rounded-0 w-100"
+                                        @onclick="() => CargarSlotsParaPeriodo(index)"
+                                        disabled="@(periodo.MaquinaId == 0 || CargandoSlots)">
+                                                    <i class="bi bi-box-seam me-1"></i>Slots
+                                                </button>
+                                            </div>
+                                            <div class="col-md-1">
+                                                <button class="btn btn-sm btn-outline-danger rounded-0 w-100"
+                                        @onclick="() => EliminarPeriodo(index)">
+                                                    <i class="bi bi-x-lg"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        @* Mostrar slots si tiene snapshot *@
+                                        @if (periodo.SnapshotSlots.Any())
+                                        {
+                                            <div class="mt-2 p-2 bg-light border border-secondary"
+                                style="max-height: 350px; overflow-y: auto;">
+                                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                                    <small class="fw-bold text-success">
+                                                        <i class="bi bi-check-circle me-1"></i>@periodo.SnapshotSlots.Count(s =>
+                                        s.ProductoId.HasValue && s.ProductoId > 0) productos configurados
+                                                    </small>
+                                                    <div>
+                                                        <button class="btn btn-sm btn-outline-success rounded-0 py-0 me-1"
+                                            @onclick="() => AgregarSlotVacio(periodo)">
+                                                            <i class="bi bi-plus"></i> Slot
+                                                        </button>
+                                                        <button class="btn btn-sm btn-outline-secondary rounded-0 py-0"
+                                            @onclick="() => periodo.SnapshotSlots.Clear()">
+                                                            <i class="bi bi-x"></i> Limpiar
+                                                        </button>
                                                     </div>
                                                 </div>
+                                                <table class="table table-sm table-bordered m-0 small">
+                                                    <thead class="table-dark sticky-top">
+                                                        <tr>
+                                                            <th style="width: 70px;">Slot</th>
+                                                            <th>Producto</th>
+                                                            <th style="width: 70px;" class="text-center">Cant.</th>
+                                                            <th style="width: 40px;"></th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        @foreach (var slot in periodo.SnapshotSlots
+                                                       .OrderBy(s => int.TryParse(s.NumeroSlot, out var n) ? n : 999))
+                                                        {
+                                                            <tr>
+                                                                <td class="p-0">
+                                                                    <input type="text"
+                                                    class="form-control form-control-sm text-center border-0 bg-transparent font-monospace"
+                                                    @bind="slot.NumeroSlot" placeholder="#" />
+                                                                </td>
+                                                                <td class="p-0">
+                                                                    <select class="form-select form-select-sm border-0 bg-transparent"
+                                                    @bind="slot.ProductoId"
+                                                    @bind:after="() => ActualizarNombreProducto(slot)">
+                                                                        <option value="">-- Sin producto --</option>
+                                                                        @if (ListaProductos != null)
+                                                                        {
+                                                                            @foreach (var prod in ListaProductos)
+                                                                            {
+                                                                                <option value="@prod.Id">@prod.Nombre</option>
+                                                                            }
+                                                                        }
+                                                                    </select>
+                                                                </td>
+                                                                <td class="text-center p-0">
+                                                                    <input type="number" min="0" max="@slot.CapacidadSlot"
+                                                    class="form-control form-control-sm text-center border-0 bg-transparent"
+                                                    @bind="slot.CantidadInicial" />
+                                                                </td>
+                                                                <td class="text-center p-0">
+                                                                    <button class="btn btn-sm btn-link text-danger p-0"
+                                                    @onclick="() => periodo.SnapshotSlots.Remove(slot)">
+                                                                        <i class="bi bi-trash"></i>
+                                                                    </button>
+                                                                </td>
+                                                            </tr>
+                                                        }
+                                                    </tbody>
+                                                </table>
                                             </div>
+                                        }
+                                    </div>
+                                </div>
                             }
                         }
-                        </div>
                     </div>
-                    <div class="modal-footer border-top border-dark">
-                        <button type="button" class="btn btn-secondary rounded-0" @onclick="CerrarModal">
-                            CANCELAR
-                        </button>
-                        <button type="button" class="btn btn-success rounded-0 fw-bold" 
-                            @onclick="GuardarTemplate" disabled="@Guardando">
+                </div>
+                <div class="modal-footer border-top border-dark">
+                    <button type="button" class="btn btn-secondary rounded-0" @onclick="CerrarModal">
+                        CANCELAR
+                    </button>
+                    <button type="button" class="btn btn-success rounded-0 fw-bold" @onclick="GuardarTemplate"
+                    disabled="@Guardando">
                         @(Guardando ? "GUARDANDO..." : (EsEdicion ? "ACTUALIZAR" : "GUARDAR TEMPLATE"))
-                        </button>
-                    </div>
+                    </button>
                 </div>
             </div>
         </div>
+    </div>
 }
 
 @code {
     private bool Cargando = false;
     private bool Guardando = false;
+    private bool CargandoSlots = false;
     private string MensajeError = "";
     private string MensajeExito = "";
 
@@ -236,10 +315,12 @@
     private int TemplateIdEdicion = 0;
     private TemplateFormModel TemplateActual = new();
     private List<PeriodoFormModel> PeriodosActuales = new();
+    private List<ProductoSimpleDto>? ListaProductos;
 
     protected override async Task OnInitializedAsync()
     {
         await CargarMaquinas();
+        await CargarProductos();
         await CargarTemplates();
     }
 
@@ -248,6 +329,15 @@
         try
         {
             ListaMaquinas = await Http.GetFromJsonAsync<List<MaquinaSimpleDto>>("api/Ventas/lista-maquinas");
+        }
+        catch { }
+    }
+
+    private async Task CargarProductos()
+    {
+        try
+        {
+            ListaProductos = await Http.GetFromJsonAsync<List<ProductoSimpleDto>>("api/Ventas/lista-productos");
         }
         catch { }
     }
@@ -295,7 +385,15 @@
         {
             MaquinaId = p.MaquinaId,
             FechaInicio = p.FechaInicio,
-            FechaFin = p.FechaFin
+            FechaFin = p.FechaFin,
+            SnapshotSlots = p.SnapshotSlots.Select(s => new SnapshotSlotFormModel
+            {
+                NumeroSlot = s.NumeroSlot,
+                ProductoId = s.ProductoId,
+                ProductoNombre = s.ProductoNombre,
+                CantidadInicial = s.CantidadInicial,
+                CapacidadSlot = s.CapacidadSlot
+            }).ToList()
         }).ToList();
         MostrarModal = true;
     }
@@ -319,6 +417,72 @@
         if (index >= 0 && index < PeriodosActuales.Count)
         {
             PeriodosActuales.RemoveAt(index);
+        }
+    }
+
+    private void AgregarSlotVacio(PeriodoFormModel periodo)
+    {
+        // Calcular próximo número de slot basado en los existentes
+        var nextSlot = 1;
+        if (periodo.SnapshotSlots.Any())
+        {
+            var maxSlot = periodo.SnapshotSlots
+            .Select(s => int.TryParse(s.NumeroSlot, out var n) ? n : 0)
+            .DefaultIfEmpty(0)
+            .Max();
+            nextSlot = maxSlot + 1;
+        }
+
+        periodo.SnapshotSlots.Add(new SnapshotSlotFormModel
+        {
+            NumeroSlot = nextSlot.ToString(),
+            CantidadInicial = 10,
+            CapacidadSlot = 10
+        });
+    }
+
+    private void ActualizarNombreProducto(SnapshotSlotFormModel slot)
+    {
+        if (slot.ProductoId.HasValue && ListaProductos != null)
+        {
+            var prod = ListaProductos.FirstOrDefault(p => p.Id == slot.ProductoId.Value);
+            slot.ProductoNombre = prod?.Nombre ?? "";
+        }
+        else
+        {
+            slot.ProductoNombre = "";
+        }
+    }
+
+    private async Task CargarSlotsParaPeriodo(int periodoIndex)
+    {
+        if (periodoIndex < 0 || periodoIndex >= PeriodosActuales.Count) return;
+
+        var periodo = PeriodosActuales[periodoIndex];
+        if (periodo.MaquinaId == 0) return;
+
+        CargandoSlots = true;
+        StateHasChanged();
+
+        try
+        {
+            var slots = await Http.GetFromJsonAsync<List<SnapshotSlotFormModel>>(
+            $"api/TemplateRecarga/maquina/{periodo.MaquinaId}/slots");
+
+            if (slots != null)
+            {
+                periodo.SnapshotSlots = slots;
+                MensajeExito = $"Se cargaron {slots.Count} slots para la máquina";
+            }
+        }
+        catch (Exception ex)
+        {
+            MensajeError = "Error al cargar slots: " + ex.Message;
+        }
+        finally
+        {
+            CargandoSlots = false;
+            StateHasChanged();
         }
     }
 
@@ -349,13 +513,22 @@
                 Nombre = TemplateActual.Nombre,
                 Descripcion = TemplateActual.Descripcion,
                 Periodos = PeriodosActuales
-                    .Where(p => p.MaquinaId > 0)
-                    .Select(p => new CreatePeriodoDto
-                    {
-                        MaquinaId = p.MaquinaId,
-                        FechaInicio = p.FechaInicio,
-                        FechaFin = p.FechaFin
-                    }).ToList()
+            .Where(p => p.MaquinaId > 0)
+            .Select(p => new CreatePeriodoDto
+            {
+                MaquinaId = p.MaquinaId,
+                FechaInicio = p.FechaInicio,
+                FechaFin = p.FechaFin,
+                SnapshotSlots = p.SnapshotSlots
+            .Where(s => s.ProductoId.HasValue && s.ProductoId > 0)
+            .Select(s => new CreateSnapshotSlotDto
+            {
+                NumeroSlot = s.NumeroSlot,
+                ProductoId = s.ProductoId,
+                CantidadInicial = s.CantidadInicial,
+                CapacidadSlot = s.CapacidadSlot
+            }).ToList()
+            }).ToList()
             };
 
             HttpResponseMessage response;
@@ -422,6 +595,12 @@
         public string Nombre { get; set; } = string.Empty;
     }
 
+    public class ProductoSimpleDto
+    {
+        public int Id { get; set; }
+        public string Nombre { get; set; } = string.Empty;
+    }
+
     public class TemplateRecargaDto
     {
         public int Id { get; set; }
@@ -441,6 +620,17 @@
         public string MaquinaNombre { get; set; } = string.Empty;
         public DateTime FechaInicio { get; set; }
         public DateTime FechaFin { get; set; }
+        public List<SnapshotSlotDto> SnapshotSlots { get; set; } = new();
+    }
+
+    public class SnapshotSlotDto
+    {
+        public int Id { get; set; }
+        public string NumeroSlot { get; set; } = string.Empty;
+        public int? ProductoId { get; set; }
+        public string ProductoNombre { get; set; } = string.Empty;
+        public int CantidadInicial { get; set; }
+        public int CapacidadSlot { get; set; }
     }
 
     public class TemplateFormModel
@@ -454,6 +644,16 @@
         public int MaquinaId { get; set; }
         public DateTime FechaInicio { get; set; }
         public DateTime FechaFin { get; set; }
+        public List<SnapshotSlotFormModel> SnapshotSlots { get; set; } = new();
+    }
+
+    public class SnapshotSlotFormModel
+    {
+        public string NumeroSlot { get; set; } = "";
+        public int? ProductoId { get; set; }
+        public string ProductoNombre { get; set; } = "";
+        public int CantidadInicial { get; set; }
+        public int CapacidadSlot { get; set; }
     }
 
     public class CreateTemplateDto
@@ -468,5 +668,14 @@
         public int MaquinaId { get; set; }
         public DateTime FechaInicio { get; set; }
         public DateTime FechaFin { get; set; }
+        public List<CreateSnapshotSlotDto> SnapshotSlots { get; set; } = new();
+    }
+
+    public class CreateSnapshotSlotDto
+    {
+        public string NumeroSlot { get; set; } = "";
+        public int? ProductoId { get; set; }
+        public int CantidadInicial { get; set; }
+        public int CapacidadSlot { get; set; }
     }
 }

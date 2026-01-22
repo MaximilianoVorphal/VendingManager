@@ -5,6 +5,7 @@ namespace VendingManager.Core.Interfaces
     public interface IVentasService
     {
         Task<List<MaquinaSimpleDto>> GetMaquinasAsync();
+        Task<List<ProductoSimpleDto>> GetProductosAsync();
         Task<DashboardStats> GetDashboardStatsAsync(int maquinaId);
         Task<ReporteDto> GetReporteRangoAsync(DateTime inicio, DateTime fin, int maquinaId, bool includePhantom = false, int? templateId = null);
         Task<InformeFinancieroDto> GetInformeFinancieroAsync(DateTime inicio, DateTime fin, int maquinaId);

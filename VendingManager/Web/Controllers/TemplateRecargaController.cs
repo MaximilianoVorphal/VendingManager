@@ -95,4 +95,14 @@ public class TemplateRecargaController : ControllerBase
         var result = await _service.AnalyzarPorTemplateAsync(id, umbralHoras);
         return Ok(result);
     }
+
+    /// <summary>
+    /// Obtener la configuración actual de slots de una máquina (para crear snapshot)
+    /// </summary>
+    [HttpGet("maquina/{maquinaId}/slots")]
+    public async Task<ActionResult<List<SnapshotSlotDto>>> GetSlotsForMaquina(int maquinaId)
+    {
+        var slots = await _service.GetSlotsForMaquinaAsync(maquinaId);
+        return Ok(slots);
+    }
 }

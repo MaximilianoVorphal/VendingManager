@@ -18,6 +18,7 @@ namespace VendingManager.Infrastructure.Data
         public DbSet<Core.Entities.User> Users { get; set; } = null!;
         public DbSet<TemplateRecarga> TemplatesRecarga { get; set; } = null!;
         public DbSet<PeriodoRecarga> PeriodosRecarga { get; set; } = null!;
+        public DbSet<SnapshotSlot> SnapshotSlots { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
