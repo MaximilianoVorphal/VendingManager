@@ -80,6 +80,15 @@
                                 <i class="bi bi-cloud-arrow-down-fill text-white"></i>
                         }
                     </button>
+                    <!-- FILTER BUTTON -->
+                    <button class="btn btn-secondary rounded-0 fw-bold border-dark py-2" @onclick="AbrirModalFiltroProductos"
+                        title="Filtrar Productos">
+                        <i class="bi bi-funnel-fill"></i>
+                        @if (ProductosExcluidos.Any())
+                        {
+                            <span class="badge bg-danger ms-1">@ProductosExcluidos.Count</span>
+                        }
+                    </button>
                 </div>
             </div>
             <div class="row mt-2">
@@ -114,13 +123,22 @@
             <!-- KPI CARDS -->
             <div class="row g-3 mb-4">
             @{
-                // CALCULO EN CALIENTE DE LA GANANCIA CONFIRMADA (SOLO PAGADO)
-                // Filtrar solo las ventas con Estado 'Pagado' (asumiendo que en ReporteDto.Detalle viene el estado)
-                var gananciaConfirmada = Datos.Detalle
-                .Where(d => d.Estado == "Pagado")
-                .Sum(d => d.Ganancia);
+                // CALCULO EN CALIENTE BASADO EN DATOS FILTRADOS
+                var datosParaKpi = DetalleFiltrado;
+                
+                var gananciaConfirmada = datosParaKpi
+                    .Where(d => d.Estado == "Pagado")
+                    .Sum(d => d.Ganancia);
 
-                var ventasConfirmadas = Datos.MontoPagado;
+                var ventasConfirmadas = datosParaKpi
+                    .Where(d => d.Estado == "Pagado")
+                    .Sum(d => d.Monto);
+                    
+                var montoPendiente = datosParaKpi
+                    .Where(d => d.Estado != "Pagado")
+                    .Sum(d => d.Monto);
+
+                var montoPhantom = Datos.MontoPhantom; // Fantasmas no se filtran
             }
 
                 <!-- 1. UTILIDAD REAL (SOLO CONFIRMADO) -->
@@ -158,11 +176,11 @@
                             Confirmadas
                         </div>
                         <h3 class="fw-bold mt-2 text-white" style="letter-spacing: -1px;">
-                            $@Datos.MontoPagado.ToString("N0")
+                            $@ventasConfirmadas.ToString("N0")
                         </h3>
                         <div class="mt-2 border-top border-white pt-2" style="opacity: 0.9;">
                             <small class="text-white fw-bold text-uppercase" style="font-size: 0.7rem;">
-                            @Datos.Detalle.Count(x => x.Estado == "Pagado") Transacciones
+                            @datosParaKpi.Count(x => x.Estado == "Pagado") Transacciones
                             </small>
                         </div>
                     </div>
@@ -175,10 +193,10 @@
                             Diferencias Transbank
                         </div>
                         <h3 class="fw-bold mt-2 text-white" style="letter-spacing: -1px;">
-                            $@Datos.MontoPhantom.ToString("N0")
+                            $@montoPhantom.ToString("N0")
                         </h3>
                         <div class="mt-2 border-top border-white pt-2" style="opacity: 0.9;">
-                        @if (Datos.MontoPhantom > 0)
+                        @if (montoPhantom > 0)
                         {
                                     <small class="text-white fw-bold text-uppercase" style="font-size: 0.7rem;">Requiere
                                         Revisión (Click para ver)</small>
@@ -197,7 +215,7 @@
                         <div class="text-dark fw-bold text-uppercase small" style="letter-spacing: 1px; opacity: 0.8;">Pendiente
                             / Cash</div>
                         <h3 class="fw-bold mt-2 text-dark" style="letter-spacing: -1px;">
-                            $@Datos.MontoPendiente.ToString("N0")
+                            $@montoPendiente.ToString("N0")
                         </h3>
                         <div class="mt-2 border-top border-dark pt-2" style="opacity: 0.8;">
                             <small class="text-dark fw-bold text-uppercase" style="font-size: 0.7rem;">Por Confirmar</small>
@@ -206,10 +224,15 @@
                 </div>
             </div>
 
+
             <!-- MAIN DATA TABLE -->
             <div class="card border-2 border-dark rounded-0 shadow-sm mb-4">
-                <div class="card-header bg-dark text-white rounded-0 fw-bold border-bottom border-dark text-uppercase">
-                    <i class="bi bi-table me-2"></i>Detalle de Operaciones
+                <div class="card-header bg-dark text-white rounded-0 fw-bold border-bottom border-dark text-uppercase d-flex justify-content-between align-items-center">
+                    <span><i class="bi bi-table me-2"></i>Detalle de Operaciones (@DetalleFiltrado.Count)</span>
+                    <input type="text" @bind="FiltroProducto" @bind:event="oninput" 
+                        class="form-control form-control-sm border-0 bg-secondary text-white rounded-0" 
+                        style="max-width: 250px; placeholder: #aaa;" 
+                        placeholder="🔍 Filtrar producto..." />
                 </div>
                 <div class="table-responsive" style="max-height: 550px; overflow-y: auto;">
                     <table class="table table-hover table-bordered border-dark m-0" style="min-width: 600px;">
@@ -235,9 +258,9 @@
                             </tr>
                         </thead>
                         <tbody class="bg-white">
-                        @if (Datos.Detalle != null && Datos.Detalle.Count > 0)
+                        @if (DetalleFiltrado.Count > 0)
                         {
-                                    <Virtualize Items="@Datos.Detalle" Context="v" SpacerElement="tr" OverscanCount="20">
+                                    <Virtualize Items="@DetalleFiltrado" Context="v" SpacerElement="tr" OverscanCount="20">
                                         <tr>
                                             <td class="font-monospace small">@v.FechaRaw.ToString("dd/MM/yyyy HH:mm")</td>
                                             <td class="fw-bold small font-monospace">@ExtractMachineCode(v.Maquina)</td>
@@ -489,6 +512,68 @@
     </div>
 }
 
+<!-- MODAL FILTRO PRODUCTOS -->
+@if (MostrarModalFiltroProductos)
+{
+    <div class="modal show d-block" style="background: rgba(0,0,0,0.5);" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content rounded-0 border-2 border-dark shadow-lg">
+                <div class="modal-header bg-secondary text-white rounded-0 border-bottom border-dark">
+                    <h5 class="modal-title fw-bold text-uppercase"><i class="bi bi-funnel-fill me-2"></i>Filtrar Productos</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CerrarModalFiltroProductos"></button>
+                </div>
+                <div class="modal-body p-3">
+                    <div class="alert alert-info rounded-0 small mb-3">
+                        <i class="bi bi-info-circle-fill me-1"></i> Desmarca los productos que NO quieres ver en el reporte.
+                    </div>
+                    
+                    <div class="d-flex gap-2 mb-3">
+                        <button class="btn btn-sm btn-outline-success rounded-0" @onclick="SeleccionarTodosProductos">
+                            <i class="bi bi-check-all"></i> Seleccionar Todos
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger rounded-0" @onclick="DeseleccionarTodosProductos">
+                            <i class="bi bi-x-lg"></i> Deseleccionar Todos
+                        </button>
+                        <button class="btn btn-sm btn-outline-warning rounded-0" @onclick="ExcluirProductosVacios">
+                            <i class="bi bi-dash-circle"></i> Excluir Vacíos
+                        </button>
+                    </div>
+
+                    <div class="border border-dark p-2" style="max-height: 400px; overflow-y: auto;">
+                        @if (ProductosUnicos != null && ProductosUnicos.Any())
+                        {
+                            @foreach (var producto in ProductosUnicos.OrderBy(p => p))
+                            {
+                                var isExcluded = ProductosExcluidos.Contains(producto);
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" 
+                                        checked="@(!isExcluded)"
+                                        @onchange="() => ToggleProducto(producto)" 
+                                        id="@($"chk_{producto.GetHashCode()}")">
+                                    <label class="form-check-label small @(string.IsNullOrWhiteSpace(producto) ? "text-muted fst-italic" : "")" 
+                                        for="@($"chk_{producto.GetHashCode()}")">
+                                        @(string.IsNullOrWhiteSpace(producto) ? "(Sin nombre / Vacío)" : producto)
+                                    </label>
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            <p class="text-muted text-center py-4">Carga un reporte primero para ver los productos disponibles.</p>
+                        }
+                    </div>
+                </div>
+                <div class="modal-footer bg-light rounded-0 border-top border-dark">
+                    <span class="text-muted small me-auto">
+                        @ProductosExcluidos.Count producto(s) excluido(s)
+                    </span>
+                    <button type="button" class="btn btn-dark rounded-0 fw-bold" @onclick="CerrarModalFiltroProductos">APLICAR</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 <style>
     .sortable-header {
         cursor: pointer;
@@ -511,6 +596,7 @@
     private bool Sincronizando = false;
     private bool MostrarModalSync = false;
     private DateTime FechaLimiteSync = DateTime.Now;
+    private bool MostrarModalFiltroProductos = false;
 
     // --- VARIABLES DE DATOS ---
     private DateTime FechaInicio = DateTime.Today.AddDays(-30);
@@ -528,6 +614,64 @@
     // --- CONTROL DE ORDEN ---
     private string ColumnaOrden = "Fecha";
     private bool Ascendente = false;
+    private string FiltroProducto = "";
+
+    // --- FILTRO DE EXCLUSIÓN DE PRODUCTOS ---
+    private HashSet<string> ProductosExcluidos = new();
+    private List<string> ProductosUnicos => (Datos?.Detalle ?? new List<DetalleVentaDto>())
+        .Select(d => d.Producto ?? "")
+        .Distinct()
+        .ToList();
+
+    // --- PROPIEDAD CALCULADA PARA FILTRO DE PRODUCTOS ---
+    private List<DetalleVentaDto> DetalleFiltrado
+    {
+        get
+        {
+            var lista = Datos?.Detalle ?? new List<DetalleVentaDto>();
+            
+            // Filtro por texto
+            if (!string.IsNullOrWhiteSpace(FiltroProducto))
+            {
+                lista = lista.Where(d => d.Producto?.Contains(FiltroProducto, StringComparison.OrdinalIgnoreCase) ?? false).ToList();
+            }
+            
+            // Filtro por exclusión
+            if (ProductosExcluidos.Any())
+            {
+                lista = lista.Where(d => !ProductosExcluidos.Contains(d.Producto ?? "")).ToList();
+            }
+            
+            return lista;
+        }
+    }
+
+    // --- MÉTODOS FILTRO DE PRODUCTOS ---
+    private void AbrirModalFiltroProductos() => MostrarModalFiltroProductos = true;
+    private void CerrarModalFiltroProductos() => MostrarModalFiltroProductos = false;
+
+    private void ToggleProducto(string producto)
+    {
+        if (ProductosExcluidos.Contains(producto))
+            ProductosExcluidos.Remove(producto);
+        else
+            ProductosExcluidos.Add(producto);
+    }
+
+    private void SeleccionarTodosProductos() => ProductosExcluidos.Clear();
+    
+    private void DeseleccionarTodosProductos()
+    {
+        ProductosExcluidos = ProductosUnicos.ToHashSet();
+    }
+
+    private void ExcluirProductosVacios()
+    {
+        foreach (var p in ProductosUnicos.Where(p => string.IsNullOrWhiteSpace(p)))
+        {
+            ProductosExcluidos.Add(p);
+        }
+    }
 
     // --- MÉTODOS ---
     protected override async Task OnInitializedAsync()
