@@ -345,6 +345,7 @@ public class TemplateRecargaService : ITemplateRecargaService
                 PosibleQuiebre = posibleQuiebre,
                 HorasSinStock = horasSinStock,
 
+                StockInicial = tieneSnapshots && snapshotPorProducto!.TryGetValue(productoId, out var stockIni) ? stockIni : 0,
                 CantidadVendida = cantidad,
                 HorasActivas = horasActivas,
                 VelocidadPorHora = Math.Round(velocidadPorHora, 4),
