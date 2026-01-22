@@ -28,8 +28,14 @@ public class PeriodoRecargaDto
     public DateTime FechaInicio { get; set; }
     public DateTime FechaFin { get; set; }
 
+    /// <summary>
+    /// Snapshot del inventario de slots al momento de la recarga
+    /// </summary>
+    public List<SnapshotSlotDto> SnapshotSlots { get; set; } = new();
+
     // Helper para UI
     public double DuracionHoras => (FechaFin - FechaInicio).TotalHours;
+    public bool TieneSnapshot => SnapshotSlots.Any();
 }
 
 /// <summary>
@@ -50,6 +56,11 @@ public class CreatePeriodoDto
     public int MaquinaId { get; set; }
     public DateTime FechaInicio { get; set; }
     public DateTime FechaFin { get; set; }
+
+    /// <summary>
+    /// Snapshot del inventario de slots (opcional)
+    /// </summary>
+    public List<CreateSnapshotSlotDto> SnapshotSlots { get; set; } = new();
 }
 
 /// <summary>
@@ -61,3 +72,28 @@ public class UpdateTemplateRecargaDto
     public string? Descripcion { get; set; }
     public List<CreatePeriodoDto> Periodos { get; set; } = new();
 }
+
+/// <summary>
+/// DTO para mostrar un snapshot de slot
+/// </summary>
+public class SnapshotSlotDto
+{
+    public int Id { get; set; }
+    public string NumeroSlot { get; set; } = string.Empty;
+    public int? ProductoId { get; set; }
+    public string ProductoNombre { get; set; } = string.Empty;
+    public int CantidadInicial { get; set; }
+    public int CapacidadSlot { get; set; }
+}
+
+/// <summary>
+/// DTO para crear un snapshot de slot
+/// </summary>
+public class CreateSnapshotSlotDto
+{
+    public string NumeroSlot { get; set; } = string.Empty;
+    public int? ProductoId { get; set; }
+    public int CantidadInicial { get; set; }
+    public int CapacidadSlot { get; set; }
+}
+

@@ -102,6 +102,12 @@ namespace VendingManager.Web.Controllers
             return await _ventasService.GetMaquinasAsync();
         }
 
+        [HttpGet("lista-productos")]
+        public async Task<ActionResult<List<ProductoSimpleDto>>> GetListaProductos()
+        {
+            return await _ventasService.GetProductosAsync();
+        }
+
         [HttpGet("dashboard-stats")]
         public async Task<ActionResult<DashboardStats>> GetDashboardStats(int maquinaId = 0)
         {
