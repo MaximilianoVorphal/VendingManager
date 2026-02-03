@@ -97,7 +97,7 @@ async def run_async(machine_id, start_date, end_date):
                 if await group_select.is_visible(timeout=3000):
                     await group_select.select_option(label="UNIDAD PREDETERMINADA")
                     print("    ✅ Grupo seleccionado: UNIDAD PREDETERMINADA")
-                    await asyncio.sleep(1)  # Esperar a que se actualice el dropdown de máquinas
+                    await asyncio.sleep(3)  # Esperar a que se actualice el dropdown de máquinas (Aumentado a 3s)
             except Exception as e:
                 print(f"    ⚠️ Warning en selección de grupo: {e}")
 

@@ -4,7 +4,7 @@ namespace VendingManager.Core.Interfaces
 {
     public interface IExcelService
     {
-        Task<string> ImportarVentasMaquina(Stream fileStream, string nombreArchivo, DateTime? fechaLimite = null);
+        Task<string> ImportarVentasMaquina(Stream fileStream, string nombreArchivo, DateTime? fechaLimite = null, string? maquinaIdEsperado = null);
         Task ImportarTransbank(Stream fileStream, string nombreArchivo, DateTime? fechaLimite = null);
         Task<string> ImportarCatalogoProductos(Stream fileStream, string nombreArchivo);
         Task<byte[]> ExportarCatalogoProductos();
