@@ -1,0 +1,10 @@
+dcb7a77 123
+4e2365d corregido el error a la hora de descargar los informes, se puso un maximo de 31 dias para que no fallara la query
+decfc68 feat: Implement a toggle to filter inventory movements on the Caja page.
+1ed153f implementadas mejoras a la interfaz movil
+ea1fa0c Pagina de carga modificado
+1fe7e04 feat: Implement recharge templates, stockout analysis, and foundational application setup with authentication.
+4e2365d corregido el error a la hora de descargar los informes, se puso un maximo de 31 dias para que no fallara la query
+decfc68 feat: Implement a toggle to filter inventory movements on the Caja page.
+1ed153f implementadas mejoras a la interfaz movil
+ea1fa0c Pagina de carga modificado
