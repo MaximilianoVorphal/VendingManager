@@ -69,7 +69,7 @@ namespace VendingManager.Infrastructure.Services
                 {
                     await result.FileStream.CopyToAsync(ms);
                     ms.Position = 0;
-                    string stats = await ImportarVentasMaquina(ms, result.FileName, fechaLimite);
+                    string stats = await ImportarVentasMaquina(ms, result.FileName, fechaLimite, targetMachineId);
                     return $"Sincronización Exitosa. {stats}";
                 }
 
@@ -85,7 +85,7 @@ namespace VendingManager.Infrastructure.Services
         // =============================================
         // 1. IMPORTAR VENTAS DE MÁQUINA (.XLS CHINO)
         // =============================================
-        public async Task<string> ImportarVentasMaquina(Stream fileStream, string nombreArchivo, DateTime? fechaLimite = null)
+        public async Task<string> ImportarVentasMaquina(Stream fileStream, string nombreArchivo, DateTime? fechaLimite = null, string? maquinaIdEsperado = null)
         {
             try
             {
@@ -120,6 +120,7 @@ namespace VendingManager.Infrastructure.Services
                     int maquinaNoEncontrada = 0;
                     int filasVacias = 0;
                     int ignoradosPorFecha = 0;
+                    int filtradosPorID = 0; // NUEVO CONTADOR
 
                     foreach (DataRow row in tabla.Rows)
                     {
@@ -127,6 +128,14 @@ namespace VendingManager.Infrastructure.Services
                         if (string.IsNullOrEmpty(machineId))
                         {
                             filasVacias++;
+                            continue;
+                        }
+
+                        // 🔥 FILTRO DURO DE ID (SOLICITADO POR USUARIO)
+                        // Si nos piden importar solo para la 2410280012, ignoramos cualquier otra fila.
+                        if (!string.IsNullOrEmpty(maquinaIdEsperado) && machineId.Trim() != maquinaIdEsperado.Trim())
+                        {
+                            filtradosPorID++;
                             continue;
                         }
 
@@ -261,7 +270,7 @@ namespace VendingManager.Infrastructure.Services
                     }
 
                     await _context.SaveChangesAsync();
-                    string reporte = $"PROCESADO: {guardados} nuevas | {duplicados} dupl | {ignoradosPorFecha} fuera_rango | {maquinaNoEncontrada} sin_maq";
+                    string reporte = $"PROCESADO: {guardados} nuevas | {duplicados} dupl | { ignoradosPorFecha} fuera_rango | { filtradosPorID} FILTRADOS_ID | { maquinaNoEncontrada} sin_maq";
                     Console.WriteLine($"✅ MÁQUINA: {reporte}");
                     return reporte;
                 }
