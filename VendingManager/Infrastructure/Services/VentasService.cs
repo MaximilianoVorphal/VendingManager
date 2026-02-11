@@ -672,5 +672,62 @@ namespace VendingManager.Infrastructure.Services
 
             return ventas;
         }
+        public async Task<List<PurchaseSuggestionDto>> GetPurchaseSuggestionAsync(int dias = 30)
+        {
+            DateTime fechaInicio = DateTime.Now.Date.AddDays(-dias);
+            
+            // 1. Obtener Ventas de los últimos X días
+            var ventas = await _context.Ventas
+                .Where(v => v.FechaLocal >= fechaInicio)
+                .Where(v => v.ProductoId != null && v.ProductoId != 0)
+                .GroupBy(v => v.ProductoId!.Value)
+                .Select(g => new { ProductoId = g.Key, Cantidad = g.Count() })
+                .ToListAsync();
+
+            // 2. Obtener Stock Actual en Máquinas
+            var stockMaquinas = await _context.ConfiguracionSlots
+                .Where(s => s.ProductoId != null && s.ProductoId != 0)
+                .GroupBy(s => s.ProductoId!.Value)
+                .Select(g => new { ProductoId = g.Key, Stock = g.Sum(s => s.StockActual) })
+                .ToListAsync();
+
+            // 2.5 Determinar si existe en alguna máquina (aunque el stock sea 0, si está asignado)
+            var configSlots = await _context.ConfiguracionSlots
+                .Where(s => s.ProductoId != null && s.ProductoId != 0)
+                .Select(s => s.ProductoId!.Value)
+                .Distinct()
+                .ToListAsync();
+            var productosEnSlots = new HashSet<int>(configSlots);
+
+            // 3. Obtener Productos y Stock Bodega
+            var productos = await _context.Productos.ToListAsync();
+
+            var result = new List<PurchaseSuggestionDto>();
+
+            foreach (var p in productos)
+            {
+                var ventasPeriodo = ventas.FirstOrDefault(v => v.ProductoId == p.Id)?.Cantidad ?? 0;
+                var stockEnMaquinas = stockMaquinas.FirstOrDefault(s => s.ProductoId == p.Id)?.Stock ?? 0;
+                
+                // Cálculo de Sugerencia: 
+                // Lo que se vendió en el periodo (demanda esperada) - (Lo que ya tengo en máquinas + Lo que tengo en bodega)
+                // Si tengo más stock que la demanda esperada, no compro nada (0).
+                int sugerido = ventasPeriodo - (stockEnMaquinas + p.StockBodega);
+                if (sugerido < 0) sugerido = 0;
+
+                result.Add(new PurchaseSuggestionDto
+                {
+                    ProductoId = p.Id,
+                    NombreProducto = p.Nombre,
+                    VentasUltimos30Dias = ventasPeriodo,
+                    StockActualMaquinas = stockEnMaquinas,
+                    StockBodega = p.StockBodega,
+                    CantidadSugerida = sugerido,
+                    EnMaquina = productosEnSlots.Contains(p.Id)
+                });
+            }
+
+            return result.OrderByDescending(x => x.CantidadSugerida).ThenByDescending(x => x.VentasUltimos30Dias).ToList();
+        }
     }
 }
