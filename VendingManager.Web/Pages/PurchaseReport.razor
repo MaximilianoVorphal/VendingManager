@@ -1,0 +1,102 @@
+@page "/informe-compras"
+@using VendingManager.Core.DTOs
+@using VendingManager.Core.DTOs
+@using System.Net.Http.Json
+@inject HttpClient Http
+@attribute [Authorize]
+
+<PageTitle>Informe de Compras</PageTitle>
+
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Informe de Compras Sugeridas</h1>
+        <div class="d-flex gap-2 align-items-center">
+            <label>Días de análisis:</label>
+            <input type="number" class="form-control w-auto" @bind="days" min="1" max="365" />
+            <button class="btn btn-primary" @onclick="LoadData">Calcular</button>
+        </div>
+    </div>
+
+    @if (suggestions == null)
+    {
+        <p><em>Cargando...</em></p>
+    }
+    else if (!suggestions.Any())
+    {
+        <div class="alert alert-info">No hay sugerencias de compra para el periodo seleccionado.</div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-striped table-hover align-middle">
+                <thead class="table-dark">
+                    <tr>
+                        <th class="text-center">En Máq.</th>
+                        <th>Producto</th>
+                        <th class="text-center">Ventas (@days días)</th>
+                        <th class="text-center">Stock en Máquinas</th>
+                        <th class="text-center">Stock Bodega</th>
+                        <th class="text-center">Sugerido Compra</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in suggestions)
+                    {
+                        <tr class="@(item.CantidadSugerida > 0 ? "table-warning" : "")">
+                            <td class="text-center">
+                                @if (item.EnMaquina)
+                                {
+                                    <span class="badge bg-success">Sí</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-secondary">No</span>
+                                }
+                            </td>
+                            <td>
+                                <strong>@item.NombreProducto</strong>
+                            </td>
+                            <td class="text-center">@item.VentasUltimos30Dias</td>
+                            <td class="text-center">@item.StockActualMaquinas</td>
+                            <td class="text-center">@item.StockBodega</td>
+                            <td class="text-center fw-bold text-danger">
+                                @if(item.CantidadSugerida > 0)
+                                {
+                                    <span>@item.CantidadSugerida</span>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">-</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@code {
+    private List<PurchaseSuggestionDto>? suggestions;
+    private int days = 30;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        try
+        {
+            suggestions = null;
+            suggestions = await Http.GetFromJsonAsync<List<PurchaseSuggestionDto>>($"api/Ventas/purchase-suggestion?days={days}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading purchase suggestions: {ex.Message}");
+            // Handle error appropriately
+        }
+    }
+}

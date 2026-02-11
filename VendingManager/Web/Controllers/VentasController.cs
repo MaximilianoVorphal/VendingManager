@@ -191,5 +191,11 @@ namespace VendingManager.Web.Controllers
             var result = await _ventasService.GetVentasDiariasAsync(productoId, maquinaId, inicio, fin);
             return Ok(result);
         }
+        [HttpGet("purchase-suggestion")]
+        public async Task<IActionResult> GetPurchaseSuggestion([FromQuery] int days = 30)
+        {
+            var result = await _ventasService.GetPurchaseSuggestionAsync(days);
+            return Ok(result);
+        }
     }
 }
