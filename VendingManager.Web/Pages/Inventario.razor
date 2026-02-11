@@ -615,9 +615,36 @@
 
     private async Task DescargarCatalogo()
     {
-        // Usamos JS para descargar y evitar problemas de seguridad/navegación
-        var nombreArchivo = $"Catalogo_Productos_{DateTime.Now:yyyyMMdd_HHmm}.xlsx";
-        await JS.InvokeVoidAsync("descargarArchivo", "api/productos/exportar-catalogo", nombreArchivo);
+        try
+        {
+            Cargando = true;
+            var response = await Http.GetAsync("api/productos/exportar-catalogo");
+            
+            if (response.IsSuccessStatusCode)
+            {
+                var fileBytes = await response.Content.ReadAsByteArrayAsync();
+                var base64 = Convert.ToBase64String(fileBytes);
+                var nombreArchivo = $"Catalogo_Productos_{DateTime.Now:yyyyMMdd_HHmm}.xlsx";
+                
+                await JS.InvokeVoidAsync("descargarArchivo", base64, nombreArchivo);
+                Mensaje = "✅ Catálogo exportado correctamente.";
+                AlertClass = "alert-success";
+            }
+            else
+            {
+                Mensaje = "❌ Error al descargar el catálogo.";
+                AlertClass = "alert-danger";
+            }
+        }
+        catch (Exception ex)
+        {
+             Mensaje = $"❌ Error crítico al exportar: {ex.Message}";
+             AlertClass = "alert-danger";
+        }
+        finally
+        {
+            Cargando = false;
+        }
     }
 
     public class ProductoDTO
