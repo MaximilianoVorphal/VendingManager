@@ -197,5 +197,19 @@ namespace VendingManager.Web.Controllers
             var result = await _ventasService.GetPurchaseSuggestionAsync(days);
             return Ok(result);
         }
+
+        [HttpGet("purchase-suggestion/export")]
+        public async Task<IActionResult> ExportPurchaseSuggestion([FromQuery] int days = 30)
+        {
+            try
+            {
+                var (content, fileName) = await _ventasService.ExportarSugerenciaCompraAsync(days);
+                return File(content, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest("Error al exportar: " + ex.Message);
+            }
+        }
     }
 }
