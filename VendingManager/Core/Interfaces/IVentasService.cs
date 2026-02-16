@@ -20,5 +20,6 @@ namespace VendingManager.Core.Interfaces
         Task<List<VentaDiariaDto>> GetVentasDiariasAsync(int productoId, int maquinaId, DateTime inicio, DateTime fin);
         Task<List<PurchaseSuggestionDto>> GetPurchaseSuggestionAsync(int dias = 30);
         Task<(byte[] content, string fileName)> ExportarSugerenciaCompraAsync(int dias = 30);
+        Task DeleteVentasRangoAsync(DateTime inicio, DateTime fin, int maquinaId);
     }
 }
