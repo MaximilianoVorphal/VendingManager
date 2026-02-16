@@ -1012,10 +1012,9 @@
             {
                 var content = await response.Content.ReadAsByteArrayAsync();
                 var fileName = $"Reporte_{FechaInicio:ddMMyy}_{FechaFin:ddMMyy}.xlsx";
-                var base64 = System.Convert.ToBase64String(content);
-
-                // Usar JS para descargar
-                await JS.InvokeVoidAsync("descargarArchivo", base64, fileName);
+                
+                // Usar JS para descargar (soporta byte[] -> Uint8Array)
+                await JS.InvokeVoidAsync("descargarArchivo", content, fileName);
             }
             else
             {

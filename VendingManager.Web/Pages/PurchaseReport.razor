@@ -139,13 +139,11 @@
                 }
                 
                 var fileName = $"Sugerencia_Compra_{DateTime.Now:ddMMyy}.xlsx";
-                var base64 = Convert.ToBase64String(fileContent);
-                var dataUrl = $"data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{base64}";
                 
-                // Usar la función existe 'descargarArchivo' que soporta data: URIs via fetch
+                // Usar la función existe 'descargarArchivo' que soporta Uint8Array
                 try 
                 {
-                    await JS.InvokeVoidAsync("descargarArchivo", dataUrl, fileName);
+                    await JS.InvokeVoidAsync("descargarArchivo", fileContent, fileName);
                 }
                 catch (Exception ex)
                 {
