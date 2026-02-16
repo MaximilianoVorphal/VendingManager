@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using System.IO;
 using System.Linq.Expressions;
+using VendingManager.Core.Entities;
 
 namespace VendingManager.Infrastructure.Services
 {
@@ -793,6 +794,59 @@ namespace VendingManager.Infrastructure.Services
                     string name = $"Sugerencia_Compra_{DateTime.Now:ddMMyy}.xlsx";
                     return (stream.ToArray(), name);
                 }
+            }
+        }
+        public async Task DeleteVentasRangoAsync(DateTime inicio, DateTime fin, int maquinaId)
+        {
+            if (maquinaId <= 0) throw new ArgumentException("Debe seleccionar una máquina específica.");
+
+            DateTime finAjustado = fin.Date.AddDays(1).AddTicks(-1);
+            DateTime inicioAjustado = inicio.Date;
+
+            using var transaction = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                // 1. Obtener ventas en el rango
+                var ventas = await _context.Ventas
+                    .Where(v => v.MaquinaId == maquinaId)
+                    .Where(v => v.FechaLocal >= inicioAjustado && v.FechaLocal <= finAjustado)
+                    .ToListAsync();
+
+                if (!ventas.Any()) return; // Nada que borrar
+
+                // 2. Agrupar por Slot para restaurar stock de manera eficiente
+                // Nota: Solo restauramos stock si tenemos un Slot válido y Configuración actual.
+                // Si la configuración cambió (otro producto), igual restauramos al slot físico.
+                
+                var slotsIds = ventas.Select(v => v.NumeroSlot).Distinct().ToList();
+                var configs = await _context.ConfiguracionSlots
+                    .Where(c => c.MaquinaId == maquinaId && slotsIds.Contains(c.NumeroSlot))
+                    .ToListAsync();
+
+                foreach (var venta in ventas)
+                {
+                    // Solo restaurar si NO es una venta fantasma (que no descontó stock)
+                    if (venta.IdOrdenMaquina == "TB-SIN-VENTA" || venta.IdOrdenMaquina == "TB-EXTRA") continue;
+
+                    var config = configs.FirstOrDefault(c => c.NumeroSlot == venta.NumeroSlot);
+                    if (config != null)
+                    {
+                        // Restaurar Stock
+                        // Opcional: Validar Top? No, dejemos que suba.
+                        config.StockActual++;
+                    }
+                }
+
+                // 3. Borrar Ventas
+                _context.Ventas.RemoveRange(ventas);
+
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+            }
+            catch (Exception)
+            {
+                await transaction.RollbackAsync();
+                throw;
             }
         }
     }

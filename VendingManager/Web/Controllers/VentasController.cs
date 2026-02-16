@@ -211,5 +211,16 @@ namespace VendingManager.Web.Controllers
                 return BadRequest("Error al exportar: " + ex.Message);
             }
         }
+        [HttpDelete("borrar-rango")]
+        public async Task<IActionResult> BorrarVentasRango([FromQuery] DateTime inicio, [FromQuery] DateTime fin, [FromQuery] int maquinaId)
+        {
+            try
+            {
+                await _ventasService.DeleteVentasRangoAsync(inicio, fin, maquinaId);
+                return Ok("Ventas eliminadas y stock restaurado correctamente.");
+            }
+            catch (ArgumentException ex) { return BadRequest(ex.Message); }
+            catch (Exception ex) { return StatusCode(500, "Error interno: " + ex.Message); }
+        }
     }
 }
