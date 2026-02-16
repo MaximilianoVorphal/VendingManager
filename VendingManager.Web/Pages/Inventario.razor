@@ -623,10 +623,9 @@
             if (response.IsSuccessStatusCode)
             {
                 var fileBytes = await response.Content.ReadAsByteArrayAsync();
-                var base64 = Convert.ToBase64String(fileBytes);
                 var nombreArchivo = $"Catalogo_Productos_{DateTime.Now:yyyyMMdd_HHmm}.xlsx";
                 
-                await JS.InvokeVoidAsync("descargarArchivo", base64, nombreArchivo);
+                await JS.InvokeVoidAsync("descargarArchivo", fileBytes, nombreArchivo);
                 Mensaje = "✅ Catálogo exportado correctamente.";
                 AlertClass = "alert-success";
             }
