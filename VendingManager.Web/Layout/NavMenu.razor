@@ -31,12 +31,14 @@
                     <NavLink class="industrial-link" href="stockout-dashboard" @onclick="CloseNavMenu">
                         QUIEBRES DE STOCK
                     </NavLink>
-                    <NavLink class="industrial-link" href="templates-recarga" @onclick="CloseNavMenu">
-                        TEMPLATES RECARGA
-                    </NavLink>
-                    <NavLink class="industrial-link" href="finanzas" @onclick="CloseNavMenu">
-                        FINANZAS
-                    </NavLink>
+                    <AuthorizeView Roles="Admin">
+                        <NavLink class="industrial-link" href="templates-recarga" @onclick="CloseNavMenu">
+                            TEMPLATES RECARGA
+                        </NavLink>
+                        <NavLink class="industrial-link" href="finanzas" @onclick="CloseNavMenu">
+                            FINANZAS
+                        </NavLink>
+                    </AuthorizeView>
                     <NavLink class="industrial-link" href="informe-compras" @onclick="CloseNavMenu">
                         INFORME COMPRAS
                     </NavLink>
@@ -52,9 +54,11 @@
                     [ OPERACIONES ▾ ]
                 </button>
                 <div class="industrial-dropdown-content @(showOperacionesMenu ? "show" : "")">
-                    <NavLink class="industrial-link" href="maquinas" @onclick="CloseNavMenu">
-                        MÁQUINAS
-                    </NavLink>
+                    <AuthorizeView Roles="Admin">
+                        <NavLink class="industrial-link" href="maquinas" @onclick="CloseNavMenu">
+                            MÁQUINAS
+                        </NavLink>
+                    </AuthorizeView>
                     <NavLink class="industrial-link" href="inventario" @onclick="CloseNavMenu">
                         BODEGA
                     </NavLink>
@@ -67,9 +71,11 @@
                 </div>
             </div>
 
-            <NavLink class="industrial-link" href="documentos" @onclick="CloseNavMenu">
-                [ DOCUMENTOS ]
-            </NavLink>
+            <AuthorizeView Roles="Admin">
+                <NavLink class="industrial-link" href="documentos" @onclick="CloseNavMenu">
+                    [ DOCUMENTOS ]
+                </NavLink>
+            </AuthorizeView>
 
             <AuthorizeView Roles="Admin">
                 <div class="industrial-dropdown">
@@ -88,11 +94,9 @@
             </AuthorizeView>
             
             <AuthorizeView>
-                <div class="mt-4 pt-2 border-top border-secondary">
-                    <a class="industrial-link text-danger" href="logout" @onclick="CloseNavMenu">
-                        [ CERRAR SESIÓN ]
-                    </a>
-                </div>
+                <a class="industrial-link text-danger" href="logout" @onclick="CloseNavMenu">
+                    [ CERRAR SESIÓN ]
+                </a>
             </AuthorizeView>
         </nav>
 

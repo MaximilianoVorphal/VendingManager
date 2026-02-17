@@ -19,13 +19,18 @@ namespace VendingManager.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Auditoria>>> GetAuditoria([FromQuery] string? usuario = null)
+        public async Task<ActionResult<IEnumerable<Auditoria>>> GetAuditoria([FromQuery] string? usuario = null, [FromQuery] string? accion = null)
         {
             var query = _context.Auditoria.AsQueryable();
 
             if (!string.IsNullOrEmpty(usuario))
             {
                 query = query.Where(a => a.Usuario.Contains(usuario));
+            }
+
+            if (!string.IsNullOrEmpty(accion))
+            {
+                query = query.Where(a => a.Accion.Contains(accion));
             }
 
             // Ordenamos por fecha descendente (lo más nuevo primero)
