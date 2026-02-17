@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using VendingManager.Core.DTOs;
+using VendingManager.Core.Interfaces;
 using VendingManager.Infrastructure.Data;
 
 namespace VendingManager.Controllers
@@ -13,10 +14,12 @@ namespace VendingManager.Controllers
     public class AccountController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
+        private readonly IAuditService _auditService;
 
-        public AccountController(ApplicationDbContext context)
+        public AccountController(ApplicationDbContext context, IAuditService auditService)
         {
             _context = context;
+            _auditService = auditService;
         }
 
         [HttpPost("login")]
@@ -33,7 +36,8 @@ namespace VendingManager.Controllers
             var claims = new List<Claim>
             {
                 new Claim(ClaimTypes.Name, user.Username),
-                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString())
+                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+                new Claim(ClaimTypes.Role, user.Role)
             };
 
             var claimsIdentity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
@@ -48,14 +52,16 @@ namespace VendingManager.Controllers
                 new ClaimsPrincipal(claimsIdentity),
                 authProperties);
 
+            await _auditService.RegistrarAccionAsync(user.Username, "Login", "Inicio de sesión exitoso");
+
             return Ok("Login exitoso");
         }
 
-        [HttpPost("logout")]
+        [HttpGet("~/logout")] // Ruta absoluta para coincidir con el enlace del frontend
         public async Task<IActionResult> Logout()
         {
             await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
-            return Ok("Logout exitoso");
+            return Redirect("/");
         }
 
         [HttpGet("user")]
@@ -63,7 +69,11 @@ namespace VendingManager.Controllers
         {
             if (User.Identity != null && User.Identity.IsAuthenticated)
             {
-                return Ok(new { User.Identity.Name });
+                return Ok(new 
+                { 
+                    User.Identity.Name, 
+                    Role = User.FindFirst(ClaimTypes.Role)?.Value 
+                });
             }
             return Ok(new { Name = (string?)null });
         }

@@ -70,6 +70,30 @@
             <NavLink class="industrial-link" href="documentos" @onclick="CloseNavMenu">
                 [ DOCUMENTOS ]
             </NavLink>
+
+            <AuthorizeView Roles="Admin">
+                <div class="industrial-dropdown">
+                    <button class="industrial-dropdown-toggle" @onclick="ToggleAdminMenu">
+                        [ ADMINISTRACIÓN ▾ ]
+                    </button>
+                    <div class="industrial-dropdown-content @(showAdminMenu ? "show" : "")">
+                        <NavLink class="industrial-link" href="admin/auditoria" @onclick="CloseNavMenu">
+                            AUDITORÍA
+                        </NavLink>
+                        <NavLink class="industrial-link" href="admin/usuarios" @onclick="CloseNavMenu">
+                            USUARIOS
+                        </NavLink>
+                    </div>
+                </div>
+            </AuthorizeView>
+            
+            <AuthorizeView>
+                <div class="mt-4 pt-2 border-top border-secondary">
+                    <a class="industrial-link text-danger" href="logout" @onclick="CloseNavMenu">
+                        [ CERRAR SESIÓN ]
+                    </a>
+                </div>
+            </AuthorizeView>
         </nav>
 
     </div>
@@ -79,6 +103,7 @@
     private bool collapseNavMenu = true;
     private bool showGestionMenu = false;
     private bool showOperacionesMenu = false;
+    private bool showAdminMenu = false;
 
     private string? NavMenuCssClass => collapseNavMenu ? null : "show";
 
@@ -92,17 +117,36 @@
         collapseNavMenu = true;
         showGestionMenu = false;
         showOperacionesMenu = false;
+        showAdminMenu = false;
     }
 
     private void ToggleGestionMenu()
     {
         showGestionMenu = !showGestionMenu;
-        if (showGestionMenu) showOperacionesMenu = false;
+        if (showGestionMenu) 
+        {
+            showOperacionesMenu = false;
+            showAdminMenu = false;
+        }
     }
 
     private void ToggleOperacionesMenu()
     {
         showOperacionesMenu = !showOperacionesMenu;
-        if (showOperacionesMenu) showGestionMenu = false;
+        if (showOperacionesMenu) 
+        {
+            showGestionMenu = false;
+            showAdminMenu = false;
+        }
+    }
+
+    private void ToggleAdminMenu()
+    {
+        showAdminMenu = !showAdminMenu;
+        if (showAdminMenu)
+        {
+            showGestionMenu = false;
+            showOperacionesMenu = false;
+        }
     }
 }
