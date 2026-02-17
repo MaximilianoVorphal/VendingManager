@@ -1,0 +1,82 @@
+@page "/admin/auditoria"
+@using Microsoft.AspNetCore.Authorization
+@using VendingManager.Web.DTOs
+@attribute [Authorize(Roles = "Admin")]
+@inject HttpClient Http
+
+<PageTitle>Auditoría</PageTitle>
+
+<h1>Registro de Auditoría</h1>
+
+<div class="row mb-3">
+    <div class="col-md-4">
+        <label class="form-label">Filtrar por Usuario:</label>
+        <div class="input-group">
+            <input type="text" class="form-control" @bind="filtroUsuario" placeholder="Nombre de usuario..." />
+            <button class="btn btn-primary" @onclick="CargarLogs">Buscar</button>
+        </div>
+    </div>
+</div>
+
+@if (logs == null)
+{
+    <p><em>Cargando...</em></p>
+}
+else if (!logs.Any())
+{
+    <div class="alert alert-info">No se encontraron registros.</div>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-striped table-hover">
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>Usuario</th>
+                    <th>Acción</th>
+                    <th>Detalle</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var log in logs)
+                {
+                    <tr>
+                        <td>@log.Fecha.ToString("g")</td>
+                        <td>@log.Usuario</td>
+                        <td>@log.Accion</td>
+                        <td>@log.Detalle</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    private List<AuditoriaDto>? logs;
+    private string filtroUsuario = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarLogs();
+    }
+
+    private async Task CargarLogs()
+    {
+        try
+        {
+            var url = "api/auditoria";
+            if (!string.IsNullOrWhiteSpace(filtroUsuario))
+            {
+                url += $"?usuario={filtroUsuario}";
+            }
+            logs = await Http.GetFromJsonAsync<List<AuditoriaDto>>(url);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error cargando auditoría: {ex.Message}");
+            logs = new List<AuditoriaDto>();
+        }
+    }
+}

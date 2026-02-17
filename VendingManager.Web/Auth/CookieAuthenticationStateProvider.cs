@@ -19,7 +19,7 @@ namespace VendingManager.Web.Auth
 
             if (_state.TryTakeFromJson<UserInfo>("UserInfo", out var userInfo) && userInfo != null)
             {
-                var user = CreateUser(userInfo.Name);
+                var user = CreateUser(userInfo.Name, userInfo.Role);
                 _authenticationStateTask = Task.FromResult(new AuthenticationState(user));
             }
         }
@@ -37,7 +37,7 @@ namespace VendingManager.Web.Auth
                 var userInfo = await _httpClient.GetFromJsonAsync<UserInfo>("api/account/user");
                 if (userInfo != null && !string.IsNullOrEmpty(userInfo.Name))
                 {
-                    var user = CreateUser(userInfo.Name);
+                    var user = CreateUser(userInfo.Name, userInfo.Role);
                     return new AuthenticationState(user);
                 }
             }
@@ -49,9 +49,13 @@ namespace VendingManager.Web.Auth
             return new AuthenticationState(emptyUser);
         }
 
-        private ClaimsPrincipal CreateUser(string name)
+        private ClaimsPrincipal CreateUser(string name, string role)
         {
-            var claims = new[] { new Claim(ClaimTypes.Name, name) };
+            var claims = new[] 
+            { 
+                new Claim(ClaimTypes.Name, name),
+                new Claim(ClaimTypes.Role, role ?? "User")
+            };
             var identity = new ClaimsIdentity(claims, "Cookies");
             return new ClaimsPrincipal(identity);
         }
@@ -66,5 +70,6 @@ namespace VendingManager.Web.Auth
     public class UserInfo
     {
         public string Name { get; set; } = string.Empty;
+        public string Role { get; set; } = string.Empty;
     }
 }

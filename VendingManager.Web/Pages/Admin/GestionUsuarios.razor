@@ -1,0 +1,257 @@
+@page "/admin/usuarios"
+@using Microsoft.AspNetCore.Authorization
+@using VendingManager.Web.DTOs
+@attribute [Authorize(Roles = "Admin")]
+@inject HttpClient Http
+@inject IJSRuntime JS
+
+<PageTitle>Gestión de Usuarios</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1>Gestión de Usuarios</h1>
+    <button class="btn btn-primary" @onclick="ShowCreateModal">
+        <i class="bi bi-person-plus-fill"></i> Nuevo Usuario
+    </button>
+</div>
+
+@if (users == null)
+{
+    <p><em>Cargando...</em></p>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-striped table-hover">
+            <thead>
+                <tr>
+                    <th>Usuario</th>
+                    <th>Rol</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var user in users)
+                {
+                    <tr>
+                        <td>@user.Username</td>
+                        <td>
+                            <span class="badge @(user.Role == "Admin" ? "bg-danger" : "bg-info")">
+                                @user.Role
+                            </span>
+                        </td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary me-2" @onclick="() => ShowEditModal(user)">
+                                <i class="bi bi-pencil"></i> Editar
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteUser(user)">
+                                <i class="bi bi-trash"></i> Eliminar
+                            </button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+<!-- CREATE MODAL -->
+@if (showCreateModal)
+{
+    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Nuevo Usuario</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModals"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Usuario</label>
+                        <input type="text" class="form-control" @bind="newUser.Username" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Contraseña</label>
+                        <input type="password" class="form-control" @bind="newUser.Password" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Rol</label>
+                        <select class="form-select" @bind="newUser.Role">
+                            <option value="User">User</option>
+                            <option value="Admin">Admin</option>
+                        </select>
+                    </div>
+                    @if (!string.IsNullOrEmpty(errorMessage))
+                    {
+                        <div class="alert alert-danger">@errorMessage</div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseModals">Cancelar</button>
+                    <button type="button" class="btn btn-primary" @onclick="CreateUser">Guardar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- EDIT MODAL -->
+@if (showEditModal && editingUser != null)
+{
+    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Editar Usuario: @editingUser.Username</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModals"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Rol</label>
+                        <select class="form-select @(currentUserIsSelf ? "disabled" : "")" @bind="updateUser.Role" disabled="@currentUserIsSelf">
+                            <option value="User">User</option>
+                            <option value="Admin">Admin</option>
+                        </select>
+                        @if (currentUserIsSelf)
+                        {
+                            <div class="form-text text-warning">No puedes cambiar tu propio rol aquí.</div>
+                        }
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Nueva Contraseña (Opcional)</label>
+                        <input type="password" class="form-control" @bind="updateUser.Password" placeholder="Dejar en blanco para mantener actual" />
+                    </div>
+                    @if (!string.IsNullOrEmpty(errorMessage))
+                    {
+                        <div class="alert alert-danger">@errorMessage</div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseModals">Cancelar</button>
+                    <button type="button" class="btn btn-primary" @onclick="UpdateUser">Guardar Cambios</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<UserDto>? users;
+    private bool showCreateModal = false;
+    private bool showEditModal = false;
+    private string errorMessage = "";
+
+    private CreateUserDto newUser = new();
+    private UpdateUserDto updateUser = new();
+    private UserDto? editingUser;
+    private bool currentUserIsSelf = false;
+
+    // We can get current user name from Auth state if we want better self-check logic
+    // but for now simple check is mostly handled by backend
+    
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUsers();
+    }
+
+    private async Task LoadUsers()
+    {
+        users = await Http.GetFromJsonAsync<List<UserDto>>("api/users");
+    }
+
+    private void ShowCreateModal()
+    {
+        newUser = new CreateUserDto { Role = "User" };
+        errorMessage = "";
+        showCreateModal = true;
+    }
+
+    private void ShowEditModal(UserDto user)
+    {
+        editingUser = user;
+        updateUser = new UpdateUserDto { Role = user.Role };
+        errorMessage = "";
+        
+        // Simple client-side prevention (backend also enforces)
+        // Ideally we check AuthenticationState here but let's rely on backend response
+        currentUserIsSelf = false; 
+
+        showEditModal = true;
+    }
+
+    private void CloseModals()
+    {
+        showCreateModal = false;
+        showEditModal = false;
+        editingUser = null;
+    }
+
+    private async Task CreateUser()
+    {
+        try
+        {
+            var response = await Http.PostAsJsonAsync("api/users", newUser);
+            if (response.IsSuccessStatusCode)
+            {
+                await LoadUsers();
+                CloseModals();
+            }
+            else
+            {
+                errorMessage = await response.Content.ReadAsStringAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+    }
+
+    private async Task UpdateUser()
+    {
+        if (editingUser == null) return;
+
+        try
+        {
+            var response = await Http.PutAsJsonAsync($"api/users/{editingUser.Id}", updateUser);
+            if (response.IsSuccessStatusCode)
+            {
+                await LoadUsers();
+                CloseModals();
+            }
+            else
+            {
+                errorMessage = await response.Content.ReadAsStringAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+    }
+
+    private async Task DeleteUser(UserDto user)
+    {
+        if (!await JS.InvokeAsync<bool>("confirm", $"¿Estás seguro de eliminar al usuario '{user.Username}'?"))
+        {
+            return;
+        }
+
+        try
+        {
+            var response = await Http.DeleteAsync($"api/users/{user.Id}");
+            if (response.IsSuccessStatusCode)
+            {
+                await LoadUsers();
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                await JS.InvokeVoidAsync("alert", $"Error: {error}");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", $"Error: {ex.Message}");
+        }
+    }
+}
