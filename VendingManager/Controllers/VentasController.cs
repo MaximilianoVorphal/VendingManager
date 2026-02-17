@@ -2,7 +2,7 @@
 using VendingManager.Core.Entities;
 using VendingManager.Core.Interfaces;
 
-namespace VendingManager.Web.Controllers
+namespace VendingManager.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]

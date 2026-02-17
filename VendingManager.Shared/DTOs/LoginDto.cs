@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace VendingManager.Core.DTOs;
+namespace VendingManager.Shared.DTOs;
 
 // Replicated in Client to avoid complex sharing setup for this task.
 // Namespace kept as VendingManager.Core.DTOs to match code in Login.razor if possible, 

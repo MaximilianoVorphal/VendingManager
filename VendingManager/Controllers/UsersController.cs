@@ -4,13 +4,14 @@ using Microsoft.EntityFrameworkCore;
 using VendingManager.Core.Entities;
 using VendingManager.Core.Interfaces;
 using VendingManager.Infrastructure.Data;
-using VendingManager.Web.DTOs;
+using VendingManager.Shared.DTOs;
+using VendingManager.Shared.Constants;
 
 namespace VendingManager.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = Roles.Admin)]
     public class UsersController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
@@ -43,6 +44,11 @@ namespace VendingManager.Controllers
                 return BadRequest("El nombre de usuario ya existe.");
             }
 
+            if (createUserDto.Role != Roles.Admin && createUserDto.Role != Roles.User)
+            {
+                return BadRequest("Rol inválido.");
+            }
+
             var user = new User
             {
                 Username = createUserDto.Username,
@@ -66,15 +72,16 @@ namespace VendingManager.Controllers
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateUser(int id, UpdateUserDto updateUserDto)
         {
+            if (updateUserDto.Role != Roles.Admin && updateUserDto.Role != Roles.User)
+            {
+                return BadRequest("Rol inválido.");
+            }
+
             var user = await _context.Users.FindAsync(id);
             if (user == null)
             {
                 return NotFound();
             }
-
-            // Prevent changing own role to non-admin if you are the only admin? 
-            // For simplicity, we just allow updating.
-            // But maybe prevent changing username for now to simplify.
 
             var oldRole = user.Role;
             user.Role = updateUserDto.Role;
@@ -110,7 +117,6 @@ namespace VendingManager.Controllers
                 return NotFound();
             }
 
-            // Prevent deleting yourself
             if (user.Username == User.Identity?.Name)
             {
                 return BadRequest("No puedes eliminar tu propio usuario.");

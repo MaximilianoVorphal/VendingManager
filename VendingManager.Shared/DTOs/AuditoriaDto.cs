@@ -1,4 +1,4 @@
-namespace VendingManager.Web.DTOs;
+namespace VendingManager.Shared.DTOs;
 
 public class AuditoriaDto
 {

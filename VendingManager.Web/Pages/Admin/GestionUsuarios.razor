@@ -1,7 +1,8 @@
 @page "/admin/usuarios"
 @using Microsoft.AspNetCore.Authorization
-@using VendingManager.Web.DTOs
-@attribute [Authorize(Roles = "Admin")]
+@using VendingManager.Shared.DTOs
+@using VendingManager.Shared.Constants
+@attribute [Authorize(Roles = Roles.Admin)]
 @inject HttpClient Http
 @inject IJSRuntime JS
 
@@ -35,7 +36,7 @@ else
                     <tr>
                         <td>@user.Username</td>
                         <td>
-                            <span class="badge @(user.Role == "Admin" ? "bg-danger" : "bg-info")">
+                            <span class="badge @(user.Role == Roles.Admin ? "bg-danger" : "bg-info")">
                                 @user.Role
                             </span>
                         </td>
@@ -76,8 +77,8 @@ else
                     <div class="mb-3">
                         <label class="form-label">Rol</label>
                         <select class="form-select" @bind="newUser.Role">
-                            <option value="User">User</option>
-                            <option value="Admin">Admin</option>
+                            <option value="@Roles.User">User</option>
+                            <option value="@Roles.Admin">Admin</option>
                         </select>
                     </div>
                     @if (!string.IsNullOrEmpty(errorMessage))
@@ -108,8 +109,8 @@ else
                     <div class="mb-3">
                         <label class="form-label">Rol</label>
                         <select class="form-select @(currentUserIsSelf ? "disabled" : "")" @bind="updateUser.Role" disabled="@currentUserIsSelf">
-                            <option value="User">User</option>
-                            <option value="Admin">Admin</option>
+                            <option value="@Roles.User">User</option>
+                            <option value="@Roles.Admin">Admin</option>
                         </select>
                         @if (currentUserIsSelf)
                         {

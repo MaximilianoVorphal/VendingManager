@@ -826,7 +826,7 @@ namespace VendingManager.Infrastructure.Services
         // =============================================
         // 5. EXPORTAR LISTA DE CARGA (NUEVO)
         // =============================================
-        public async Task<byte[]> ExportarListaCarga(List<VendingManager.Core.DTOs.StockCriticoDto> items)
+        public async Task<byte[]> ExportarListaCarga(List<VendingManager.Shared.DTOs.StockCriticoDto> items)
         {
             try
             {

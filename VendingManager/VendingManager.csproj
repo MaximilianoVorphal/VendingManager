@@ -32,6 +32,7 @@
 
 	<ItemGroup>
 		<ProjectReference Include="..\VendingManager.Web\VendingManager.Web.csproj" />
+		<ProjectReference Include="..\VendingManager.Shared\VendingManager.Shared.csproj" />
 	</ItemGroup>
 
     <ItemGroup>
