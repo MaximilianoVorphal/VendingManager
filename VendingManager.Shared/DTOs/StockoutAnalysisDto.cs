@@ -1,4 +1,4 @@
-namespace VendingManager.Core.DTOs;
+namespace VendingManager.Shared.DTOs;
 
 /// <summary>
 /// DTO para el análisis de quiebres de stock y costo de oportunidad.

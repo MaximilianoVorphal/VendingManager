@@ -1,8 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
-using VendingManager.Core.DTOs;
+using VendingManager.Shared.DTOs;
 using VendingManager.Core.Interfaces;
 
-namespace VendingManager.Web.Controllers;
+namespace VendingManager.Controllers;
 
 [Route("api/[controller]")]
 [ApiController]

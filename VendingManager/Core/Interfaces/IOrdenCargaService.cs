@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using VendingManager.Core.DTOs;
+using VendingManager.Shared.DTOs;
 
 namespace VendingManager.Core.Interfaces
 {

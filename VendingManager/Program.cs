@@ -4,6 +4,9 @@ using VendingManager.Infrastructure.Data;
 using VendingManager.Infrastructure.Services;
 using VendingManager.Web;
 using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.AspNetCore.RateLimiting;
+using System.Threading.RateLimiting;
+using VendingManager.Shared.Constants;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -26,6 +29,19 @@ builder.Services.AddCors(options =>
     });
 });
 
+// Rate Limiting
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddFixedWindowLimiter("LoginPolicy", opt =>
+    {
+        opt.Window = TimeSpan.FromMinutes(1);
+        opt.PermitLimit = 5;
+        opt.QueueLimit = 0;
+        opt.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+    });
+});
+
 // Auth
 builder.Services.AddAuthentication(Microsoft.AspNetCore.Authentication.Cookies.CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
@@ -33,10 +49,15 @@ builder.Services.AddAuthentication(Microsoft.AspNetCore.Authentication.Cookies.C
         options.Cookie.Name = "auth_token";
         options.LoginPath = "/login";
         options.Cookie.SameSite = SameSiteMode.Strict;
-        // options.Cookie.SecurePolicy = CookieSecurePolicy.Always; // Uncomment if HTTPS only
+        options.Cookie.SecurePolicy = builder.Environment.IsDevelopment() 
+            ? CookieSecurePolicy.SameAsRequest 
+            : CookieSecurePolicy.Always;
     });
 
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("RequireAdmin", policy => policy.RequireRole(Roles.Admin));
+});
 
 // 2. Base de Datos (SQL Express)
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
@@ -57,7 +78,6 @@ builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddHttpClient<VendingManager.Core.Interfaces.IScraperClient, VendingManager.Infrastructure.Clients.ScraperClient>();
 builder.Services.AddHostedService<AutomatedReportService>();
 
-// 4. Configuración Blazor
 // 4. Configuración Blazor
 builder.Services.AddControllers();
 builder.Services.AddRazorComponents()
@@ -92,14 +112,23 @@ using (var scope = app.Services.CreateScope())
         // Seed default user if not exists (Safety net for both Dev and Prod)
         if (!context.Users.Any())
         {
-            var adminUser = new VendingManager.Core.Entities.User
+            // Only seed if expressly allowed or strictly in Development with no users
+            // For now, we keep it simple: if no users, create admin via Env Var or default if Dev
+            var seedPassword = Environment.GetEnvironmentVariable("SEED_ADMIN_PASSWORD");
+            
+            if (app.Environment.IsDevelopment() || !string.IsNullOrEmpty(seedPassword))
             {
-                Username = "admin",
-                PasswordHash = BCrypt.Net.BCrypt.HashPassword("admin"),
-                Role = "Admin"
-            };
-            context.Users.Add(adminUser);
-            context.SaveChanges();
+                var passwordToUse = !string.IsNullOrEmpty(seedPassword) ? seedPassword : "admin";
+                
+                var adminUser = new VendingManager.Core.Entities.User
+                {
+                    Username = "admin",
+                    PasswordHash = BCrypt.Net.BCrypt.HashPassword(passwordToUse),
+                    Role = Roles.Admin
+                };
+                context.Users.Add(adminUser);
+                context.SaveChanges();
+            }
         }
     }
     catch (Exception ex)
@@ -126,6 +155,7 @@ app.UseAntiforgery();
 app.UseResponseCompression();
 app.UseCors("PermitirBlazor"); // Activar CORS
 
+app.UseRateLimiter(); // Apply Rate Limiting
 app.UseAuthentication();
 app.UseAuthorization();
 

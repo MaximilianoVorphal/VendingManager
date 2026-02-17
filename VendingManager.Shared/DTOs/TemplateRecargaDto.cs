@@ -1,4 +1,4 @@
-namespace VendingManager.Core.DTOs;
+namespace VendingManager.Shared.DTOs;
 
 /// <summary>
 /// DTO para mostrar un template de recarga con sus períodos

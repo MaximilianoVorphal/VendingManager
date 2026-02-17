@@ -1,7 +1,8 @@
 @page "/admin/auditoria"
 @using Microsoft.AspNetCore.Authorization
-@using VendingManager.Web.DTOs
-@attribute [Authorize(Roles = "Admin")]
+@using VendingManager.Shared.DTOs
+@using VendingManager.Shared.Constants
+@attribute [Authorize(Roles = Roles.Admin)]
 @inject HttpClient Http
 
 <PageTitle>Auditoría</PageTitle>
