@@ -4,6 +4,7 @@ namespace VendingManager.Web.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Microsoft.AspNetCore.Authorization.Authorize]
     public class CajaController : ControllerBase
     {
         private readonly ICajaService _cajaService;
@@ -26,11 +27,21 @@ namespace VendingManager.Web.Controllers
         }
 
         [HttpGet("movimientos")]
-        public async Task<ActionResult<List<MovimientoCaja>>> GetMovimientos([FromQuery] int? month, [FromQuery] int? year)
+        public async Task<ActionResult<List<VendingManager.Shared.DTOs.MovimientoCajaDto>>> GetMovimientos([FromQuery] int? month, [FromQuery] int? year)
         {
             int targetMonth = month ?? DateTime.Now.Month;
             int targetYear = year ?? DateTime.Now.Year;
-            return await _cajaService.GetMovimientosAsync(targetMonth, targetYear);
+            var movimientos = await _cajaService.GetMovimientosAsync(targetMonth, targetYear);
+            
+            return movimientos.Select(m => new VendingManager.Shared.DTOs.MovimientoCajaDto
+            {
+                Id = m.Id,
+                Fecha = m.Fecha,
+                Descripcion = m.Descripcion,
+                Monto = m.Monto,
+                Tipo = m.Tipo,
+                Categoria = m.Categoria
+            }).ToList();
         }
 
         [HttpGet("productos-simple")]
@@ -93,6 +104,11 @@ namespace VendingManager.Web.Controllers
             {
                 return BadRequest("Error al generar Excel: " + ex.Message);
             }
+        }
+        [HttpGet("valorizacion")]
+        public async Task<ActionResult<VendingManager.Shared.DTOs.ValorizacionStockDto>> GetValorizacionStock()
+        {
+            return await _cajaService.GetValorizacionStockAsync();
         }
     }
 }

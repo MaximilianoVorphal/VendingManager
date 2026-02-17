@@ -6,6 +6,7 @@ namespace VendingManager.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Microsoft.AspNetCore.Authorization.Authorize]
     public class VentasController : ControllerBase
     {
 

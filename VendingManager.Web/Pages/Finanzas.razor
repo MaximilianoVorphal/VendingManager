@@ -1,6 +1,7 @@
 @page "/finanzas"
 @using Microsoft.AspNetCore.Authorization
 @using VendingManager.Shared.Constants
+@using VendingManager.Shared.DTOs
 @attribute [Authorize(Roles = Roles.Admin)]
 @inject HttpClient Http
 
@@ -8,7 +9,6 @@
 
 <div class="container-fluid px-4 mt-4" style="font-family: 'Segoe UI', Consolas, monospace;">
 
-    <!-- HEADER SECCION -->
     <div class="row align-items-center mb-4 border-bottom border-3 border-dark pb-3">
         <div class="col-12 d-flex justify-content-between align-items-center flex-wrap gap-3">
             <div>
@@ -26,6 +26,42 @@
             </div>
         </div>
     </div>
+
+    <!-- GLOBAL KPIs (SNAPSHOT) -->
+    @if (Valorizacion != null)
+    {
+        <div class="row mb-4">
+            <div class="col-12">
+                 <div class="card border-2 border-dark rounded-0 shadow-sm">
+                     <div class="card-header bg-white border-bottom border-dark rounded-0 py-2">
+                         <h6 class="m-0 fw-bold text-uppercase text-dark"><i class="bi bi-graph-up-arrow me-2"></i>Indicadores de Capital (Snapshot Actual)</h6>
+                     </div>
+                     <div class="card-body p-3">
+                         <div class="row g-3">
+                             <div class="col-md-4">
+                                 <div class="d-flex flex-column border-end border-dark pe-3">
+                                     <small class="text-muted fw-bold text-uppercase" style="font-size: 0.7rem;">Stock en Máquinas</small>
+                                     <span class="fs-5 fw-bold font-monospace text-dark">$@Valorizacion.ValorMaquinas.ToString("N0")</span>
+                                 </div>
+                             </div>
+                             <div class="col-md-4">
+                                 <div class="d-flex flex-column border-end border-dark pe-3">
+                                      <small class="text-muted fw-bold text-uppercase" style="font-size: 0.7rem;">Stock en Bodega</small>
+                                      <span class="fs-5 fw-bold font-monospace text-dark">$@Valorizacion.ValorBodega.ToString("N0")</span>
+                                 </div>
+                             </div>
+                             <div class="col-md-4">
+                                 <div class="d-flex flex-column bg-light p-2 border border-secondary rounded-0">
+                                      <small class="text-success fw-bold text-uppercase" style="font-size: 0.7rem;">Capital Total Mercadería</small>
+                                      <span class="fs-4 fw-bold font-monospace text-success">$@Valorizacion.ValorTotal.ToString("N0")</span>
+                                 </div>
+                             </div>
+                         </div>
+                     </div>
+                 </div>
+            </div>
+        </div>
+    }
 
     @if (Resumen != null)
     {
@@ -114,24 +150,57 @@
                     @if (_isGastosExpanded)
                     {
                         <div class="card-body p-3" style="background-color: rgba(220, 53, 69, 0.1);">
-                            <div class="row g-2">
+                            <div class="row g-2 mb-3">
                                 <div class="col-6">
-                                    <div class="bg-white border border-danger rounded-0 p-2">
-                                        <div class="d-flex justify-content-between align-items-center">
-                                            <span class="fw-bold small text-dark text-uppercase"><i class="bi bi-truck me-1"></i>Variables</span>
-                                            <span class="fw-bold text-danger font-monospace">-$@Resumen.GastosVariables.ToString("N0")</span>
-                                        </div>
+                                    <div class="bg-white border border-danger rounded-0 p-2 text-center h-100">
+                                        <span class="fw-bold small text-dark text-uppercase d-block mb-1"><i class="bi bi-truck me-1"></i>Variables</span>
+                                        <span class="fw-bold text-danger font-monospace fs-5">-$@Resumen.GastosVariables.ToString("N0")</span>
                                     </div>
                                 </div>
                                 <div class="col-6">
-                                    <div class="bg-white border border-danger rounded-0 p-2">
-                                        <div class="d-flex justify-content-between align-items-center">
-                                            <span class="fw-bold small text-dark text-uppercase"><i class="bi bi-building me-1"></i>Fijos</span>
-                                            <span class="fw-bold text-danger font-monospace">-$@Resumen.GastosFijos.ToString("N0")</span>
-                                        </div>
+                                    <div class="bg-white border border-danger rounded-0 p-2 text-center h-100">
+                                        <span class="fw-bold small text-dark text-uppercase d-block mb-1"><i class="bi bi-building me-1"></i>Fijos</span>
+                                        <span class="fw-bold text-danger font-monospace fs-5">-$@Resumen.GastosFijos.ToString("N0")</span>
                                     </div>
                                 </div>
                             </div>
+
+                            @if (MovimientosGastos != null && MovimientosGastos.Any())
+                            {
+                                <h6 class="fw-bold text-uppercase border-bottom border-danger pb-1 mb-2 text-danger small">Detalle de Gastos</h6>
+                                <div class="table-responsive" style="max-height: 250px;">
+                                    <table class="table table-sm table-borderless small mb-0">
+                                        <tbody>
+                                            @foreach (var g in MovimientosGastos)
+                                            {
+                                                <tr class="border-bottom border-white">
+                                                    <td class="text-muted">@g.Fecha.ToString("dd/MM")</td>
+                                                    <td class="fw-bold text-dark">@g.Categoria</td>
+                                                    <td class="text-truncate" style="max-width: 150px;" title="@g.Descripcion">@g.Descripcion</td>
+                                                    <td class="text-end fw-bold text-danger font-monospace">-$@Math.Abs(g.Monto).ToString("N0")</td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                        <tfoot>
+                                            @if (_descontarTransbank)
+                                            {
+                                                 <tr class="bg-white border-top border-danger">
+                                                    <td class="text-muted">-</td>
+                                                    <td class="fw-bold text-dark">COMISIONES</td>
+                                                    <td>Comisión Transbank (Estimada)</td>
+                                                    <td class="text-end fw-bold text-danger font-monospace">-$@Resumen.CostoTransbank.ToString("N0")</td>
+                                                </tr>                                           
+                                            }
+                                        </tfoot>
+                                    </table>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="text-center text-muted small py-2">
+                                    Cargando detalle o sin gastos registrados...
+                                </div>
+                            }
                         </div>
                     }
                 </div>
@@ -160,20 +229,28 @@
             </div>
         </div>
 
-        <div class="row mb-5">
-             <div class="col-md-6">
-                 <div class="card border-2 border-dashed border-dark h-100 bg-transparent text-muted rounded-0">
-                     <div class="card-body d-flex justify-content-between align-items-center px-4">
-                         <span class="fw-bold text-uppercase">(-) Meta de Sueldo / Retiro</span>
-                         <span class="fs-4 font-monospace text-dark fw-bold">-$@Resumen.SueldoEsperado.ToString("N0")</span>
-                     </div>
+        <!-- TOGGLE TRANSBANK -->
+        <div class="row mb-3">
+             <div class="col-12 d-flex justify-content-end">
+                 <div class="form-check form-switch">
+                      <input class="form-check-input" type="checkbox" id="toggleTB" @bind="_descontarTransbank" style="cursor: pointer;">
+                      <label class="form-check-label fw-bold user-select-none" for="toggleTB" style="cursor: pointer;">
+                          Descontar Comisión Transbank (@Resumen.CantidadVentasTransbank tx ≈ $@Resumen.CostoTransbank.ToString("N0"))
+                      </label>
                  </div>
              </div>
-             <div class="col-md-6">
+        </div>
+
+        <div class="row mb-5">
+             <div class="col-12">
                  <div class="card border-2 border-dark shadow-lg h-100 rounded-0 bg-success text-white">
                      <div class="card-body d-flex flex-column justify-content-center align-items-center text-center text-white py-4">
                           <small class="text-uppercase fw-bold text-white opacity-75 mb-2">RESULTADO NETO FINAL</small>
-                          <h1 class="display-3 fw-bold m-0 font-monospace">$@Resumen.UtilidadNeta.ToString("N0")</h1>
+                          <h1 class="display-3 fw-bold m-0 font-monospace">$@GetUtilidadNetaFinal().ToString("N0")</h1>
+                          @if (_descontarTransbank)
+                          {
+                              <small class="text-white-50 mt-2">(Incluye descuento comisión TB)</small>
+                          }
                      </div>
                  </div>
              </div>
@@ -196,11 +273,14 @@
     private DateTime SelectedDate = DateTime.Now;
     private CajaResumenDto? Resumen;
     
-    // Accordion state for each financial block
+    // State for Transbank Toggle
+    private bool _descontarTransbank = false;
+
+    // Accordion state
     private bool _isVentasExpanded = false;
     private bool _isCostoExpanded = false;
     private bool _isGastosExpanded = false;
-    
+
     private void ToggleVentas() => _isVentasExpanded = !_isVentasExpanded;
     private void ToggleCosto() => _isCostoExpanded = !_isCostoExpanded;
     private void ToggleGastos() => _isGastosExpanded = !_isGastosExpanded;
@@ -228,6 +308,19 @@
         {
             string query = $"?month={SelectedDate.Month}&year={SelectedDate.Year}";
             Resumen = await Http.GetFromJsonAsync<CajaResumenDto>($"api/caja/resumen{query}");
+
+            // Fetch detail for breakdown
+            var allMovs = await Http.GetFromJsonAsync<List<MovimientoCajaDto>>($"api/caja/movimientos{query}");
+            if (allMovs != null)
+            {
+                MovimientosGastos = allMovs
+                    .Where(m => _targetCategories.Contains(m.Categoria) && m.Monto < 0)
+                    .OrderBy(m => m.Fecha)
+                    .ToList();
+            }
+
+            // Fetch KPI Stock (Snapshot) - Only fetch once or always? Always is fine.
+            Valorizacion = await Http.GetFromJsonAsync<ValorizacionStockDto>("api/caja/valorizacion");
         }
         catch (Exception ex)
         {
@@ -242,23 +335,26 @@
         return (margin * 100).ToString("F1");
     }
 
-    // --- DTO Local (Updated) ---
-    public class CajaResumenDto
+    private decimal GetUtilidadNetaFinal()
     {
-        public decimal SaldoAnterior { get; set; }
-        public decimal IngresosVentas { get; set; }
-        public decimal GastosOperativos { get; set; }
-        public decimal AportesExtra { get; set; }
-        public decimal SaldoFinal { get; set; }
-        public decimal UtilidadTotal { get; set; }
-        public decimal GastosMercaderia { get; set; }
-        public decimal TotalCostoVenta { get; set; } 
-        public decimal Mermas { get; set; }          
-        public decimal GastosVariables { get; set; } 
-        public decimal GastosFijos { get; set; }     
-        public decimal UtilidadOperacional { get; set; } 
-        public decimal SueldoEsperado { get; set; }  
-        public decimal UtilidadNeta { get; set; }    
-        public bool IsLocked { get; set; }
+        if (Resumen == null) return 0;
+        decimal neta = Resumen.UtilidadNeta;
+        if (_descontarTransbank)
+        {
+            neta -= Resumen.CostoTransbank;
+        }
+        return neta;
     }
+
+    // List of Expenses for Breakdown
+    private List<MovimientoCajaDto>? MovimientosGastos;
+    private ValorizacionStockDto? Valorizacion;
+
+    // Categories to include in "Gastos Operativos" breakdown
+    private readonly string[] _targetCategories = new[] 
+    { 
+        "LOGISTICA", "PEAJES", "INSUMOS", "MANTENCION", // Variables
+        "INFRA", "ARRIENDO_POS", "INTERNET", "COMISIONES", "OTROS" // Fijos
+    };
 }
+```

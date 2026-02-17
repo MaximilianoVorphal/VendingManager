@@ -13,25 +13,25 @@ WORKDIR /src
 # Copy solution file (if available) or project files
 # Copy csproj files for Restore
 COPY ["VendingManager/VendingManager.csproj", "VendingManager/"]
-COPY ["VendingManager.Web/VendingManager.Web.csproj", "VendingManager.Web/"]
+COPY ["VendingManager.Shared/VendingManager.Shared.csproj", "VendingManager.Shared/"]
 
 # Debug SDK
 RUN dotnet --info
 
 # Restore dependencies
-RUN dotnet restore "./VendingManager/VendingManager.csproj"
+RUN dotnet restore "VendingManager/VendingManager.csproj"
 
 # Copy the rest of the source code
 COPY . .
 WORKDIR "/src/VendingManager"
 
 # Build the project
-RUN dotnet build "./VendingManager.csproj" -c $BUILD_CONFIGURATION -o /app/build
+RUN dotnet build "VendingManager.csproj" -c $BUILD_CONFIGURATION -o /app/build
 
 # Publish stage
 FROM build AS publish
 ARG BUILD_CONFIGURATION=Release
-RUN dotnet publish "./VendingManager.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
+RUN dotnet publish "VendingManager.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
 
 # Final stage
 FROM base AS final
