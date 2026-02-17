@@ -146,6 +146,8 @@ if (app.Environment.IsDevelopment())
 }
 else
 {
+    app.UseExceptionHandler("/Error");
+    // Customize HSTS for production
     app.UseHsts();
 }
 

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Hosting;
 using System.IO;
 using VendingManager.Core.Entities;
 using VendingManager.Core.Interfaces;
+using VendingManager.Shared.DTOs;
 
 namespace VendingManager.Infrastructure.Services
 {
@@ -159,17 +160,24 @@ namespace VendingManager.Infrastructure.Services
             decimal utilidadOperacional = margenBruto - mermasAbs - totalGastosOps;
 
             // 4. Resultado Final
-            decimal sueldoEsperado = 600000m; // Hardcoded goal
-            decimal utilidadNetaReal = utilidadOperacional - sueldoEsperado;
+            // decimal sueldoEsperado = 600000m; // REMOVED per user request
+            decimal utilidadNetaReal = utilidadOperacional; // - sueldoEsperado;
+
+            // [NEW] TRANSBANK (Estimado)
+            // Contamos ventas PAGADAS (asumimos Transbank) y que NO sean fantasmas
+            var cantVentasTB = await _context.Ventas
+                .Where(v => v.Pagado && v.FechaHora >= startOfMonth && v.FechaHora <= endOfMonth && v.FechaHora >= GlobalStartDate 
+                       && v.IdOrdenMaquina != "TB-EXTRA" && v.IdOrdenMaquina != "TB-SIN-VENTA")
+                .CountAsync();
+            
+            decimal costoTransbank = cantVentasTB * 80; // $80 por tx
 
             return new CajaResumenDto
             {
                 SaldoAnterior = saldoAnterior,
                 IngresosVentas = monthIngresosVentas,
                 
-                // En el reporte, "Gastos Operativos" será solo el gasto fijo
-                // En el reporte, "Gastos Operativos" será la suma de Fijos + Variables para retrocompatibilidad si se usa asi,
-                // Pero llenamos los campos especificos.
+                // En el reporte, "Gastos Operativos" será la suma de Fijos + Variables para retrocompatibilidad
                 GastosOperativos = totalGastosOps, 
                 
                 AportesExtra = monthAportes,
@@ -184,8 +192,10 @@ namespace VendingManager.Infrastructure.Services
                 GastosVariables = gastosVariablesAbs,
                 GastosFijos = gastosFijosAbs,
                 UtilidadOperacional = utilidadOperacional,
-                SueldoEsperado = sueldoEsperado,
                 UtilidadNeta = utilidadNetaReal,
+                
+                CantidadVentasTransbank = cantVentasTB,
+                CostoTransbank = costoTransbank,
 
                 IsLocked = IsMonthLocked(month, year)
             };
@@ -435,6 +445,24 @@ namespace VendingManager.Infrastructure.Services
                     return (stream.ToArray(), $"Caja_{month}_{year}.xlsx");
                 }
             }
+        }
+        public async Task<ValorizacionStockDto> GetValorizacionStockAsync()
+        {
+            // 1. Bodega: Sum(StockBodega * CostoPromedio)
+            var valorBodega = await _context.Productos
+                .SumAsync(p => p.StockBodega * p.CostoPromedio);
+
+            // 2. Maquinas: Sum(StockActual * CostoPromedio)
+            var valorMaquinas = await _context.ConfiguracionSlots
+                .Include(s => s.Producto)
+                .Where(s => s.ProductoId != null && s.Producto != null)
+                .SumAsync(s => s.StockActual * s.Producto!.CostoPromedio);
+
+            return new ValorizacionStockDto
+            {
+                ValorBodega = valorBodega,
+                ValorMaquinas = valorMaquinas
+            };
         }
     }
 }
