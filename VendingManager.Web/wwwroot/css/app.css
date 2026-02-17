@@ -52,7 +52,7 @@
 /* Navegación (Contenedor de enlaces) */
 .nav-links-container {
     display: flex;
-    gap: 1.5rem;
+    gap: 1rem; /* Reduced from 1.5rem */
 }
 
 /* Los Enlaces (Botones de navegación) */

@@ -6,6 +6,7 @@ namespace VendingManager.Web.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Microsoft.AspNetCore.Authorization.Authorize]
     public class InventarioController : ControllerBase
     {
         private readonly IInventarioService _inventarioService;
