@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using VendingManager.Core.Interfaces;
 
 namespace VendingManager.Web.Controllers
 {
@@ -8,10 +9,12 @@ namespace VendingManager.Web.Controllers
     public class InventarioController : ControllerBase
     {
         private readonly IInventarioService _inventarioService;
+        private readonly IAuditService _auditService;
 
-        public InventarioController(IInventarioService inventarioService)
+        public InventarioController(IInventarioService inventarioService, IAuditService auditService)
         {
             _inventarioService = inventarioService;
+            _auditService = auditService;
         }
 
         [HttpPost("subir-catalogo")]
@@ -26,6 +29,7 @@ namespace VendingManager.Web.Controllers
                 {
                     await _inventarioService.ImportarCatalogoAsync(stream, file.FileName);
                 }
+                await _auditService.RegistrarAccionAsync(User.Identity?.Name ?? "Desconocido", "Importar Catálogo", $"Catálogo importado: {file.FileName}");
                 return Ok(new { message = "CatÃ¡logo importado correctamente." });
             }
             catch (Exception ex)

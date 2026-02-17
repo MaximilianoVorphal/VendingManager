@@ -8,15 +8,18 @@ namespace VendingManager.Web.Controllers
     [ApiController]
     public class VentasController : ControllerBase
     {
+
         private readonly IVentasService _ventasService;
         private readonly IInformesService _informesService;
         private readonly IExcelService _excelService;
+        private readonly IAuditService _auditService;
 
-        public VentasController(IVentasService ventasService, IInformesService informesService, IExcelService excelService)
+        public VentasController(IVentasService ventasService, IInformesService informesService, IExcelService excelService, IAuditService auditService)
         {
             _ventasService = ventasService;
             _informesService = informesService;
             _excelService = excelService;
+            _auditService = auditService;
         }
 
         [HttpPost("subir-ventas-maquina")]
@@ -44,6 +47,7 @@ namespace VendingManager.Web.Controllers
                     // 2. Procesar el archivo (resetear stream o usar nuevo)
                     memoryStream.Position = 0;
                     string resultado = await _ventasService.ImportarVentasMaquinaAsync(memoryStream, file.FileName, fechaLimite);
+                    await _auditService.RegistrarAccionAsync(User.Identity?.Name ?? "Desconocido", "Importar Ventas Máquina", $"Archivo importado: {file.FileName}. Resultado: {resultado}");
                     return Ok($"Archivo procesado. {resultado}");
                 }
             }
@@ -54,6 +58,7 @@ namespace VendingManager.Web.Controllers
         public async Task<IActionResult> FixDates()
         {
             await _ventasService.FixDatesAsync();
+            await _auditService.RegistrarAccionAsync(User.Identity?.Name ?? "Desconocido", "Mantenimiento", "Ejecutado FixDates");
             return Ok("Fechas corregidas.");
         }
 
@@ -61,6 +66,7 @@ namespace VendingManager.Web.Controllers
         public async Task<IActionResult> RecalcularCostos()
         {
             await _ventasService.RecalcularCostosHistoricosAsync();
+            await _auditService.RegistrarAccionAsync(User.Identity?.Name ?? "Desconocido", "Mantenimiento", "Ejecutado RecalcularCostosHistoricos");
             return Ok("Costos históricos recalculados basándose en el producto actual.");
         }
 
@@ -90,7 +96,8 @@ namespace VendingManager.Web.Controllers
                     memoryStream.Position = 0;
                     await _ventasService.ImportarTransbankAsync(memoryStream, file.FileName, fechaLimite);
                 }
-
+                
+                await _auditService.RegistrarAccionAsync(User.Identity?.Name ?? "Desconocido", "Importar Transbank", $"Archivo importado: {file.FileName}");
                 return Ok("Archivo de TRANSBANK procesado y guardado en Documentos correctamente.");
             }
             catch (Exception ex) { return StatusCode(500, ex.Message); }
@@ -155,6 +162,7 @@ namespace VendingManager.Web.Controllers
         {
             var resultado = await _excelService.SincronizarDesdePortal(maquinaId, fechaLimite);
             if (resultado.StartsWith("Error")) return BadRequest(resultado);
+            await _auditService.RegistrarAccionAsync(User.Identity?.Name ?? "Desconocido", "Sincronizar Portal", $"Sincronización manual máquina {maquinaId}. Fecha límite: {(fechaLimite?.ToString("dd/MM/yyyy HH:mm") ?? "Sin límite")}. Resultado: {resultado}");
             return Ok(resultado);
         }
         [HttpGet("analisis-productos")]
@@ -217,6 +225,7 @@ namespace VendingManager.Web.Controllers
             try
             {
                 await _ventasService.DeleteVentasRangoAsync(inicio, fin, maquinaId);
+                await _auditService.RegistrarAccionAsync(User.Identity?.Name ?? "Admin", "Borrar Ventas", $"Ventas borradas. Maquina: {maquinaId}, Rango: {inicio} - {fin}");
                 return Ok("Ventas eliminadas y stock restaurado correctamente.");
             }
             catch (ArgumentException ex) { return BadRequest(ex.Message); }

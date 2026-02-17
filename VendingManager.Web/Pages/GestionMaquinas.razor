@@ -1,4 +1,6 @@
 ﻿@page "/maquinas"
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "Admin")]
 @inject HttpClient Http
 @inject IJSRuntime JS
 

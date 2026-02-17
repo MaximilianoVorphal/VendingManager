@@ -8,11 +8,13 @@ namespace VendingManager.Web.Controllers
     {
         private readonly ICajaService _cajaService;
         private readonly Core.Interfaces.IInventarioService _inventarioService;
+        private readonly Core.Interfaces.IAuditService _auditService;
 
-        public CajaController(ICajaService cajaService, Core.Interfaces.IInventarioService inventarioService)
+        public CajaController(ICajaService cajaService, Core.Interfaces.IInventarioService inventarioService, Core.Interfaces.IAuditService auditService)
         {
             _cajaService = cajaService;
             _inventarioService = inventarioService;
+            _auditService = auditService;
         }
 
         [HttpGet("resumen")]
@@ -45,6 +47,7 @@ namespace VendingManager.Web.Controllers
             try
             {
                 await _cajaService.RegistrarMovimientoAsync(mov);
+                await _auditService.RegistrarAccionAsync(User.Identity?.Name ?? "Desconocido", "Registrar Movimiento Caja", $"Movimiento: {mov.Tipo}, Monto: {mov.Monto}, Detalle: {mov.Descripcion}");
                 return Ok("Movimiento registrado.");
             }
             catch (ArgumentException ex) { return BadRequest(ex.Message); }
@@ -64,6 +67,7 @@ namespace VendingManager.Web.Controllers
                 {
                     // Service handles path logic. We can pass null for webRootPath if service has it injected.
                     string path = await _cajaService.UploadComprobanteAsync(stream, file.FileName, null, category);
+                    await _auditService.RegistrarAccionAsync(User.Identity?.Name ?? "Desconocido", "Subir Comprobante", $"Comprobante subido: {file.FileName} (Categoría: {category ?? "General"})");
                     return Ok(new { Path = path });
                 }
             }

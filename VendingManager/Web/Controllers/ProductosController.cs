@@ -1,4 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using VendingManager.Core.DTOs;
+using VendingManager.Core.Interfaces;
+using VendingManager.Core.Entities;
 
 namespace VendingManager.Web.Controllers
 {
@@ -7,10 +10,12 @@ namespace VendingManager.Web.Controllers
     public class ProductosController : ControllerBase
     {
         private readonly IInventarioService _inventarioService;
+        private readonly IAuditService _auditService;
 
-        public ProductosController(IInventarioService inventarioService)
+        public ProductosController(IInventarioService inventarioService, IAuditService auditService)
         {
             _inventarioService = inventarioService;
+            _auditService = auditService;
         }
 
         [HttpGet]
@@ -30,6 +35,7 @@ namespace VendingManager.Web.Controllers
                 using (var stream = file.OpenReadStream())
                 {
                     string resultado = await _inventarioService.ImportarCatalogoAsync(stream, file.FileName);
+                    await _auditService.RegistrarAccionAsync(User.Identity?.Name ?? "Desconocido", "Importar Catálogo (Productos)", $"Catálogo importado: {file.FileName}");
                     return Ok(new { message = resultado });
                 }
             }
@@ -59,7 +65,13 @@ namespace VendingManager.Web.Controllers
         {
             try
             {
+                var producto = await _inventarioService.GetProductoAsync(dto.ProductoId);
+                if (producto == null) return NotFound("Producto no encontrado");
+                int stockAnterior = producto.StockBodega;
                 await _inventarioService.AjustarStockAsync(dto.ProductoId, dto.NuevoStock);
+                string tipoMov = dto.NuevoStock > stockAnterior ? "Ingreso" : "Salida";
+                int diferencia = Math.Abs(dto.NuevoStock - stockAnterior);
+                await _auditService.RegistrarAccionAsync(User.Identity?.Name ?? "Desconocido", $"{tipoMov} Stock", $"{producto.Nombre}: {stockAnterior} → {dto.NuevoStock} ({tipoMov} de {diferencia} uds)");
                 return Ok(new { message = "Stock actualizado", nuevoStock = dto.NuevoStock });
             }
             catch (Exception ex)
@@ -81,6 +93,7 @@ namespace VendingManager.Web.Controllers
         public async Task<ActionResult<Producto>> PostProducto(Producto producto)
         {
             var created = await _inventarioService.CreateProductoAsync(producto);
+            await _auditService.RegistrarAccionAsync(User.Identity?.Name ?? "Desconocido", "Crear Producto", $"Producto creado: {created.Nombre} (ID: {created.Id}). Costo: ${created.CostoPromedio:N0}, Stock: {created.StockBodega}");
             return CreatedAtAction("GetProducto", new { id = created.Id }, created);
         }
 
@@ -90,12 +103,23 @@ namespace VendingManager.Web.Controllers
             if (id != producto.Id) return BadRequest();
             try
             {
+                var anterior = await _inventarioService.GetProductoAsync(id);
+                var cambios = new List<string>();
+                if (anterior != null)
+                {
+                    if (anterior.Nombre != producto.Nombre) cambios.Add($"Nombre: {anterior.Nombre} → {producto.Nombre}");
+                    if (anterior.CostoPromedio != producto.CostoPromedio) cambios.Add($"Costo: ${anterior.CostoPromedio:N0} → ${producto.CostoPromedio:N0}");
+                    if (anterior.Categoria != producto.Categoria) cambios.Add($"Cat: {anterior.Categoria} → {producto.Categoria}");
+                    if (anterior.Proveedor != producto.Proveedor) cambios.Add($"Prov: {anterior.Proveedor} → {producto.Proveedor}");
+                }
                 await _inventarioService.UpdateProductoAsync(id, producto, recalculateFrom, recalculateTo);
+                string detalle = cambios.Count > 0 ? string.Join(", ", cambios) : "Sin cambios detectados";
+                if (recalculateFrom.HasValue) detalle += $" [Recálculo desde {recalculateFrom.Value:dd/MM/yyyy}]";
+                await _auditService.RegistrarAccionAsync(User.Identity?.Name ?? "Desconocido", "Actualizar Producto", $"{producto.Nombre} (ID: {id}): {detalle}");
                 return NoContent();
             }
             catch (Exception)
             {
-                // In a real scenario we'd check for specific errors
                 if (await _inventarioService.GetProductoAsync(id) == null) return NotFound();
                 throw;
             }
@@ -104,8 +128,10 @@ namespace VendingManager.Web.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteProducto(int id)
         {
-            if (await _inventarioService.GetProductoAsync(id) == null) return NotFound();
+            var producto = await _inventarioService.GetProductoAsync(id);
+            if (producto == null) return NotFound();
             await _inventarioService.DeleteProductoAsync(id);
+            await _auditService.RegistrarAccionAsync(User.Identity?.Name ?? "Desconocido", "Eliminar Producto", $"Producto eliminado: {producto.Nombre} (ID: {id})");
             return NoContent();
         }
     }

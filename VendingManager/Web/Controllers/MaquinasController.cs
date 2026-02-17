@@ -1,5 +1,6 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using VendingManager.Core.DTOs; // Helper using
+using VendingManager.Core.Interfaces;
 
 namespace VendingManager.Web.Controllers
 {
@@ -8,10 +9,12 @@ namespace VendingManager.Web.Controllers
     public class MaquinasController : ControllerBase
     {
         private readonly IMaquinaService _maquinaService;
+        private readonly IAuditService _auditService;
 
-        public MaquinasController(IMaquinaService maquinaService)
+        public MaquinasController(IMaquinaService maquinaService, IAuditService auditService)
         {
             _maquinaService = maquinaService;
+            _auditService = auditService;
         }
 
         [HttpGet]
@@ -24,6 +27,7 @@ namespace VendingManager.Web.Controllers
         public async Task<ActionResult<Maquina>> PostMaquina(Maquina maquina)
         {
             var created = await _maquinaService.CreateMaquinaAsync(maquina);
+            await _auditService.RegistrarAccionAsync(User.Identity?.Name ?? "Desconocido", "Crear Máquina", $"Máquina creada: {created.Nombre} (ID: {created.Id})");
             return CreatedAtAction("GetMaquinas", new { id = created.Id }, created);
         }
 
@@ -35,6 +39,7 @@ namespace VendingManager.Web.Controllers
             try
             {
                 await _maquinaService.UpdateMaquinaAsync(id, maquina);
+                await _auditService.RegistrarAccionAsync(User.Identity?.Name ?? "Desconocido", "Actualizar Máquina", $"Máquina actualizada: {maquina.Nombre} (ID: {id})");
                 return NoContent();
             }
             catch (Exception)
@@ -47,10 +52,12 @@ namespace VendingManager.Web.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteMaquina(int id)
         {
-            if (await _maquinaService.GetMaquinaAsync(id) == null) return NotFound();
+            var maquina = await _maquinaService.GetMaquinaAsync(id);
+            if (maquina == null) return NotFound();
 
             // Note: Service handles deletion logic (and potentially check for orphans if implemented there)
             await _maquinaService.DeleteMaquinaAsync(id);
+            await _auditService.RegistrarAccionAsync(User.Identity?.Name ?? "Desconocido", "Eliminar Máquina", $"Máquina eliminada: {maquina.Nombre} (ID: {id})");
             return NoContent();
         }
 
@@ -65,6 +72,7 @@ namespace VendingManager.Web.Controllers
         {
             if (id != slot.MaquinaId) return BadRequest("ID de máquina no coincide.");
             await _maquinaService.UpdateSlotAsync(slot);
+            await _auditService.RegistrarAccionAsync(User.Identity?.Name ?? "Desconocido", "Actualizar Slot", $"Actualizado slot {slot.NumeroSlot} en máquina {id}. Capacidad: {slot.CapacidadMaxima}, Precio: {slot.PrecioVenta}");
             return Ok();
         }
 
@@ -73,7 +81,36 @@ namespace VendingManager.Web.Controllers
         {
             try
             {
+                // Fetch slots and machine name for detailed logging
+                var maquina = await _maquinaService.GetMaquinaAsync(id);
+                var slots = await _maquinaService.GetSlotsAsync(id);
+                var slotDict = slots.ToDictionary(s => s.Id, s => s);
+                string nombreMaq = maquina?.Nombre ?? $"ID {id}";
+
                 await _maquinaService.ProcesarMovimientosLoteAsync(id, acciones);
+
+                // Build detailed log
+                var detalles = new List<string>();
+                foreach (var a in acciones)
+                {
+                    var slot = slotDict.GetValueOrDefault(a.SlotId);
+                    string slotNum = slot?.NumeroSlot ?? $"?";
+                    string prod = slot?.Producto?.Nombre ?? "N/A";
+                    switch (a.ActionType)
+                    {
+                        case "REFILL":
+                            detalles.Add($"Slot {slotNum} ({prod}): +{a.Cantidad}");
+                            break;
+                        case "EMPTY":
+                            detalles.Add($"Slot {slotNum}: Vaciado ({prod})");
+                            break;
+                        case "SWAP":
+                            detalles.Add($"Slot {slotNum}: Cambio {prod} → ProdID {a.NewProductoId}");
+                            break;
+                    }
+                }
+                string detalle = $"Máquina {nombreMaq}: {string.Join(", ", detalles)}";
+                await _auditService.RegistrarAccionAsync(User.Identity?.Name ?? "Desconocido", "Movimiento Inventario", detalle);
                 return Ok();
             }
             catch (Exception ex)
