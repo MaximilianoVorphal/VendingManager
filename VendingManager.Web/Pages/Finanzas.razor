@@ -1,6 +1,7 @@
 @page "/finanzas"
 @using Microsoft.AspNetCore.Authorization
-@attribute [Authorize(Roles = "Admin")]
+@using VendingManager.Shared.Constants
+@attribute [Authorize(Roles = Roles.Admin)]
 @inject HttpClient Http
 
 <PageTitle>FINANZAS</PageTitle>

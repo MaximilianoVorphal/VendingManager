@@ -3,12 +3,13 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using VendingManager.Core.Entities;
 using VendingManager.Infrastructure.Data;
+using VendingManager.Shared.Constants;
 
 namespace VendingManager.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize(Roles = "Admin")] // Solo administradores pueden ver esto
+    [Authorize(Roles = Roles.Admin)] // Solo administradores pueden ver esto
     public class AuditoriaController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
@@ -36,7 +37,7 @@ namespace VendingManager.Controllers
             // Ordenamos por fecha descendente (lo más nuevo primero)
             var logs = await query
                 .OrderByDescending(a => a.Fecha)
-                .Select(a => new VendingManager.Web.DTOs.AuditoriaDto
+                .Select(a => new VendingManager.Shared.DTOs.AuditoriaDto
                 {
                     Id = a.Id,
                     Usuario = a.Usuario,

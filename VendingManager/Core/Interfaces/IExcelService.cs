@@ -9,6 +9,6 @@ namespace VendingManager.Core.Interfaces
         Task<string> ImportarCatalogoProductos(Stream fileStream, string nombreArchivo);
         Task<byte[]> ExportarCatalogoProductos();
         Task<string> SincronizarDesdePortal(int maquinaId, DateTime? fechaLimite = null);
-        Task<byte[]> ExportarListaCarga(List<VendingManager.Core.DTOs.StockCriticoDto> items);
+        Task<byte[]> ExportarListaCarga(List<VendingManager.Shared.DTOs.StockCriticoDto> items);
     }
 }

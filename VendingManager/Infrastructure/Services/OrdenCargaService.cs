@@ -1,5 +1,5 @@
 using Microsoft.EntityFrameworkCore;
-using VendingManager.Core.DTOs;
+using VendingManager.Shared.DTOs;
 using VendingManager.Core.Entities;
 using VendingManager.Core.Interfaces;
 using VendingManager.Infrastructure.Data;

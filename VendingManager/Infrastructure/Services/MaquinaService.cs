@@ -2,7 +2,6 @@
 
 namespace VendingManager.Infrastructure.Services
 {
-    using Core.DTOs; // Helper using
 
     public class MaquinaService : IMaquinaService
     {

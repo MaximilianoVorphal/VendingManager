@@ -13,4 +13,8 @@
     <PackageReference Include="Microsoft.AspNetCore.WebUtilities" Version="10.0.1" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\VendingManager.Shared\VendingManager.Shared.csproj" />
+  </ItemGroup>
+
 </Project>

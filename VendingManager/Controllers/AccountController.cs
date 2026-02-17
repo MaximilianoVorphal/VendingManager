@@ -2,8 +2,9 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.RateLimiting;
 using System.Security.Claims;
-using VendingManager.Core.DTOs;
+using VendingManager.Shared.DTOs;
 using VendingManager.Core.Interfaces;
 using VendingManager.Infrastructure.Data;
 
@@ -22,6 +23,7 @@ namespace VendingManager.Controllers
             _auditService = auditService;
         }
 
+        [EnableRateLimiting("LoginPolicy")]
         [HttpPost("login")]
         public async Task<ActionResult<string>> Login(LoginDto loginDto)
         {
@@ -30,6 +32,8 @@ namespace VendingManager.Controllers
 
             if (user == null || !BCrypt.Net.BCrypt.Verify(loginDto.Password, user.PasswordHash))
             {
+                // Delay to prevent timing attacks (optional but good practice)
+                await Task.Delay(new Random().Next(100, 300));
                 return Unauthorized("Credenciales inválidas");
             }
 

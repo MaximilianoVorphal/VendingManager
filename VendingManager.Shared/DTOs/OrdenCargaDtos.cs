@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace VendingManager.Core.DTOs
+namespace VendingManager.Shared.DTOs
 {
     public class CrearOrdenDto
     {

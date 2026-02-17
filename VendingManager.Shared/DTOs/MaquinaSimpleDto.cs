@@ -1,4 +1,4 @@
-﻿namespace VendingManager.Core.DTOs
+﻿namespace VendingManager.Shared.DTOs
 {
     public class MaquinaSimpleDto
     {
