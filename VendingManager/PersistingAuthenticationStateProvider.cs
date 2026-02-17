@@ -30,9 +30,11 @@ namespace VendingManager.Web.Auth
             if (principal.Identity?.IsAuthenticated == true)
             {
                 var name = principal.FindFirst(ClaimTypes.Name)?.Value;
+                var role = principal.FindFirst(ClaimTypes.Role)?.Value;
+
                 if (name != null)
                 {
-                    _state.PersistAsJson("UserInfo", new UserInfo { Name = name });
+                    _state.PersistAsJson("UserInfo", new UserInfo { Name = name, Role = role });
                 }
             }
         }

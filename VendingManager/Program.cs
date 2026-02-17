@@ -51,6 +51,7 @@ builder.Services.AddScoped<IMaquinaService, MaquinaService>();
 builder.Services.AddScoped<IInformesService, InformesService>();
 builder.Services.AddScoped<VendingManager.Core.Interfaces.IOrdenCargaService, OrdenCargaService>();
 builder.Services.AddScoped<ITemplateRecargaService, TemplateRecargaService>();
+builder.Services.AddScoped<IAuditService, AuditService>();
 
 // Servicios en segundo plano (Background Workers)
 builder.Services.AddHttpClient<VendingManager.Core.Interfaces.IScraperClient, VendingManager.Infrastructure.Clients.ScraperClient>();
@@ -88,13 +89,14 @@ using (var scope = app.Services.CreateScope())
         var context = services.GetRequiredService<VendingManager.Infrastructure.Data.ApplicationDbContext>();
         context.Database.Migrate();
 
-        // Seed default user if not exists
+        // Seed default user if not exists (Safety net for both Dev and Prod)
         if (!context.Users.Any())
         {
             var adminUser = new VendingManager.Core.Entities.User
             {
                 Username = "admin",
-                PasswordHash = BCrypt.Net.BCrypt.HashPassword("admin")
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword("admin"),
+                Role = "Admin"
             };
             context.Users.Add(adminUser);
             context.SaveChanges();
