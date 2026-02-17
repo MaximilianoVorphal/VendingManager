@@ -90,10 +90,14 @@
                         }
                     </button>
                     <!-- ADMIN BUTTON -->
-                    <button class="btn btn-dark rounded-0 fw-bold border-dark py-2" @onclick="AbrirModalAdmin"
-                        title="Opciones Avanzadas">
-                        <i class="bi bi-gear-fill text-danger"></i>
-                    </button>
+                    <AuthorizeView Roles="Admin">
+                        <Authorized>
+                            <button class="btn btn-dark rounded-0 fw-bold border-dark py-2" @onclick="AbrirModalAdmin"
+                                title="Opciones Avanzadas">
+                                <i class="bi bi-gear-fill text-danger"></i>
+                            </button>
+                        </Authorized>
+                    </AuthorizeView>
                 </div>
             </div>
             <div class="row mt-2">

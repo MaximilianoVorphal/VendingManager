@@ -8,13 +8,21 @@
 
 <h1>Registro de Auditoría</h1>
 
+
+
 <div class="row mb-3">
-    <div class="col-md-4">
-        <label class="form-label">Filtrar por Usuario:</label>
-        <div class="input-group">
-            <input type="text" class="form-control" @bind="filtroUsuario" placeholder="Nombre de usuario..." />
-            <button class="btn btn-primary" @onclick="CargarLogs">Buscar</button>
-        </div>
+    <div class="col-md-3">
+        <label class="form-label">Usuario:</label>
+        <input type="text" class="form-control" @bind="filtroUsuario" placeholder="Ej: admin" />
+    </div>
+    <div class="col-md-3">
+        <label class="form-label">Acción:</label>
+        <input type="text" class="form-control" @bind="filtroAccion" placeholder="Ej: Login" />
+    </div>
+    <div class="col-md-2 d-flex align-items-end">
+        <button class="btn btn-primary w-100" @onclick="CargarLogs">
+            <i class="bi bi-search me-2"></i>Filtrar
+        </button>
     </div>
 </div>
 
@@ -56,6 +64,7 @@ else
 @code {
     private List<AuditoriaDto>? logs;
     private string filtroUsuario = "";
+    private string filtroAccion = "";
 
     protected override async Task OnInitializedAsync()
     {
@@ -70,6 +79,11 @@ else
             if (!string.IsNullOrWhiteSpace(filtroUsuario))
             {
                 url += $"?usuario={filtroUsuario}";
+            }
+            if (!string.IsNullOrWhiteSpace(filtroAccion))
+            {
+                url += string.IsNullOrWhiteSpace(filtroUsuario) ? "?" : "&";
+                url += $"accion={filtroAccion}";
             }
             logs = await Http.GetFromJsonAsync<List<AuditoriaDto>>(url);
         }
