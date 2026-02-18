@@ -208,6 +208,7 @@ public class TemplateRecargaService : ITemplateRecargaService
                 periodo.FechaInicio,
                 periodo.FechaFin,
                 umbralHorasSilencio,
+                periodo.SnapshotSlots.ToList(), // Pasar la lista completa de slots
                 snapshotPorProducto);
 
             result.AddRange(analisisMaquina);
@@ -227,9 +228,11 @@ public class TemplateRecargaService : ITemplateRecargaService
     /// </summary>
     private async Task<List<StockoutAnalysisDto>> AnalizarMaquinaEnPeriodo(
         int maquinaId, string maquinaNombre, DateTime inicio, DateTime fin, double umbralHoras,
-        Dictionary<int, int>? snapshotPorProducto = null)
+        List<SnapshotSlot> snapshotSlots,
+        Dictionary<int, int>? snapshotPorProducto) // Mantener por compatibilidad o eliminar si no se usa
     {
-        // Obtener ventas de esta máquina en el período (excluyendo fantasmas)
+        // 1. Obtener todas las ventas del periodo
+        // IMPORTANTE: Traer ventas aunque no tengan coincidencia directa inicial para analisis global
         var ventas = await _context.Ventas
             .Include(v => v.Producto)
             .Where(v => v.MaquinaId == maquinaId)
@@ -237,105 +240,112 @@ public class TemplateRecargaService : ITemplateRecargaService
             .Where(v => v.IdOrdenMaquina != "TB-EXTRA" && v.IdOrdenMaquina != "TB-SIN-VENTA")
             .ToListAsync();
 
-        if (!ventas.Any())
-            return new List<StockoutAnalysisDto>();
-
-        // Última actividad de la máquina en el período
-        var ultimaActividadMaquina = ventas.Max(v => v.FechaLocal);
-
-        // Agrupar por producto
-        var grupos = ventas
-            .Where(v => v.ProductoId.HasValue && v.ProductoId > 0)
-            .GroupBy(v => v.ProductoId)
-            .ToList();
-
         var result = new List<StockoutAnalysisDto>();
-        var tieneSnapshots = snapshotPorProducto != null && snapshotPorProducto.Any();
+        
+        // Última actividad global de la máquina (para inferencia de silencio)
+        var ultimaActividadMaquina = ventas.Any() ? ventas.Max(v => v.FechaLocal) : inicio;
 
-        foreach (var grupo in grupos)
+        // 2. Iterar sobre la CONFIGURACIÓN DE SLOTS (Snapshot)
+        // Esto asegura que mostramos TODOS los slots, incluso los que no vendieron
+        foreach (var slot in snapshotSlots.OrderBy(s => int.TryParse(s.NumeroSlot, out int n) ? n : 999))
         {
-            var productoId = grupo.Key!.Value;
-            var ventasGrupo = grupo.OrderBy(v => v.FechaLocal).ToList();
+            // Filtrar ventas para ESTE slot específico
+            // Normalizamos comparación de strings por si acaso ("01" vs "1")
+            // Asumimos coincidencia exacta de string por ahora, lo cual es estándar en el sistema
+            var ventasSlot = ventas
+                .Where(v => v.NumeroSlot == slot.NumeroSlot)
+                .OrderBy(v => v.FechaLocal)
+                .ToList();
 
-            var primeraVenta = ventasGrupo.First().FechaLocal;
-            var ultimaVenta = ventasGrupo.Last().FechaLocal;
-            var cantidad = ventasGrupo.Count;
+            // Datos básicos
+            var productoId = slot.ProductoId ?? 0;
+            var cantidadInicial = slot.CantidadInicial;
+            var cantidadVendida = ventasSlot.Count;
+            
+            DateTime? primeraVenta = ventasSlot.Any() ? ventasSlot.First().FechaLocal : null;
+            DateTime? ultimaVenta = ventasSlot.Any() ? ventasSlot.Last().FechaLocal : null;
+            
+            // Cálculos financieros
+            decimal precioPromedio = 0;
+            decimal gananciaPromedio = 0;
 
-            var precioPromedio = ventasGrupo.Average(v => v.PrecioVenta);
-            var costoPromedio = ventasGrupo.Average(v =>
-                v.CostoVenta > 0 ? v.CostoVenta : (v.Producto?.CostoPromedio ?? 0));
-            var gananciaPromedio = precioPromedio - costoPromedio;
-
-            bool posibleQuiebre;
-            double horasSinStock;
-            DateTime fechaAgotamiento;
-
-            // ===== LÓGICA HÍBRIDA =====
-            if (tieneSnapshots && snapshotPorProducto!.TryGetValue(productoId, out var cantidadInicial) && cantidadInicial > 0)
+            if (ventasSlot.Any())
             {
-                // MÉTODO EXACTO: Tenemos la cantidad inicial del snapshot
-                if (cantidad >= cantidadInicial)
-                {
-                    // QUIEBRE CONFIRMADO: vendió todo el stock
-                    posibleQuiebre = true;
+                precioPromedio = ventasSlot.Average(v => v.PrecioVenta);
+                var costoPromedio = ventasSlot.Average(v => v.CostoVenta > 0 ? v.CostoVenta : (v.Producto?.CostoPromedio ?? 0));
+                gananciaPromedio = precioPromedio - costoPromedio;
+            }
+            else if (slot.Producto != null)
+            {
+                // Si no hay ventas, usar datos del producto del snapshot si disponible
+                // (No tenemos precio venta en snapshot, asumimos 0 o buscar ultimo historial? 0 por ahora)
+                precioPromedio = 0; 
+                // Podríamos buscar precio actual en config slot pero snapshot es historia.
+            }
 
-                    // Encontrar exactamente cuándo se agotó (la venta #N donde N = cantidadInicial)
-                    if (cantidadInicial <= ventasGrupo.Count)
+            // ===== LÓGICA DE QUIEBRE (PER SLOT) =====
+            bool posibleQuiebre = false;
+            double horasSinStock = 0;
+            DateTime fechaAgotamiento = fin;
+
+            if (cantidadInicial > 0)
+            {
+                if (cantidadVendida >= cantidadInicial)
+                {
+                    // Quiebre Confirmado: Vendió todo lo que tenía
+                    posibleQuiebre = true;
+                    // Fecha exacta cuando vendió la última unidad disponible
+                    // (la venta número 'cantidadInicial')
+                    if (cantidadInicial <= ventasSlot.Count)
                     {
-                        fechaAgotamiento = ventasGrupo[cantidadInicial - 1].FechaLocal;
+                        fechaAgotamiento = ventasSlot[cantidadInicial - 1].FechaLocal;
                     }
                     else
                     {
-                        fechaAgotamiento = ultimaVenta;
+                        // Fallback raro (vendió más de lo que tenía? rellenaron sin avisar?)
+                        fechaAgotamiento = ultimaVenta ?? fin;
                     }
 
                     horasSinStock = (fin - fechaAgotamiento).TotalHours;
-                    if (horasSinStock < 0) horasSinStock = 0;
                 }
                 else
                 {
-                    // NO se agotó: vendió menos de lo que tenía
+                    // No se agotó
                     posibleQuiebre = false;
-                    fechaAgotamiento = fin;
                     horasSinStock = 0;
                 }
             }
             else
             {
-                // MÉTODO INFERENCIA: No hay snapshot, usar detección por silencio
-                var horasDiferencia = (ultimaActividadMaquina - ultimaVenta).TotalHours;
-                posibleQuiebre = horasDiferencia > umbralHoras;
-                fechaAgotamiento = ultimaVenta;
-
-                horasSinStock = (fin - ultimaVenta).TotalHours;
-                if (horasSinStock < 0) horasSinStock = 0;
+                // Slot empezó vacío o sin producto
+                posibleQuiebre = false; 
             }
+            
+            if (horasSinStock < 0) horasSinStock = 0;
 
-            // Velocidad real (basada en tiempo hasta agotamiento o fin si no se agotó)
-            var horasActivas = (fechaAgotamiento - inicio).TotalHours;
+
+            // Velocidad y Costo Oportunidad
+            double horasActivas = (fechaAgotamiento - inicio).TotalHours;
             if (horasActivas < 1) horasActivas = 1;
-            var velocidadPorHora = cantidad / (decimal)horasActivas;
-
-            // Costo de oportunidad
+            
+            decimal velocidadPorHora = cantidadVendida / (decimal)horasActivas;
+            
             decimal dineroPerdido = 0;
             decimal gananciaPerdida = 0;
 
-            if (posibleQuiebre && horasSinStock > 0)
+            if (posibleQuiebre && horasSinStock > 0 && precioPromedio > 0)
             {
                 dineroPerdido = velocidadPorHora * (decimal)horasSinStock * precioPromedio;
                 gananciaPerdida = velocidadPorHora * (decimal)horasSinStock * gananciaPromedio;
             }
-
-            var producto = ventasGrupo.First().Producto;
-            var slots = ventasGrupo.Select(v => v.NumeroSlot).Distinct().ToList();
 
             result.Add(new StockoutAnalysisDto
             {
                 MaquinaId = maquinaId,
                 MaquinaNombre = maquinaNombre,
                 ProductoId = productoId,
-                ProductoNombre = producto?.Nombre ?? "Desconocido",
-                NumeroSlot = string.Join(", ", slots),
+                ProductoNombre = slot.Producto?.Nombre ?? "Desconocido", // Usar nombre del snapshot
+                NumeroSlot = slot.NumeroSlot, // Slot Individual!
 
                 PrimeraVenta = primeraVenta,
                 UltimaVenta = ultimaVenta,
@@ -345,15 +355,16 @@ public class TemplateRecargaService : ITemplateRecargaService
                 PosibleQuiebre = posibleQuiebre,
                 HorasSinStock = horasSinStock,
 
-                StockInicial = tieneSnapshots && snapshotPorProducto!.TryGetValue(productoId, out var stockIni) ? stockIni : 0,
-                CantidadVendida = cantidad,
+                StockInicial = cantidadInicial,
+                CantidadVendida = cantidadVendida,
                 HorasActivas = horasActivas,
                 VelocidadPorHora = Math.Round(velocidadPorHora, 4),
 
                 PrecioPromedioVenta = Math.Round(precioPromedio, 0),
                 GananciaPromedio = Math.Round(gananciaPromedio, 0),
                 DineroPerdidoEstimado = Math.Round(dineroPerdido, 0),
-                GananciaPerdidaEstimada = Math.Round(gananciaPerdida, 0)
+                GananciaPerdidaEstimada = Math.Round(gananciaPerdida, 0),
+                FechasVentas = ventasSlot.Select(v => v.FechaLocal).OrderBy(d => d).ToList()
             });
         }
 

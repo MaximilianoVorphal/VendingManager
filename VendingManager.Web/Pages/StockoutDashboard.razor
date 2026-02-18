@@ -157,7 +157,7 @@
             }
 
                 <!-- ALERTAS CRÍTICAS -->
-        <div class="col-6 col-md-3">
+                <div class="col-6 col-md-3">
                     <div class="bg-danger text-white p-3 h-100 shadow-sm border border-2 border-dark">
                         <div class="fw-bold text-uppercase small" style="letter-spacing: 1px; opacity: 0.9;">
                             Alertas Críticas
@@ -170,7 +170,7 @@
                 </div>
 
                 <!-- PRODUCTOS EN ALERTA -->
-        <div class="col-6 col-md-3">
+                <div class="col-6 col-md-3">
                     <div class="bg-warning text-dark p-3 h-100 shadow-sm border border-2 border-dark">
                         <div class="fw-bold text-uppercase small" style="letter-spacing: 1px;">
                             Productos en Alerta
@@ -183,7 +183,7 @@
                 </div>
 
                 <!-- DINERO PERDIDO ESTIMADO -->
-        <div class="col-6 col-md-3">
+                <div class="col-6 col-md-3">
                     <div class="bg-dark text-white p-3 h-100 shadow-sm border border-2 border-dark">
                         <div class="fw-bold text-uppercase small" style="letter-spacing: 1px; opacity: 0.9;">
                             Ventas Perdidas Est.
@@ -196,7 +196,7 @@
                 </div>
 
                 <!-- PRODUCTO MÁS CRÍTICO -->
-        <div class="col-6 col-md-3">
+                <div class="col-6 col-md-3">
                     <div class="bg-secondary text-white p-3 h-100 shadow-sm border border-2 border-dark">
                         <div class="fw-bold text-uppercase small" style="letter-spacing: 1px; opacity: 0.9;">
                             Más Crítico
@@ -206,11 +206,200 @@
                         </div>
                     @if (productoMasCritico != null)
                     {
-                                <small>@productoMasCritico.DiasSinStock.ToString("F1") días sin stock</small>
+                        <small>@productoMasCritico.DiasSinStock.ToString("F1") días sin stock</small>
                     }
                     </div>
                 </div>
             </div>
+
+            <!-- TIMELINE VISUALIZATION (ONLY IF TEMPLATE SELECTED) -->
+            @if (TemplateSeleccionado > 0)
+            {
+                <div class="card border-2 border-dark rounded-0 shadow-sm mb-4">
+                    <div class="card-header bg-dark text-white rounded-0 fw-bold border-bottom border-dark text-uppercase">
+                        <i class="bi bi-clock-history me-2"></i>TIMELINE DE AGOTAMIENTO
+                    </div>
+                    <div class="card-body bg-light">
+                        
+                        <!-- VIEW TOGGLE & SLIDER CONTROLS -->
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                             <div class="btn-group me-3">
+                                <button class="btn btn-outline-dark rounded-0 @(!ShowDetailView ? "active bg-dark text-white" : "")" 
+                                        @onclick="() => ShowDetailView = false" title="Vista Estantería">
+                                    <i class="bi bi-grid-3x3-gap-fill"></i>
+                                </button>
+                                <button class="btn btn-outline-dark rounded-0 @(ShowDetailView ? "active bg-dark text-white" : "")" 
+                                        @onclick="() => ShowDetailView = true" title="Vista Detallada">
+                                    <i class="bi bi-layout-sidebar-reverse"></i>
+                                </button>
+                            </div>
+
+                            <button class="btn btn-outline-dark rounded-0 me-3" @onclick="TogglePlayback">
+                                <i class="bi @(IsPlaying ? "bi-pause-fill" : "bi-play-fill") fs-4"></i>
+                            </button>
+
+                            <div class="flex-grow-1">
+                                <label class="form-label fw-bold d-flex justify-content-between mb-0">
+                                    <span>@FechaInicio.ToString("dd/MM HH:mm")</span>
+                                    <span class="badge bg-danger fs-6">@CurrentTime.ToString("dddd dd/MM HH:mm")</span>
+                                    <span>@FechaFin.ToString("dd/MM HH:mm")</span>
+                                </label>
+                                <input type="range" class="form-range" 
+                                       min="@FechaInicio.Ticks" max="@FechaFin.Ticks" step="@TimeStepTicks" 
+                                       @bind="CurrentTimeTicks" @bind:event="oninput" />
+                                
+                                <!-- Day Markers -->
+                                <div class="d-flex justify-content-between position-relative mt-2" style="height: 20px;">
+                                    @{
+                                        var totalSpan = (FechaFin - FechaInicio).Ticks;
+                                        if (totalSpan > 0)
+                                        {
+                                            var currentDay = FechaInicio.Date;
+                                            if (currentDay < FechaInicio) currentDay = currentDay.AddDays(1);
+
+                                            while (currentDay <= FechaFin)
+                                            {
+                                                var offsetTicks = (currentDay - FechaInicio).Ticks;
+                                                var pct = (double)offsetTicks / totalSpan * 100;
+
+                                                if (pct >= 0 && pct <= 100)
+                                                {
+                                                    <div class="position-absolute border-start border-dark" 
+                                                         style="left: @pct.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)%; height: 10px; top:0;"></div>
+                                                    <div class="position-absolute small text-muted" 
+                                                         style="left: @pct.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)%; top: 12px; transform: translateX(-50%); font-size: 0.65rem;">
+                                                        @currentDay.ToString("dd/MM")
+                                                    </div>
+                                                }
+                                                currentDay = currentDay.AddDays(1);
+                                            }
+                                        }
+                                    }
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <!-- LEFT PANE: SHELF VIEW -->
+                            <div class="@(ShowDetailView ? "col-md-7" : "col-12")">
+                                <div class="inventory-grid-container p-3 border border-dark bg-white" style="overflow-x: auto; max-height: 800px;">
+                                    @if (Datos != null)
+                                    {
+                                        var datosAgrupados = Datos.GroupBy(d => d.MaquinaId);
+                                        @foreach (var maquinaGroup in datosAgrupados)
+                                        {
+                                            var maquinaNombre = maquinaGroup.First().MaquinaNombre;
+                                            <h5 class="fw-bold mt-3 mb-2 ps-2 border-start border-4 border-danger">@maquinaNombre</h5>
+                                            
+                                            var slots = maquinaGroup.OrderBy(d => int.TryParse(d.NumeroSlot, out int n) ? n : 999).ToList();
+                                            var shelves = slots.GroupBy(s => (ParseSlot(s.NumeroSlot) - 1) / 10).OrderBy(g => g.Key);
+
+                                            <div class="d-flex flex-column gap-2 mb-4 machine-chassis">
+                                                @foreach (var shelf in shelves)
+                                                {
+                                                    <div class="shelf-row d-flex gap-1 p-1 bg-secondary bg-opacity-10 border-bottom border-secondary">
+                                                        <div class="shelf-label badge bg-secondary text-white rounded-0 align-self-center me-2" style="width: 25px;">P@(shelf.Key)</div>
+                                                        
+                                                        <div class="d-flex flex-wrap gap-1 w-100">
+                                                            @foreach (var item in shelf)
+                                                            {
+                                                                int stockAtTime = CalculateStockAtTime(item, CurrentTime);
+                                                                int maxStock = item.StockInicial > 0 ? item.StockInicial : 10;
+                                                                bool isEmpty = stockAtTime <= 0;
+                                                                double fillPct = (double)stockAtTime / maxStock * 100;
+                                                                
+                                                                <!-- Dynamic Size based on View Mode -->
+                                                                var slotSize = ShowDetailView ? "60px" : "95px";
+                                                                var fontSize = ShowDetailView ? "0.6rem" : "0.8rem";
+                                                                
+                                                                <div class="slot-card border @(isEmpty ? "border-danger bg-danger text-white" : "border-dark bg-white text-dark")" 
+                                                                     style="width: @slotSize; height: @slotSize; font-size: @fontSize; position: relative;"
+                                                                     title="@item.ProductoNombre">
+                                                                    
+                                                                    <div class="d-flex justify-content-between px-1" style="font-size: 0.9em;">
+                                                                        <span class="fw-bold">@item.NumeroSlot</span>
+                                                                        <span>@stockAtTime</span>
+                                                                    </div>
+                                                                    
+                                                                    <div class="px-1 text-truncate fw-bold" style="height: 50%; line-height: 1.1; white-space: normal; display: -webkit-box; -webkit-line-clamp: @(ShowDetailView ? 2 : 3); -webkit-box-orient: vertical;">
+                                                                        @item.ProductoNombre
+                                                                    </div>
+
+                                                                    <div class="progress rounded-0 mt-1" style="height: 4px; position: absolute; bottom: 2px; left: 2px; right: 2px;">
+                                                                        <div class="progress-bar @(isEmpty ? "bg-white" : "bg-success")" 
+                                                                             role="progressbar" style="width: @fillPct%"></div>
+                                                                    </div>
+                                                                </div>
+                                                            }
+                                                        </div>
+                                                    </div>
+                                                }
+                                            </div>
+                                        }
+                                    }
+                                </div>
+                            </div>
+
+                            <!-- RIGHT PANE: PRODUCT LIST (Only in Detail View) -->
+                            @if (ShowDetailView)
+                            {
+                                <div class="col-md-5">
+                                    <div class="card border-dark rounded-0 shadow-sm h-100">
+                                        <div class="card-header bg-secondary text-white fw-bold rounded-0">
+                                            <i class="bi bi-list-check me-2"></i>ESTADO ACTUAL (@CurrentTime.ToString("dd/MM HH:mm"))
+                                        </div>
+                                        <div class="card-body p-0" style="overflow-y: auto; max-height: 800px;">
+                                            <table class="table table-sm table-striped table-hover mb-0" style="font-size: 0.85rem;">
+                                                <thead class="table-dark sticky-top">
+                                                    <tr>
+                                                        <th>Slot</th>
+                                                        <th>Producto</th>
+                                                        <th class="text-center">Ini</th>
+                                                        <th class="text-center">Act</th>
+                                                        <th class="text-center">Estado</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    @if (Datos != null)
+                                                    {
+                                                        @foreach (var item in Datos.OrderBy(d => ParseSlot(d.NumeroSlot)))
+                                                        {
+                                                            int stockAtTime = CalculateStockAtTime(item, CurrentTime);
+                                                            int maxStock = item.StockInicial > 0 ? item.StockInicial : 10;
+                                                            double fillPct = (double)stockAtTime / maxStock * 100;
+                                                            bool isCritico = stockAtTime == 0;
+                                                            bool isBajo = !isCritico && fillPct <= 25;
+
+                                                            <tr class="@(isCritico ? "table-danger" : "")">
+                                                                <td class="fw-bold">@item.NumeroSlot</td>
+                                                                <td>
+                                                                    <div class="text-truncate" style="max-width: 150px;" title="@item.ProductoNombre">
+                                                                        @item.ProductoNombre
+                                                                    </div>
+                                                                </td>
+                                                                <td class="text-center text-muted">@item.StockInicial</td>
+                                                                <td class="text-center fw-bold @(isCritico ? "text-danger" : (isBajo ? "text-warning" : "text-success"))">
+                                                                    @stockAtTime
+                                                                </td>
+                                                                <td class="text-center">
+                                                                    @if(isCritico) { <span class="badge bg-danger">AGOTADO</span> }
+                                                                    else if(isBajo) { <span class="badge bg-warning text-dark">BAJO</span> }
+                                                                    else { <span class="badge bg-success">OK</span> }
+                                                                </td>
+                                                            </tr>
+                                                        }
+                                                    }
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+
+                    </div>
+                </div>
+            }
 
             <!-- TABLA DE ALERTAS -->
             <div class="card border-2 border-dark rounded-0 shadow-sm mb-4">
@@ -539,6 +728,16 @@
                 }
             }
 
+            // Initialize timeline
+            CurrentTimeTicks = FechaInicio.Ticks;
+            if (FechaFin > FechaInicio)
+            {
+                // Adjust step size based on duration? 
+                // If duration is 7 days, 1 hour step is fine (168 steps).
+                // If duration is 1 month, 1 hour step is 720 steps (maybe too fine?).
+                TimeStepTicks = TimeSpan.FromMinutes(30).Ticks;
+            }
+
             AplicarOrdenamiento();
         }
         catch (Exception ex)
@@ -750,6 +949,70 @@
         await JS.InvokeVoidAsync("ChartJsInterop.setupChart", "dailySalesChart", config);
     }
 
+    // Timeline Control
+    private long CurrentTimeTicks;
+    private DateTime CurrentTime
+    {
+        get => new DateTime(CurrentTimeTicks);
+        set => CurrentTimeTicks = value.Ticks;
+    }
+    private long TimeStepTicks = TimeSpan.FromHours(1).Ticks; // 1 hour steps for slider
+    private bool IsPlaying = false;
+    private System.Threading.Timer? PlaybackTimer;
+
+    // View State
+    private bool ShowDetailView = false;
+
+    // Data
+    private int CalculateStockAtTime(StockoutAnalysisDto item, DateTime time)
+    {
+        // 1. Start with initial stock (or max capacity if unknown/0, but we ideally need initial)
+        // If we don't have initial stock snapshot, we can't really know exact level, 
+        // but we can try to work backwards from now? No, better to stick to forward if we have snapshot.
+        // If StockInicial is 0, maybe we assume it was full? or we display accumulated sales?
+        // Let's assume StockInicial is correct if available.
+        
+        int soldBeforeTime = 0;
+        if (item.FechasVentas != null)
+        {
+            soldBeforeTime = item.FechasVentas.Count(t => t <= time);
+        }
+
+        int stock = item.StockInicial - soldBeforeTime;
+        return stock < 0 ? 0 : stock;
+    }
+
+    private int ParseSlot(string slot)
+    {
+        if (int.TryParse(slot, out int n)) return n;
+        return 999;
+    }
+
+    private void TogglePlayback()
+    {
+        IsPlaying = !IsPlaying;
+        if (IsPlaying)
+        {
+            PlaybackTimer = new System.Threading.Timer(async _ =>
+            {
+                if (CurrentTimeTicks >= FechaFin.Ticks)
+                {
+                    IsPlaying = false;
+                    await InvokeAsync(StateHasChanged);
+                    PlaybackTimer?.Dispose();
+                    return;
+                }
+
+                CurrentTimeTicks += TimeStepTicks;
+                await InvokeAsync(StateHasChanged);
+            }, null, 0, 100); // Update every 100ms
+        }
+        else
+        {
+            PlaybackTimer?.Dispose();
+        }
+    }
+
     // DTOs Locales
     public class MaquinaSimpleDto
     {
@@ -769,6 +1032,8 @@
         public DateTime? UltimaVenta { get; set; }
         public DateTime UltimaActividadMaquina { get; set; }
         public DateTime FinReporte { get; set; }
+
+        public List<DateTime> FechasVentas { get; set; } = new();
 
         public bool PosibleQuiebre { get; set; }
         public double HorasSinStock { get; set; }
