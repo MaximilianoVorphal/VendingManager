@@ -30,6 +30,9 @@ public class StockoutAnalysisDto
     /// <summary>Fecha fin del periodo de reporte</summary>
     public DateTime FinReporte { get; set; }
 
+    /// <summary>Lista de fechas de todas las ventas para el timeline</summary>
+    public List<DateTime> FechasVentas { get; set; } = new();
+
     // =============================================
     // MÉTRICAS DE STOCKOUT
     // =============================================
