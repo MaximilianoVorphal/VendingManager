@@ -74,8 +74,8 @@
                      <thead class="bg-secondary text-white text-uppercase small sticky-top">
                          <tr>
                              <th role="button" @onclick='() => OrdenarPor("Nombre")'>PRODUCTO @RenderIcono("Nombre")</th>
-                             <th role="button" @onclick='() => OrdenarPor("Clasificacion")'>ESTRATEGIA @RenderIcono("Clasificacion")</th>
-                             <th role="button" class="text-center" @onclick='() => OrdenarPor("Rotacion")'>ROTACIÓN/DÍA @RenderIcono("Rotacion")</th>
+                            <th role="button" @onclick='() => OrdenarPor("Clasificacion")'>ESTRATEGIA @RenderIcono("Clasificacion")</th>
+                             @* Removed Rotacion/Dia *@
                              <th role="button" class="text-center" @onclick='() => OrdenarPor("Cantidad")'>TOTAL UNID. @RenderIcono("Cantidad")</th>
                              <th role="button" class="text-end" @onclick='() => OrdenarPor("Ventas")'>INGRESOS @RenderIcono("Ventas")</th>
                              <th role="button" class="text-end" @onclick='() => OrdenarPor("Ganancia")'>GANANCIA @RenderIcono("Ganancia")</th>
@@ -88,11 +88,9 @@
                              <tr class="@(p.CantidadVendida == 0 ? "bg-light text-muted" : "")">
                                  <td class="fw-bold text-uppercase" data-label="PRODUCTO">@p.Nombre</td>
                                  <td class="text-center" data-label="ESTRATEGIA">
-                                     <span class="badge rounded-pill @p.ColorClasificacion" style="font-size: 0.8em;">@p.Clasificacion.ToUpper()</span>
+                                     <span class="badge rounded-pill @(p.ColorClasificacion)" style="font-size: 0.8em;">@p.Clasificacion.ToUpper()</span>
                                  </td>
-                                 <td class="text-center font-monospace" data-label="ROTACIÓN/DÍA">
-                                     @p.RotacionDiaria.ToString("F1")
-                                 </td>
+                                 @* Removed Rotacion Cell *@
                                  <td class="text-center font-monospace @(p.CantidadVendida == 0 ? "text-danger fw-bold" : "fw-bold")" style="font-size: 1.1em;" data-label="TOTAL UNID.">
                                      @p.CantidadVendida
                                  </td>
