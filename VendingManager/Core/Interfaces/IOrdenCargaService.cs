@@ -14,5 +14,7 @@ namespace VendingManager.Core.Interfaces
         // Helper to get suggested load items
         Task<List<StockCriticoDto>> GetSugerenciaCargaAsync(int maquinaId);
         Task<List<StockCriticoDto>> GetSugerenciaGlobalAsync();
+        
+        Task<bool> ActualizarNombreOrdenAsync(int ordenId, string nuevoNombre);
     }
 }

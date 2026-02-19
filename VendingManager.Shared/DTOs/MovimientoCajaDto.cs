@@ -10,5 +10,9 @@ namespace VendingManager.Shared.DTOs
         public decimal Monto { get; set; }
         public string Tipo { get; set; } = string.Empty;
         public string Categoria { get; set; } = string.Empty;
+        public string? ImagenPath { get; set; }
+        public int? ProductoId { get; set; }
+        public int Cantidad { get; set; }
+        public int? OrdenCargaId { get; set; }
     }
 }
