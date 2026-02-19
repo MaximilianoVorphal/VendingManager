@@ -40,7 +40,11 @@ namespace VendingManager.Web.Controllers
                 Descripcion = m.Descripcion,
                 Monto = m.Monto,
                 Tipo = m.Tipo,
-                Categoria = m.Categoria
+                Categoria = m.Categoria,
+                ImagenPath = m.ImagenPath,
+                ProductoId = m.ProductoId,
+                Cantidad = m.Cantidad,
+                OrdenCargaId = m.OrdenCargaId
             }).ToList();
         }
 

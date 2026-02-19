@@ -25,4 +25,8 @@ public class MovimientoCaja
     // Campos opcionales para Mermas / Gestión de Stock
     public int? ProductoId { get; set; }
     public int Cantidad { get; set; } = 0;
+
+    // Vinculación con Orden de Carga (Recarga)
+    public int? OrdenCargaId { get; set; }
+    // public OrdenCarga? OrdenCarga { get; set; } // Optional navigation, helpful for EF
 }

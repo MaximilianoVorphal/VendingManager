@@ -45,6 +45,21 @@ namespace VendingManager.Controllers
             }
         }
 
+        [HttpPatch("{id}/nombre")]
+        public async Task<IActionResult> ActualizarNombre(int id, [FromBody] string nombre) // using simple string body
+        {
+            try 
+            {
+                var success = await _service.ActualizarNombreOrdenAsync(id, nombre);
+                if (!success) return NotFound();
+                return Ok();
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
         [HttpGet("historial")]
         public async Task<ActionResult<List<OrdenCargaDto>>> GetOrdenes([FromQuery] int maquinaId = 0)
         {
