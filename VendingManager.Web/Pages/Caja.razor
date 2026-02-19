@@ -32,63 +32,63 @@
     <!-- LOCK WARNING -->
     @if (Resumen?.IsLocked == true)
     {
-                <div class="alert alert-warning border-dark rounded-0 fw-bold d-flex align-items-center gap-2 mb-4">
-                    🔒 ESTE MES ESTÁ CERRADO. NO SE PUEDEN AGREGAR NUEVOS MOVIMIENTOS.
-                </div>
+        <div class="alert alert-warning border-dark rounded-0 fw-bold d-flex align-items-center gap-2 mb-4">
+            🔒 ESTE MES ESTÁ CERRADO. NO SE PUEDEN AGREGAR NUEVOS MOVIMIENTOS.
+        </div>
     }
 
     <!-- RESUMEN DE KPI -->
     @if (Resumen != null)
     {
-                <div class="row g-3 mb-5">
-                    <!-- 1. VENTAS (Operación) -->
-                    <div class="col-md-3">
-                        <div class="border border-2 border-dark bg-white p-3 h-100 position-relative shadow-sm">
-                            <div class="position-absolute top-0 end-0 bg-success text-white px-2 py-1 small fw-bold" style="font-size: 0.6rem;">OPERACIÓN</div>
-                            <small class="text-muted fw-bold text-uppercase">VENTAS DEL MES</small>
-                            <h3 class="text-success fw-bold mt-2">$@Resumen.IngresosVentas.ToString("N0")</h3>
-                            <small class="text-muted" style="font-size: 0.7rem;">Ingresos por operación</small>
-                        </div>
-                    </div>
-
-                    <!-- 2. GASTOS (Salidas) -->
-                    <div class="col-md-3">
-                        <div class="border border-2 border-dark bg-white p-3 h-100 position-relative shadow-sm">
-                            <div class="position-absolute top-0 end-0 bg-danger text-white px-2 py-1 small fw-bold" style="font-size: 0.6rem;">SALIDAS</div>
-                            <small class="text-muted fw-bold text-uppercase">GASTOS TOTALES</small>
-                            <h3 class="text-danger fw-bold mt-2">-$@Resumen.GastosOperativos.ToString("N0")</h3>
-                            <small class="text-muted" style="font-size: 0.7rem;">Mercadería, Bencina</small>
-                        </div>
-                    </div>
-
-                    <!-- 3. APORTES (Financiamiento) -->
-                    <div class="col-md-3">
-                        <div class="border border-2 border-dark bg-white p-3 h-100 position-relative shadow-sm">
-                            <div class="position-absolute top-0 end-0 bg-primary text-white px-2 py-1 small fw-bold" style="font-size: 0.6rem;">CAPITAL</div>
-                            <small class="text-muted fw-bold text-uppercase">APORTES / INYECCIONES</small>
-                            <h3 class="text-primary fw-bold mt-2">$@Resumen.AportesExtra.ToString("N0")</h3>
-                            <small class="text-muted" style="font-size: 0.7rem;">Capital ingresado externo</small>
-                        </div>
-                    </div>
-
-                    <!-- 4. SALDO FINAL (Resultado) -->
-                    <div class="col-md-3">
-                        <div class="border border-2 border-dark bg-dark text-white p-3 h-100 shadow">
-                            <div class="d-flex justify-content-between align-items-center border-bottom border-light pb-2 mb-2">
-                                <small class="fw-bold text-uppercase">DISPONIBLE EN CAJA</small>
-                                <span class="badge bg-light text-dark rounded-0">TOTAL</span>
-                            </div>
-                            <div class="d-flex align-items-center justify-content-between">
-                                <h2 class="fw-bold m-0">$@Resumen.SaldoFinal.ToString("N0")</h2>
-                            </div>
-                            <small class="text-white-50 mt-2 d-block" style="font-size: 0.7rem;">Total Real (Incluye Histórico)</small>
-                        </div>
-                    </div>
+        <div class="row g-3 mb-5">
+            <!-- 1. VENTAS (Operación) -->
+            <div class="col-md-3">
+                <div class="border border-2 border-dark bg-white p-3 h-100 position-relative shadow-sm">
+                    <div class="position-absolute top-0 end-0 bg-success text-white px-2 py-1 small fw-bold" style="font-size: 0.6rem;">OPERACIÓN</div>
+                    <small class="text-muted fw-bold text-uppercase">VENTAS DEL MES</small>
+                    <h3 class="text-success fw-bold mt-2">$@Resumen.IngresosVentas.ToString("N0")</h3>
+                    <small class="text-muted" style="font-size: 0.7rem;">Ingresos por operación</small>
                 </div>
+            </div>
+
+            <!-- 2. GASTOS (Salidas) -->
+            <div class="col-md-3">
+                <div class="border border-2 border-dark bg-white p-3 h-100 position-relative shadow-sm">
+                    <div class="position-absolute top-0 end-0 bg-danger text-white px-2 py-1 small fw-bold" style="font-size: 0.6rem;">SALIDAS</div>
+                    <small class="text-muted fw-bold text-uppercase">GASTOS TOTALES</small>
+                    <h3 class="text-danger fw-bold mt-2">-$@Resumen.GastosOperativos.ToString("N0")</h3>
+                    <small class="text-muted" style="font-size: 0.7rem;">Mercadería, Bencina</small>
+                </div>
+            </div>
+
+            <!-- 3. APORTES (Financiamiento) -->
+            <div class="col-md-3">
+                <div class="border border-2 border-dark bg-white p-3 h-100 position-relative shadow-sm">
+                    <div class="position-absolute top-0 end-0 bg-primary text-white px-2 py-1 small fw-bold" style="font-size: 0.6rem;">CAPITAL</div>
+                    <small class="text-muted fw-bold text-uppercase">APORTES / INYECCIONES</small>
+                    <h3 class="text-primary fw-bold mt-2">$@Resumen.AportesExtra.ToString("N0")</h3>
+                    <small class="text-muted" style="font-size: 0.7rem;">Capital ingresado externo</small>
+                </div>
+            </div>
+
+            <!-- 4. SALDO FINAL (Resultado) -->
+            <div class="col-md-3">
+                <div class="border border-2 border-dark bg-dark text-white p-3 h-100 shadow">
+                    <div class="d-flex justify-content-between align-items-center border-bottom border-light pb-2 mb-2">
+                        <small class="fw-bold text-uppercase">DISPONIBLE EN CAJA</small>
+                        <span class="badge bg-light text-dark rounded-0">TOTAL</span>
+                    </div>
+                    <div class="d-flex align-items-center justify-content-between">
+                        <h2 class="fw-bold m-0">$@Resumen.SaldoFinal.ToString("N0")</h2>
+                    </div>
+                    <small class="text-white-50 mt-2 d-block" style="font-size: 0.7rem;">Total Real (Incluye Histórico)</small>
+                </div>
+            </div>
+        </div>
     }
     else
     {
-                <div class="alert alert-info">Cargando datos financieros...</div>
+        <div class="alert alert-info">Cargando datos financieros...</div>
     }
 
     <div class="row">
@@ -103,7 +103,7 @@
 
                     @if (Resumen?.IsLocked == true)
                     {
-                                <div class="position-absolute top-0 start-0 w-100 h-100 bg-white opacity-25" style="z-index: 10;"></div>
+                        <div class="position-absolute top-0 start-0 w-100 h-100 bg-white opacity-25" style="z-index: 10;"></div>
                     }
 
                     <div class="mb-3">
@@ -131,35 +131,50 @@
                         <select @bind="Nuevo.Categoria" class="form-select border-dark rounded-0 bg-white">
                             @if (Nuevo.Tipo == "GASTO")
                             {
-                                        <optgroup label="📦 STOCK Y COSTOS">
-                                            <option value="MERCADERIA">Mercadería (Reposición)</option>
-                                            <option value="MERMA">Merma / Pérdida</option>
-                                        </optgroup>
-                                        <optgroup label="⛽ GASTOS VARIABLES (OPERACIÓN)">
-                                            <option value="LOGISTICA">Logística (Bencina/Fletes)</option>
-                                            <option value="PEAJES">Peajes / Estacionamiento</option>
-                                            <option value="INSUMOS">Insumos (Limpieza/Bolsas)</option>
-                                            <option value="MANTENCION">Mantención / Repuestos</option>
-                                        </optgroup>
-                                        <optgroup label="🏢 GASTOS FIJOS (ESTRUCTURA)">
-                                            <option value="INFRA">Infraestructura (Luz/Agua/Arriendo)</option>
-                                            <option value="ARRIENDO_POS">Arriendo POS (Transbank)</option>
-                                            <option value="INTERNET">Internet (Planes/Chips)</option>
-                                            <option value="COMISIONES">Comisiones Bancarias</option>
-                                            <option value="OTROS">Otros Gastos Fijos</option>
-                                        </optgroup>
+                                <optgroup label="📦 STOCK Y COSTOS">
+                                    <option value="MERCADERIA">Mercadería (Reposición)</option>
+                                    <option value="MERMA">Merma / Pérdida</option>
+                                </optgroup>
+                                <optgroup label="⛽ GASTOS VARIABLES (OPERACIÓN)">
+                                    <option value="LOGISTICA">Logística (Bencina/Fletes)</option>
+                                    <option value="PEAJES">Peajes / Estacionamiento</option>
+                                    <option value="INSUMOS">Insumos (Limpieza/Bolsas)</option>
+                                    <option value="MANTENCION">Mantención / Repuestos</option>
+                                </optgroup>
+                                <optgroup label="🏢 GASTOS FIJOS (ESTRUCTURA)">
+                                    <option value="INFRA">Infraestructura (Luz/Agua/Arriendo)</option>
+                                    <option value="ARRIENDO_POS">Arriendo POS (Transbank)</option>
+                                    <option value="INTERNET">Internet (Planes/Chips)</option>
+                                    <option value="COMISIONES">Comisiones Bancarias</option>
+                                    <option value="OTROS">Otros Gastos Fijos</option>
+                                </optgroup>
                             }
                             else if (Nuevo.Tipo == "APORTE")
                             {
-                                        <option value="APORTE_CAPITAL">🏦 INYECCIÓN CAPITAL</option>
-                                        <option value="DEVOLUCION">🔄 DEVOLUCIÓN PROVEEDOR</option>
+                                <option value="APORTE_CAPITAL">🏦 INYECCIÓN CAPITAL</option>
+                                <option value="DEVOLUCION">🔄 DEVOLUCIÓN PROVEEDOR</option>
                             }
                             else
                             {
-                                        <option value="RETIRO_UTILIDAD">💰 RETIRO UTILIDAD</option>
-                                        <option value="PAGO_SUELDOS">👥 RETIRO SUELDOS</option>
+                                <option value="RETIRO_UTILIDAD">💰 RETIRO UTILIDAD</option>
+                                <option value="PAGO_SUELDOS">👥 RETIRO SUELDOS</option>
                             }
                         </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="fw-bold small text-uppercase mb-1 text-primary">🔗 VINCULAR A RECARGA (OPCIONAL):</label>
+                        <select @bind="Nuevo.OrdenCargaId" class="form-select border-primary rounded-0 fw-bold">
+                            <option value="">-- REGISTRO GENERAL (SIN VÍNCULO) --</option>
+                            @if (OrdenesMensuales != null)
+                            {
+                                @foreach (var ord in OrdenesMensuales.OrderByDescending(o => o.FechaCreacion))
+                                {
+                                    <option value="@ord.Id">📅 @ord.FechaCreacion.ToString("dd/MM") - @ord.MaquinaNombre</option>
+                                }
+                            }
+                        </select>
+                        <small class="text-muted" style="font-size: 0.7rem;">Si gastaste dinero PARA esta recarga (ej: Bencina), selecciónala.</small>
                     </div>
 
                     <div class="mb-3">
@@ -169,23 +184,23 @@
 
                     @if (Nuevo.Categoria == "MERMA")
                     {
-                         <div class="mb-3 p-3 border border-dashed border-danger bg-danger-subtle">
-                             <h6 class="fw-bold text-danger small"><i class="bi bi-box-seam me-1"></i> DETALLE DE MERMA (STOCK)</h6>
-                             
-                             <label class="small fw-bold mb-1">PRODUCTO AFECTADO:</label>
-                             <select @bind="Nuevo.ProductoId" class="form-select border-danger rounded-0 mb-2">
-                                 <option value="0">-- SEL. PRODUCTO --</option>
-                                 @foreach(var p in ListaProductos)
-                                 {
-                                     <option value="@p.Id">@p.Nombre (Stock: @p.StockBodega)</option>
-                                 }
-                             </select>
-                             
-                             <label class="small fw-bold mb-1">CANTIDAD PERDIDA:</label>
-                             <input @bind="Nuevo.Cantidad" type="number" class="form-control border-danger rounded-0 fw-bold" placeholder="0" min="1" />
-                             
-                             <small class="text-danger d-block mt-1 user-select-none">* El monto se calculará automáticamente según el costo promedio del producto y se descontará del inventario.</small>
-                         </div>
+                        <div class="mb-3 p-3 border border-dashed border-danger bg-danger-subtle">
+                            <h6 class="fw-bold text-danger small"><i class="bi bi-box-seam me-1"></i> DETALLE DE MERMA (STOCK)</h6>
+                            
+                            <label class="small fw-bold mb-1">PRODUCTO AFECTADO:</label>
+                            <select @bind="Nuevo.ProductoId" class="form-select border-danger rounded-0 mb-2">
+                                <option value="0">-- SEL. PRODUCTO --</option>
+                                @foreach(var p in ListaProductos)
+                                {
+                                    <option value="@p.Id">@p.Nombre (Stock: @p.StockBodega)</option>
+                                }
+                            </select>
+                            
+                            <label class="small fw-bold mb-1">CANTIDAD PERDIDA:</label>
+                            <input @bind="Nuevo.Cantidad" type="number" class="form-control border-danger rounded-0 fw-bold" placeholder="0" min="1" />
+                            
+                            <small class="text-danger d-block mt-1 user-select-none">* El monto se calculará automáticamente según el costo promedio del producto y se descontará del inventario.</small>
+                        </div>
                     }
 
 
@@ -203,30 +218,30 @@
                         <InputFile OnChange="@LoadFiles" class="form-control border-dark rounded-0" accept=".jpg,.jpeg,.png,.pdf" />
                         @if (fileToUpload != null)
                         {
-                                    <small class="text-success fw-bold">Archivo seleccionado: @fileToUpload.Name</small>
+                            <small class="text-success fw-bold">Archivo seleccionado: @fileToUpload.Name</small>
                         }
                     </div>
 
                     <button class="btn btn-dark w-100 rounded-0 fw-bold py-2 mt-2 border-2 border-dark shadow" @onclick="Registrar" disabled="@(Resumen?.IsLocked == true || IsUploading)">
                         @if (IsUploading)
                         { 
-                                <span>SUBIENDO ARCHIVO...</span>
+                            <span>SUBIENDO ARCHIVO...</span>
                         }
                         else
                         { 
-                                <span>REGISTRAR OPERACIÓN_</span>
+                            <span>REGISTRAR OPERACIÓN_</span>
                         }
                     </button>
 
                     @if (!string.IsNullOrEmpty(Mensaje))
                     {
-                                <div class="mt-2 text-center small fw-bold text-success animate__animated animate__fadeIn">@Mensaje</div>
+                        <div class="mt-2 text-center small fw-bold text-success animate__animated animate__fadeIn">@Mensaje</div>
                     }
                 </div>
             </div>
         </div>
 
-        <!-- LISTA -->
+        <!-- LISTA AGRUPADA -->
         <div class="col-md-8">
             <div class="card border-2 border-dark rounded-0 h-100">
                 <div class="card-header bg-white text-dark rounded-0 fw-bold border-bottom border-dark d-flex justify-content-between align-items-center flex-wrap gap-2">
@@ -236,65 +251,113 @@
                         <label class="form-check-label small" for="toggleLotes">Mostrar Inventario</label>
                     </div>
                 </div>
-                <div class="table-responsive">
-                    <table class="table table-hover table-bordered border-dark m-0">
-                        <thead class="bg-secondary text-white">
-                            <tr>
-                                <th style="width: 15%">FECHA</th>
-                                <th style="width: 15%">CATEGORÍA</th>
-                                <th>DESCRIPCIÓN</th>
-                                <th class="text-center" style="width: 50px;">IMG</th>
-                                <th class="text-end" style="width: 15%">MONTO</th>
-                            </tr>
-                        </thead>
-                        <tbody class="bg-white">
-                            @foreach (var mov in MovimientosFiltrados)
-                            {
-                                        <tr>
-                                            <td class="font-monospace small">@mov.Fecha.ToString("dd/MM HH:mm")</td>
-                                            <td>
-                                                <span class="badge rounded-0 border border-dark text-dark
-                                            @(mov.Monto > 0 ? "bg-success-subtle" : "bg-danger-subtle")">
-                                            @mov.Categoria
-                                                </span>
-                                            </td>
-                                            <td class="text-uppercase small fw-bold">@mov.Descripcion</td>
-                                            <td class="text-center">
-                                        @if (!string.IsNullOrEmpty(mov.ImagenPath))
-                                        {
-                                            bool isPdf = mov.ImagenPath.Contains(".pdf", StringComparison.OrdinalIgnoreCase);
+                
+                <div class="table-responsive bg-light">
+                    @if (Movimientos != null && Movimientos.Any())
+                    {
+                        @* 
+                           GROUPING LOGIC:
+                           1. Get Keys (OrdenCargaId or Date)
+                           2. Sort by Date Descending
+                        *@
 
-                                            if (isPdf)
-                                            {
-                                                            <a href="@mov.ImagenPath" target="_blank" class="text-decoration-none" title="Ver Documento PDF">
-                                                                📄
-                                                            </a>
-                                            }
-                                            else
-                                            {
-                                                            <a href="@mov.ImagenPath" target="_blank" class="text-decoration-none" title="Ver Comprobante">
-                                                                📷
-                                                            </a>
-                                            }
+                        @foreach (var grupo in GruposVisuales)
+                        {
+                            var isExpanded = IsGroupExpanded(grupo.Id);
+                            var iconClass = isExpanded ? "bi-chevron-up" : "bi-chevron-down";
+                            var bgHeader = grupo.EsRecarga ? "bg-warning-subtle" : "bg-white";
+                            var borderHeader = grupo.EsRecarga ? "border-warning" : "border-light";
+                            var textColor = grupo.EsRecarga ? "text-dark" : "text-muted";
+
+                            <div class="border-bottom border-dark bg-white mb-2 shadow-sm">
+                                <!-- HEADER DEL GRUPO (CLICKABLE) -->
+                                <div class="@bgHeader p-3 d-flex justify-content-between align-items-center cursor-pointer user-select-none" 
+                                     role="button" @onclick="() => ToggleGroup(grupo.Id)">
+                                    
+                                    <div class="d-flex align-items-center gap-3">
+                                        <!-- DATE BOX -->
+                                        <div class="text-center bg-dark text-white p-2 rounded-0 shadow-sm" style="min-width: 60px;">
+                                            <span class="d-block fw-bold small text-uppercase" style="font-size: 0.65rem;">@grupo.Fecha.ToString("MMM")</span>
+                                            <span class="d-block fw-bold fs-4 lh-1">@grupo.Fecha.Day</span>
+                                        </div>
+                                        
+                                        <div>
+                                            <div class="d-flex align-items-center gap-2">
+                                                <h6 class="m-0 fw-bold text-uppercase @textColor">@grupo.Titulo</h6>
+                                                @if(grupo.EsRecarga) { <span class="badge bg-dark rounded-0 small">⚡ RECARGA</span> }
+                                            </div>
+                                            <small class="text-muted"><i class="bi bi-list-ul me-1"></i>@grupo.Items.Count movimientos</small>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="text-end">
+                                        <small class="text-muted d-block text-uppercase fw-bold" style="font-size: 0.65rem;">TOTAL GRUPO</small>
+                                        @{
+                                            var totalGrupo = grupo.MontoTotal;
+                                            var colorTotal = totalGrupo > 0 ? "text-success" : "text-danger";
                                         }
-                                        else
-                                        {
-                                                            <span class="text-muted opacity-25">-</span>
-                                        }
-                                            </td>
-                                            <td class="text-end fw-bold font-monospace @(mov.Monto > 0 ? "text-success" : "text-danger")">
-                                                $@mov.Monto.ToString("N0")
-                                            </td>
-                                        </tr>
-                            }
-                            @if (Movimientos.Count == 0)
-                            {
-                                        <tr>
-                                            <td colspan="5" class="text-center py-4 text-muted fst-italic">No hay movimientos registrados en este mes.</td>
-                                        </tr>
-                            }
-                        </tbody>
-                    </table>
+                                        <span class="fw-bold fs-5 @colorTotal">@totalGrupo.ToString("N0")</span>
+                                        <i class="bi @iconClass ms-2 text-dark"></i>
+                                    </div>
+                                </div>
+                                
+                                <!-- CONTENIDO DEL GRUPO (COLLAPSIBLE) -->
+                                @if (isExpanded)
+                                {
+                                    <div class="animate__animated animate__fadeIn border-top border-secondary-subtle">
+                                        <table class="table table-hover table-sm m-0 border-0">
+                                            <tbody class="bg-white">
+                                                @foreach (var mov in grupo.Items)
+                                                {
+                                                   <tr>
+                                                        <td style="width: 15%;" class="ps-4 align-middle">
+                                                            <small class="font-monospace text-muted">@mov.Fecha.ToString("HH:mm")</small>
+                                                            @if(mov.Fecha.Date != grupo.Fecha.Date)
+                                                            {
+                                                                <br/><small class="text-danger fw-bold" style="font-size: 0.65rem;">(@mov.Fecha.ToString("dd/MM"))</small>
+                                                            }
+                                                        </td>
+                                                        <td style="width: 20%;" class="align-middle">
+                                                            <span class="badge rounded-0 border border-dark text-dark fw-normal
+                                                            @(mov.Monto > 0 ? "bg-success-subtle" : "bg-danger-subtle")">
+                                                                @mov.Categoria
+                                                            </span>
+                                                        </td>
+                                                        <td class="align-middle">
+                                                            <span class="text-uppercase small fw-bold">@mov.Descripcion</span>
+                                                        </td>
+                                                        <td class="text-center align-middle" style="width: 50px;">
+                                                            @if (!string.IsNullOrEmpty(mov.ImagenPath))
+                                                            {
+                                                                bool isPdf = mov.ImagenPath.Contains(".pdf", StringComparison.OrdinalIgnoreCase);
+                                                                if (isPdf)
+                                                                {
+                                                                    <a href="@mov.ImagenPath" target="_blank" class="text-decoration-none" title="Ver Documento PDF">📄</a>
+                                                                }
+                                                                else
+                                                                {
+                                                                    <a href="@mov.ImagenPath" target="_blank" class="text-decoration-none" title="Ver Comprobante">📷</a>
+                                                                }
+                                                            }
+                                                        </td>
+                                                        <td class="text-end fw-bold font-monospace align-middle pe-4 @(mov.Monto > 0 ? "text-success" : "text-danger")" style="width: 20%;">
+                                                            $@mov.Monto.ToString("N0")
+                                                        </td>
+                                                   </tr> 
+                                                }
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                          <div class="alert alert-light m-3 text-center text-muted fst-italic border border-light-subtle">
+                             No hay movimientos registrados en este mes.
+                          </div>
+                    }
                 </div>
             </div>
         </div>
@@ -305,21 +368,31 @@
     private DateTime SelectedDate = DateTime.Now;
     private CajaResumenDto? Resumen;
     private List<MovimientoCaja> Movimientos = new();
+    private List<OrdenCargaDto> OrdenesMensuales = new();
+    
+    // UI Logic
     private bool MostrarLotes = false;
-    
-    private IEnumerable<MovimientoCaja> MovimientosFiltrados => 
-        MostrarLotes ? Movimientos : Movimientos.Where(m => m.Categoria != "LOTES");
-    
-    // Product List for Merma
-    private List<Producto> ListaProductos = new();
+    private HashSet<string> ExpandedGroups = new(); // Stores IDs of expanded groups
+    private List<GrupoVisual> GruposVisuales = new();
 
-    // Formulario
+    // Form Logic
+    private List<Producto> ListaProductos = new();
     private MovimientoCaja Nuevo = new() { Tipo = "GASTO", Categoria = "MERCADERIA" };
     private DateTime FechaRegistro = DateTime.Now;
     private IBrowserFile? fileToUpload;
-
     private string Mensaje = "";
     private bool IsUploading = false;
+
+    // --- Clases para Visualización ---
+    public class GrupoVisual
+    {
+        public string Id { get; set; } = ""; // Unique ID for Toggle
+        public string Titulo { get; set; } = "";
+        public DateTime Fecha { get; set; }
+        public bool EsRecarga { get; set; }
+        public decimal MontoTotal { get; set; }
+        public List<MovimientoCaja> Items { get; set; } = new();
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -327,40 +400,76 @@
         await CargarProductos();
     }
     
+    // UI Helpers
+    private bool IsGroupExpanded(string id) => ExpandedGroups.Contains(id);
+    
+    private void ToggleGroup(string id)
+    {
+        if (ExpandedGroups.Contains(id))
+            ExpandedGroups.Remove(id);
+        else
+            ExpandedGroups.Add(id);
+    }
+
+    private void PrepareGroups()
+    {
+        GruposVisuales.Clear();
+        
+        var listaBase = MostrarLotes ? Movimientos : Movimientos.Where(m => m.Categoria != "LOTES").ToList();
+
+        // 1. Separate items linked to a Recharge vs General items
+        var movimientosVinculados = listaBase.Where(m => m.OrdenCargaId.HasValue).ToList();
+        var movimientosGenerales = listaBase.Where(m => !m.OrdenCargaId.HasValue).ToList();
+
+        // 2. Process Linked Items (Grouped by Recharge ID)
+        var gruposRecarga = movimientosVinculados
+            .GroupBy(m => m.OrdenCargaId!.Value)
+            .Select(g => 
+            {
+                var orden = OrdenesMensuales.FirstOrDefault(o => o.Id == g.Key);
+                // If order info is missing (maybe from another month?), use first item date
+                var fechaBase = orden?.FechaCreacion ?? g.First().Fecha;
+                var nombre = orden != null ? $"RECARGA: {orden.MaquinaNombre}" : $"RECARGA #{g.Key}";
+                
+                return new GrupoVisual
+                {
+                    Id = $"R-{g.Key}",
+                    Titulo = nombre,
+                    Fecha = fechaBase,
+                    EsRecarga = true,
+                    Items = g.OrderByDescending(m => m.Fecha).ToList(),
+                    MontoTotal = g.Sum(m => m.Monto)
+                };
+            });
+
+        // 3. Process General Items (Grouped by Date)
+        var gruposFecha = movimientosGenerales
+            .GroupBy(m => m.Fecha.Date)
+            .Select(g => new GrupoVisual
+            {
+                Id = $"D-{g.Key.Ticks}",
+                Titulo = g.Key.ToString("dddd, dd MMMM").ToUpper(),
+                Fecha = g.Key,
+                EsRecarga = false,
+                Items = g.OrderByDescending(m => m.Fecha).ToList(),
+                MontoTotal = g.Sum(m => m.Monto)
+            });
+
+        // 4. Merge and Sort
+        GruposVisuales = gruposRecarga.Concat(gruposFecha)
+            .OrderByDescending(g => g.Fecha)
+            .ToList();
+            
+        // Auto-expand all by default or just today? Let's expand all for visibility
+        if (!ExpandedGroups.Any())
+        {
+             foreach(var g in GruposVisuales) ExpandedGroups.Add(g.Id);
+        }
+    }
+
     private async Task CargarProductos()
     {
         try {
-            // We can call API or Service directly if we injected it. 
-            // In Blazor WASM we usually call API. In Server we call Service.
-            // This looks like WASM ("@inject HttpClient").
-            // So we need an Endpoint for Products? "api/Ventas/analisis-productos" returns DTOs.
-            // "Inventory" page uses generic "api/inventario"? 
-            // Let's assume there is an endpoint or we add one.
-            // Wait, "InventarioPage" uses "InventarioService" directly? No, usually generic HTTP.
-            // Let's check "Inventario.razor" imports... user didn't show it.
-            // But "AnalisisVentas" used "api/Ventas/lista-maquinas".
-            // Let's see "VentasController"... no "get products".
-            // But "InventarioService" has "GetProductosAsync".
-            // Ideally we need a Controller endpoint.
-            // Let's check "Controllers".
-            // If strictly WASM, I can't inject "IInventarioService" directly unless it's a Client wrapper.
-            // The file `VendingManager.Web/Pages/Caja.razor` acts as a client component.
-            // I should use HttpClient.
-            // Is there a Product Controller?
-            // "VentasController" has "GetAnalisisProductos".
-            // I should dig for "ProductosController" or similar.
-            // Or just use the existing "GetAnalisisProductos" which returns DTOs with Names and IDs? 
-            // No, I need CostoPromedio if I want to show it, or let Backend handle it.
-            // Backend handles it. I just need Name and ID.
-            // So "AnalisisProductoDto" is fine.
-            // API: "api/Ventas/analisis-productos?inicio=...&fin=...". Too complex filter.
-            // Let's try to find if there is a way to get products.
-            // If not, I'll add an endpoint to "VentasController" or "CajaController".
-            
-            // To be safe and quick, I will add `[HttpGet("productos")]` to `CajaController` or `VentasController` 
-            // that returns simple product list.
-            
-            // For now, let's assume I will add `GetProductosSimple` to `CajaController`.
              ListaProductos = await Http.GetFromJsonAsync<List<Producto>>("api/caja/productos-simple") ?? new();
         } catch {}
     }
@@ -384,6 +493,23 @@
             string query = $"?month={SelectedDate.Month}&year={SelectedDate.Year}";
             Resumen = await Http.GetFromJsonAsync<CajaResumenDto>($"api/caja/resumen{query}");
             Movimientos = await Http.GetFromJsonAsync<List<MovimientoCaja>>($"api/caja/movimientos{query}") ?? new();
+            
+            // Cargar Historial de Órdenes para mapear
+            try 
+            {
+               var historialRaw = await Http.GetFromJsonAsync<List<OrdenCargaDto>>("api/OrdenCarga/historial?maquinaId=0");
+               if (historialRaw != null)
+               {
+                   OrdenesMensuales = historialRaw.ToList(); 
+                   // We keep ALL history to link correctly even if order is old but expense is new (unlikely but possible)
+                   // Or at least filter slightly wider range. 
+                   // For simple UI dropdown, filter recent ones.
+                   // For Grouping Display, we need matching IDs.
+               }
+            } 
+            catch {}
+            
+            PrepareGroups();
         }
         catch (Exception ex)
         {
@@ -404,22 +530,9 @@
     private void SetTipo(string tipo)
     {
         Nuevo.Tipo = tipo;
-        
-        // Reset category based on type to prevent invalid states
-        if (tipo == "GASTO")
-        {
-            Nuevo.Categoria = "MERCADERIA";
-        }
-        else if (tipo == "APORTE")
-        {
-            Nuevo.Categoria = "APORTE_CAPITAL";
-        }
-        else if (tipo == "RETIRO")
-        {
-            Nuevo.Categoria = "RETIRO_UTILIDAD";
-        }
-        
-        // Clear specific merma fields
+        if (tipo == "GASTO") Nuevo.Categoria = "MERCADERIA";
+        else if (tipo == "APORTE") Nuevo.Categoria = "APORTE_CAPITAL";
+        else if (tipo == "RETIRO") Nuevo.Categoria = "RETIRO_UTILIDAD";
         Nuevo.ProductoId = null;
         Nuevo.Cantidad = 0;
     }
@@ -444,15 +557,6 @@
                  Mensaje = "❌ CANTIDAD INVALIDA";
                  return;
              }
-             // Allow Monto to be 0 because Backend will calculate it!
-             // But we should pass 0 so validation doesn't fail.
-             // Update Backend validation "if (mov.Monto == 0)" -> except if Merma?
-             // Or better: Let user set 0 here and backend handles it.
-             // But the backend `RegistrarMovimientoAsync` throws if Monto == 0.
-             // I need to update that CHECK in Backend too!
-             // Or, I can fetch cost here? No, prefer backend source of truth.
-             // Workaround: Send $1 and overwrite? No, ugly.
-             // I will update Backend to allow 0 if Merma.
         }
         else 
         {
@@ -463,7 +567,6 @@
 
         try
         {
-            // 1. Subir imagen si existe
             if (fileToUpload != null)
             {
                 if (fileToUpload.Size > 5120000)
@@ -493,15 +596,13 @@
                 }
             }
 
-            // 2. Registrar Movimiento
             Nuevo.Fecha = FechaRegistro;
 
             var response = await Http.PostAsJsonAsync("api/caja/registrar", Nuevo);
             if (response.IsSuccessStatusCode)
             {
                 Mensaje = "✔ REGISTRADO";
-                // Reset form
-                Nuevo = new() { Tipo = "GASTO", Categoria = "MERCADERIA", Descripcion = "", Monto = 0, Cantidad = 0, ProductoId = null };
+                Nuevo = new() { Tipo = "GASTO", Categoria = "MERCADERIA", Descripcion = "", Monto = 0, Cantidad = 0, ProductoId = null, OrdenCargaId = null };
                 fileToUpload = null;
                 await CargarDatos();
                 await Task.Delay(2000);
@@ -554,6 +655,7 @@
         public string? ImagenPath { get; set; }
         public int? ProductoId { get; set; }
         public int Cantidad { get; set; }
+        public int? OrdenCargaId { get; set; }
     }
     
     public class Producto
@@ -566,6 +668,14 @@
     public class UploadResult
     {
         public string? Path { get; set; }
+    }
+    
+    public class OrdenCargaDto
+    {
+        public int Id { get; set; }
+        public DateTime FechaCreacion { get; set; }
+        public string Estado { get; set; } = "";
+        public string MaquinaNombre { get; set; } = "";
     }
 
     private string MontoString

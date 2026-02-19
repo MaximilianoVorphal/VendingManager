@@ -17,15 +17,20 @@ namespace VendingManager.Infrastructure.Services
 
         public async Task<OrdenCargaDto> CrearOrdenAsync(CrearOrdenDto dto)
         {
-            // 1. Validate Machine
-            var maquina = await _context.Maquinas.FindAsync(dto.MaquinaId);
-            if (maquina == null) throw new Exception("Máquina no encontrada.");
+            // 1. Validate Machine (Only if not global)
+            Maquina? maquina = null;
+            if (dto.MaquinaId.HasValue && dto.MaquinaId.Value > 0)
+            {
+                maquina = await _context.Maquinas.FindAsync(dto.MaquinaId);
+                if (maquina == null) throw new Exception("Máquina no encontrada.");
+            }
 
             // 2. Create Order Entity
             var orden = new OrdenCarga
             {
-                MaquinaId = dto.MaquinaId,
-                FechaCreacion = DateTime.Now,
+                MaquinaId = (dto.MaquinaId.HasValue && dto.MaquinaId.Value > 0) ? dto.MaquinaId : null,
+                Nombre = dto.Nombre, // Save Name
+                FechaCreacion = dto.Fecha ?? DateTime.Now,
                 Estado = "PENDIENTE"
             };
 
@@ -37,8 +42,8 @@ namespace VendingManager.Infrastructure.Services
                 var producto = await _context.Productos.FindAsync(item.ProductoId);
                 if (producto == null) continue; // Skip invalid products
 
-                // Optional: Check stock availability
-                 if (producto.StockBodega < item.Cantidad)
+                // Check stock availability (unless ignored)
+                 if (!dto.IgnorarStock && producto.StockBodega < item.Cantidad)
                  {
                      throw new Exception($"Stock insuficiente para '{producto.Nombre}'. Disponible: {producto.StockBodega}, Solicitado: {item.Cantidad}");
                  }
@@ -46,22 +51,28 @@ namespace VendingManager.Infrastructure.Services
                 // Deduct Stock
                 producto.StockBodega -= item.Cantidad;
 
+                // Determine Machine ID for this detail
+                int? itemMaquinaId = item.MaquinaId;
+                if (!itemMaquinaId.HasValue && orden.MaquinaId.HasValue)
+                {
+                    itemMaquinaId = orden.MaquinaId;
+                }
+
                 // Add Detail
                 orden.Detalles.Add(new DetalleOrdenCarga
                 {
                     ProductoId = producto.Id,
                     ProductoNombre = producto.Nombre,
                     CantidadSolicitada = item.Cantidad,
-                    CantidadRetornada = 0
+                    CantidadRetornada = 0,
+                    MaquinaId = itemMaquinaId
                 });
             }
-
-            if (!orden.Detalles.Any()) throw new Exception("La orden no tiene ítems validos.");
 
             _context.OrdenesCarga.Add(orden);
             await _context.SaveChangesAsync();
 
-            return MapToDto(orden, maquina.Nombre);
+            return MapToDto(orden, maquina?.Nombre ?? "RUTA GLOBAL");
         }
 
         public async Task<bool> FinalizarOrdenAsync(FinalizarOrdenDto dto)
@@ -117,12 +128,9 @@ namespace VendingManager.Infrastructure.Services
 
             var ordenes = await query.OrderByDescending(o => o.FechaCreacion).ToListAsync();
             
-            // Need machine names. Efficient way: join or just simple lookup if few machines
-            // Or include Maquina if I added navigation property. I didn't add it to DBContext model builder but I added prop?
-            // I commented out prop in entity. So I have to fetch names.
             var maquinas = await _context.Maquinas.ToDictionaryAsync(m => m.Id, m => m.Nombre);
 
-            return ordenes.Select(o => MapToDto(o, maquinas.ContainsKey(o.MaquinaId) ? maquinas[o.MaquinaId] : "Desconocida")).ToList();
+            return ordenes.Select(o => MapToDto(o, (o.MaquinaId.HasValue && maquinas.ContainsKey(o.MaquinaId.Value)) ? maquinas[o.MaquinaId.Value] : "RUTA GLOBAL")).ToList();
         }
 
         public async Task<OrdenCargaDto?> GetOrdenByIdAsync(int id)
@@ -133,10 +141,14 @@ namespace VendingManager.Infrastructure.Services
             
             if (orden == null) return null;
 
-            var maquinaName = await _context.Maquinas
-                .Where(m => m.Id == orden.MaquinaId)
-                .Select(m => m.Nombre)
-                .FirstOrDefaultAsync() ?? "Desconocida";
+            string maquinaName = "RUTA GLOBAL";
+            if(orden.MaquinaId.HasValue)
+            {
+                maquinaName = await _context.Maquinas
+                    .Where(m => m.Id == orden.MaquinaId.Value)
+                    .Select(m => m.Nombre)
+                    .FirstOrDefaultAsync() ?? "Desconocida";
+            }
 
             return MapToDto(orden, maquinaName);
         }
@@ -223,11 +235,22 @@ namespace VendingManager.Infrastructure.Services
             }
         }
 
+        public async Task<bool> ActualizarNombreOrdenAsync(int ordenId, string nuevoNombre)
+        {
+            var orden = await _context.OrdenesCarga.FindAsync(ordenId);
+            if (orden == null) return false;
+            
+            orden.Nombre = nuevoNombre;
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
         private OrdenCargaDto MapToDto(OrdenCarga orden, string maquinaNombre)
         {
             return new OrdenCargaDto
             {
                 Id = orden.Id,
+                Nombre = orden.Nombre, // Mapped
                 FechaCreacion = orden.FechaCreacion,
                 Estado = orden.Estado,
                 MaquinaId = orden.MaquinaId,
@@ -238,7 +261,8 @@ namespace VendingManager.Infrastructure.Services
                     ProductoId = d.ProductoId,
                     ProductoNombre = d.ProductoNombre,
                     CantidadSolicitada = d.CantidadSolicitada,
-                    CantidadRetornada = d.CantidadRetornada
+                    CantidadRetornada = d.CantidadRetornada,
+                    MaquinaId = d.MaquinaId
                 }).ToList()
             };
         }

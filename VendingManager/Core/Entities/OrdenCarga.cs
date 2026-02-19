@@ -15,7 +15,9 @@ namespace VendingManager.Core.Entities
         [Required]
         public string Estado { get; set; } = "PENDIENTE"; // PENDIENTE, FINALIZADA
 
-        public int MaquinaId { get; set; }
+        public string? Nombre { get; set; } // Opcional, nombre de la ruta/orden
+
+        public int? MaquinaId { get; set; } // Null if Global Order
         // Navigation property not strictly necessary if we just use ID, but good for EF
         // public Maquina Maquina { get; set; } 
 
@@ -35,5 +37,7 @@ namespace VendingManager.Core.Entities
 
         public int CantidadSolicitada { get; set; } // Qty taken from warehouse
         public int CantidadRetornada { get; set; } = 0; // Qty returned (sobras)
+
+        public int? MaquinaId { get; set; } // For consolidated orders
     }
 }
