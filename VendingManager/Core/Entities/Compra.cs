@@ -1,0 +1,30 @@
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+
+namespace VendingManager.Core.Entities;
+
+public class Compra
+{
+    [Key]
+    public int Id { get; set; }
+
+    public DateTime FechaCompra { get; set; } = DateTime.Now;
+
+    [Required]
+    public string Proveedor { get; set; } = string.Empty;
+
+    public string? NumeroDocumento { get; set; } = string.Empty; // Factura o Boleta
+
+    [Column(TypeName = "decimal(18,2)")]
+    public decimal MontoTotal { get; set; } = 0;
+
+    public string Estado { get; set; } = "PAGADA"; // PAGADA, PENDIENTE
+    
+    // Si queremos trazar si la plata ya salió de caja (útil para "Cuentas por Pagar" a futuro)
+    public bool PagadaCaja { get; set; } = true;
+
+    // Usuario que registró la compra (opcional, para auditoría)
+    public string? UsuarioRegistra { get; set; }
+
+    public List<DetalleCompra> Detalles { get; set; } = new();
+}

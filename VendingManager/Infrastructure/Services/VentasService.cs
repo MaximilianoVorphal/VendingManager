@@ -673,28 +673,37 @@ namespace VendingManager.Infrastructure.Services
 
             return ventas;
         }
-        public async Task<List<PurchaseSuggestionDto>> GetPurchaseSuggestionAsync(int dias = 30)
+        public async Task<List<PurchaseSuggestionDto>> GetPurchaseSuggestionAsync(int dias = 30, int maquinaId = 0)
         {
             DateTime fechaInicio = DateTime.Now.Date.AddDays(-dias);
             
             // 1. Obtener Ventas de los últimos X días
-            var ventas = await _context.Ventas
+            var queryVentas = _context.Ventas
                 .Where(v => v.FechaLocal >= fechaInicio)
-                .Where(v => v.ProductoId != null && v.ProductoId != 0)
+                .Where(v => v.ProductoId != null && v.ProductoId != 0);
+            if (maquinaId > 0) queryVentas = queryVentas.Where(v => v.MaquinaId == maquinaId);
+
+            var ventas = await queryVentas
                 .GroupBy(v => v.ProductoId!.Value)
                 .Select(g => new { ProductoId = g.Key, Cantidad = g.Count() })
                 .ToListAsync();
 
             // 2. Obtener Stock Actual en Máquinas
-            var stockMaquinas = await _context.ConfiguracionSlots
-                .Where(s => s.ProductoId != null && s.ProductoId != 0)
+            var querySlots = _context.ConfiguracionSlots
+                .Where(s => s.ProductoId != null && s.ProductoId != 0);
+            if (maquinaId > 0) querySlots = querySlots.Where(s => s.MaquinaId == maquinaId);
+
+            var stockMaquinas = await querySlots
                 .GroupBy(s => s.ProductoId!.Value)
                 .Select(g => new { ProductoId = g.Key, Stock = g.Sum(s => s.StockActual) })
                 .ToListAsync();
 
-            // 2.5 Determinar si existe en alguna máquina (aunque el stock sea 0, si está asignado)
-            var configSlots = await _context.ConfiguracionSlots
-                .Where(s => s.ProductoId != null && s.ProductoId != 0)
+            // 2.5 Determinar si existe en alguna máquina
+            var querySlotsAll = _context.ConfiguracionSlots
+                .Where(s => s.ProductoId != null && s.ProductoId != 0);
+            if (maquinaId > 0) querySlotsAll = querySlotsAll.Where(s => s.MaquinaId == maquinaId);
+
+            var configSlots = await querySlotsAll
                 .Select(s => s.ProductoId!.Value)
                 .Distinct()
                 .ToListAsync();
@@ -710,9 +719,6 @@ namespace VendingManager.Infrastructure.Services
                 var ventasPeriodo = ventas.FirstOrDefault(v => v.ProductoId == p.Id)?.Cantidad ?? 0;
                 var stockEnMaquinas = stockMaquinas.FirstOrDefault(s => s.ProductoId == p.Id)?.Stock ?? 0;
                 
-                // Cálculo de Sugerencia: 
-                // Lo que se vendió en el periodo (demanda esperada) - (Lo que ya tengo en máquinas + Lo que tengo en bodega)
-                // Si tengo más stock que la demanda esperada, no compro nada (0).
                 int sugerido = ventasPeriodo - (stockEnMaquinas + p.StockBodega);
                 if (sugerido < 0) sugerido = 0;
 
@@ -731,9 +737,9 @@ namespace VendingManager.Infrastructure.Services
             return result.OrderByDescending(x => x.CantidadSugerida).ThenByDescending(x => x.VentasUltimos30Dias).ToList();
         }
 
-        public async Task<(byte[] content, string fileName)> ExportarSugerenciaCompraAsync(int dias = 30)
+        public async Task<(byte[] content, string fileName)> ExportarSugerenciaCompraAsync(int dias = 30, int maquinaId = 0)
         {
-            var suggestions = await GetPurchaseSuggestionAsync(dias);
+            var suggestions = await GetPurchaseSuggestionAsync(dias, maquinaId);
 
             if (suggestions == null || !suggestions.Any())
                 throw new InvalidOperationException("No hay sugerencias para exportar.");
@@ -791,7 +797,9 @@ namespace VendingManager.Infrastructure.Services
                 using (var stream = new MemoryStream())
                 {
                     workbook.SaveAs(stream);
-                    string name = $"Sugerencia_Compra_{DateTime.Now:ddMMyy}.xlsx";
+                    string name = maquinaId > 0 
+                        ? $"Sugerencia_Compra_M{maquinaId}_{DateTime.Now:ddMMyy}.xlsx" 
+                        : $"Sugerencia_Compra_{DateTime.Now:ddMMyy}.xlsx";
                     return (stream.ToArray(), name);
                 }
             }

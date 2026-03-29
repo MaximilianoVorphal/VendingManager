@@ -73,12 +73,7 @@ namespace VendingManager.Infrastructure.Services
 
         public async Task AjustarStockAsync(int productoId, int nuevoStock)
         {
-            var item = await _context.Productos.FindAsync(productoId);
-            if (item != null)
-            {
-                item.StockBodega = nuevoStock;
-                await _context.SaveChangesAsync();
-            }
+            throw new InvalidOperationException("El ajuste manual de stock no está permitido. Utilice el Módulo de Compras para ingresos y Mermas (desde Caja) para salidas/ajustes.");
         }
 
         public async Task<string> ImportarCatalogoAsync(Stream stream, string fileName)

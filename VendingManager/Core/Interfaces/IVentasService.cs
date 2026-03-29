@@ -18,8 +18,8 @@ namespace VendingManager.Core.Interfaces
         Task<List<AnalisisProductoDto>> GetAnalisisProductosAsync(DateTime inicio, DateTime fin, int maquinaId);
         Task<List<StockoutAnalysisDto>> GetStockoutAnalysisAsync(DateTime inicio, DateTime fin, int maquinaId, double umbralHorasSilencio = 24);
         Task<List<VentaDiariaDto>> GetVentasDiariasAsync(int productoId, int maquinaId, DateTime inicio, DateTime fin);
-        Task<List<PurchaseSuggestionDto>> GetPurchaseSuggestionAsync(int dias = 30);
-        Task<(byte[] content, string fileName)> ExportarSugerenciaCompraAsync(int dias = 30);
+        Task<List<PurchaseSuggestionDto>> GetPurchaseSuggestionAsync(int dias = 30, int maquinaId = 0);
+        Task<(byte[] content, string fileName)> ExportarSugerenciaCompraAsync(int dias = 30, int maquinaId = 0);
         Task DeleteVentasRangoAsync(DateTime inicio, DateTime fin, int maquinaId);
     }
 }
