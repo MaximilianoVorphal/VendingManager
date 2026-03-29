@@ -10,15 +10,31 @@
 <div class="container-fluid mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h1>Informe de Compras Sugeridas</h1>
-        <div class="d-flex gap-2 align-items-center">
+        <div class="d-flex flex-wrap gap-3 align-items-center">
             
-            <div class="form-check form-switch me-3">
+            <div class="input-group" style="max-width: 350px;">
+                <span class="input-group-text bg-dark text-white fw-bold border-dark">
+                    <i class="bi bi-vending-machine me-2"></i> MÁQUINA
+                </span>
+                <select class="form-select border-dark shadow-sm" @bind="MaquinaActualId" @bind:after="LoadData">
+                    <option value="0">:: CONSOLIDADO GLOBAL ::</option>
+                    @foreach (var m in Maquinas)
+                    {
+                        <option value="@m.Id">@m.Nombre</option>
+                    }
+                </select>
+            </div>
+
+            <div class="form-check form-switch">
                 <input class="form-check-input" type="checkbox" id="filterInMachine" @bind="showOnlyInMachine" />
                 <label class="form-check-label" for="filterInMachine">Solo en Máquinas</label>
             </div>
 
-            <label>Días de análisis:</label>
-            <input type="number" class="form-control w-auto" @bind="days" min="1" max="365" />
+            <div class="d-flex align-items-center gap-2">
+                <label class="text-nowrap">Días de análisis:</label>
+                <input type="number" class="form-control" style="width: 80px;" @bind="days" min="1" max="365" />
+            </div>
+
             <button class="btn btn-primary" @onclick="LoadData">Calcular</button>
             <button class="btn btn-success" @onclick="DownloadExcel">
                  <i class="bi bi-file-earmark-excel"></i> Exportar Excel
@@ -88,8 +104,10 @@
 
 @code {
     private List<PurchaseSuggestionDto>? suggestions;
+    private List<MaquinaSimpleDto> Maquinas = new();
     private int days = 30;
     private bool showOnlyInMachine = false;
+    private int MaquinaActualId = 0;
 
     private IEnumerable<PurchaseSuggestionDto> FilteredSuggestions
     {
@@ -106,6 +124,7 @@
 
     protected override async Task OnInitializedAsync()
     {
+        Maquinas = await Http.GetFromJsonAsync<List<MaquinaSimpleDto>>("api/Ventas/lista-maquinas") ?? new();
         await LoadData();
     }
 
@@ -114,7 +133,7 @@
         try
         {
             suggestions = null;
-            suggestions = await Http.GetFromJsonAsync<List<PurchaseSuggestionDto>>($"api/Ventas/purchase-suggestion?days={days}");
+            suggestions = await Http.GetFromJsonAsync<List<PurchaseSuggestionDto>>($"api/Ventas/purchase-suggestion?days={days}&maquinaId={MaquinaActualId}");
         }
         catch (Exception ex)
         {
@@ -127,7 +146,7 @@
     {
         try
         {
-            var response = await Http.GetAsync($"api/Ventas/purchase-suggestion/export?days={days}");
+            var response = await Http.GetAsync($"api/Ventas/purchase-suggestion/export?days={days}&maquinaId={MaquinaActualId}");
             if (response.IsSuccessStatusCode)
             {
                 var fileContent = await response.Content.ReadAsByteArrayAsync();
@@ -137,9 +156,10 @@
                     return;
                 }
                 
-                var fileName = $"Sugerencia_Compra_{DateTime.Now:ddMMyy}.xlsx";
+                var fileName = MaquinaActualId > 0 
+                    ? $"Sugerencia_Compra_M{MaquinaActualId}_{DateTime.Now:ddMMyy}.xlsx" 
+                    : $"Sugerencia_Compra_{DateTime.Now:ddMMyy}.xlsx";
                 
-                // Usar la función existe 'descargarArchivo' que soporta Uint8Array
                 try 
                 {
                     await JS.InvokeVoidAsync("descargarArchivo", fileContent, fileName);

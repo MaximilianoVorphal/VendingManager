@@ -1,0 +1,268 @@
+@page "/compras/nueva"
+@using VendingManager.Shared.DTOs
+@inject HttpClient Http
+@inject NavigationManager Navigation
+
+<div class="row mb-4 align-items-center">
+    <div class="col">
+        <h2 class="m-0 text-white"><i class="fas fa-plus-circle text-success"></i> Nueva Compra</h2>
+    </div>
+    <div class="col-auto">
+        <button class="btn btn-outline-light" @onclick='() => Navigation.NavigateTo("/compras")'>
+            <i class="fas fa-arrow-left"></i> Volver a Compras
+        </button>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-4">
+        <div class="card bg-dark border-0 shadow-sm mb-4">
+            <div class="card-header bg-secondary text-white border-0 py-3">
+                <h5 class="mb-0"><i class="fas fa-file-invoice"></i> Datos de la Factura</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="form-label text-light">Proveedor *</label>
+                    <input type="text" class="form-control bg-dark text-white border-secondary" @bind="factura.Proveedor" placeholder="Ej: Coca-Cola Andina" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label text-light">Nº Documento / Factura</label>
+                    <input type="text" class="form-control bg-dark text-white border-secondary" @bind="factura.NumeroDocumento" placeholder="Ej: F-123456" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label text-light">Fecha de Compra</label>
+                    <input type="date" class="form-control bg-dark text-white border-secondary" @bind="factura.FechaCompra" />
+                </div>
+                <div class="mb-3 form-check form-switch pt-2">
+                    <input class="form-check-input" type="checkbox" id="pagado" @bind="factura.PagadaCaja" />
+                    <label class="form-check-label text-light" for="pagado">La compra ya fue pagada (Generar Gasto en Caja)</label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-8">
+        <div class="card bg-dark border-0 shadow-sm mb-4">
+            <div class="card-header bg-secondary text-white border-0 py-3 d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="fas fa-box-open"></i> Productos Adquiridos</h5>
+                <span class="badge bg-primary fs-6">Total: @(CalcularTotal().ToString("C0"))</span>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3 align-items-end">
+                    <div class="col-md-5">
+                        <label class="form-label text-light">Buscar Producto</label>
+                        <select class="form-select bg-dark text-white border-secondary" @bind="productoSeleccionadoId">
+                            <option value="0">-- Seleccione --</option>
+                            @foreach (var p in ProductosDisponibles)
+                            {
+                                <option value="@p.Id">@p.Nombre (Stock: @p.StockBodega)</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-2 text-center text-white py-2">
+                        <i class="fas fa-arrow-right"></i>
+                    </div>
+                    <div class="col-md-5 d-grid">
+                        <button class="btn btn-outline-info" @onclick="AgregarProducto" disabled="@(productoSeleccionadoId == 0)">
+                            <i class="fas fa-plus"></i> Agregar a la Lista
+                        </button>
+                    </div>
+                </div>
+
+                @if (detalles.Any())
+                {
+                    <div class="table-responsive">
+                        <table class="table table-dark table-striped align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Producto</th>
+                                    <th style="width: 120px;">Cantidad</th>
+                                    <th style="width: 150px;">Costo Unit.</th>
+                                    <th class="text-end" style="width: 120px;">Subtotal</th>
+                                    <th style="width: 50px;"></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var d in detalles)
+                                {
+                                    <tr>
+                                        <td>@d.ProductoNombre</td>
+                                        <td>
+                                            <input type="number" class="form-control form-control-sm bg-dark text-white border-secondary" @bind="d.Cantidad" @bind:event="oninput" min="1" />
+                                        </td>
+                                        <td>
+                                            <div class="input-group input-group-sm">
+                                                <span class="input-group-text bg-secondary text-white border-secondary">$</span>
+                                                <input type="number" class="form-control bg-dark text-white border-secondary" @bind="d.CostoUnitario" @bind:event="oninput" min="0" />
+                                            </div>
+                                        </td>
+                                        <td class="text-end text-success fw-bold">
+                                            @((d.Cantidad * d.CostoUnitario).ToString("C0"))
+                                        </td>
+                                        <td class="text-center">
+                                            <button class="btn btn-sm btn-outline-danger" @onclick="() => EliminarDetalle(d)">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="d-grid mt-4">
+                        <button class="btn btn-success btn-lg" @onclick="GuardarCompra" disabled="@Guardando">
+                            @if (Guardando)
+                            {
+                                <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+                                <span> Registrando Factura...</span>
+                            }
+                            else
+                            {
+                                <i class="fas fa-save"></i> <span>Registrar Compra ($@(CalcularTotal().ToString("N0")))</span>
+                            }
+                        </button>
+                    </div>
+                }
+                else
+                {
+                    <div class="text-center text-muted my-4 py-4 border border-secondary border-dashed rounded">
+                        <i class="fas fa-shopping-basket fa-3x mb-3 text-secondary"></i>
+                        <p>Aún no hay productos en esta factura.</p>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(MensajeError))
+{
+    <div class="alert alert-danger shadow-sm mt-3">
+        <i class="fas fa-exclamation-circle"></i> @MensajeError
+    </div>
+}
+
+@code {
+    private RegistrarCompraRequestDto factura = new();
+    private List<ProductoSimpleDto> ProductosDisponibles = new();
+    
+    // Lista temporal para la UI (necesitamos el nombre)
+    private List<DetalleUI> detalles = new();
+    
+    private int productoSeleccionadoId = 0;
+    
+    private bool Guardando = false;
+    private string? MensajeError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var prods = await Http.GetFromJsonAsync<List<ProductoSimpleDto>>("api/productos");
+            if (prods != null)
+                ProductosDisponibles = prods.OrderBy(p => p.Nombre).ToList();
+        }
+        catch (Exception ex)
+        {
+            MensajeError = "Error al cargar productos: " + ex.Message;
+        }
+    }
+
+    private void AgregarProducto()
+    {
+        if (productoSeleccionadoId == 0) return;
+
+        // Verificar si ya está en la lista para no duplicar fila
+        if (detalles.Any(d => d.ProductoId == productoSeleccionadoId))
+        {
+            var existente = detalles.First(d => d.ProductoId == productoSeleccionadoId);
+            existente.Cantidad++;
+        }
+        else
+        {
+            var p = ProductosDisponibles.FirstOrDefault(x => x.Id == productoSeleccionadoId);
+            if (p != null)
+            {
+                detalles.Add(new DetalleUI
+                {
+                    ProductoId = p.Id,
+                    ProductoNombre = p.Nombre,
+                    Cantidad = 1,
+                    CostoUnitario = p.CostoPromedio // Usar el costo promedio actual como sugerencia
+                });
+            }
+        }
+
+        productoSeleccionadoId = 0; // Resetear selector
+    }
+
+    private void EliminarDetalle(DetalleUI d)
+    {
+        detalles.Remove(d);
+    }
+
+    private decimal CalcularTotal()
+    {
+        return detalles.Sum(d => d.Cantidad * d.CostoUnitario);
+    }
+
+    private async Task GuardarCompra()
+    {
+        MensajeError = null;
+        
+        if (string.IsNullOrWhiteSpace(factura.Proveedor))
+        {
+            MensajeError = "Debe ingresar el nombre del Proveedor.";
+            return;
+        }
+        
+        if (!detalles.Any())
+        {
+            MensajeError = "Debe agregar al menos un producto a la factura.";
+            return;
+        }
+
+        Guardando = true;
+
+        try
+        {
+            factura.Estado = factura.PagadaCaja ? "PAGADA" : "PENDIENTE";
+            factura.Detalles = detalles.Select(d => new RegistrarDetalleCompraRequestDto
+            {
+                ProductoId = d.ProductoId,
+                Cantidad = d.Cantidad,
+                CostoUnitario = d.CostoUnitario
+            }).ToList();
+
+            var response = await Http.PostAsJsonAsync("api/compras", factura);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                Navigation.NavigateTo("/compras");
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                MensajeError = $"Error al registrar: {error}";
+            }
+        }
+        catch (Exception ex)
+        {
+            MensajeError = $"Ocurrió un error inesperado: {ex.Message}";
+        }
+        finally
+        {
+            Guardando = false;
+        }
+    }
+
+    // Clase auxiliar para la UI
+    private class DetalleUI
+    {
+        public int ProductoId { get; set; }
+        public string ProductoNombre { get; set; } = string.Empty;
+        public int Cantidad { get; set; }
+        public decimal CostoUnitario { get; set; }
+    }
+}

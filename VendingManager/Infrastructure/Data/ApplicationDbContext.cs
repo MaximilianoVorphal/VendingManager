@@ -20,6 +20,8 @@ namespace VendingManager.Infrastructure.Data
         public DbSet<PeriodoRecarga> PeriodosRecarga { get; set; } = null!;
         public DbSet<SnapshotSlot> SnapshotSlots { get; set; } = null!;
         public DbSet<Auditoria> Auditoria { get; set; } = null!;
+        public DbSet<Compra> Compras { get; set; } = null!;
+        public DbSet<DetalleCompra> DetallesCompra { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

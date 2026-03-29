@@ -60,6 +60,21 @@ namespace VendingManager.Controllers
             }
         }
 
+        [HttpPut("{id}")]
+        public async Task<IActionResult> ActualizarOrden(int id, ActualizarOrdenRequestDto dto)
+        {
+            try
+            {
+                var success = await _service.ActualizarOrdenAsync(id, dto);
+                if (!success) return NotFound();
+                return Ok();
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
         [HttpGet("historial")]
         public async Task<ActionResult<List<OrdenCargaDto>>> GetOrdenes([FromQuery] int maquinaId = 0)
         {

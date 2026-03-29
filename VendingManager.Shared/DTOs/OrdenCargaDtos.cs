@@ -52,4 +52,10 @@ namespace VendingManager.Shared.DTOs
         public int? MaquinaId { get; set; }
         public string MaquinaNombre { get; set; } = "";
     }
+
+    public class ActualizarOrdenRequestDto
+    {
+        public string? Nombre { get; set; }
+        public DateTime FechaCreacion { get; set; }
+    }
 }

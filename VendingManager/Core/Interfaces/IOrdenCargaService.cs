@@ -16,5 +16,6 @@ namespace VendingManager.Core.Interfaces
         Task<List<StockCriticoDto>> GetSugerenciaGlobalAsync();
         
         Task<bool> ActualizarNombreOrdenAsync(int ordenId, string nuevoNombre);
+        Task<bool> ActualizarOrdenAsync(int ordenId, ActualizarOrdenRequestDto dto);
     }
 }
