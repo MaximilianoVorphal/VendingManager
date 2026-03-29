@@ -17,8 +17,9 @@
         </div>
         <div class="col-md-6 text-end">
              <div class="d-flex justify-content-end gap-2 flex-wrap" style="position: relative; z-index: 1030;">
-                 <button class="btn btn-outline-dark rounded-0 fw-bold" @onclick="DescargarGlobal">
-                     <i class="bi bi-globe2 me-2"></i>EXPORTAR TODO
+                 <button class="btn btn-outline-dark rounded-0 fw-bold" @onclick="ExportarReporte">
+                     <i class="bi bi-file-earmark-excel me-2"></i>
+                     @(MaquinaActualId > 0 ? "EXPORTAR MÁQUINA" : "EXPORTAR TODO")
                  </button>
 
                  <!-- MÁQUINA SELECTOR -->
@@ -157,12 +158,6 @@
                     <div class="card-footer bg-white border-top border-dark p-3 text-end">
                         @{ var totalItems = SugerenciaItems?.Sum(x => x.CantidadSolicitada) ?? 0; }
                         
-                        <button class="btn btn-outline-dark rounded-0 fw-bold px-3 me-2"
-                                disabled="@(SugerenciaItems == null || SugerenciaItems.Count == 0)"
-                                @onclick="DescargarPlanilla">
-                            <i class="bi bi-file-earmark-excel me-2"></i>DESCARGAR PLANILLA
-                        </button>
-
                         <button class="btn btn-success rounded-0 fw-bold px-4 shadow-sm"
                                 disabled="@(totalItems == 0)"
                                 @onclick="GenerarOrden">
@@ -300,11 +295,19 @@
                 </div>
                 <div class="modal-body p-0">
                     <div class="p-3 bg-light border-bottom border-dark">
-                        <label class="fw-bold small text-uppercase mb-1">Nombre de la Orden / Ruta:</label>
-                        <div class="input-group">
-                            <input type="text" class="form-control border-dark rounded-0" placeholder="Sin nombre..." @bind="OrdenSeleccionada.Nombre" />
-                            <button class="btn btn-dark rounded-0" @onclick="GuardarNombreOrden">
-                                <i class="bi bi-save me-1"></i> GUARDAR
+                        <div class="row g-3">
+                            <div class="col-md-7">
+                                <label class="fw-bold small text-uppercase mb-1">Nombre de la Orden / Ruta:</label>
+                                <input type="text" class="form-control border-dark rounded-0" placeholder="Sin nombre..." @bind="OrdenSeleccionada.Nombre" />
+                            </div>
+                            <div class="col-md-5">
+                                <label class="fw-bold small text-uppercase mb-1">Fecha Creación:</label>
+                                <input type="datetime-local" class="form-control border-dark rounded-0" @bind="OrdenSeleccionada.FechaCreacion" />
+                            </div>
+                        </div>
+                        <div class="mt-3 text-end">
+                            <button class="btn btn-dark rounded-0 fw-bold" @onclick="GuardarEdicionOrden">
+                                <i class="bi bi-save me-1"></i> GUARDAR CAMBIOS
                             </button>
                         </div>
                     </div>
@@ -516,15 +519,12 @@
         }
     }
 
-    private void DescargarPlanilla()
+    private void ExportarReporte()
     {
-        if (MaquinaActualId == 0) return;
-        NavManager.NavigateTo($"api/OrdenCarga/exportar-sugerencia?maquinaId={MaquinaActualId}", true);
-    }
-
-    private void DescargarGlobal()
-    {
-        NavManager.NavigateTo("api/OrdenCarga/exportar-consolidado", true);
+        if (MaquinaActualId > 0)
+            NavManager.NavigateTo($"api/OrdenCarga/exportar-sugerencia?maquinaId={MaquinaActualId}", true);
+        else
+            NavManager.NavigateTo("api/OrdenCarga/exportar-consolidado", true);
     }
 
     private void AbrirFinalizar(OrdenCargaDto orden)
@@ -750,30 +750,29 @@
         }
     }
 
-    private async Task GuardarNombreOrden()
+    private async Task GuardarEdicionOrden()
     {
         if (OrdenSeleccionada == null) return;
 
+        var dto = new VendingManager.Shared.DTOs.ActualizarOrdenRequestDto
+        {
+            Nombre = OrdenSeleccionada.Nombre,
+            FechaCreacion = OrdenSeleccionada.FechaCreacion
+        };
+
         try
         {
-            // Sending raw string, ensure backend expects it with [FromBody]
-            var resp = await Http.SendAsync(new HttpRequestMessage(new HttpMethod("PATCH"), $"api/OrdenCarga/{OrdenSeleccionada.Id}/nombre")
-            {
-                Content = new StringContent($"\"{OrdenSeleccionada.Nombre}\"", System.Text.Encoding.UTF8, "application/json") 
-            });
+            var resp = await Http.PutAsJsonAsync($"api/OrdenCarga/{OrdenSeleccionada.Id}", dto);
 
             if (resp.IsSuccessStatusCode)
             {
-                // Refresh list to show new name in background
+                // Refresh list
                 if (MaquinaActualId > 0) await CargarDatos();
                 else await CargarHistorialGlobal();
-                
-                // Optional: Show small success toast or just rely on list update?
-                // Let's not close the modal, just update data.
             }
             else
             {
-                Mensaje = "Error al guardar nombre: " + await resp.Content.ReadAsStringAsync();
+                Mensaje = "Error al guardar cambios: " + await resp.Content.ReadAsStringAsync();
                 AlertClass = "alert-danger";
             }
         }

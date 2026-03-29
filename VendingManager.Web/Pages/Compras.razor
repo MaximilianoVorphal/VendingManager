@@ -1,0 +1,396 @@
+@page "/compras"
+@using VendingManager.Shared.DTOs
+@inject HttpClient Http
+@inject NavigationManager Navigation
+
+<PageTitle>COMPRAS</PageTitle>
+
+<div class="container-fluid px-4 mt-4" style="font-family: 'Segoe UI', Consolas, monospace;">
+    <div class="row align-items-center mb-4 border-bottom border-3 border-dark pb-3 g-3">
+        <div class="col-md-5 col-12">
+            <h2 class="m-0 fw-bold text-uppercase" style="letter-spacing: -1px; color: #333;">
+                <i class="bi bi-cart-check me-2"></i>MÓDULO DE COMPRAS
+            </h2>
+            <small class="text-muted fw-bold">GESTIÓN DE FACTURAS Y BOLETAS</small>
+        </div>
+
+        <div class="col-md-7 col-12">
+            <div class="d-flex flex-wrap gap-2 justify-content-md-end">
+                <!-- SEARCH BAR -->
+                <div class="input-group" style="max-width: 300px;">
+                    <span class="input-group-text bg-white border-dark rounded-0"><i class="bi bi-search"></i></span>
+                    <input type="text" class="form-control border-dark rounded-0 shadow-sm"
+                        placeholder="Buscar proveedor o documento..." @bind="SearchTerm" @bind:event="oninput" />
+                </div>
+                <button class="btn btn-success rounded-0 fw-bold shadow animate__animated animate__fadeIn" @onclick='() => Navigation.NavigateTo("/compras/nueva")'>
+                    <i class="bi bi-plus-lg me-2"></i>NUEVA COMPRA
+                </button>
+            </div>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(Error))
+    {
+        <div class="alert alert-danger border-dark rounded-0 fw-bold mb-4 shadow-sm fade show">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i> @Error
+        </div>
+    }
+    
+    @if (!string.IsNullOrEmpty(MensajeExito))
+    {
+        <div class="alert alert-success border-dark rounded-0 fw-bold mb-4 shadow-sm fade show">
+            <i class="bi bi-check-circle-fill me-2"></i> @MensajeExito
+        </div>
+    }
+
+    <div class="card border-2 border-dark rounded-0 shadow my-4">
+        <div class="card-header bg-dark text-white rounded-0 fw-bold d-flex justify-content-between align-items-center flex-wrap">
+            <span>HISTORIAL DE COMPRAS: @FilteredCompras.Count() REGISTROS</span>
+            <span>TOTAL GASTADO: @FilteredCompras.Sum(c => c.MontoTotal).ToString("C0")</span>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover table-bordered border-dark m-0 align-middle">
+                <thead class="bg-secondary text-white text-uppercase" style="font-size: 0.85rem;">
+                    <tr>
+                        <th>FECHA <i class="bi bi-calendar"></i></th>
+                        <th>PROVEEDOR <i class="bi bi-shop"></i></th>
+                        <th>Nº DOCUMENTO <i class="bi bi-file-earmark-text"></i></th>
+                        <th class="text-end">MONTO TOTAL <i class="bi bi-currency-dollar"></i></th>
+                        <th class="text-center">ESTADO <i class="bi bi-info-circle"></i></th>
+                        <th class="text-center" style="min-width: 140px;">ACCIONES</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white fw-bold" style="font-size: 0.9rem;">
+                    @if (Cargando)
+                    {
+                        <tr>
+                            <td colspan="6" class="text-center p-4">
+                                <div class="spinner-border text-dark spinner-border-sm me-2" role="status"></div>
+                                Cargando datos...
+                            </td>
+                        </tr>
+                    }
+                    else if (!ListaCompras.Any())
+                    {
+                        <tr>
+                            <td colspan="6" class="text-center p-4 text-muted">No se han registrado compras.</td>
+                        </tr>
+                    }
+                    else if (!FilteredCompras.Any())
+                    {
+                        <tr>
+                            <td colspan="6" class="text-center p-4 text-muted">No se encontraron resultados para "@SearchTerm".</td>
+                        </tr>
+                    }
+                    else
+                    {
+                        @foreach (var c in FilteredCompras)
+                        {
+                            <tr>
+                                <td>@c.FechaCompra.ToString("dd/MM/yyyy HH:mm")</td>
+                                <td>@c.Proveedor</td>
+                                <td><span class="font-monospace">@(string.IsNullOrEmpty(c.NumeroDocumento) ? "S/N" : c.NumeroDocumento)</span></td>
+                                <td class="text-end text-success font-monospace">@c.MontoTotal.ToString("C0")</td>
+                                <td class="text-center">
+                                    @if(c.Estado == "PAGADA")
+                                    {
+                                        <span class="badge bg-success border border-dark rounded-0 text-white"><i class="bi bi-check-circle-fill me-1"></i>PAGADA</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-warning border border-dark rounded-0 text-dark"><i class="bi bi-clock-history me-1"></i>PENDIENTE</span>
+                                    }
+                                </td>
+                                <td class="text-center">
+                                    <div class="d-flex justify-content-center gap-2 flex-wrap">
+                                        <button class="btn btn-sm btn-outline-dark rounded-0 fw-bold border-dark" title="Ver Detalles" @onclick="() => VerDetalles(c)">
+                                            <i class="bi bi-eye-fill"></i> DETALLES
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-warning rounded-0 fw-bold border-dark text-dark" title="Editar Compra" @onclick="() => AbrirModalEditar(c)">
+                                            <i class="bi bi-pencil-square"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL VER DETALLES -->
+@if (CompraSeleccionada != null)
+{
+    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content rounded-0 border-2 border-dark shadow-lg">
+                <div class="modal-header bg-dark text-white rounded-0">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-receipt me-2"></i>DETALLE DE COMPRA</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CerrarModalDetalles"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="row mb-4 bg-light border border-dark p-3 mx-0">
+                        <div class="col-md-6">
+                            <p class="mb-1 text-muted small fw-bold">PROVEEDOR:</p>
+                            <span class="fw-bold fs-5">@CompraSeleccionada.Proveedor</span>
+                            <br/>
+                            <p class="mb-1 mt-2 text-muted small fw-bold">Nº FACTURA/BOLETA:</p>
+                            <span class="font-monospace fw-bold">@(string.IsNullOrEmpty(CompraSeleccionada.NumeroDocumento) ? "S/N" : CompraSeleccionada.NumeroDocumento)</span>
+                        </div>
+                        <div class="col-md-6 text-md-end">
+                            <p class="mb-1 text-muted small fw-bold">FECHA:</p>
+                            <span class="fw-bold fs-5">@CompraSeleccionada.FechaCompra.ToString("dd/MM/yyyy HH:mm")</span>
+                            <br/>
+                            <p class="mb-1 mt-2 text-muted small fw-bold">TOTAL PAGADO:</p>
+                            <span class="text-success fw-bold fs-4 font-monospace">@CompraSeleccionada.MontoTotal.ToString("C0")</span>
+                        </div>
+                    </div>
+                    
+                    <h6 class="fw-bold mb-3 border-bottom border-dark pb-2">PRODUCTOS ADQUIRIDOS</h6>
+                    <div class="table-responsive">
+                        <table class="table table-bordered border-dark table-sm align-middle">
+                            <thead class="bg-secondary text-white text-uppercase" style="font-size: 0.8rem;">
+                                <tr>
+                                    <th>PRODUCTO</th>
+                                    <th class="text-center">CANTIDAD</th>
+                                    <th class="text-end">COSTO UNIT.</th>
+                                    <th class="text-end">SUBTOTAL</th>
+                                </tr>
+                            </thead>
+                            <tbody class="fw-bold" style="font-size: 0.9rem;">
+                                @foreach (var d in CompraSeleccionada.Detalles)
+                                {
+                                    <tr>
+                                        <td>@d.ProductoNombre</td>
+                                        <td class="text-center text-primary">@d.Cantidad</td>
+                                        <td class="text-end font-monospace text-muted">@d.CostoUnitario.ToString("C0")</td>
+                                        <td class="text-end text-success font-monospace">@((d.Cantidad * d.CostoUnitario).ToString("C0"))</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light rounded-0">
+                    <button type="button" class="btn btn-outline-dark rounded-0 fw-bold" @onclick="CerrarModalDetalles">CERRAR</button>
+                    @if (CompraSeleccionada.Estado != "PAGADA")
+                    {
+                        <button type="button" class="btn btn-success fw-bold border-dark rounded-0" @onclick="MarcarPagada" disabled="@ProcesandoPago">
+                            @if(ProcesandoPago)
+                            {
+                                <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                            }
+                            else
+                            {
+                                <i class="bi bi-check-circle me-2"></i>
+                            }
+                            MARCAR COMO PAGADA
+                        </button>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- MODAL EDITAR COMPRA -->
+@if (CompraEditar != null)
+{
+    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content rounded-0 border-2 border-dark shadow-lg">
+                <div class="modal-header bg-warning text-dark rounded-0 border-bottom border-dark">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-pencil-square me-2"></i>EDITAR DATOS DE LA COMPRA</h5>
+                    <button type="button" class="btn-close" @onclick="CerrarModalEditar"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <form @onsubmit="GuardarEdicionCompra">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold small">PROVEEDOR</label>
+                            <input type="text" class="form-control rounded-0 border-dark" @bind="CompraEditar.Proveedor" required />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold small">Nº DOCUMENTO (FACTURA/BOLETA)</label>
+                            <input type="text" class="form-control rounded-0 border-dark" @bind="CompraEditar.NumeroDocumento" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold small">FECHA DE COMPRA</label>
+                            <input type="datetime-local" class="form-control rounded-0 border-dark" @bind="CompraEditar.FechaCompra" required />
+                        </div>
+                        
+                        <div class="alert alert-info rounded-0 border-dark small fw-bold mt-4 mb-0">
+                            <i class="bi bi-info-circle-fill me-2"></i>La edición solo modifica el encabezado de la compra. Para modificar productos o cantidades se debe anular y crear una nueva (Próximamente).
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer bg-light rounded-0">
+                    <button type="button" class="btn btn-outline-dark rounded-0 fw-bold" @onclick="CerrarModalEditar" disabled="@ProcesandoEdicion">CANCELAR</button>
+                    <button type="button" class="btn btn-warning rounded-0 border-dark fw-bold px-4" @onclick="GuardarEdicionCompra" disabled="@ProcesandoEdicion">
+                        @if(ProcesandoEdicion)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                        }
+                        else
+                        {
+                            <i class="bi bi-save me-2"></i>
+                        }
+                        GUARDAR CAMBIOS
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<CompraDto> ListaCompras = new();
+    private bool Cargando = true;
+    private string? Error;
+    private string? MensajeExito;
+    private string SearchTerm = "";
+    
+    // Filtro basado en búsqueda
+    private IEnumerable<CompraDto> FilteredCompras
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(SearchTerm))
+                return ListaCompras;
+                
+            var term = SearchTerm.ToLower();
+            return ListaCompras.Where(c => 
+                (c.Proveedor?.ToLower().Contains(term) ?? false) ||
+                (c.NumeroDocumento?.ToLower().Contains(term) ?? false));
+        }
+    }
+    
+    // Modal Ver Detalles
+    private CompraDto? CompraSeleccionada;
+    private bool ProcesandoPago = false;
+
+    // Modal Editar
+    private ActualizarCompraRequestDto? CompraEditar;
+    private int IdCompraEditar = 0;
+    private bool ProcesandoEdicion = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarCompras();
+    }
+
+    private async Task CargarCompras()
+    {
+        try
+        {
+            Cargando = true;
+            Error = null;
+            MensajeExito = null;
+            ListaCompras = await Http.GetFromJsonAsync<List<CompraDto>>("api/compras") ?? new();
+        }
+        catch (Exception ex)
+        {
+            Error = $"Error al cargar compras: {ex.Message}";
+        }
+        finally
+        {
+            Cargando = false;
+        }
+    }
+
+    private void VerDetalles(CompraDto compra)
+    {
+        CompraSeleccionada = compra;
+        Error = null;
+        MensajeExito = null;
+    }
+
+    private void CerrarModalDetalles()
+    {
+        CompraSeleccionada = null;
+    }
+    
+    private void AbrirModalEditar(CompraDto compra)
+    {
+        IdCompraEditar = compra.Id;
+        CompraEditar = new ActualizarCompraRequestDto
+        {
+            Proveedor = compra.Proveedor,
+            NumeroDocumento = compra.NumeroDocumento,
+            FechaCompra = compra.FechaCompra
+        };
+        Error = null;
+        MensajeExito = null;
+    }
+    
+    private void CerrarModalEditar()
+    {
+        CompraEditar = null;
+        IdCompraEditar = 0;
+    }
+
+    private async Task GuardarEdicionCompra()
+    {
+        if (CompraEditar == null || IdCompraEditar == 0) return;
+        
+        try
+        {
+            ProcesandoEdicion = true;
+            Error = null;
+            MensajeExito = null;
+            
+            var response = await Http.PutAsJsonAsync($"api/compras/{IdCompraEditar}", CompraEditar);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                MensajeExito = "Los datos de la compra han sido actualizados con éxito.";
+                CerrarModalEditar();
+                await CargarCompras();
+            }
+            else
+            {
+                Error = "Error al guardar los cambios: " + await response.Content.ReadAsStringAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            Error = $"Error interno: {ex.Message}";
+        }
+        finally
+        {
+            ProcesandoEdicion = false;
+        }
+    }
+
+    private async Task MarcarPagada()
+    {
+        if (CompraSeleccionada == null) return;
+        
+        try
+        {
+            ProcesandoPago = true;
+            var response = await Http.PostAsync($"api/compras/{CompraSeleccionada.Id}/pagar", null);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                MensajeExito = $"La factura de {CompraSeleccionada.Proveedor} fue marcada como pagada. Se ha registrado el egreso en Caja.";
+                CerrarModalDetalles();
+                await CargarCompras();
+            }
+            else
+            {
+                Error = "Error al registrar el pago: " + await response.Content.ReadAsStringAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            Error = $"Error interno: {ex.Message}";
+        }
+        finally
+        {
+            ProcesandoPago = false;
+            if(CompraSeleccionada != null) CerrarModalDetalles();
+        }
+    }
+}

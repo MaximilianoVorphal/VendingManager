@@ -201,18 +201,18 @@ namespace VendingManager.Controllers
             return Ok(result);
         }
         [HttpGet("purchase-suggestion")]
-        public async Task<IActionResult> GetPurchaseSuggestion([FromQuery] int days = 30)
+        public async Task<IActionResult> GetPurchaseSuggestion([FromQuery] int days = 30, [FromQuery] int maquinaId = 0)
         {
-            var result = await _ventasService.GetPurchaseSuggestionAsync(days);
+            var result = await _ventasService.GetPurchaseSuggestionAsync(days, maquinaId);
             return Ok(result);
         }
 
         [HttpGet("purchase-suggestion/export")]
-        public async Task<IActionResult> ExportPurchaseSuggestion([FromQuery] int days = 30)
+        public async Task<IActionResult> ExportPurchaseSuggestion([FromQuery] int days = 30, [FromQuery] int maquinaId = 0)
         {
             try
             {
-                var (content, fileName) = await _ventasService.ExportarSugerenciaCompraAsync(days);
+                var (content, fileName) = await _ventasService.ExportarSugerenciaCompraAsync(days, maquinaId);
                 return File(content, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
             }
             catch (Exception ex)

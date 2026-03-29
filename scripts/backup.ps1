@@ -19,6 +19,9 @@ if (Test-Path $EnvFile) {
             if ($name -eq "MSSQL_SA_PASSWORD") {
                 $Global:MssqlSaPassword = $value
             }
+            if ($name -eq "DB_CONTAINER") {
+                $Global:DbContainer = $value
+            }
         }
     }
 }
@@ -29,21 +32,23 @@ if ([string]::IsNullOrEmpty($Global:MssqlSaPassword)) {
 }
 
 # Identificar el contenedor de base de datos
-# Buscamos un contenedor que pertenezca a este proyecto (basado en la carpeta) y sea el servicio 'db'
-# O simplemente usamos el nombre probable 'vendingmanager-db-1' o buscamos por imagen mssql
-$ContainerName = docker ps --format "{{.Names}}" --filter "name=db" | Select-Object -First 1
-
+# Intentamos obtener el nombre desde una variable de entorno en el .env, si no, usamos el por defecto.
+$ContainerName = $Global:DbContainer
 if ([string]::IsNullOrEmpty($ContainerName)) {
-    # Intento alternativo buscando por imagen
-    $ContainerName = docker ps --format "{{.Names}}" --filter "ancestor=mcr.microsoft.com/mssql/server:2022-latest" | Select-Object -First 1
+    # Por defecto apuntamos a vendingmanager-db-1
+    $ContainerName = "vendingmanager-db-1"
 }
 
-if ([string]::IsNullOrEmpty($ContainerName)) {
-    Write-Error "No se pudo encontrar el contenedor de SQL Server en ejecución."
+Write-Host "Contenedor objetivo: $ContainerName"
+
+# Verificar que el contenedor exista y esté en ejecución
+$ContainerExists = docker ps --format "{{.Names}}" --filter "name=$ContainerName" | Select-Object -First 1
+if ([string]::IsNullOrEmpty($ContainerExists)) {
+    Write-Error "No se pudo encontrar el contenedor de SQL Server en ejecución llamado '$ContainerName'."
     exit 1
 }
 
-Write-Host "Contenedor encontrado: $ContainerName"
+Write-Host "Contenedor encontrado y en ejecución: $ContainerName"
 
 $Timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
 $BackupFilename = "VendingDB_Backup_$Timestamp.bak"

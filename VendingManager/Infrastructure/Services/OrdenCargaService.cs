@@ -245,6 +245,18 @@ namespace VendingManager.Infrastructure.Services
             return true;
         }
 
+        public async Task<bool> ActualizarOrdenAsync(int ordenId, ActualizarOrdenRequestDto dto)
+        {
+            var orden = await _context.OrdenesCarga.FindAsync(ordenId);
+            if (orden == null) return false;
+
+            orden.Nombre = dto.Nombre;
+            orden.FechaCreacion = dto.FechaCreacion;
+            
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
         private OrdenCargaDto MapToDto(OrdenCarga orden, string maquinaNombre)
         {
             return new OrdenCargaDto
