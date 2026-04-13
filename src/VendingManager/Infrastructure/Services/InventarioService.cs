@@ -1,0 +1,90 @@
+﻿using Microsoft.EntityFrameworkCore;
+using System.IO;
+
+namespace VendingManager.Infrastructure.Services
+{
+    public class InventarioService : IInventarioService
+    {
+        private readonly ApplicationDbContext _context;
+        private readonly ICatalogExcelService _catalogService;
+
+        public InventarioService(ApplicationDbContext context, ICatalogExcelService catalogService)
+        {
+            _context = context;
+            _catalogService = catalogService;
+        }
+
+        public async Task<IEnumerable<Producto>> GetProductosAsync()
+        {
+            return await _context.Productos.OrderBy(p => p.Nombre).ToListAsync();
+        }
+
+        public async Task<Producto?> GetProductoAsync(int id)
+        {
+            return await _context.Productos.FindAsync(id);
+        }
+
+        public async Task<Producto> CreateProductoAsync(Producto producto)
+        {
+            _context.Productos.Add(producto);
+            await _context.SaveChangesAsync();
+            return producto;
+        }
+
+        public async Task UpdateProductoAsync(int id, Producto producto, DateTime? recalculateFrom = null, DateTime? recalculateTo = null)
+        {
+            // Note: In Controller, it checks id != producto.Id. Here we assume validation is done or we check it.
+            _context.Entry(producto).State = EntityState.Modified;
+
+            if (recalculateFrom.HasValue)
+            {
+                // Recalculate CostoVenta for sales >= recalculateFrom
+                // We need to fetch sales that involve this product.
+                // Assuming Venta has ProductoId and we want to update CostoVenta based on the NEW producto.CostoPromedio
+                
+                var query = _context.Ventas
+                    .Where(v => v.ProductoId == id && v.FechaLocal >= recalculateFrom.Value);
+
+                if (recalculateTo.HasValue)
+                {
+                    query = query.Where(v => v.FechaLocal <= recalculateTo.Value);
+                }
+
+                var ventasAfectadas = await query.ToListAsync();
+
+                foreach (var venta in ventasAfectadas)
+                {
+                    venta.CostoVenta = producto.CostoPromedio;
+                }
+            }
+
+            await _context.SaveChangesAsync();
+        }
+
+        public async Task DeleteProductoAsync(int id)
+        {
+            var producto = await _context.Productos.FindAsync(id);
+            if (producto != null)
+            {
+                _context.Productos.Remove(producto);
+                await _context.SaveChangesAsync();
+            }
+        }
+
+        public async Task AjustarStockAsync(int productoId, int nuevoStock)
+        {
+            throw new InvalidOperationException("El ajuste manual de stock no está permitido. Utilice el Módulo de Compras para ingresos y Mermas (desde Caja) para salidas/ajustes.");
+        }
+
+        public async Task<string> ImportarCatalogoAsync(Stream stream, string fileName)
+        {
+            return await _catalogService.ImportarCatalogoProductos(stream, fileName);
+        }
+
+        public async Task<byte[]> ExportarCatalogoAsync()
+        {
+            return await _catalogService.ExportarCatalogoProductos();
+        }
+    }
+}
+
