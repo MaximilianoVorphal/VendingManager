@@ -3,180 +3,183 @@
 @inject HttpClient Http
 @inject NavigationManager Navigation
 
-<div class="row mb-4 align-items-center">
-    <div class="col">
-        <h2 class="m-0 text-white"><i class="fas fa-plus-circle text-success"></i> Nueva Compra</h2>
-    </div>
-    <div class="col-auto">
-        <button class="btn btn-outline-light" @onclick='() => Navigation.NavigateTo("/compras")'>
-            <i class="fas fa-arrow-left"></i> Volver a Compras
-        </button>
-    </div>
-</div>
+<PageTitle>NUEVA COMPRA</PageTitle>
 
-<div class="row">
-    <div class="col-lg-4">
-        <div class="card bg-dark border-0 shadow-sm mb-4">
-            <div class="card-header bg-secondary text-white border-0 py-3 d-flex justify-content-between align-items-center">
-                <h5 class="mb-0"><i class="fas fa-file-invoice"></i> Datos de la Factura</h5>
-                <div>
-                    <label class="btn btn-sm btn-outline-info mb-0">
-                        <i class="fas fa-camera"></i> Escanear Factura (IA)
+<div class="container-fluid px-4 mt-4" style="font-family: 'Segoe UI', Consolas, monospace;">
+    <div class="row align-items-center mb-4 border-bottom border-3 border-dark pb-3 g-3">
+        <div class="col-md-8 col-12">
+            <h2 class="m-0 fw-bold text-uppercase" style="letter-spacing: -1px; color: #333;">
+                <i class="bi bi-cart-plus me-2"></i>REGISTRAR NUEVA COMPRA
+            </h2>
+            <small class="text-muted fw-bold">INGRESO DE FACTURAS O BOLETAS AL SISTEMA</small>
+        </div>
+        <div class="col-md-4 col-12 text-md-end">
+            <button class="btn btn-outline-dark rounded-0 fw-bold shadow-sm" @onclick='() => Navigation.NavigateTo("/compras")'>
+                <i class="bi bi-arrow-left me-2"></i>VOLVER A COMPRAS
+            </button>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-4">
+            <div class="card border-2 border-dark rounded-0 shadow my-4">
+                <div class="card-header bg-dark text-white rounded-0 fw-bold d-flex justify-content-between align-items-center">
+                    <span><i class="bi bi-receipt"></i> DATOS DEL DOCUMENTO</span>
+                    <label class="btn btn-sm btn-outline-info rounded-0 fw-bold mb-0">
+                        <i class="bi bi-camera"></i> ESCANEAR (IA)
                         <InputFile OnChange="HandleImageUpload" accept="image/*" style="display: none;" />
                     </label>
                 </div>
-            </div>
-            <div class="card-body">
-                <div class="mb-3">
-                    <label class="form-label text-light">Proveedor *</label>
-                    <input type="text" class="form-control bg-dark text-white border-secondary" @bind="factura.Proveedor" placeholder="Ej: Coca-Cola Andina" />
-                </div>
-                <div class="mb-3">
-                    <label class="form-label text-light">Nº Documento / Factura</label>
-                    <input type="text" class="form-control bg-dark text-white border-secondary" @bind="factura.NumeroDocumento" placeholder="Ej: F-123456" />
-                </div>
-                <div class="mb-3">
-                    <label class="form-label text-light">Fecha de Compra</label>
-                    <input type="date" class="form-control bg-dark text-white border-secondary" @bind="factura.FechaCompra" />
-                </div>
-                
-                @if (ProcesandoOCR)
-                {
-                    <div class="alert alert-info py-2 d-flex align-items-center">
-                        <div class="spinner-border spinner-border-sm me-2" role="status"></div>
-                        <div>Extrayendo datos de la factura con Inteligencia Artificial...</div>
+                <div class="card-body bg-light">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-muted">PROVEEDOR *</label>
+                        <input type="text" class="form-control border-dark rounded-0" @bind="factura.Proveedor" placeholder="Ej: ALVI, EL MOLINO..." />
                     </div>
-                }
-                <div class="mb-3 form-check form-switch pt-2">
-                    <input class="form-check-input" type="checkbox" id="pagado" @bind="factura.PagadaCaja" />
-                    <label class="form-check-label text-light" for="pagado">La compra ya fue pagada (Generar Gasto en Caja)</label>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-lg-8">
-        <div class="card bg-dark border-0 shadow-sm mb-4">
-            <div class="card-header bg-secondary text-white border-0 py-3 d-flex justify-content-between align-items-center">
-                <h5 class="mb-0"><i class="fas fa-box-open"></i> Productos Adquiridos</h5>
-                <span class="badge bg-primary fs-6">Total: @(CalcularTotal().ToString("C0"))</span>
-            </div>
-            <div class="card-body">
-                <div class="row mb-3 align-items-end">
-                    <div class="col-md-5">
-                        <label class="form-label text-light">Buscar Producto</label>
-                        <select class="form-select bg-dark text-white border-secondary" @bind="productoSeleccionadoId">
-                            <option value="0">-- Seleccione --</option>
-                            @foreach (var p in ProductosDisponibles)
-                            {
-                                <option value="@p.Id">@p.Nombre (Stock: @p.StockBodega)</option>
-                            }
-                        </select>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-muted">Nº FACTURA / BOLETA</label>
+                        <input type="text" class="form-control border-dark rounded-0" @bind="factura.NumeroDocumento" placeholder="Ej: F-123456" />
                     </div>
-                    <div class="col-md-2 text-center text-white py-2">
-                        <i class="fas fa-arrow-right"></i>
-                    </div>
-                    <div class="col-md-5 d-grid">
-                        <button class="btn btn-outline-info" @onclick="AgregarProducto" disabled="@(productoSeleccionadoId == 0)">
-                            <i class="fas fa-plus"></i> Agregar a la Lista
-                        </button>
-                    </div>
-                </div>
-
-                @if (detalles.Any())
-                {
-                    <div class="table-responsive">
-                        <table class="table table-dark table-striped align-middle">
-                            <thead>
-                                <tr>
-                                    <th>Producto</th>
-                                    <th style="width: 120px;">Cantidad</th>
-                                    <th style="width: 150px;">Costo Unit.</th>
-                                    <th class="text-end" style="width: 120px;">Subtotal</th>
-                                    <th style="width: 50px;"></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var d in detalles)
-                                {
-                                    <tr>
-                                        <td>
-                                            @if (d.ProductoId == 0)
-                                            {
-                                                <!-- Dropdown para asignar manualmente si el OCR no hizo match -->
-                                                <select class="form-select form-select-sm bg-dark text-white border-warning" @bind="d.ProductoId">
-                                                    <option value="0">⚠️ Reconocido como: "@d.ProductoNombre"</option>
-                                                    @foreach (var p in ProductosDisponibles)
-                                                    {
-                                                        <option value="@p.Id">@p.Nombre</option>
-                                                    }
-                                                </select>
-                                            }
-                                            else
-                                            {
-                                                <div class="d-flex align-items-center justify-content-between">
-                                                    <span>@d.ProductoNombre</span>
-                                                    <button class="btn btn-sm btn-link text-secondary p-0 ms-2" @onclick="() => d.ProductoId = 0" title="Corregir asociación">
-                                                        <i class="fas fa-edit"></i>
-                                                    </button>
-                                                </div>
-                                            }
-                                        </td>
-                                        <td>
-                                            <input type="number" class="form-control form-control-sm bg-dark text-white border-secondary" @bind="d.Cantidad" @bind:event="oninput" min="1" />
-                                        </td>
-                                        <td>
-                                            <div class="input-group input-group-sm">
-                                                <span class="input-group-text bg-secondary text-white border-secondary">$</span>
-                                                <input type="number" class="form-control bg-dark text-white border-secondary" @bind="d.CostoUnitario" @bind:event="oninput" min="0" />
-                                            </div>
-                                        </td>
-                                        <td class="text-end text-success fw-bold">
-                                            @((d.Cantidad * d.CostoUnitario).ToString("C0"))
-                                        </td>
-                                        <td class="text-center">
-                                            <button class="btn btn-sm btn-outline-danger" @onclick="() => EliminarDetalle(d)">
-                                                <i class="fas fa-trash"></i>
-                                            </button>
-                                        </td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-muted">FECHA DE COMPRA</label>
+                        <input type="date" class="form-control border-dark rounded-0" @bind="factura.FechaCompra" />
                     </div>
                     
-                    <div class="d-grid mt-4">
-                        <button class="btn btn-success btn-lg" @onclick="GuardarCompra" disabled="@Guardando">
-                            @if (Guardando)
-                            {
-                                <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
-                                <span> Registrando Factura...</span>
-                            }
-                            else
-                            {
-                                <i class="fas fa-save"></i> <span>Registrar Compra ($@(CalcularTotal().ToString("N0")))</span>
-                            }
-                        </button>
+                    @if (ProcesandoOCR)
+                    {
+                        <div class="alert alert-info rounded-0 border-dark fw-bold py-2 d-flex align-items-center shadow-sm">
+                            <div class="spinner-border text-info spinner-border-sm me-2" role="status"></div>
+                            <div>Extrayendo productos con Inteligencia Artificial...</div>
+                        </div>
+                    }
+                    
+                    <div class="form-check form-switch pt-2 border-top border-dark mt-3 pt-3">
+                        <input class="form-check-input border-dark" type="checkbox" id="pagado" @bind="factura.PagadaCaja" />
+                        <label class="form-check-label fw-bold small" for="pagado">ESTADO: PAGADA AL CONTADO (Generar Gasto en Caja)</label>
                     </div>
-                }
-                else
-                {
-                    <div class="text-center text-muted my-4 py-4 border border-secondary border-dashed rounded">
-                        <i class="fas fa-shopping-basket fa-3x mb-3 text-secondary"></i>
-                        <p>Aún no hay productos en esta factura.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-8">
+            <div class="card border-2 border-dark rounded-0 shadow my-4">
+                <div class="card-header bg-dark text-white rounded-0 fw-bold d-flex justify-content-between align-items-center">
+                    <span><i class="bi bi-box-seam"></i> DETALLE DE PRODUCTOS</span>
+                    <span class="badge bg-success border border-white text-uppercase" style="font-size: 0.9rem;">Total Requerido: @(CalcularTotal().ToString("C0"))</span>
+                </div>
+                <div class="card-body">
+                    <div class="row align-items-end mb-4 bg-light p-3 border border-dark mx-0">
+                        <div class="col-md-6 mb-2 mb-md-0">
+                            <label class="form-label fw-bold small text-muted">BUSCAR PRODUCTO MANUAL</label>
+                            <select class="form-select border-dark rounded-0" @bind="productoSeleccionadoId">
+                                <option value="0">-- SELECCIONE UN PRODUCTO --</option>
+                                @foreach (var p in ProductosDisponibles)
+                                {
+                                    <option value="@p.Id">@p.Nombre (Stock: @p.StockBodega)</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-6 d-grid">
+                            <button class="btn btn-outline-dark rounded-0 fw-bold" @onclick="AgregarProducto" disabled="@(productoSeleccionadoId == 0)">
+                                <i class="bi bi-plus-lg me-1"></i> AÑADIR A LA LISTA
+                            </button>
+                        </div>
                     </div>
-                }
+
+                    @if (detalles.Any())
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-bordered border-dark table-hover align-middle">
+                                <thead class="bg-secondary text-white text-uppercase text-center" style="font-size: 0.85rem;">
+                                    <tr>
+                                        <th class="text-start">PRODUCTO <i class="bi bi-tag"></i></th>
+                                        <th style="width: 100px;">CANT <i class="bi bi-hash"></i></th>
+                                        <th style="width: 150px;">PRECIO <i class="bi bi-currency-dollar"></i></th>
+                                        <th style="width: 130px;">SUBTOTAL</th>
+                                        <th style="width: 50px;"></th>
+                                    </tr>
+                                </thead>
+                                <tbody class="fw-bold" style="font-size: 0.9rem;">
+                                    @foreach (var d in detalles)
+                                    {
+                                        <tr>
+                                            <td>
+                                                @if (d.ProductoId == 0)
+                                                {
+                                                    <select class="form-select form-select-sm border-2 border-warning rounded-0 fw-bold bg-light text-dark" @bind="d.ProductoId">
+                                                        <option value="0">⚠️ ASIGNAR: "@d.ProductoNombre"</option>
+                                                        @foreach (var p in ProductosDisponibles)
+                                                        {
+                                                            <option value="@p.Id">@p.Nombre</option>
+                                                        }
+                                                    </select>
+                                                }
+                                                else
+                                                {
+                                                    <div class="d-flex align-items-center justify-content-between">
+                                                        <span>@d.ProductoNombre</span>
+                                                        <button class="btn btn-sm btn-link text-dark p-0 ms-2" @onclick="() => d.ProductoId = 0" title="Corregir asociación">
+                                                            <i class="bi bi-pencil-square"></i>
+                                                        </button>
+                                                    </div>
+                                                }
+                                            </td>
+                                            <td>
+                                                <input type="number" class="form-control form-control-sm border-dark rounded-0 text-center font-monospace" @bind="d.Cantidad" @bind:event="oninput" min="1" />
+                                            </td>
+                                            <td>
+                                                <div class="input-group input-group-sm">
+                                                    <span class="input-group-text bg-dark text-white border-dark rounded-0">$</span>
+                                                    <input type="number" class="form-control border-dark rounded-0 font-monospace text-end" @bind="d.CostoUnitario" @bind:event="oninput" min="0" />
+                                                </div>
+                                            </td>
+                                            <td class="text-end text-success font-monospace fs-6">
+                                                @((d.Cantidad * d.CostoUnitario).ToString("C0"))
+                                            </td>
+                                            <td class="text-center">
+                                                <button class="btn btn-sm btn-outline-danger border-dark rounded-0" @onclick="() => EliminarDetalle(d)">
+                                                    <i class="bi bi-trash-fill"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <div class="d-grid mt-4">
+                            <button class="btn btn-success btn-lg rounded-0 border-dark fw-bold shadow-sm" @onclick="GuardarCompra" disabled="@Guardando">
+                                @if (Guardando)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+                                    <span> PROCESANDO REGISTRO...</span>
+                                }
+                                else
+                                {
+                                    <i class="bi bi-save-fill me-2"></i> <span>CONFIRMAR COMPRA ($@(CalcularTotal().ToString("N0")))</span>
+                                }
+                            </button>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="text-center text-muted my-5 py-5 border border-dark border-1 rounded-0 bg-light">
+                            <i class="bi bi-cart-x display-1 mb-3 text-secondary"></i>
+                            <h5 class="fw-bold text-uppercase">CANASTA VACÍA</h5>
+                            <p class="small">Aún no hay productos en esta factura. Escanea una imagen o búscalos manualmente.</p>
+                        </div>
+                    }
+                </div>
             </div>
         </div>
     </div>
-</div>
 
-@if (!string.IsNullOrEmpty(MensajeError))
-{
-    <div class="alert alert-danger shadow-sm mt-3">
-        <i class="fas fa-exclamation-circle"></i> @MensajeError
-    </div>
-}
+    @if (!string.IsNullOrEmpty(MensajeError))
+    {
+        <div class="alert alert-danger border-dark rounded-0 fw-bold shadow-sm fade show mb-4">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i> @MensajeError
+        </div>
+    }
+</div>
 
 @code {
     private RegistrarCompraRequestDto factura = new();
