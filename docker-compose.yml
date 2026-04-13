@@ -8,7 +8,7 @@ services:
   webapp:
     image: vendingmanager
     build:
-      context: .
+      context: ./src
       dockerfile: Dockerfile
     ports:
       - "8080:8080"
@@ -37,7 +37,7 @@ services:
   # Nuevo servicio para el Scraper (Python + Playwright)
   scraper:
     build:
-      context: ./VendingManager/Scripts # Ruta donde está el Dockerfile y los scripts .py
+      context: ./services/scraper
       dockerfile: Dockerfile
     volumes:
       - scraper_data:/app/downloads
