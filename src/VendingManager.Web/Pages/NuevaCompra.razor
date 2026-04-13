@@ -17,8 +17,14 @@
 <div class="row">
     <div class="col-lg-4">
         <div class="card bg-dark border-0 shadow-sm mb-4">
-            <div class="card-header bg-secondary text-white border-0 py-3">
+            <div class="card-header bg-secondary text-white border-0 py-3 d-flex justify-content-between align-items-center">
                 <h5 class="mb-0"><i class="fas fa-file-invoice"></i> Datos de la Factura</h5>
+                <div>
+                    <label class="btn btn-sm btn-outline-info mb-0">
+                        <i class="fas fa-camera"></i> Escanear Factura (IA)
+                        <InputFile OnChange="HandleImageUpload" accept="image/*" style="display: none;" />
+                    </label>
+                </div>
             </div>
             <div class="card-body">
                 <div class="mb-3">
@@ -33,6 +39,14 @@
                     <label class="form-label text-light">Fecha de Compra</label>
                     <input type="date" class="form-control bg-dark text-white border-secondary" @bind="factura.FechaCompra" />
                 </div>
+                
+                @if (ProcesandoOCR)
+                {
+                    <div class="alert alert-info py-2 d-flex align-items-center">
+                        <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                        <div>Extrayendo datos de la factura con Inteligencia Artificial...</div>
+                    </div>
+                }
                 <div class="mb-3 form-check form-switch pt-2">
                     <input class="form-check-input" type="checkbox" id="pagado" @bind="factura.PagadaCaja" />
                     <label class="form-check-label text-light" for="pagado">La compra ya fue pagada (Generar Gasto en Caja)</label>
@@ -86,7 +100,28 @@
                                 @foreach (var d in detalles)
                                 {
                                     <tr>
-                                        <td>@d.ProductoNombre</td>
+                                        <td>
+                                            @if (d.ProductoId == 0)
+                                            {
+                                                <!-- Dropdown para asignar manualmente si el OCR no hizo match -->
+                                                <select class="form-select form-select-sm bg-dark text-white border-warning" @bind="d.ProductoId">
+                                                    <option value="0">⚠️ Reconocido como: "@d.ProductoNombre"</option>
+                                                    @foreach (var p in ProductosDisponibles)
+                                                    {
+                                                        <option value="@p.Id">@p.Nombre</option>
+                                                    }
+                                                </select>
+                                            }
+                                            else
+                                            {
+                                                <div class="d-flex align-items-center justify-content-between">
+                                                    <span>@d.ProductoNombre</span>
+                                                    <button class="btn btn-sm btn-link text-secondary p-0 ms-2" @onclick="() => d.ProductoId = 0" title="Corregir asociación">
+                                                        <i class="fas fa-edit"></i>
+                                                    </button>
+                                                </div>
+                                            }
+                                        </td>
                                         <td>
                                             <input type="number" class="form-control form-control-sm bg-dark text-white border-secondary" @bind="d.Cantidad" @bind:event="oninput" min="1" />
                                         </td>
@@ -153,6 +188,7 @@
     private int productoSeleccionadoId = 0;
     
     private bool Guardando = false;
+    private bool ProcesandoOCR = false;
     private string? MensajeError;
 
     protected override async Task OnInitializedAsync()
@@ -223,6 +259,12 @@
             return;
         }
 
+        if (detalles.Any(d => d.ProductoId == 0))
+        {
+            MensajeError = "Debe asignar un producto del sistema a cada ítem escaneado (selecciónelos en los recuadros amarillos).";
+            return;
+        }
+
         Guardando = true;
 
         try
@@ -254,6 +296,80 @@
         finally
         {
             Guardando = false;
+        }
+    }
+
+    private async Task HandleImageUpload(InputFileChangeEventArgs e)
+    {
+        MensajeError = null;
+        var file = e.File;
+        if (file == null) return;
+
+        ProcesandoOCR = true;
+        
+        try
+        {
+            using var content = new MultipartFormDataContent();
+            var stream = file.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024); // max 10MB
+            using var streamContent = new StreamContent(stream);
+            streamContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(file.ContentType);
+            
+            content.Add(streamContent, "file", file.Name);
+
+            var response = await Http.PostAsync("api/compras/upload-factura", content);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<OcrInvoiceResultDto>();
+                if (result != null)
+                {
+                    // Llenar campos base
+                    if (!string.IsNullOrEmpty(result.Proveedor)) factura.Proveedor = result.Proveedor;
+                    if (!string.IsNullOrEmpty(result.NumeroDocumento)) factura.NumeroDocumento = result.NumeroDocumento;
+                    
+                    if (DateTime.TryParse(result.Fecha, out DateTime dtOut))
+                    {
+                        factura.FechaCompra = dtOut;
+                    }
+
+                    // Mapear items
+                    foreach (var item in result.Items)
+                    {
+                        int idProducto = 0;
+                        string nombreProd = item.Producto ?? "Desconocido";
+
+                        if (item.ProductoIdMatch.HasValue && item.ProductoIdMatch.Value > 0)
+                        {
+                            var matchDb = ProductosDisponibles.FirstOrDefault(p => p.Id == item.ProductoIdMatch.Value);
+                            if (matchDb != null)
+                            {
+                                idProducto = matchDb.Id;
+                                nombreProd = matchDb.Nombre; // Usar el nombre oficial
+                            }
+                        }
+
+                        detalles.Add(new DetalleUI
+                        {
+                            ProductoId = idProducto,
+                            ProductoNombre = nombreProd,
+                            Cantidad = item.Cantidad > 0 ? (int)Math.Round(item.Cantidad) : 1,
+                            CostoUnitario = item.CostoUnitario
+                        });
+                    }
+                }
+            }
+            else
+            {
+                MensajeError = "Error al escanear la imagen. " + await response.Content.ReadAsStringAsync();
+            }
+        }
+        catch(Exception ex)
+        {
+            MensajeError = "Error procesando IA: " + ex.Message;
+        }
+        finally
+        {
+            ProcesandoOCR = false;
         }
     }
 
