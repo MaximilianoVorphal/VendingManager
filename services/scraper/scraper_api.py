@@ -12,8 +12,9 @@ class DownloadRequest(BaseModel):
     start_date: str
     end_date: str
 
-from fastapi.responses import FileResponse
-from fastapi import BackgroundTasks
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi import BackgroundTasks, UploadFile, File
+import gemini_ocr
 
 @app.post("/download")
 async def download_report(req: DownloadRequest, background_tasks: BackgroundTasks):
@@ -40,6 +41,28 @@ async def download_report(req: DownloadRequest, background_tasks: BackgroundTask
 
     except Exception as e:
         print(f"Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/ocr/invoice")
+async def ocr_invoice(file: UploadFile = File(...)):
+    try:
+        # Save temp file
+        temp_file_path = f"downloads/temp_{file.filename}"
+        with open(temp_file_path, "wb") as buffer:
+            buffer.write(await file.read())
+        
+        # Process with Gemini
+        result = gemini_ocr.extract_invoice_data(temp_file_path)
+        
+        # Clean up temp file
+        try:
+            os.remove(temp_file_path)
+        except:
+            pass
+            
+        return JSONResponse(content=result)
+    except Exception as e:
+        print(f"Error OCR: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/health")

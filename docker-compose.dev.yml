@@ -45,3 +45,4 @@ services:
       - TZ=America/Santiago
       - OURVEND_USER=${OURVEND_USER}
       - OURVEND_PASS=${OURVEND_PASS}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
