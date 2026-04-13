@@ -16,13 +16,16 @@ C4Context
         Container(spa, "Blazor WebAssembly UI", "Blazor WASM, C#", "Provee todas las pantallas dinámicas para el usuario (Dashboard, Cargas, Cajas).")
         Container(api, "VendingManager API", "ASP.NET Core Web API, C#", "Provee la lógica de negocio, reportes y acceso a datos a través de EF Core.")
         ContainerDb(db, "SQL Server Database", "Microsoft SQL Server", "Persiste toda la información de ventas, inventario y cajas.")
-        Container(scraper, "Python Scraper Service", "FastAPI + Playwright, Python", "Extrae automáticamente reportes de la web de OurVend.")
+        Container(scraper, "Python Scraper & AI Service", "FastAPI + Playwright/Gemini", "Extracción de reportes web y procesamiento OCR con IA.")
     }
+
+    System_Ext(gemini, "Google Gemini API", "LLM Vision Service")
 
     Rel(user, spa, "Visualiza y edita", "HTTPS")
     Rel(spa, api, "Llama métodos API", "JSON/HTTPS")
     Rel(api, db, "Lee y escribe hacia", "EF Core / SQL")
-    Rel(api, scraper, "Solicita disparar scraping", "HTTP")
+    Rel(api, scraper, "Petición HTTP (Scraping/OCR)", "HTTP")
+    Rel(scraper, gemini, "Analiza facturas", "HTTPS")
     Rel(scraper, api, "Notifica éxito y provee datos")
 
     UpdateElementStyle(user, $fontColor="white", $bgColor="#08427b", $borderColor="#073b6f")
@@ -36,7 +39,11 @@ C4Context
 
 1. **Clean Architecture:** El backend `.NET` divide su lógica en `Core` (Interfaces/Entidades), `Infrastructure` (Servicios, Data) y la Capa de Presentación (Controladores).
 2. **Code-Behind:** En el cliente Blazor, las vistas grandes separan el archivo `.razor` del `.razor.cs`.
-3. **Repository Pattern / Service Pattern:** Los controladores no hablan con EF Core de forma directa, lo hacen a través de interfaces (`ISalesImportService`, `ISyncOrchestratorService`, etc).
+3. **Repository Pattern / Service Pattern:** Los controladores no hablan con EF Core de forma directa, lo hacen a través de interfaces especializadas.
+
+> [!NOTE]
+> **Para un análisis completo de los Endpoints y Módulos**, consulta nuestra **[Referencia de API y Funcionalidades](api_reference.md)**.
+> **Para revisar el historial de desiciones de microservicios**, visita los archivos ADR dentro de `/decisions/`.
 
 ## Diagrama de Contenedores API (C4)
 
@@ -50,27 +57,34 @@ C4Container
         Container(controllers, "Web API Controllers", "C# REST", "Reciben peticiones y validan seguridad (ej: VentasController, CargasController).")
         
         Boundary(services_boundary, "Integration Services Layer") {
-            Component(sync, "Sync Orchestrator", "Service", "Llama al microservicio Python.")
+            Component(sync, "Sync Orchestrator", "Service", "Llama al microservicio Python para reportes.")
+            Component(ocr, "Factura OCR", "Service", "Llama microservicio Python para extraer texto de imágenes.")
             Component(sales, "Sales Import", "Service", "Conciliación Transbank vs Ourvend.")
             Component(catalog, "Catalog Excel", "Service", "Importa/Exporta productos masivamente.")
-            Component(orden, "Orden Carga Excel", "Service", "Genera el XLS con la ruta del camión.")
+            Component(orden, "Orden Carga Excel", "Service", "Genera XLS de ruta de camión.")
+            Component(analytics, "Sales Analytics", "Service", "Métricas pesadas y Quiebre de stock.")
+            Component(purchasing, "Purchasing", "Service", "Abastecimiento de 30 días.")
         }
         
         ComponentDb(efcore, "Entity Framework Core", "ORM", "Contexto UnitOfWork para acceso SQL.")
     }
     
-    System_Ext(scraper, "Scraper Python", "FastAPI")
+    System_Ext(scraper, "Scraper & AI Python", "FastAPI")
 
     Rel(spa_user, controllers, "Llama endopoints", "JSON")
     Rel(controllers, sync, "Solicita descargas", "Interface")
+    Rel(controllers, ocr, "Solicita lectura factura", "Interface")
     Rel(controllers, sales, "Envía Excel importado", "Interface")
-    Rel(controllers, orden, "Genera reporte", "Interface")
+    Rel(controllers, analytics, "Lee Dashboard Stats", "Interface")
+    Rel(controllers, purchasing, "Trae pronóstico compras", "Interface")
     
     Rel(sync, scraper, "Petición asíncrona de extracción", "HTTP")
+    Rel(ocr, scraper, "Petición multipart imagen OCR", "HTTP")
     Rel(sync, sales, "Redirige stream para procesar", "In-Process")
     
     Rel(sales, efcore, "Actualiza base de datos", "LINQ")
     Rel(catalog, efcore, "Actualiza productos", "LINQ")
+    Rel(analytics, efcore, "Consultas polimórficas", "LINQ")
 
     UpdateElementStyle(controllers, $fontColor="white", $bgColor="#2B78E4", $borderColor="#1C5FB8")
     UpdateElementStyle(efcore, $fontColor="white", $bgColor="#D32F2F", $borderColor="#B71C1C")

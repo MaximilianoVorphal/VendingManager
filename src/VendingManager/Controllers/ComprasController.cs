@@ -12,10 +12,12 @@ namespace VendingManager.Controllers;
 public class ComprasController : ControllerBase
 {
     private readonly ICompraService _compraService;
+    private readonly IFacturaOcrService _facturaOcrService;
 
-    public ComprasController(ICompraService compraService)
+    public ComprasController(ICompraService compraService, IFacturaOcrService facturaOcrService)
     {
         _compraService = compraService;
+        _facturaOcrService = facturaOcrService;
     }
 
     [HttpGet]
@@ -135,6 +137,23 @@ public class ComprasController : ControllerBase
         catch (Exception ex)
         {
             return BadRequest(ex.Message);
+        }
+    }
+
+    [HttpPost("upload-factura")]
+    public async Task<ActionResult<OcrInvoiceResultDto>> UploadFactura(IFormFile file)
+    {
+        try
+        {
+            if (file == null || file.Length == 0)
+                return BadRequest("No se proporcionó ningún archivo válido.");
+
+            var resultado = await _facturaOcrService.ExtractInvoiceDataAsync(file);
+            return Ok(resultado);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, $"Error procesando factura con IA: {ex.Message}");
         }
     }
 }
