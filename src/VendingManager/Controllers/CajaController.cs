@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 
 namespace VendingManager.Web.Controllers
 {
@@ -44,7 +44,9 @@ namespace VendingManager.Web.Controllers
                 ImagenPath = m.ImagenPath,
                 ProductoId = m.ProductoId,
                 Cantidad = m.Cantidad,
-                OrdenCargaId = m.OrdenCargaId
+                OrdenCargaId = m.OrdenCargaId,
+                CompraId = m.CompraId,
+                GastoRecurrenteId = m.GastoRecurrenteId
             }).ToList();
         }
 

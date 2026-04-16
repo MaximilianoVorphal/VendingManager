@@ -1,4 +1,4 @@
-﻿@page "/cargas"
+@page "/cargas"
 @using System.Text.Json.Serialization
 @using Microsoft.AspNetCore.Components
 
@@ -77,6 +77,10 @@
                                 <i class="bi bi-box-seam me-1"></i> @ord.MaquinaNombre | 
                                 <i class="bi bi-calendar me-1"></i> @ord.FechaCreacion.ToString("dd/MM/yyyy HH:mm") | 
                                 @ord.Detalles.Count items
+                                @if (ord.CostoTotal > 0)
+                                {
+                                    <span class="ms-1">| <strong class="text-danger">$@ord.CostoTotal.ToString("N0")</strong></span>
+                                }
                             </small>
                         </div>
                         <div>
@@ -196,7 +200,12 @@
                                             }
                                             <small class="text-muted fw-normal">| @ord.FechaCreacion.ToString("dd/MM HH:mm")</small>
                                         </div>
-                                        <small class="text-muted">@ord.Detalles.Count Items</small>
+                                        <small class="text-muted">@ord.Detalles.Count Items
+                                            @if (ord.CostoTotal > 0)
+                                            {
+                                                <span class="ms-1 text-danger fw-bold">$@ord.CostoTotal.ToString("N0")</span>
+                                            }
+                                        </small>
                                     </div>
                                     <div>
                                         @if(ord.Estado == "PENDIENTE")
@@ -330,6 +339,10 @@
                                         <th class="text-center">Q. Cargada</th>
                                     }
                                     <th class="text-center" style="width: 150px;">Q. Sobrante (Retorno)</th>
+                                    @if (EsModoLectura)
+                                    {
+                                        <th class="text-end">Costo</th>
+                                    }
                                 </tr>
                             </thead>
                             <tbody>
@@ -359,13 +372,30 @@
                                                        @bind="det.CantidadRetornada" min="0" max="@det.CantidadSolicitada" />
                                             }
                                         </td>
+                                        @if (EsModoLectura && det.CostoUnitario > 0)
+                                        {
+                                            var costoLinea = (det.CantidadSolicitada - det.CantidadRetornada) * det.CostoUnitario;
+                                            <td class="text-end text-danger fw-bold font-monospace small">$@costoLinea.ToString("N0")</td>
+                                        }
+                                        else if (EsModoLectura)
+                                        {
+                                            <td class="text-end text-muted">—</td>
+                                        }
                                     </tr>
                                 }
                             </tbody>
                         </table>
                     </div>
                 </div>
-                <div class="modal-footer bg-light rounded-0">
+                <div class="modal-footer bg-light rounded-0 d-flex justify-content-between align-items-center">
+                    <div>
+                        @if (EsModoLectura && OrdenSeleccionada.CostoTotal > 0)
+                        {
+                            <span class="fw-bold text-uppercase small text-muted me-2">COSTO TOTAL:</span>
+                            <span class="fw-bold fs-5 text-danger font-monospace">$@OrdenSeleccionada.CostoTotal.ToString("N0")</span>
+                        }
+                    </div>
+                    <div class="d-flex gap-2">
                     <button type="button" class="btn btn-outline-dark rounded-0 fw-bold" @onclick="CerrarModal">CERRAR</button>
                     @if (!EsModoLectura)
                     {
@@ -373,6 +403,7 @@
                             CONFIRMAR Y CERRAR
                         </button>
                     }
+                    </div>
                 </div>
             </div>
         </div>

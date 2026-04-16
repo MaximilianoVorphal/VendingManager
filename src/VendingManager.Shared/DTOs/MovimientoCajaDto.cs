@@ -14,5 +14,7 @@ namespace VendingManager.Shared.DTOs
         public int? ProductoId { get; set; }
         public int Cantidad { get; set; }
         public int? OrdenCargaId { get; set; }
+        public int? CompraId { get; set; }
+        public int? GastoRecurrenteId { get; set; }
     }
 }

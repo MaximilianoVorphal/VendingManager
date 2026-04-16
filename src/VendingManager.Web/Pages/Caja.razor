@@ -1,5 +1,8 @@
 @page "/caja"
 @using System.Net.Http.Headers
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using VendingManager.Shared.DTOs
 @inject HttpClient Http
 @inject IJSRuntime JS
 
@@ -91,7 +94,51 @@
         <div class="alert alert-info">Cargando datos financieros...</div>
     }
 
-    <div class="row">
+    @* ====== TABS DE NAVEGACIÓN ====== *@
+    <div class="d-flex gap-0 mb-4 border-bottom border-2 border-dark">
+        <button class="btn rounded-0 fw-bold text-uppercase px-4 py-2 border-0 @(ActiveTab == "caja" ? "bg-dark text-white" : "bg-white text-dark")" 
+                @onclick='() => ActiveTab = "caja"'>
+            <i class="bi bi-cash-stack me-1"></i>CAJA
+        </button>
+        <AuthorizeView Roles="Admin">
+            <button class="btn rounded-0 fw-bold text-uppercase px-4 py-2 border-0 @(ActiveTab == "resultados" ? "bg-dark text-white" : "bg-white text-dark")" 
+                    @onclick='() => SetTabResultados()'>
+                <i class="bi bi-graph-up-arrow me-1"></i>ESTADO DE RESULTADOS
+            </button>
+        </AuthorizeView>
+    </div>
+
+    @* ====== TAB: CAJA ====== *@
+    @if (ActiveTab == "caja")
+    {
+        @* ====== BANNER GASTOS RECURRENTES PENDIENTES ====== *@
+        @if (GastosPendientes != null && GastosPendientes.Any())
+        {
+            <div class="border border-2 border-warning bg-warning-subtle p-3 mb-4 shadow-sm">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="bg-warning text-dark px-2 py-1 fw-bold small rounded-0">⚡ PENDIENTES</span>
+                        <span class="fw-bold text-uppercase">@GastosPendientes.Count gasto(s) fijo(s) sin registrar este mes</span>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-outline-dark rounded-0 btn-sm fw-bold" @onclick="MostrarModalAplicar">
+                            <i class="bi bi-check2-all me-1"></i>REVISAR Y APLICAR
+                        </button>
+                    </div>
+                </div>
+                <div class="mt-2">
+                    @foreach (var p in GastosPendientes)
+                    {
+                        <span class="badge bg-dark rounded-0 me-1 mb-1 py-1 px-2">
+                            @p.Descripcion — $@p.MontoEstimado.ToString("N0")
+                            @if (p.MaquinaNombre != null) { <small class="text-warning-subtle"> (@p.MaquinaNombre)</small> }
+                        </span>
+                    }
+                </div>
+            </div>
+        }
+
+        <div class="row">
         <!-- FORMULARIO DE REGISTRO -->
         <div class="col-md-4 mb-4">
             <div class="card border-2 border-dark rounded-0 h-100 shadow-sm @(Resumen?.IsLocked == true ? "opacity-50" : "")">
@@ -362,7 +409,449 @@
             </div>
         </div>
     </div>
+
+    @* ====== PANEL GASTOS FIJOS MENSUALES ====== *@
+    <div class="row mt-4 mb-4">
+        <div class="col-12">
+            <div class="card border-2 border-dark rounded-0 shadow-sm">
+                <div class="card-header bg-dark text-white rounded-0 fw-bold d-flex justify-content-between align-items-center cursor-pointer"
+                     role="button" @onclick="() => MostrarPanelGastosFijos = !MostrarPanelGastosFijos">
+                    <span><i class="bi bi-gear-fill me-2"></i>GASTOS FIJOS MENSUALES</span>
+                    <div class="d-flex align-items-center gap-2">
+                        @if (TodosGastos != null)
+                        {
+                            <span class="badge bg-light text-dark rounded-0">@TodosGastos.Count(g => g.Activo) activos</span>
+                        }
+                        <i class="bi @(MostrarPanelGastosFijos ? "bi-chevron-up" : "bi-chevron-down")"></i>
+                    </div>
+                </div>
+                @if (MostrarPanelGastosFijos)
+                {
+                    <div class="card-body bg-light p-0">
+                        <div class="p-3 border-bottom border-dark bg-white">
+                            <button class="btn btn-dark rounded-0 btn-sm fw-bold" @onclick="AbrirModalNuevoGasto" disabled="@(Resumen?.IsLocked == true)">
+                                <i class="bi bi-plus-lg me-1"></i>NUEVO GASTO FIJO
+                            </button>
+                        </div>
+                        @if (TodosGastos != null && TodosGastos.Any())
+                        {
+                            <table class="table table-hover table-sm m-0">
+                                <thead class="bg-light text-dark text-uppercase small font-monospace">
+                                    <tr>
+                                        <th class="ps-3">DESCRIPCIÓN</th>
+                                        <th>CATEGORÍA</th>
+                                        <th class="text-end">MONTO ESTIMADO</th>
+                                        <th class="text-center">MÁQUINA</th>
+                                        <th class="text-center">ESTADO</th>
+                                        <th class="text-center pe-3">ACCIONES</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var g in TodosGastos)
+                                    {
+                                        <tr class="@(!g.Activo ? "text-muted bg-light" : "")">
+                                            <td class="ps-3 fw-bold">@g.Descripcion</td>
+                                            <td><span class="badge rounded-0 border border-dark text-dark bg-white">@g.Categoria</span></td>
+                                            <td class="text-end fw-bold font-monospace text-danger">$@g.MontoEstimado.ToString("N0")</td>
+                                            <td class="text-center small">@(g.MaquinaId.HasValue ? $"M-{g.MaquinaId}" : "—")</td>
+                                            <td class="text-center">
+                                                @if (g.Activo)
+                                                {
+                                                    <span class="badge bg-success rounded-0">ACTIVO</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="badge bg-secondary rounded-0">INACTIVO</span>
+                                                }
+                                            </td>
+                                            <td class="text-center pe-3">
+                                                <button class="btn btn-outline-dark btn-sm rounded-0 me-1" @onclick="() => EditarGasto(g)" title="Editar">
+                                                    <i class="bi bi-pencil"></i>
+                                                </button>
+                                                @if (g.Activo)
+                                                {
+                                                    <button class="btn btn-outline-danger btn-sm rounded-0" @onclick="() => DesactivarGasto(g.Id)" title="Desactivar">
+                                                        <i class="bi bi-x-lg"></i>
+                                                    </button>
+                                                }
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        }
+                        else
+                        {
+                            <div class="p-4 text-center text-muted">
+                                <p class="mb-0">No hay gastos fijos configurados. Agrega uno para recibir alertas mensuales.</p>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+    } @* END TAB CAJA *@
+
+    @* ====== TAB: ESTADO DE RESULTADOS (Solo Admin) ====== *@
+    @if (ActiveTab == "resultados" && Resumen != null)
+    {
+        @* INDICADORES DE CAPITAL *@
+        @if (Valorizacion != null)
+        {
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card border-2 border-dark rounded-0 shadow-sm">
+                        <div class="card-header bg-white border-bottom border-dark rounded-0 py-2">
+                            <h6 class="m-0 fw-bold text-uppercase text-dark"><i class="bi bi-graph-up-arrow me-2"></i>Indicadores de Capital (Snapshot Actual)</h6>
+                        </div>
+                        <div class="card-body p-3">
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <div class="d-flex flex-column border-end border-dark pe-3">
+                                        <small class="text-muted fw-bold text-uppercase" style="font-size: 0.7rem;">Stock en Máquinas</small>
+                                        <span class="fs-5 fw-bold font-monospace text-dark">$@Valorizacion.ValorMaquinas.ToString("N0")</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="d-flex flex-column border-end border-dark pe-3">
+                                        <small class="text-muted fw-bold text-uppercase" style="font-size: 0.7rem;">Stock en Bodega</small>
+                                        <span class="fs-5 fw-bold font-monospace text-dark">$@Valorizacion.ValorBodega.ToString("N0")</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="d-flex flex-column bg-light p-2 border border-secondary rounded-0">
+                                        <small class="text-success fw-bold text-uppercase" style="font-size: 0.7rem;">Capital Total Mercadería</small>
+                                        <span class="fs-4 fw-bold font-monospace text-success">$@Valorizacion.ValorTotal.ToString("N0")</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+
+        @* 01 — VENTAS NETAS *@
+        <div class="row mb-2">
+            <div class="col-12">
+                <div class="card border-2 border-dark rounded-0 shadow-sm mb-2">
+                    <div class="card-header bg-primary text-white rounded-0 p-2 cursor-pointer" @onclick="() => _isVentasExpanded = !_isVentasExpanded" style="cursor: pointer;">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="bg-white text-primary px-2 py-1 rounded-0 fw-bold" style="font-size: 0.75rem;">01</span>
+                                <span class="fw-bold text-uppercase">VENTAS NETAS</span>
+                            </div>
+                            <div class="d-flex align-items-center gap-3">
+                                <span class="fs-5 fw-bold font-monospace">$@((Resumen.IngresosVentas - Resumen.Mermas).ToString("N0"))</span>
+                                <i class="bi @(_isVentasExpanded ? "bi-chevron-up" : "bi-chevron-down")"></i>
+                            </div>
+                        </div>
+                    </div>
+                    @if (_isVentasExpanded)
+                    {
+                        <div class="card-body bg-light p-3">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="text-muted fw-bold text-uppercase small">Ventas Brutas</span>
+                                <span class="fw-bold fs-6 text-dark font-monospace">$@Resumen.IngresosVentas.ToString("N0")</span>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="text-danger fw-bold text-uppercase small">(-) Mermas / Pérdidas</span>
+                                <span class="fw-bold fs-6 text-danger font-monospace">-$@Resumen.Mermas.ToString("N0")</span>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        @* 02 — MARGEN BRUTO *@
+        <div class="row mb-2">
+            <div class="col-12">
+                <div class="card border-2 border-dark rounded-0 shadow-sm mb-2">
+                    <div class="card-header bg-warning text-dark rounded-0 p-2 cursor-pointer" @onclick="() => _isCostoExpanded = !_isCostoExpanded" style="cursor: pointer;">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="bg-dark text-white px-2 py-1 rounded-0 fw-bold" style="font-size: 0.75rem;">02</span>
+                                <span class="fw-bold text-uppercase">MARGEN BRUTO</span>
+                            </div>
+                            <div class="d-flex align-items-center gap-3">
+                                <span class="fs-5 fw-bold font-monospace">$@Resumen.UtilidadTotal.ToString("N0")</span>
+                                <span class="badge bg-dark text-white rounded-0 small">@GetMarginPercentage()%</span>
+                                <i class="bi @(_isCostoExpanded ? "bi-chevron-up" : "bi-chevron-down")"></i>
+                            </div>
+                        </div>
+                    </div>
+                    @if (_isCostoExpanded)
+                    {
+                        <div class="card-body bg-light p-3">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <span class="text-muted fw-bold text-uppercase small d-block">(-) Costo de Venta</span>
+                                    <small class="text-muted">Reposición de Mercadería</small>
+                                </div>
+                                <span class="fw-bold fs-5 text-danger font-monospace">-$@Resumen.TotalCostoVenta.ToString("N0")</span>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        @* 03 — GASTOS DE OPERACIÓN *@
+        <div class="row mb-2">
+            <div class="col-12">
+                <div class="card border-2 border-danger rounded-0 shadow-sm mb-2">
+                    <div class="card-header bg-danger text-white rounded-0 p-2 cursor-pointer" @onclick="() => _isGastosExpanded = !_isGastosExpanded" style="cursor: pointer;">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="bg-white text-danger px-2 py-1 rounded-0 fw-bold" style="font-size: 0.75rem;">03</span>
+                                <span class="fw-bold text-uppercase">GASTOS OPERACIÓN</span>
+                            </div>
+                            <div class="d-flex align-items-center gap-3">
+                                <span class="fs-5 fw-bold font-monospace">-$@((Resumen.GastosVariables + Resumen.GastosFijos).ToString("N0"))</span>
+                                <i class="bi @(_isGastosExpanded ? "bi-chevron-up" : "bi-chevron-down")"></i>
+                            </div>
+                        </div>
+                    </div>
+                    @if (_isGastosExpanded)
+                    {
+                        <div class="card-body p-3" style="background-color: rgba(220, 53, 69, 0.1);">
+                            <div class="row g-2 mb-3">
+                                <div class="col-6">
+                                    <div class="bg-white border border-danger rounded-0 p-2 text-center h-100">
+                                        <span class="fw-bold small text-dark text-uppercase d-block mb-1"><i class="bi bi-truck me-1"></i>Variables</span>
+                                        <span class="fw-bold text-danger font-monospace fs-5">-$@Resumen.GastosVariables.ToString("N0")</span>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="bg-white border border-danger rounded-0 p-2 text-center h-100">
+                                        <span class="fw-bold small text-dark text-uppercase d-block mb-1"><i class="bi bi-building me-1"></i>Fijos</span>
+                                        <span class="fw-bold text-danger font-monospace fs-5">-$@Resumen.GastosFijos.ToString("N0")</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            @if (MovimientosGastos != null && MovimientosGastos.Any())
+                            {
+                                <h6 class="fw-bold text-uppercase border-bottom border-danger pb-1 mb-2 text-danger small">Detalle de Gastos</h6>
+                                <div class="table-responsive" style="max-height: 250px;">
+                                    <table class="table table-sm table-borderless small mb-0">
+                                        <tbody>
+                                            @foreach (var g in MovimientosGastos)
+                                            {
+                                                <tr class="border-bottom border-white">
+                                                    <td class="text-muted">@g.Fecha.ToString("dd/MM")</td>
+                                                    <td class="fw-bold text-dark">@g.Categoria</td>
+                                                    <td class="text-truncate" style="max-width: 150px;" title="@g.Descripcion">@g.Descripcion</td>
+                                                    <td class="text-end fw-bold text-danger font-monospace">-$@Math.Abs(g.Monto).ToString("N0")</td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                        <tfoot>
+                                            @if (_descontarTransbank)
+                                            {
+                                                <tr class="bg-white border-top border-danger">
+                                                    <td class="text-muted">-</td>
+                                                    <td class="fw-bold text-dark">COMISIONES</td>
+                                                    <td>Comisión Transbank (Estimada)</td>
+                                                    <td class="text-end fw-bold text-danger font-monospace">-$@Resumen.CostoTransbank.ToString("N0")</td>
+                                                </tr>                                           
+                                            }
+                                        </tfoot>
+                                    </table>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="text-center text-muted small py-2">
+                                    Sin gastos operativos registrados este mes.
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        @* 04 — RESULTADO FINAL *@
+        <div class="row mb-2">
+            <div class="col-12">
+                <h5 class="fw-bold text-uppercase border-bottom border-2 border-dark pb-2 mb-3 d-flex align-items-center gap-2 text-success">
+                    <span class="bg-dark text-white px-2 py-1 rounded-0" style="font-size: 0.8rem;">04</span>
+                    RESULTADO FINAL
+                </h5>
+            </div>
+
+            <div class="col-12 mb-3">
+                <div class="card border-2 border-dark shadow rounded-0 bg-dark text-white">
+                    <div class="card-body d-flex flex-column flex-md-row justify-content-between align-items-center p-3 p-md-4">
+                        <div class="text-center text-md-start mb-2 mb-md-0">
+                            <small class="text-white-50 fw-bold text-uppercase d-block mb-1" style="font-size: 0.7rem;">Resultado Operacional (EBITDA)</small>
+                            <h4 class="m-0 fw-bold text-uppercase">(=) UTILIDAD OPERACIONAL</h4>
+                        </div>
+                        <h2 class="m-0 fw-bold text-white font-monospace">$@Resumen.UtilidadOperacional.ToString("N0")</h2>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @* TOGGLE TRANSBANK *@
+        <div class="row mb-3">
+            <div class="col-12 d-flex justify-content-end">
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="toggleTB" @bind="_descontarTransbank" style="cursor: pointer;">
+                    <label class="form-check-label fw-bold user-select-none" for="toggleTB" style="cursor: pointer;">
+                        Descontar Comisión Transbank (@Resumen.CantidadVentasTransbank tx ≈ $@Resumen.CostoTransbank.ToString("N0"))
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mb-5">
+            <div class="col-12">
+                <div class="card border-2 border-dark shadow-lg h-100 rounded-0 bg-success text-white">
+                    <div class="card-body d-flex flex-column justify-content-center align-items-center text-center text-white py-4">
+                        <small class="text-uppercase fw-bold text-white opacity-75 mb-2">RESULTADO NETO FINAL</small>
+                        <h1 class="display-3 fw-bold m-0 font-monospace">$@GetUtilidadNetaFinal().ToString("N0")</h1>
+                        @if (_descontarTransbank)
+                        {
+                            <small class="text-white-50 mt-2">(Incluye descuento comisión TB)</small>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    } @* END TAB RESULTADOS *@
+
 </div>
+
+@* ====== MODAL: CREAR/EDITAR GASTO FIJO ====== *@
+@if (MostrarModalGastoFijo)
+{
+    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5); z-index: 2000;">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content rounded-0 border-2 border-dark shadow-lg">
+                <div class="modal-header bg-dark text-white rounded-0">
+                    <h5 class="modal-title fw-bold text-uppercase"><i class="bi bi-gear me-2"></i>@(GastoEditando.Id > 0 ? "EDITAR" : "NUEVO") GASTO FIJO</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="() => MostrarModalGastoFijo = false"></button>
+                </div>
+                <div class="modal-body p-4 bg-light">
+                    <div class="mb-3">
+                        <label class="fw-bold small text-uppercase mb-1">DESCRIPCIÓN:</label>
+                        <input @bind="GastoEditando.Descripcion" type="text" class="form-control border-dark rounded-0" placeholder="Ej: Chip Máquina M-0023" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="fw-bold small text-uppercase mb-1">MONTO ESTIMADO MENSUAL ($):</label>
+                        <input @bind="GastoEditando.MontoEstimado" type="number" class="form-control border-dark rounded-0 fw-bold" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="fw-bold small text-uppercase mb-1">CATEGORÍA:</label>
+                        <select @bind="GastoEditando.Categoria" class="form-select border-dark rounded-0">
+                            <optgroup label="⛽ GASTOS VARIABLES">
+                                <option value="LOGISTICA">Logística (Bencina/Fletes)</option>
+                                <option value="PEAJES">Peajes / Estacionamiento</option>
+                                <option value="INSUMOS">Insumos (Limpieza/Bolsas)</option>
+                                <option value="MANTENCION">Mantención / Repuestos</option>
+                            </optgroup>
+                            <optgroup label="🏢 GASTOS FIJOS">
+                                <option value="INFRA">Infraestructura (Luz/Agua/Arriendo)</option>
+                                <option value="ARRIENDO_POS">Arriendo POS (Transbank)</option>
+                                <option value="INTERNET">Internet (Planes/Chips)</option>
+                                <option value="COMISIONES">Comisiones Bancarias</option>
+                                <option value="OTROS">Otros Gastos Fijos</option>
+                            </optgroup>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="fw-bold small text-uppercase mb-1">MÁQUINA (OPCIONAL):</label>
+                        <select @bind="GastoEditandoMaquinaId" class="form-select border-dark rounded-0">
+                            <option value="0">-- GENERAL (SIN MÁQUINA) --</option>
+                            @if (ListaMaquinas != null)
+                            {
+                                @foreach (var m in ListaMaquinas)
+                                {
+                                    <option value="@m.Id">@m.Nombre</option>
+                                }
+                            }
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer bg-white border-top border-dark rounded-0">
+                    <button class="btn btn-outline-dark rounded-0" @onclick="() => MostrarModalGastoFijo = false">CANCELAR</button>
+                    <button class="btn btn-dark rounded-0 fw-bold" @onclick="GuardarGastoFijo">
+                        <i class="bi bi-check-lg me-1"></i>GUARDAR
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@* ====== MODAL: APLICAR GASTOS PENDIENTES ====== *@
+@if (MostrarModalAplicarGastos)
+{
+    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5); z-index: 2000;">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content rounded-0 border-2 border-warning shadow-lg">
+                <div class="modal-header bg-warning text-dark rounded-0">
+                    <h5 class="modal-title fw-bold text-uppercase"><i class="bi bi-lightning-fill me-2"></i>APLICAR GASTOS FIJOS — @SelectedDate.ToString("MMMM yyyy").ToUpper()</h5>
+                    <button type="button" class="btn-close" @onclick="() => MostrarModalAplicarGastos = false"></button>
+                </div>
+                <div class="modal-body p-0">
+                    <div class="alert alert-info rounded-0 m-3 mb-0 small border-dark">
+                        <i class="bi bi-info-circle me-1"></i> Puedes ajustar el monto real de cada gasto antes de registrarlo. Si dejas el monto en 0, se usará el estimado.
+                    </div>
+                    <table class="table table-hover m-0 align-middle">
+                        <thead class="bg-light text-uppercase small fw-bold">
+                            <tr>
+                                <th class="ps-3">GASTO</th>
+                                <th class="text-end">ESTIMADO</th>
+                                <th class="text-center" style="width: 180px;">MONTO REAL ($)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (GastosPendientes != null)
+                            {
+                                @foreach (var p in GastosPendientes)
+                                {
+                                    <tr>
+                                        <td class="ps-3">
+                                            <span class="fw-bold">@p.Descripcion</span>
+                                            <br/><small class="text-muted">@p.Categoria @(p.MaquinaNombre != null ? $"• {p.MaquinaNombre}" : "")</small>
+                                        </td>
+                                        <td class="text-end fw-bold font-monospace">$@p.MontoEstimado.ToString("N0")</td>
+                                        <td class="text-center">
+                                            <input type="number" class="form-control form-control-sm border-dark rounded-0 text-center fw-bold"
+                                                   placeholder="@p.MontoEstimado.ToString("N0")" 
+                                                   @bind="MontosReales[p.GastoRecurrenteId]" />
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                <div class="modal-footer bg-light border-top border-dark rounded-0 d-flex justify-content-between">
+                    <small class="text-muted">Los montos en 0 usarán el valor estimado.</small>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-outline-dark rounded-0" @onclick="() => MostrarModalAplicarGastos = false">CANCELAR</button>
+                        <button class="btn btn-warning rounded-0 fw-bold text-dark" @onclick="AplicarTodosGastos" disabled="@AplicandoGastos">
+                            @if (AplicandoGastos)
+                            {
+                                <span class="spinner-border spinner-border-sm me-1"></span><span>PROCESANDO...</span>
+                            }
+                            else
+                            {
+                                <i class="bi bi-check2-all me-1"></i><span>REGISTRAR TODOS</span>
+                            }
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
 
 @code {
     private DateTime SelectedDate = DateTime.Now;
@@ -371,9 +860,35 @@
     private List<OrdenCargaDto> OrdenesMensuales = new();
     
     // UI Logic
+    private string ActiveTab = "caja";
     private bool MostrarLotes = false;
     private HashSet<string> ExpandedGroups = new(); // Stores IDs of expanded groups
     private List<GrupoVisual> GruposVisuales = new();
+
+    // Estado de Resultados (P&L tab)
+    private bool _isVentasExpanded = false;
+    private bool _isCostoExpanded = false;
+    private bool _isGastosExpanded = false;
+    private bool _descontarTransbank = false;
+    private List<MovimientoCaja>? MovimientosGastos;
+    private ValorizacionStockData? Valorizacion;
+    private readonly string[] _targetCategories = new[] 
+    { 
+        "LOGISTICA", "PEAJES", "INSUMOS", "MANTENCION",
+        "INFRA", "ARRIENDO_POS", "INTERNET", "COMISIONES", "OTROS"
+    };
+
+    // Gastos Recurrentes
+    private List<GastoPendienteDto>? GastosPendientes;
+    private List<GastoRecurrenteDto>? TodosGastos;
+    private List<MaquinaSimpleDto>? ListaMaquinas;
+    private bool MostrarPanelGastosFijos = false;
+    private bool MostrarModalGastoFijo = false;
+    private bool MostrarModalAplicarGastos = false;
+    private bool AplicandoGastos = false;
+    private GastoRecurrenteDto GastoEditando = new();
+    private int GastoEditandoMaquinaId = 0;
+    private Dictionary<int, decimal> MontosReales = new();
 
     // Form Logic
     private List<Producto> ListaProductos = new();
@@ -398,6 +913,8 @@
     {
         await CargarDatos();
         await CargarProductos();
+        await CargarGastosRecurrentes();
+        await CargarMaquinas();
     }
     
     // UI Helpers
@@ -501,15 +1018,12 @@
                if (historialRaw != null)
                {
                    OrdenesMensuales = historialRaw.ToList(); 
-                   // We keep ALL history to link correctly even if order is old but expense is new (unlikely but possible)
-                   // Or at least filter slightly wider range. 
-                   // For simple UI dropdown, filter recent ones.
-                   // For Grouping Display, we need matching IDs.
                }
             } 
             catch {}
             
             PrepareGroups();
+            await CargarGastosPendientes();
         }
         catch (Exception ex)
         {
@@ -624,6 +1138,164 @@
         }
     }
 
+    // --- Estado de Resultados (P&L) ---
+    private async Task SetTabResultados()
+    {
+        ActiveTab = "resultados";
+        // Cargar datos de P&L al cambiar de tab
+        await CargarDatosResultados();
+    }
+
+    private async Task CargarDatosResultados()
+    {
+        try
+        {
+            // Cargar gastos operativos para detalle
+            string query = $"?month={SelectedDate.Month}&year={SelectedDate.Year}";
+            var allMovs = await Http.GetFromJsonAsync<List<MovimientoCaja>>($"api/caja/movimientos{query}");
+            if (allMovs != null)
+            {
+                MovimientosGastos = allMovs
+                    .Where(m => _targetCategories.Contains(m.Categoria) && m.Monto < 0)
+                    .OrderBy(m => m.Fecha)
+                    .ToList();
+            }
+
+            // Cargar valorización de stock
+            Valorizacion = await Http.GetFromJsonAsync<ValorizacionStockData>("api/caja/valorizacion");
+        }
+        catch (Exception ex) { Console.WriteLine($"Error P&L: {ex.Message}"); }
+    }
+
+    private string GetMarginPercentage()
+    {
+        if (Resumen == null || Resumen.IngresosVentas == 0) return "0.0";
+        double margin = (double)Resumen.UtilidadTotal / (double)Resumen.IngresosVentas;
+        return (margin * 100).ToString("F1");
+    }
+
+    private decimal GetUtilidadNetaFinal()
+    {
+        if (Resumen == null) return 0;
+        decimal neta = Resumen.UtilidadNeta;
+        if (_descontarTransbank) neta -= Resumen.CostoTransbank;
+        return neta;
+    }
+
+    // --- Gastos Recurrentes ---
+    private async Task CargarGastosRecurrentes()
+    {
+        try { TodosGastos = await Http.GetFromJsonAsync<List<GastoRecurrenteDto>>("api/GastoRecurrente") ?? new(); } catch { TodosGastos = new(); }
+    }
+
+    private async Task CargarGastosPendientes()
+    {
+        try
+        {
+            GastosPendientes = await Http.GetFromJsonAsync<List<GastoPendienteDto>>(
+                $"api/GastoRecurrente/pendientes?month={SelectedDate.Month}&year={SelectedDate.Year}") ?? new();
+        }
+        catch { GastosPendientes = new(); }
+    }
+
+    private async Task CargarMaquinas()
+    {
+        try { ListaMaquinas = await Http.GetFromJsonAsync<List<MaquinaSimpleDto>>("api/Ventas/lista-maquinas") ?? new(); } catch {}
+    }
+
+    private void AbrirModalNuevoGasto()
+    {
+        GastoEditando = new GastoRecurrenteDto { Categoria = "INTERNET" };
+        GastoEditandoMaquinaId = 0;
+        MostrarModalGastoFijo = true;
+    }
+
+    private void EditarGasto(GastoRecurrenteDto gasto)
+    {
+        GastoEditando = new GastoRecurrenteDto
+        {
+            Id = gasto.Id,
+            Descripcion = gasto.Descripcion,
+            MontoEstimado = gasto.MontoEstimado,
+            Categoria = gasto.Categoria,
+            MaquinaId = gasto.MaquinaId,
+            Activo = gasto.Activo
+        };
+        GastoEditandoMaquinaId = gasto.MaquinaId ?? 0;
+        MostrarModalGastoFijo = true;
+    }
+
+    private async Task GuardarGastoFijo()
+    {
+        if (string.IsNullOrWhiteSpace(GastoEditando.Descripcion) || GastoEditando.MontoEstimado <= 0) return;
+        
+        GastoEditando.MaquinaId = GastoEditandoMaquinaId > 0 ? GastoEditandoMaquinaId : null;
+        GastoEditando.Tipo = "GASTO";
+        GastoEditando.Activo = true;
+
+        try
+        {
+            if (GastoEditando.Id > 0)
+            {
+                await Http.PutAsJsonAsync($"api/GastoRecurrente/{GastoEditando.Id}", GastoEditando);
+            }
+            else
+            {
+                await Http.PostAsJsonAsync("api/GastoRecurrente", GastoEditando);
+            }
+            MostrarModalGastoFijo = false;
+            await CargarGastosRecurrentes();
+            await CargarGastosPendientes();
+        }
+        catch (Exception ex) { Console.WriteLine($"Error: {ex.Message}"); }
+    }
+
+    private async Task DesactivarGasto(int id)
+    {
+        try
+        {
+            await Http.DeleteAsync($"api/GastoRecurrente/{id}");
+            await CargarGastosRecurrentes();
+            await CargarGastosPendientes();
+        }
+        catch { }
+    }
+
+    private void MostrarModalAplicar()
+    {
+        MontosReales = new Dictionary<int, decimal>();
+        if (GastosPendientes != null)
+        {
+            foreach (var p in GastosPendientes)
+            {
+                MontosReales[p.GastoRecurrenteId] = 0; // 0 = usar estimado
+            }
+        }
+        MostrarModalAplicarGastos = true;
+    }
+
+    private async Task AplicarTodosGastos()
+    {
+        AplicandoGastos = true;
+        try
+        {
+            var request = new AplicarTodosRequest
+            {
+                Month = SelectedDate.Month,
+                Year = SelectedDate.Year,
+                MontosPersonalizados = MontosReales
+                    .Where(kv => kv.Value > 0)
+                    .Select(kv => new MontoPersonalizadoDto { GastoRecurrenteId = kv.Key, MontoReal = kv.Value })
+                    .ToList()
+            };
+            await Http.PostAsJsonAsync("api/GastoRecurrente/aplicar-todos", request);
+            MostrarModalAplicarGastos = false;
+            await CargarDatos();
+        }
+        catch (Exception ex) { Console.WriteLine($"Error: {ex.Message}"); }
+        finally { AplicandoGastos = false; }
+    }
+
     // --- DTOs Locales ---
     public class CajaResumenDto
     {
@@ -641,6 +1313,8 @@
         public decimal UtilidadOperacional { get; set; } 
         public decimal SueldoEsperado { get; set; } 
         public decimal UtilidadNeta { get; set; }   
+        public decimal CostoTransbank { get; set; }
+        public int CantidadVentasTransbank { get; set; }
         public bool IsLocked { get; set; }
     }
 
@@ -656,6 +1330,8 @@
         public int? ProductoId { get; set; }
         public int Cantidad { get; set; }
         public int? OrdenCargaId { get; set; }
+        public int? CompraId { get; set; }
+        public int? GastoRecurrenteId { get; set; }
     }
     
     public class Producto
@@ -676,6 +1352,49 @@
         public DateTime FechaCreacion { get; set; }
         public string Estado { get; set; } = "";
         public string MaquinaNombre { get; set; } = "";
+    }
+
+    public class GastoRecurrenteDto
+    {
+        public int Id { get; set; }
+        public string Descripcion { get; set; } = "";
+        public decimal MontoEstimado { get; set; }
+        public string Categoria { get; set; } = "INTERNET";
+        public string Tipo { get; set; } = "GASTO";
+        public bool Activo { get; set; } = true;
+        public int? MaquinaId { get; set; }
+    }
+
+    public class GastoPendienteDto
+    {
+        public int GastoRecurrenteId { get; set; }
+        public string Descripcion { get; set; } = "";
+        public decimal MontoEstimado { get; set; }
+        public string Categoria { get; set; } = "";
+        public int? MaquinaId { get; set; }
+        public string? MaquinaNombre { get; set; }
+    }
+
+    public class MaquinaSimpleDto { public int Id { get; set; } public string Nombre { get; set; } = ""; }
+
+    public class AplicarTodosRequest
+    {
+        public int? Month { get; set; }
+        public int? Year { get; set; }
+        public List<MontoPersonalizadoDto>? MontosPersonalizados { get; set; }
+    }
+
+    public class MontoPersonalizadoDto
+    {
+        public int GastoRecurrenteId { get; set; }
+        public decimal MontoReal { get; set; }
+    }
+
+    public class ValorizacionStockData
+    {
+        public decimal ValorBodega { get; set; }
+        public decimal ValorMaquinas { get; set; }
+        public decimal ValorTotal => ValorBodega + ValorMaquinas;
     }
 
     private string MontoString
