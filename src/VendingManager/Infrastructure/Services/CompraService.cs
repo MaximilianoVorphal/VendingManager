@@ -62,11 +62,12 @@ public class CompraService : ICompraService
             }
         }
 
-        // 2. Guardar la Compra
+        // 2. Guardar la Compra (primero para obtener el ID)
         if (compra.FechaCompra == DateTime.MinValue)
             compra.FechaCompra = DateTime.Now;
             
         _context.Compras.Add(compra);
+        await _context.SaveChangesAsync(); // Genera compra.Id
 
         // 3. Registrar Movimiento en Caja automáticamente si la compra fue pagada
         if (compra.Estado == "PAGADA" && compra.PagadaCaja)
@@ -77,12 +78,13 @@ public class CompraService : ICompraService
                 Descripcion = $"Factura/Boleta Nº {compra.NumeroDocumento} - {compra.Proveedor}",
                 Monto = -compra.MontoTotal, // Gasto de dinero
                 Tipo = "GASTO",
-                Categoria = "MERCADERIA"
+                Categoria = "MERCADERIA",
+                CompraId = compra.Id // FK para trazabilidad bidireccional
             };
             _context.MovimientosCaja.Add(movimiento);
+            await _context.SaveChangesAsync();
         }
 
-        await _context.SaveChangesAsync();
         return compra;
     }
 
@@ -101,7 +103,8 @@ public class CompraService : ICompraService
                 Descripcion = $"Pago Factura/Boleta Nº {compra.NumeroDocumento} - {compra.Proveedor}",
                 Monto = -compra.MontoTotal,
                 Tipo = "GASTO",
-                Categoria = "MERCADERIA"
+                Categoria = "MERCADERIA",
+                CompraId = compra.Id // FK para trazabilidad
             };
             _context.MovimientosCaja.Add(movimiento);
             
@@ -120,18 +123,17 @@ public class CompraService : ICompraService
         if (request.FechaCompra != DateTime.MinValue)
         {
             compra.FechaCompra = request.FechaCompra;
-            
-            // Si la compra tiene un movimiento de caja asociado, también debemos actualizar su descripción y fecha
-            var movimiento = await _context.MovimientosCaja
-                .FirstOrDefaultAsync(m => m.Descripcion.Contains($"Factura/Boleta Nº {compra.NumeroDocumento}") && 
-                                          m.Monto == -compra.MontoTotal);
-                                          
-            if (movimiento != null)
-            {
-                movimiento.Fecha = request.FechaCompra;
-                movimiento.Descripcion = $"Factura/Boleta Nº {request.NumeroDocumento} - {request.Proveedor}";
-                _context.MovimientosCaja.Update(movimiento);
-            }
+        }
+
+        // Actualizar el movimiento de caja asociado usando FK (en vez de búsqueda por texto)
+        var movimiento = await _context.MovimientosCaja
+            .FirstOrDefaultAsync(m => m.CompraId == id);
+                                      
+        if (movimiento != null)
+        {
+            movimiento.Fecha = request.FechaCompra != DateTime.MinValue ? request.FechaCompra : movimiento.Fecha;
+            movimiento.Descripcion = $"Factura/Boleta Nº {request.NumeroDocumento} - {request.Proveedor}";
+            _context.MovimientosCaja.Update(movimiento);
         }
 
         _context.Compras.Update(compra);

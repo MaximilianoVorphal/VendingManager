@@ -37,6 +37,7 @@ namespace VendingManager.Core.Entities
 
         public int CantidadSolicitada { get; set; } // Qty taken from warehouse
         public int CantidadRetornada { get; set; } = 0; // Qty returned (sobras)
+        public decimal CostoUnitario { get; set; } // Snapshot of CostoPromedio at order creation
 
         public int? MaquinaId { get; set; } // For consolidated orders
     }

@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace VendingManager.Core.Entities;
@@ -29,4 +29,10 @@ public class MovimientoCaja
     // Vinculación con Orden de Carga (Recarga)
     public int? OrdenCargaId { get; set; }
     // public OrdenCarga? OrdenCarga { get; set; } // Optional navigation, helpful for EF
+
+    // Vinculación con Compra (trazabilidad bidireccional)
+    public int? CompraId { get; set; }
+
+    // Vinculación con Gasto Recurrente (evita duplicados por mes)
+    public int? GastoRecurrenteId { get; set; }
 }

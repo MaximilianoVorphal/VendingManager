@@ -39,6 +39,7 @@ namespace VendingManager.Shared.DTOs
         public string Estado { get; set; } = "";
         public int? MaquinaId { get; set; }
         public string MaquinaNombre { get; set; } = "";
+        public decimal CostoTotal { get; set; } // Valorized cost of loaded merchandise
         public List<DetalleOrdenDisplayDto> Detalles { get; set; } = new();
     }
 
@@ -49,6 +50,7 @@ namespace VendingManager.Shared.DTOs
         public string ProductoNombre { get; set; } = "";
         public int CantidadSolicitada { get; set; }
         public int CantidadRetornada { get; set; }
+        public decimal CostoUnitario { get; set; }
         public int? MaquinaId { get; set; }
         public string MaquinaNombre { get; set; } = "";
     }
