@@ -465,6 +465,7 @@ namespace VendingManager.Web.Pages
             public string Estado { get; set; } = "";
             public int? MaquinaId { get; set; } // Added nullable
             public string MaquinaNombre { get; set; } = "";
+            public decimal CostoTotal { get; set; }
             public List<DetalleOrdenDisplayDto> Detalles { get; set; } = new();
         }
         public class DetalleOrdenDisplayDto
@@ -474,6 +475,7 @@ namespace VendingManager.Web.Pages
             public string ProductoNombre { get; set; } = "";
             public int CantidadSolicitada { get; set; }
             public int CantidadRetornada { get; set; }
+            public decimal CostoUnitario { get; set; }
             public int? MaquinaId { get; set; } // Added
             public string MaquinaNombre { get; set; } = ""; // Added
         }

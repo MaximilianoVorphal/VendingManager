@@ -65,6 +65,7 @@ namespace VendingManager.Infrastructure.Services
                     ProductoNombre = producto.Nombre,
                     CantidadSolicitada = item.Cantidad,
                     CantidadRetornada = 0,
+                    CostoUnitario = producto.CostoPromedio, // Snapshot del costo
                     MaquinaId = itemMaquinaId
                 });
             }
@@ -106,6 +107,52 @@ namespace VendingManager.Infrastructure.Services
                 {
                     producto.StockBodega += ret.CantidadRetornada;
                 }
+            }
+
+            // Actualizar stock de cada slot de la máquina
+            foreach (var detalle in orden.Detalles)
+            {
+                int cantidadCargada = detalle.CantidadSolicitada - detalle.CantidadRetornada;
+                int? maqId = detalle.MaquinaId ?? orden.MaquinaId;
+                if (maqId.HasValue && cantidadCargada > 0)
+                {
+                    var slot = await _context.ConfiguracionSlots
+                        .FirstOrDefaultAsync(s => s.MaquinaId == maqId.Value 
+                                               && s.ProductoId == detalle.ProductoId);
+                    if (slot != null)
+                    {
+                        slot.StockActual += cantidadCargada;
+                        // Clamp to capacity
+                        if (slot.StockActual > slot.CapacidadMaxima)
+                            slot.StockActual = slot.CapacidadMaxima;
+                    }
+                }
+            }
+
+            // Registrar MovimientoCaja con costo total real
+            decimal costoTotal = orden.Detalles.Sum(d => 
+                (d.CantidadSolicitada - d.CantidadRetornada) * d.CostoUnitario);
+
+            if (costoTotal > 0)
+            {
+                string maquinaNombre = "RUTA GLOBAL";
+                if (orden.MaquinaId.HasValue)
+                {
+                    maquinaNombre = await _context.Maquinas
+                        .Where(m => m.Id == orden.MaquinaId.Value)
+                        .Select(m => m.Nombre)
+                        .FirstOrDefaultAsync() ?? "Desconocida";
+                }
+
+                _context.MovimientosCaja.Add(new MovimientoCaja
+                {
+                    Fecha = DateTime.Now,
+                    Descripcion = $"Carga #{orden.Id} — {(string.IsNullOrEmpty(orden.Nombre) ? maquinaNombre : orden.Nombre)}",
+                    Monto = -costoTotal,
+                    Tipo = "GASTO",
+                    Categoria = "MERCADERIA",
+                    OrdenCargaId = orden.Id
+                });
             }
 
             orden.Estado = "FINALIZADA";
@@ -259,23 +306,27 @@ namespace VendingManager.Infrastructure.Services
 
         private OrdenCargaDto MapToDto(OrdenCarga orden, string maquinaNombre)
         {
+            var detalles = orden.Detalles.Select(d => new DetalleOrdenDisplayDto
+            {
+                Id = d.Id,
+                ProductoId = d.ProductoId,
+                ProductoNombre = d.ProductoNombre,
+                CantidadSolicitada = d.CantidadSolicitada,
+                CantidadRetornada = d.CantidadRetornada,
+                CostoUnitario = d.CostoUnitario,
+                MaquinaId = d.MaquinaId
+            }).ToList();
+
             return new OrdenCargaDto
             {
                 Id = orden.Id,
-                Nombre = orden.Nombre, // Mapped
+                Nombre = orden.Nombre,
                 FechaCreacion = orden.FechaCreacion,
                 Estado = orden.Estado,
                 MaquinaId = orden.MaquinaId,
                 MaquinaNombre = maquinaNombre,
-                Detalles = orden.Detalles.Select(d => new DetalleOrdenDisplayDto
-                {
-                    Id = d.Id,
-                    ProductoId = d.ProductoId,
-                    ProductoNombre = d.ProductoNombre,
-                    CantidadSolicitada = d.CantidadSolicitada,
-                    CantidadRetornada = d.CantidadRetornada,
-                    MaquinaId = d.MaquinaId
-                }).ToList()
+                CostoTotal = detalles.Sum(d => (d.CantidadSolicitada - d.CantidadRetornada) * d.CostoUnitario),
+                Detalles = detalles
             };
         }
     }

@@ -64,6 +64,8 @@ C4Container
             Component(orden, "Orden Carga Excel", "Service", "Genera XLS de ruta de camión.")
             Component(analytics, "Sales Analytics", "Service", "Métricas pesadas y Quiebre de stock.")
             Component(purchasing, "Purchasing", "Service", "Abastecimiento de 30 días.")
+            Component(gastos, "Gastos Recurrentes", "Service", "Gestión de gastos fijos mensuales y alertas de pendientes.")
+            Component(ordencarga, "Orden Carga", "Service", "Logística de reposición: descuenta bodega, actualiza slots, registra costo en Caja.")
         }
         
         ComponentDb(efcore, "Entity Framework Core", "ORM", "Contexto UnitOfWork para acceso SQL.")
@@ -77,6 +79,8 @@ C4Container
     Rel(controllers, sales, "Envía Excel importado", "Interface")
     Rel(controllers, analytics, "Lee Dashboard Stats", "Interface")
     Rel(controllers, purchasing, "Trae pronóstico compras", "Interface")
+    Rel(controllers, gastos, "CRUD + Pendientes mes", "Interface")
+    Rel(controllers, ordencarga, "CRUD Órdenes + Finalizar", "Interface")
     
     Rel(sync, scraper, "Petición asíncrona de extracción", "HTTP")
     Rel(ocr, scraper, "Petición multipart imagen OCR", "HTTP")
@@ -85,6 +89,8 @@ C4Container
     Rel(sales, efcore, "Actualiza base de datos", "LINQ")
     Rel(catalog, efcore, "Actualiza productos", "LINQ")
     Rel(analytics, efcore, "Consultas polimórficas", "LINQ")
+    Rel(gastos, efcore, "Cruza GastosRecurrentes vs MovimientosCaja", "LINQ")
+    Rel(ordencarga, efcore, "Bodega + Slots + MovimientosCaja", "LINQ")
 
     UpdateElementStyle(controllers, $fontColor="white", $bgColor="#2B78E4", $borderColor="#1C5FB8")
     UpdateElementStyle(efcore, $fontColor="white", $bgColor="#D32F2F", $borderColor="#B71C1C")

@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using VendingManager.Core.Entities;
 
 namespace VendingManager.Infrastructure.Data
@@ -22,6 +22,7 @@ namespace VendingManager.Infrastructure.Data
         public DbSet<Auditoria> Auditoria { get; set; } = null!;
         public DbSet<Compra> Compras { get; set; } = null!;
         public DbSet<DetalleCompra> DetallesCompra { get; set; } = null!;
+        public DbSet<GastoRecurrente> GastosRecurrentes { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -38,6 +39,9 @@ namespace VendingManager.Infrastructure.Data
                 .Property(p => p.CostoPromedio).HasColumnType("decimal(18,2)");
             modelBuilder.Entity<Producto>()
                 .Property(p => p.PrecioVenta).HasColumnType("decimal(18,2)");
+
+            modelBuilder.Entity<DetalleOrdenCarga>()
+                .Property(d => d.CostoUnitario).HasColumnType("decimal(18,2)");
         }
     }
 }
