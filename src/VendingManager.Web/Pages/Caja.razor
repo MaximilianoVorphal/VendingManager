@@ -100,6 +100,10 @@
                 @onclick='() => ActiveTab = "caja"'>
             <i class="bi bi-cash-stack me-1"></i>CAJA
         </button>
+        <button class="btn rounded-0 fw-bold text-uppercase px-4 py-2 border-0 @(ActiveTab == "gastosfijos" ? "bg-dark text-white" : "bg-white text-dark")" 
+                @onclick='() => ActiveTab = "gastosfijos"'>
+            <i class="bi bi-gear-fill me-1"></i>GASTOS FIJOS
+        </button>
         <AuthorizeView Roles="Admin">
             <button class="btn rounded-0 fw-bold text-uppercase px-4 py-2 border-0 @(ActiveTab == "resultados" ? "bg-dark text-white" : "bg-white text-dark")" 
                     @onclick='() => SetTabResultados()'>
@@ -410,23 +414,21 @@
         </div>
     </div>
 
-    @* ====== PANEL GASTOS FIJOS MENSUALES ====== *@
-    <div class="row mt-4 mb-4">
-        <div class="col-12">
-            <div class="card border-2 border-dark rounded-0 shadow-sm">
-                <div class="card-header bg-dark text-white rounded-0 fw-bold d-flex justify-content-between align-items-center cursor-pointer"
-                     role="button" @onclick="() => MostrarPanelGastosFijos = !MostrarPanelGastosFijos">
-                    <span><i class="bi bi-gear-fill me-2"></i>GASTOS FIJOS MENSUALES</span>
-                    <div class="d-flex align-items-center gap-2">
+    } @* END TAB CAJA *@
+
+    @* ====== TAB: GASTOS FIJOS ====== *@
+    @if (ActiveTab == "gastosfijos")
+    {
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card border-2 border-dark rounded-0 shadow-sm">
+                    <div class="card-header bg-dark text-white rounded-0 fw-bold d-flex justify-content-between align-items-center">
+                        <span><i class="bi bi-gear-fill me-2"></i>CONFIGURACIÓN DE GASTOS FIJOS MENSUALES</span>
                         @if (TodosGastos != null)
                         {
                             <span class="badge bg-light text-dark rounded-0">@TodosGastos.Count(g => g.Activo) activos</span>
                         }
-                        <i class="bi @(MostrarPanelGastosFijos ? "bi-chevron-up" : "bi-chevron-down")"></i>
                     </div>
-                </div>
-                @if (MostrarPanelGastosFijos)
-                {
                     <div class="card-body bg-light p-0">
                         <div class="p-3 border-bottom border-dark bg-white">
                             <button class="btn btn-dark rounded-0 btn-sm fw-bold" @onclick="AbrirModalNuevoGasto" disabled="@(Resumen?.IsLocked == true)">
@@ -487,11 +489,10 @@
                             </div>
                         }
                     </div>
-                }
+                </div>
             </div>
         </div>
-    </div>
-    } @* END TAB CAJA *@
+    } @* END TAB GASTOS FIJOS *@
 
     @* ====== TAB: ESTADO DE RESULTADOS (Solo Admin) ====== *@
     @if (ActiveTab == "resultados" && Resumen != null)
