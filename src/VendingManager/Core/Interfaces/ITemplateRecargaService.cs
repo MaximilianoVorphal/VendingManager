@@ -30,4 +30,10 @@ public interface ITemplateRecargaService
     /// Obtiene la configuración actual de slots de una máquina para crear un snapshot
     /// </summary>
     Task<List<SnapshotSlotDto>> GetSlotsForMaquinaAsync(int maquinaId);
+
+    /// <summary>
+    /// Sincroniza históricamente el ProductoId y (opcionalmente) CostoVenta 
+    /// en la tabla de Ventas utilizando la configuración del Template de Recarga.
+    /// </summary>
+    Task<int> SyncVentasWithTemplateAsync(int templateId, bool actualizarCostos);
 }

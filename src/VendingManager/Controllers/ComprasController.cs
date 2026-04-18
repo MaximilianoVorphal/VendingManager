@@ -35,6 +35,7 @@ public class ComprasController : ControllerBase
                 NumeroDocumento = c.NumeroDocumento,
                 MontoTotal = c.MontoTotal,
                 Estado = c.Estado,
+                TipoFactura = c.TipoFactura,
                 PagadaCaja = c.PagadaCaja,
                 Detalles = c.Detalles.Select(d => new DetalleCompraDto
                 {
@@ -42,6 +43,7 @@ public class ComprasController : ControllerBase
                     CompraId = d.CompraId,
                     ProductoId = d.ProductoId,
                     ProductoNombre = d.Producto?.Nombre,
+                    DescripcionItem = d.DescripcionItem,
                     Cantidad = d.Cantidad,
                     CostoUnitario = d.CostoUnitario,
                     Subtotal = d.Subtotal
@@ -70,6 +72,7 @@ public class ComprasController : ControllerBase
             NumeroDocumento = c.NumeroDocumento,
             MontoTotal = c.MontoTotal,
             Estado = c.Estado,
+            TipoFactura = c.TipoFactura,
             PagadaCaja = c.PagadaCaja,
             Detalles = c.Detalles.Select(d => new DetalleCompraDto
             {
@@ -77,6 +80,7 @@ public class ComprasController : ControllerBase
                 CompraId = d.CompraId,
                 ProductoId = d.ProductoId,
                 ProductoNombre = d.Producto?.Nombre,
+                DescripcionItem = d.DescripcionItem,
                 Cantidad = d.Cantidad,
                 CostoUnitario = d.CostoUnitario,
                 Subtotal = d.Subtotal
@@ -100,11 +104,13 @@ public class ComprasController : ControllerBase
             Proveedor = request.Proveedor,
             NumeroDocumento = request.NumeroDocumento,
             Estado = request.Estado,
+            TipoFactura = request.TipoFactura,
             PagadaCaja = request.PagadaCaja,
             UsuarioRegistra = User.Identity?.Name,
             Detalles = request.Detalles.Select(d => new DetalleCompra
             {
                 ProductoId = d.ProductoId,
+                DescripcionItem = d.DescripcionItem,
                 Cantidad = d.Cantidad,
                 CostoUnitario = d.CostoUnitario,
                 Subtotal = d.Cantidad * d.CostoUnitario
@@ -127,11 +133,25 @@ public class ComprasController : ControllerBase
     }
 
     [HttpPut("{id}")]
-    public async Task<IActionResult> ActualizarCompra(int id, [FromBody] ActualizarCompraRequestDto request)
+    public async Task<IActionResult> ActualizarCompra(int id, [FromBody] RegistrarCompraRequestDto request)
     {
         try
         {
             await _compraService.ActualizarCompraAsync(id, request);
+            return NoContent();
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> EliminarCompra(int id)
+    {
+        try
+        {
+            await _compraService.EliminarCompraAsync(id);
             return NoContent();
         }
         catch (Exception ex)

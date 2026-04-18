@@ -94,9 +94,13 @@
                             </div>
                         </div>
                         <div class="card-footer bg-light border-top border-dark">
-                            <button class="btn btn-danger w-100 rounded-0 fw-bold"
+                            <button class="btn btn-danger w-100 rounded-0 fw-bold mb-2"
                         @onclick="() => AnalizarTemplate(template.Id)">
                                 <i class="bi bi-graph-up me-1"></i> ANALIZAR STOCKOUT
+                            </button>
+                            <button class="btn btn-warning w-100 rounded-0 fw-bold"
+                        @onclick="() => AbrirModalSincronizar(template.Id)">
+                                <i class="bi bi-arrow-repeat me-1"></i> APLICAR A VENTAS
                             </button>
                         </div>
                     </div>
@@ -211,75 +215,27 @@
                                             </div>
                                         </div>
 
-                                        @* Mostrar slots si tiene snapshot *@
                                         @if (periodo.SnapshotSlots.Any())
                                         {
-                                            <div class="mt-2 p-2 bg-light border border-secondary"
-                                style="max-height: 350px; overflow-y: auto;">
-                                                <div class="d-flex justify-content-between align-items-center mb-2">
-                                                    <small class="fw-bold text-success">
-                                                        <i class="bi bi-check-circle me-1"></i>@periodo.SnapshotSlots.Count(s =>
-                                        s.ProductoId.HasValue && s.ProductoId > 0) productos configurados
-                                                    </small>
-                                                    <div>
-                                                        <button class="btn btn-sm btn-outline-success rounded-0 py-0 me-1"
-                                            @onclick="() => AgregarSlotVacio(periodo)">
-                                                            <i class="bi bi-plus"></i> Slot
-                                                        </button>
-                                                        <button class="btn btn-sm btn-outline-secondary rounded-0 py-0"
-                                            @onclick="() => periodo.SnapshotSlots.Clear()">
-                                                            <i class="bi bi-x"></i> Limpiar
-                                                        </button>
-                                                    </div>
+                                            <div class="mt-3 p-3 bg-white border border-2 border-dark text-center shadow-sm">
+                                                <h6 class="fw-bold text-success mb-3 text-uppercase">
+                                                    <i class="bi bi-check-circle-fill me-1"></i>
+                                                    @periodo.SnapshotSlots.Count(s => s.ProductoId.HasValue && s.ProductoId > 0) productos configurados
+                                                    <span class="text-muted ms-1">(de @periodo.SnapshotSlots.Count slots)</span>
+                                                </h6>
+                                                <button class="btn btn-warning rounded-0 fw-bold border-2 border-dark mb-2 px-4 py-2 text-uppercase btn-lg" style="box-shadow: 3px 3px 0px #000; transition: transform 0.1s;"
+                                                    onmousedown="this.style.transform='translate(2px, 2px)'; this.style.boxShadow='1px 1px 0px #000';"
+                                                    onmouseup="this.style.transform='none'; this.style.boxShadow='3px 3px 0px #000';"
+                                                    onmouseleave="this.style.transform='none'; this.style.boxShadow='3px 3px 0px #000';"
+                                                    @onclick="() => AbrirEdicionVisual(periodo)">
+                                                    <i class="bi bi-grid-3x3-gap-fill me-2"></i> EDITAR SLOTS (GRILLA)
+                                                </button>
+                                                <div class="mt-3 border-top border-dark pt-3">
+                                                    <button class="btn btn-sm btn-outline-danger rounded-0 fw-bold"
+                                                        @onclick="() => periodo.SnapshotSlots.Clear()">
+                                                        <i class="bi bi-trash"></i> VACIAR MÁQUINA
+                                                    </button>
                                                 </div>
-                                                <table class="table table-sm table-bordered m-0 small">
-                                                    <thead class="table-dark sticky-top">
-                                                        <tr>
-                                                            <th style="width: 70px;">Slot</th>
-                                                            <th>Producto</th>
-                                                            <th style="width: 70px;" class="text-center">Cant.</th>
-                                                            <th style="width: 40px;"></th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        @foreach (var slot in periodo.SnapshotSlots
-                                                       .OrderBy(s => int.TryParse(s.NumeroSlot, out var n) ? n : 999))
-                                                        {
-                                                            <tr>
-                                                                <td class="p-0">
-                                                                    <input type="text"
-                                                    class="form-control form-control-sm text-center border-0 bg-transparent font-monospace"
-                                                    @bind="slot.NumeroSlot" placeholder="#" />
-                                                                </td>
-                                                                <td class="p-0">
-                                                                    <select class="form-select form-select-sm border-0 bg-transparent"
-                                                    @bind="slot.ProductoId"
-                                                    @bind:after="() => ActualizarNombreProducto(slot)">
-                                                                        <option value="">-- Sin producto --</option>
-                                                                        @if (ListaProductos != null)
-                                                                        {
-                                                                            @foreach (var prod in ListaProductos)
-                                                                            {
-                                                                                <option value="@prod.Id">@prod.Nombre</option>
-                                                                            }
-                                                                        }
-                                                                    </select>
-                                                                </td>
-                                                                <td class="text-center p-0">
-                                                                    <input type="number" min="0" max="@slot.CapacidadSlot"
-                                                    class="form-control form-control-sm text-center border-0 bg-transparent"
-                                                    @bind="slot.CantidadInicial" />
-                                                                </td>
-                                                                <td class="text-center p-0">
-                                                                    <button class="btn btn-sm btn-link text-danger p-0"
-                                                    @onclick="() => periodo.SnapshotSlots.Remove(slot)">
-                                                                        <i class="bi bi-trash"></i>
-                                                                    </button>
-                                                                </td>
-                                                            </tr>
-                                                        }
-                                                    </tbody>
-                                                </table>
                                             </div>
                                         }
                                     </div>
@@ -302,12 +258,214 @@
     </div>
 }
 
+<!-- MODAL EDICION VISUAL DE SLOTS -->
+@if (PeriodoEnEdicionVisual != null)
+{
+    var maq = ListaMaquinas?.FirstOrDefault(m => m.Id == PeriodoEnEdicionVisual.MaquinaId)?.Nombre ?? "MÁQUINA";
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.85); z-index: 1060;">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content border-3 border-dark rounded-0">
+                <div class="modal-header bg-dark text-white rounded-0 border-bottom border-dark">
+                    <h5 class="modal-title fw-bold text-uppercase m-0">
+                        <i class="bi bi-grid-3x3-gap-fill me-2"></i> ESTANTERÍA - @maq
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CerrarEdicionVisual"></button>
+                </div>
+                <div class="modal-body bg-light p-4">
+                    @{
+                        // Agrupar por pisos usando decenas
+                        var validSlots = PeriodoEnEdicionVisual.SnapshotSlots.ToList();
+                        var shelves = validSlots.GroupBy(s => (int.TryParse(s.NumeroSlot, out var n) ? n - 1 : 0) / 10).OrderBy(g => g.Key);
+                    }
+                    
+                    @if (!validSlots.Any())
+                    {
+                        <div class="text-center py-5">
+                            <h5 class="text-muted fw-bold">NO HAY SLOTS CONFIGURADOS</h5>
+                            <button class="btn btn-success mt-3 rounded-0 fw-bold border-dark shadow-sm" @onclick="() => AgregarSlotVacio(PeriodoEnEdicionVisual)">
+                                <i class="bi bi-plus-circle me-2"></i> AGREGAR PRIMER SLOT
+                            </button>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="d-flex flex-column gap-4 machine-chassis">
+                            @foreach (var shelf in shelves)
+                            {
+                                int bgIndex = shelf.Key % 2; // Alternar colores ligeramente
+
+                                <div class="shelf-container p-3 border border-3 border-dark bg-white shadow-sm" style="@(bgIndex == 1 ? "background-color: #fafafa !important;" : "")">
+                                    <div class="badge bg-dark text-white rounded-0 px-3 py-2 mb-3 fs-6">PISO @(shelf.Key + 1)</div>
+                                    <div class="inventory-grid">
+                                        @foreach (var slot in shelf.OrderBy(s => int.TryParse(s.NumeroSlot, out var n) ? n : 999))
+                                        {
+                                            string productColorClass = slot.ProductoId.HasValue ? "bg-white" : "bg-warning bg-opacity-25";
+
+                                            <div class="slot-unit p-2 border border-2 border-dark d-flex flex-column shadow-sm @productColorClass" style="min-height: 140px; transition: all 0.2s;">
+                                                <!-- TOP HEADER -->
+                                                <div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom border-secondary">
+                                                    <div class="d-flex align-items-center">
+                                                        <span class="text-muted fw-bold me-1" style="font-size:0.7rem;">SLOT</span>
+                                                        <input type="text" class="form-control form-control-sm border-dark text-center font-monospace fw-bold p-0" 
+                                                            style="width: 35px; height: 22px; font-size: 0.85rem;" 
+                                                            @bind="slot.NumeroSlot" />
+                                                    </div>
+                                                    <button class="btn btn-sm text-danger p-0 m-0 lh-1" @onclick="() => PeriodoEnEdicionVisual.SnapshotSlots.Remove(slot)" title="Eliminar Slot">
+                                                        <i class="bi bi-x-circle-fill fs-5"></i>
+                                                    </button>
+                                                </div>
+                                                
+                                                <!-- PRODUCT SELECTOR -->
+                                                <div class="mb-2 flex-grow-1 d-flex align-items-center">
+                                                    <select class="form-select form-select-sm border-dark shadow-none fw-bold text-center product-select" 
+                                                        style="height: 100%; white-space: normal; appearance: none; background-image: none; cursor: pointer; padding: 2px;"
+                                                        @bind="slot.ProductoId" @bind:after="() => ActualizarNombreProducto(slot)">
+                                                        <option value="">-- SELECCIONAR --</option>
+                                                        @if (ListaProductos != null)
+                                                        {
+                                                            @foreach (var prod in ListaProductos)
+                                                            {
+                                                                <option value="@prod.Id">@prod.Nombre</option>
+                                                            }
+                                                        }
+                                                    </select>
+                                                </div>
+                                                
+                                                <!-- FOOTER INPUTS -->
+                                                <div class="mt-auto d-flex align-items-center justify-content-between border-top border-secondary pt-2">
+                                                    <div class="d-flex flex-column w-50 pe-1 border-end border-secondary">
+                                                        <span class="text-muted" style="font-size:0.6rem; font-weight: 800;">CANT.</span>
+                                                        <input type="number" class="form-control form-control-sm text-center border-dark p-0 fw-bold" 
+                                                            style="height: 22px; font-size:0.85rem;" min="0" max="100" @bind="slot.CantidadInicial" title="Cantidad Inicial" />
+                                                    </div>
+                                                    <div class="d-flex flex-column w-50 ps-1">
+                                                        <span class="text-muted" style="font-size:0.6rem; font-weight: 800;">CAPAC.</span>
+                                                        <input type="number" class="form-control form-control-sm text-center border-secondary p-0 text-muted bg-light" 
+                                                            style="height: 22px; font-size:0.85rem;" min="0" max="100" @bind="slot.CapacidadSlot" title="Capacidad Máxima Slot" />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer bg-light border-top border-dark rounded-0 px-4 py-3 d-flex justify-content-between">
+                    <button class="btn btn-dark rounded-0 fw-bold border-dark shadow-sm" @onclick="() => AgregarSlotVacio(PeriodoEnEdicionVisual)">
+                        <i class="bi bi-plus-circle me-2"></i>AÑADIR SLOT EXTRA
+                    </button>
+                    <button type="button" class="btn btn-success px-5 py-2 fw-bold rounded-0 shadow-sm border-2 border-dark text-uppercase" style="font-size: 1.1rem" @onclick="CerrarEdicionVisual">
+                        <i class="bi bi-save me-2"></i> GUARDAR CAMBIOS Y VOLVER
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- MODAL SINCRONIZAR VENTAS -->
+@if (MostrarModalSincronizar)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-2 border-dark rounded-0">
+                <div class="modal-header bg-warning text-dark rounded-0 border-bottom border-dark">
+                    <h5 class="modal-title fw-bold text-uppercase">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i> CONFIRMAR SINCRONIZACIÓN
+                    </h5>
+                    <button type="button" class="btn-close" @onclick="CerrarModalSincronizar"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="fw-bold">Estás a punto de reescribir datos históricos en Ventas.</p>
+                    <p class="small text-muted mb-4">
+                        Esto reemplazará el producto asignado a las ventas del período para que coincida con el snapshot actual.
+                    </p>
+                    <div class="form-check">
+                        <input class="form-check-input border-dark" type="checkbox" id="checkCostos" @bind="ActualizarCostosSincronizacion">
+                        <label class="form-check-label fw-bold small" for="checkCostos">
+                            ¿Actualizar también Costo de Venta con el valor actual del producto?
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer border-top border-dark">
+                    <button type="button" class="btn btn-secondary rounded-0" @onclick="CerrarModalSincronizar" disabled="@Sincronizando">
+                        CANCELAR
+                    </button>
+                    <button type="button" class="btn btn-warning rounded-0 fw-bold border-dark" @onclick="SincronizarVentas" disabled="@Sincronizando">
+                        @(Sincronizando ? "SINCRONIZANDO..." : "SÍ, SINCRONIZAR")
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<style>
+    /* Estilos copiados y adaptados de Reposicion.razor */
+    .machine-chassis {
+        background-color: #222;
+        padding: 8px;
+        border-radius: 4px;
+        border: 4px solid #444;
+    }
+    
+    .shelf-container {
+        border-bottom: 6px solid #555 !important; 
+    }
+    
+    /* INVENTORY GRID */
+    .inventory-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+        gap: 12px;
+        padding: 4px;
+    }
+    
+    .slot-unit:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 .5rem 1rem rgba(0,0,0,.15)!important;
+    }
+
+    .product-select {
+        font-size: 0.75rem;
+    }
+    
+    .product-select option {
+        font-size: 0.9rem;
+    }
+
+    /* Modal sobre Modal: asegurar que se vea */
+    .modal-backdrop.show+.modal-backdrop.show {
+        z-index: 1055 !important;
+    }
+</style>
+
 @code {
+    private PeriodoFormModel? PeriodoEnEdicionVisual;
+
+    private void AbrirEdicionVisual(PeriodoFormModel periodo)
+    {
+        PeriodoEnEdicionVisual = periodo;
+    }
+
+    private void CerrarEdicionVisual()
+    {
+        PeriodoEnEdicionVisual = null;
+    }
+
     private bool Cargando = false;
     private bool Guardando = false;
     private bool CargandoSlots = false;
     private string MensajeError = "";
     private string MensajeExito = "";
+
+    // Sincronización
+    private bool MostrarModalSincronizar = false;
+    private int TemplateIdSincronizar = 0;
+    private bool ActualizarCostosSincronizacion = false;
+    private bool Sincronizando = false;
 
     private List<TemplateRecargaDto>? Templates;
     private List<MaquinaSimpleDto>? ListaMaquinas;
@@ -589,6 +747,58 @@
     private void AnalizarTemplate(int id)
     {
         NavManager.NavigateTo($"/stockout-dashboard?templateId={id}");
+    }
+
+    private void AbrirModalSincronizar(int id)
+    {
+        TemplateIdSincronizar = id;
+        ActualizarCostosSincronizacion = false; // default
+        MostrarModalSincronizar = true;
+    }
+
+    private void CerrarModalSincronizar()
+    {
+        MostrarModalSincronizar = false;
+    }
+
+    private async Task SincronizarVentas()
+    {
+        Sincronizando = true;
+        MensajeError = "";
+        MensajeExito = "";
+        StateHasChanged();
+
+        try
+        {
+            var response = await Http.PostAsync($"api/TemplateRecarga/{TemplateIdSincronizar}/sincronizar-ventas?actualizarCostos={ActualizarCostosSincronizacion}", null);
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<SyncResultDto>();
+                MensajeExito = $"Se actualizaron {result?.Count ?? 0} registros de ventas de manera retroactiva.";
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                MensajeError = "Error al sincronizar: " + error;
+            }
+        }
+        catch (Exception ex)
+        {
+            MensajeError = "Error de red: " + ex.Message;
+        }
+        finally
+        {
+            Sincronizando = false;
+            MostrarModalSincronizar = false;
+            StateHasChanged();
+        }
+    }
+
+    // DTOs Locales
+    public class SyncResultDto
+    {
+        public string Message { get; set; } = string.Empty;
+        public int Count { get; set; }
     }
 
     // DTOs Locales

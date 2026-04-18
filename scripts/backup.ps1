@@ -1,6 +1,14 @@
-# Configuración
+param(
+    [Parameter(Mandatory=$false)]
+    [string]$Database = "VendingDB",
+
+    [Parameter(Mandatory=$false)]
+    [string]$Container = ""
+)
+
+# Configuración base
 $DbUser = "sa"
-$DbName = "VendingDB"
+$DbName = $Database
 $BackupDir = Join-Path $PSScriptRoot "..\backups"
 
 # Crear directorio de backups si no existe
@@ -19,7 +27,7 @@ if (Test-Path $EnvFile) {
             if ($name -eq "MSSQL_SA_PASSWORD") {
                 $Global:MssqlSaPassword = $value
             }
-            if ($name -eq "DB_CONTAINER") {
+            if ($name -eq "DB_CONTAINER" -and [string]::IsNullOrEmpty($Container)) {
                 $Global:DbContainer = $value
             }
         }
@@ -32,12 +40,15 @@ if ([string]::IsNullOrEmpty($Global:MssqlSaPassword)) {
 }
 
 # Identificar el contenedor de base de datos
-# Intentamos obtener el nombre desde una variable de entorno en el .env, si no, usamos el por defecto.
-$ContainerName = $Global:DbContainer
+$ContainerName = $Container
 if ([string]::IsNullOrEmpty($ContainerName)) {
-    # Por defecto apuntamos a vendingmanager-db-1
-    $ContainerName = "vendingmanager-db-1"
+    $ContainerName = $Global:DbContainer
+    if ([string]::IsNullOrEmpty($ContainerName)) {
+        # Por defecto apuntamos a vendingmanager-db-1
+        $ContainerName = "vendingmanager-db-1"
+    }
 }
+
 
 Write-Host "Contenedor objetivo: $ContainerName"
 

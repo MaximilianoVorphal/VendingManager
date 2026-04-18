@@ -64,6 +64,7 @@ C4Container
             Component(orden, "Orden Carga Excel", "Service", "Genera XLS de ruta de camión.")
             Component(analytics, "Sales Analytics", "Service", "Métricas pesadas y Quiebre de stock.")
             Component(purchasing, "Purchasing", "Service", "Abastecimiento de 30 días.")
+            Component(compras, "Compra Service", "Service", "Facturas híbridas (Mercadería/Gastos) y control de stock.")
             Component(gastos, "Gastos Recurrentes", "Service", "Gestión de gastos fijos mensuales y alertas de pendientes.")
             Component(ordencarga, "Orden Carga", "Service", "Logística de reposición: descuenta bodega, actualiza slots, registra costo en Caja.")
         }

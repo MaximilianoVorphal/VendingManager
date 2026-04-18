@@ -20,6 +20,8 @@ public class Compra
 
     public string Estado { get; set; } = "PAGADA"; // PAGADA, PENDIENTE
     
+    public string TipoFactura { get; set; } = "MERCADERIA"; // MERCADERIA, GASTO_GENERAL
+    
     // Si queremos trazar si la plata ya salió de caja (útil para "Cuentas por Pagar" a futuro)
     public bool PagadaCaja { get; set; } = true;
 
