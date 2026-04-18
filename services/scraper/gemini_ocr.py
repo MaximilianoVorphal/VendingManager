@@ -24,8 +24,9 @@ def extract_invoice_data(image_path: str) -> dict:
     
     Reglas IMPORTANTES para los NÚMEROS en el JSON:
     1. Usa el punto (.) SOLO para los decimales. No uses separadores de miles. (ej: 10.080 -> 10080, 840,336 -> 840.336).
-    2. El "costo_unitario" es el Precio Unitario o P.Unitario del producto (A veces aparece como Neto o en formatos como '5 x 1 UN $840,336', donde el costo sería 840.336). 
-    3. Si el "costo_unitario" o "subtotal" no están claros, genéralos matemáticamente (subtotal = cantidad * costo_unitario). NUNCA devuelvas 0 si el producto fue cobrado.
+    2. Usa SIEMPRE VALORES CON IMPUESTOS (IVA) INCLUIDOS (Bruto). Si la factura detalla el valor de los productos de forma NETA (sin impuestos) y suma el IVA solo al final de la cuenta, DEBES agregar matemáticamente el porcentaje o margen de impuesto (ej: +19% IVA) al "costo_unitario" de cada producto para que refleje fielmente el costo real pagado con impuestos por unidad.
+    3. VERIFICACIÓN MATEMÁTICA: La suma de todos los "subtotal" de todos los items en la lista DEBE COINCIDIR o cuadrar casi exactamente con el "monto_total" final de la factura (Monto Final a Pagar con impuestos). Ajusta los decimales o agrega el impuesto si notas que la suma es inferior al monto total cobrado.
+    4. El "subtotal" por item DEBE ser estrictamente igual a (cantidad * costo_unitario). NUNCA devuelvas 0 si el producto fue efectivamente cobrado.
     
     Formato requerido:
     {

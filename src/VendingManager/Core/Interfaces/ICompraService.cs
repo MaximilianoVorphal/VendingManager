@@ -8,5 +8,6 @@ public interface ICompraService
     Task<Compra?> GetCompraByIdAsync(int id);
     Task<Compra> RegistrarCompraAsync(Compra compra);
     Task MarcarComoPagada(int id);
-    Task<Compra> ActualizarCompraAsync(int id, VendingManager.Shared.DTOs.ActualizarCompraRequestDto request);
+    Task<Compra> ActualizarCompraAsync(int id, VendingManager.Shared.DTOs.RegistrarCompraRequestDto request);
+    Task EliminarCompraAsync(int id);
 }

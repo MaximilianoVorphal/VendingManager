@@ -371,6 +371,125 @@ public class TemplateRecargaService : ITemplateRecargaService
         return result;
     }
 
+    public async Task<int> SyncVentasWithTemplateAsync(int templateId, bool actualizarCostos)
+    {
+        var template = await _context.TemplatesRecarga
+            .Include(t => t.Periodos)
+            .ThenInclude(p => p.SnapshotSlots)
+            .ThenInclude(s => s.Producto)
+            .FirstOrDefaultAsync(t => t.Id == templateId);
+
+        if (template == null || !template.Periodos.Any())
+            return 0;
+
+        int ventasActualizadas = 0;
+
+        // Si actualizamos costos, cargamos el historial de compras de los productos involucrados
+        var historicoCompras = new List<HistoricoCostoDto>();
+        if (actualizarCostos)
+        {
+            var productIds = template.Periodos
+                .SelectMany(p => p.SnapshotSlots)
+                .Where(s => s.ProductoId.HasValue && s.ProductoId > 0)
+                .Select(s => s.ProductoId!.Value)
+                .Distinct()
+                .ToList();
+
+            if (productIds.Any())
+            {
+                var rawHistorico = await _context.DetallesCompra
+                    .Join(_context.Compras, d => d.CompraId, c => c.Id, (detalle, compra) => new HistoricoCostoDto
+                    {
+                        ProductoId = detalle.ProductoId,
+                        CostoUnitario = detalle.CostoUnitario,
+                        FechaCompra = compra.FechaCompra
+                    })
+                    .Where(x => x.ProductoId.HasValue && productIds.Contains(x.ProductoId.Value))
+                    .OrderBy(x => x.FechaCompra)
+                    .ToListAsync();
+                    
+                historicoCompras.AddRange(rawHistorico);
+            }
+        }
+
+        foreach (var periodo in template.Periodos)
+        {
+            var ventasDelPeriodo = await _context.Ventas
+                .Where(v => v.MaquinaId == periodo.MaquinaId &&
+                            v.FechaLocal >= periodo.FechaInicio &&
+                            v.FechaLocal <= periodo.FechaFin)
+                .ToListAsync();
+
+            if (!ventasDelPeriodo.Any())
+                continue;
+
+            foreach (var slot in periodo.SnapshotSlots.Where(s => s.ProductoId.HasValue && s.ProductoId > 0))
+            {
+                // Encontrar las ventas de ese slot en el periodo
+                var ventasSlot = ventasDelPeriodo.Where(v => v.NumeroSlot == slot.NumeroSlot).ToList();
+
+                foreach (var venta in ventasSlot)
+                {
+                    bool cambio = false;
+
+                    // 1. Verificar si hay que actualizar Producto
+                    if (venta.ProductoId != slot.ProductoId)
+                    {
+                        venta.ProductoId = slot.ProductoId;
+                        cambio = true;
+                    }
+
+                    // 2. Verificar si hay que actualizar Costo
+                    if (actualizarCostos && slot.Producto != null)
+                    {
+                        decimal nuevoCosto = slot.Producto.CostoPromedio; // fallback al costo actual
+
+                        var comprasProducto = historicoCompras.Where(h => h.ProductoId == slot.ProductoId).ToList();
+                        if (comprasProducto.Any())
+                        {
+                            // Buscar la compra más reciente previa o exacta a la fecha de venta
+                            var compraAnterior = comprasProducto.LastOrDefault(h => h.FechaCompra <= venta.FechaLocal);
+                            if (compraAnterior != null)
+                            {
+                                nuevoCosto = compraAnterior.CostoUnitario;
+                            }
+                            else
+                            {
+                                // Si no hay previa, usar la más antigua registrada
+                                nuevoCosto = comprasProducto.First().CostoUnitario;
+                            }
+                        }
+
+                        if (venta.CostoVenta != nuevoCosto)
+                        {
+                            venta.CostoVenta = nuevoCosto;
+                            cambio = true;
+                        }
+                    }
+
+                    if (cambio)
+                    {
+                        ventasActualizadas++;
+                    }
+                }
+            }
+        }
+
+        if (ventasActualizadas > 0)
+        {
+            await _context.SaveChangesAsync();
+        }
+
+        return ventasActualizadas;
+    }
+
+    private class HistoricoCostoDto 
+    {
+        public int? ProductoId { get; set; }
+        public decimal CostoUnitario { get; set; }
+        public DateTime FechaCompra { get; set; }
+    }
+
     private static TemplateRecargaDto MapToDto(TemplateRecarga t)
     {
         return new TemplateRecargaDto

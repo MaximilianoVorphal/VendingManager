@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using System.IO;
 
 namespace VendingManager.Infrastructure.Services
@@ -84,6 +84,23 @@ namespace VendingManager.Infrastructure.Services
         public async Task<byte[]> ExportarCatalogoAsync()
         {
             return await _catalogService.ExportarCatalogoProductos();
+        }
+
+        public async Task<IEnumerable<Shared.DTOs.HistorialCostoViewDto>> GetHistorialCostosAsync(int productoId)
+        {
+            var historico = await _context.DetallesCompra
+                .Join(_context.Compras, d => d.CompraId, c => c.Id, (detalle, compra) => new { detalle, compra })
+                .Where(x => x.detalle.ProductoId == productoId)
+                .OrderBy(x => x.compra.FechaCompra)
+                .Select(x => new Shared.DTOs.HistorialCostoViewDto
+                {
+                    Fecha = x.compra.FechaCompra,
+                    CostoUnitario = x.detalle.CostoUnitario,
+                    Origen = x.compra.Proveedor
+                })
+                .ToListAsync();
+
+            return historico;
         }
     }
 }

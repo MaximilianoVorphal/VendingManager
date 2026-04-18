@@ -52,6 +52,7 @@
                     <tr>
                         <th>FECHA <i class="bi bi-calendar"></i></th>
                         <th>PROVEEDOR <i class="bi bi-shop"></i></th>
+                        <th class="text-center">TIPO <i class="bi bi-tag"></i></th>
                         <th>Nº DOCUMENTO <i class="bi bi-file-earmark-text"></i></th>
                         <th class="text-end">MONTO TOTAL <i class="bi bi-currency-dollar"></i></th>
                         <th class="text-center">ESTADO <i class="bi bi-info-circle"></i></th>
@@ -87,6 +88,16 @@
                             <tr>
                                 <td>@c.FechaCompra.ToString("dd/MM/yyyy HH:mm")</td>
                                 <td>@c.Proveedor</td>
+                                <td class="text-center">
+                                    @if (c.TipoFactura == "GASTO_GENERAL")
+                                    {
+                                        <span class="badge bg-primary rounded-0 small px-2 py-1"><i class="bi bi-fuel-pump-fill me-1"></i>GASTO</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-success rounded-0 small px-2 py-1"><i class="bi bi-box-seam-fill me-1"></i>ABASTECER</span>
+                                    }
+                                </td>
                                 <td><span class="font-monospace">@(string.IsNullOrEmpty(c.NumeroDocumento) ? "S/N" : c.NumeroDocumento)</span></td>
                                 <td class="text-end text-success font-monospace">@c.MontoTotal.ToString("C0")</td>
                                 <td class="text-center">
@@ -104,8 +115,11 @@
                                         <button class="btn btn-sm btn-outline-dark rounded-0 fw-bold border-dark" title="Ver Detalles" @onclick="() => VerDetalles(c)">
                                             <i class="bi bi-eye-fill"></i> DETALLES
                                         </button>
-                                        <button class="btn btn-sm btn-outline-warning rounded-0 fw-bold border-dark text-dark" title="Editar Compra" @onclick="() => AbrirModalEditar(c)">
+                                        <button class="btn btn-sm btn-outline-warning rounded-0 fw-bold border-dark text-dark" title="Editar Compra" @onclick='() => Navigation.NavigateTo($"/compras/editar/{c.Id}")'>
                                             <i class="bi bi-pencil-square"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-danger rounded-0 fw-bold border-dark" title="Eliminar Compra" @onclick="() => ConfirmarEliminacion(c)">
+                                            <i class="bi bi-trash-fill"></i>
                                         </button>
                                     </div>
                                 </td>
@@ -146,7 +160,9 @@
                         </div>
                     </div>
                     
-                    <h6 class="fw-bold mb-3 border-bottom border-dark pb-2">PRODUCTOS ADQUIRIDOS</h6>
+                    <h6 class="fw-bold mb-3 border-bottom border-dark pb-2">
+                        @(CompraSeleccionada.TipoFactura == "MERCADERIA" ? "PRODUCTOS ADQUIRIDOS" : "DETALLE DE GASTOS")
+                    </h6>
                     <div class="table-responsive">
                         <table class="table table-bordered border-dark table-sm align-middle">
                             <thead class="bg-light text-dark text-uppercase small font-monospace fw-bold">
@@ -161,7 +177,7 @@
                                 @foreach (var d in CompraSeleccionada.Detalles)
                                 {
                                     <tr>
-                                        <td>@d.ProductoNombre</td>
+                                        <td>@(string.IsNullOrEmpty(d.ProductoNombre) ? d.DescripcionItem : d.ProductoNombre)</td>
                                         <td class="text-center text-primary">@d.Cantidad</td>
                                         <td class="text-end font-monospace text-muted">@d.CostoUnitario.ToString("C0")</td>
                                         <td class="text-end text-success font-monospace">@((d.Cantidad * d.CostoUnitario).ToString("C0"))</td>
@@ -193,48 +209,32 @@
     </div>
 }
 
-<!-- MODAL EDITAR COMPRA -->
-@if (CompraEditar != null)
+<!-- MODAL ELIMINAR COMPRA -->
+@if (CompraAEliminar != null)
 {
     <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5);">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content rounded-0 border-2 border-dark shadow-lg">
-                <div class="modal-header bg-warning text-dark rounded-0 border-bottom border-dark">
-                    <h5 class="modal-title fw-bold"><i class="bi bi-pencil-square me-2"></i>EDITAR DATOS DE LA COMPRA</h5>
-                    <button type="button" class="btn-close" @onclick="CerrarModalEditar"></button>
+                <div class="modal-header bg-danger text-white rounded-0 border-bottom border-dark">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-exclamation-triangle-fill me-2"></i>ELIMINAR COMPRA</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CancelarEliminacion"></button>
                 </div>
-                <div class="modal-body p-4">
-                    <form @onsubmit="GuardarEdicionCompra">
-                        <div class="mb-3">
-                            <label class="form-label fw-bold small">PROVEEDOR</label>
-                            <input type="text" class="form-control rounded-0 border-dark" @bind="CompraEditar.Proveedor" required />
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label fw-bold small">Nº DOCUMENTO (FACTURA/BOLETA)</label>
-                            <input type="text" class="form-control rounded-0 border-dark" @bind="CompraEditar.NumeroDocumento" />
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label fw-bold small">FECHA DE COMPRA</label>
-                            <input type="datetime-local" class="form-control rounded-0 border-dark" @bind="CompraEditar.FechaCompra" required />
-                        </div>
-                        
-                        <div class="alert alert-info rounded-0 border-dark small fw-bold mt-4 mb-0">
-                            <i class="bi bi-info-circle-fill me-2"></i>La edición solo modifica el encabezado de la compra. Para modificar productos o cantidades se debe anular y crear una nueva (Próximamente).
-                        </div>
-                    </form>
+                <div class="modal-body p-4 text-center">
+                    <p class="fs-5">¿Estás seguro de que deseas eliminar esta compra de <strong>@CompraAEliminar.Proveedor</strong>?</p>
+                    <p class="text-danger fw-bold"><i class="bi bi-info-circle-fill me-1"></i>Esta acción revertirá el stock de los productos y eliminará el movimiento de caja asociado.</p>
                 </div>
                 <div class="modal-footer bg-light rounded-0">
-                    <button type="button" class="btn btn-outline-dark rounded-0 fw-bold" @onclick="CerrarModalEditar" disabled="@ProcesandoEdicion">CANCELAR</button>
-                    <button type="button" class="btn btn-warning rounded-0 border-dark fw-bold px-4" @onclick="GuardarEdicionCompra" disabled="@ProcesandoEdicion">
-                        @if(ProcesandoEdicion)
+                    <button type="button" class="btn btn-outline-dark rounded-0 fw-bold" @onclick="CancelarEliminacion" disabled="@ProcesandoEliminacion">CANCELAR</button>
+                    <button type="button" class="btn btn-danger rounded-0 border-dark fw-bold px-4" @onclick="EliminarCompra" disabled="@ProcesandoEliminacion">
+                        @if(ProcesandoEliminacion)
                         {
                             <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
                         }
                         else
                         {
-                            <i class="bi bi-save me-2"></i>
+                            <i class="bi bi-trash-fill me-2"></i>
                         }
-                        GUARDAR CAMBIOS
+                        SÍ, ELIMINAR CORREGIR
                     </button>
                 </div>
             </div>
@@ -309,57 +309,53 @@
         CompraSeleccionada = null;
     }
     
-    private void AbrirModalEditar(CompraDto compra)
+    // Modal Eliminar
+    private CompraDto? CompraAEliminar;
+    private bool ProcesandoEliminacion = false;
+
+    private void ConfirmarEliminacion(CompraDto compra)
     {
-        IdCompraEditar = compra.Id;
-        CompraEditar = new ActualizarCompraRequestDto
-        {
-            Proveedor = compra.Proveedor,
-            NumeroDocumento = compra.NumeroDocumento,
-            FechaCompra = compra.FechaCompra
-        };
+        CompraAEliminar = compra;
         Error = null;
         MensajeExito = null;
     }
-    
-    private void CerrarModalEditar()
+
+    private void CancelarEliminacion()
     {
-        CompraEditar = null;
-        IdCompraEditar = 0;
+        CompraAEliminar = null;
     }
 
-    private async Task GuardarEdicionCompra()
+    private async Task EliminarCompra()
     {
-        if (CompraEditar == null || IdCompraEditar == 0) return;
-        
+        if (CompraAEliminar == null) return;
+
         try
         {
-            ProcesandoEdicion = true;
-            Error = null;
-            MensajeExito = null;
-            
-            var response = await Http.PutAsJsonAsync($"api/compras/{IdCompraEditar}", CompraEditar);
-            
+            ProcesandoEliminacion = true;
+            var response = await Http.DeleteAsync($"api/compras/{CompraAEliminar.Id}");
+
             if (response.IsSuccessStatusCode)
             {
-                MensajeExito = "Los datos de la compra han sido actualizados con éxito.";
-                CerrarModalEditar();
+                MensajeExito = "La compra ha sido eliminada y se ha revertido el stock y la caja.";
+                CompraAEliminar = null;
                 await CargarCompras();
             }
             else
             {
-                Error = "Error al guardar los cambios: " + await response.Content.ReadAsStringAsync();
+                Error = "Error al eliminar la compra: " + await response.Content.ReadAsStringAsync();
             }
         }
         catch (Exception ex)
         {
-            Error = $"Error interno: {ex.Message}";
+            Error = $"Error: {ex.Message}";
         }
         finally
         {
-            ProcesandoEdicion = false;
+            ProcesandoEliminacion = false;
         }
     }
+
+
 
     private async Task MarcarPagada()
     {

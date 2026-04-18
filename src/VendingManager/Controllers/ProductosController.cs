@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using VendingManager.Shared.DTOs;
 using VendingManager.Core.Interfaces;
 using VendingManager.Core.Entities;
@@ -87,6 +87,13 @@ namespace VendingManager.Controllers
             var producto = await _inventarioService.GetProductoAsync(id);
             if (producto == null) return NotFound();
             return producto;
+        }
+
+        [HttpGet("{id}/historial-costos")]
+        public async Task<ActionResult<IEnumerable<HistorialCostoViewDto>>> GetHistorialCostos(int id)
+        {
+            var historial = await _inventarioService.GetHistorialCostosAsync(id);
+            return Ok(historial);
         }
 
         [HttpPost]

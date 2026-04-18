@@ -1,4 +1,4 @@
-﻿using System.IO;
+using System.IO;
 
 namespace VendingManager.Core.Interfaces
 {
@@ -12,5 +12,6 @@ namespace VendingManager.Core.Interfaces
         Task AjustarStockAsync(int productoId, int nuevoStock);
         Task<string> ImportarCatalogoAsync(Stream stream, string fileName);
         Task<byte[]> ExportarCatalogoAsync();
+        Task<IEnumerable<HistorialCostoViewDto>> GetHistorialCostosAsync(int productoId);
     }
 }
