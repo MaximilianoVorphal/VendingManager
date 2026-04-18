@@ -40,25 +40,28 @@ public class CompraService : ICompraService
 
     public async Task<Compra> RegistrarCompraAsync(Compra compra)
     {
-        // 1. Recalcular el Costo Promedio y sumar Stock en Bodega
+        // 1. Recalcular el Costo Promedio y sumar Stock en Bodega (solo si hay producto)
         foreach (var detalle in compra.Detalles)
         {
-            var producto = await _context.Productos.FindAsync(detalle.ProductoId);
-            if (producto != null)
+            if (detalle.ProductoId.HasValue)
             {
-                // CPP = ((Stock Actual * Costo Promedio Actual) + (Nueva Cant. * Nuevo Costo)) / (Stock Actual + Nueva Cant.)
-                decimal valorInventarioActual = producto.StockBodega * producto.CostoPromedio;
-                decimal valorNuevaTransaccion = detalle.Cantidad * detalle.CostoUnitario;
-                
-                int nuevoStockTotal = producto.StockBodega + detalle.Cantidad;
-                
-                if (nuevoStockTotal > 0)
+                var producto = await _context.Productos.FindAsync(detalle.ProductoId.Value);
+                if (producto != null)
                 {
-                    producto.CostoPromedio = (valorInventarioActual + valorNuevaTransaccion) / nuevoStockTotal;
+                    // CPP = ((Stock Actual * Costo Promedio Actual) + (Nueva Cant. * Nuevo Costo)) / (Stock Actual + Nueva Cant.)
+                    decimal valorInventarioActual = producto.StockBodega * producto.CostoPromedio;
+                    decimal valorNuevaTransaccion = detalle.Cantidad * detalle.CostoUnitario;
+                    
+                    int nuevoStockTotal = producto.StockBodega + detalle.Cantidad;
+                    
+                    if (nuevoStockTotal > 0)
+                    {
+                        producto.CostoPromedio = (valorInventarioActual + valorNuevaTransaccion) / nuevoStockTotal;
+                    }
+                    
+                    producto.StockBodega = nuevoStockTotal;
+                    _context.Productos.Update(producto);
                 }
-                
-                producto.StockBodega = nuevoStockTotal;
-                _context.Productos.Update(producto);
             }
         }
 
@@ -78,7 +81,7 @@ public class CompraService : ICompraService
                 Descripcion = $"Factura/Boleta Nº {compra.NumeroDocumento} - {compra.Proveedor}",
                 Monto = -compra.MontoTotal, // Gasto de dinero
                 Tipo = "GASTO",
-                Categoria = "MERCADERIA",
+                Categoria = compra.TipoFactura == "MERCADERIA" ? "MERCADERIA" : "GASTOS GENERALES",
                 CompraId = compra.Id // FK para trazabilidad bidireccional
             };
             _context.MovimientosCaja.Add(movimiento);
@@ -103,7 +106,7 @@ public class CompraService : ICompraService
                 Descripcion = $"Pago Factura/Boleta Nº {compra.NumeroDocumento} - {compra.Proveedor}",
                 Monto = -compra.MontoTotal,
                 Tipo = "GASTO",
-                Categoria = "MERCADERIA",
+                Categoria = compra.TipoFactura == "MERCADERIA" ? "MERCADERIA" : "GASTOS GENERALES",
                 CompraId = compra.Id // FK para trazabilidad
             };
             _context.MovimientosCaja.Add(movimiento);
@@ -113,31 +116,149 @@ public class CompraService : ICompraService
         }
     }
 
-    public async Task<Compra> ActualizarCompraAsync(int id, VendingManager.Shared.DTOs.ActualizarCompraRequestDto request)
+    public async Task<Compra> ActualizarCompraAsync(int id, VendingManager.Shared.DTOs.RegistrarCompraRequestDto request)
     {
-        var compra = await _context.Compras.FindAsync(id);
-        if (compra == null) throw new Exception("Compra no encontrada.");
-
-        compra.Proveedor = request.Proveedor;
-        compra.NumeroDocumento = request.NumeroDocumento;
-        if (request.FechaCompra != DateTime.MinValue)
+        using var transaction = await _context.Database.BeginTransactionAsync();
+        try
         {
+            var compra = await _context.Compras
+                .Include(c => c.Detalles)
+                .FirstOrDefaultAsync(c => c.Id == id);
+            
+            if (compra == null) throw new Exception("Compra no encontrada.");
+
+            // 1. Revertir el estado antiguo (Costo y Stock)
+            await RevertirImpactoInventario(compra.Detalles);
+
+            // 2. Actualizar cabecera
+            compra.Proveedor = request.Proveedor;
+            compra.NumeroDocumento = request.NumeroDocumento;
             compra.FechaCompra = request.FechaCompra;
-        }
+            compra.Estado = request.Estado;
+            compra.TipoFactura = request.TipoFactura;
+            compra.PagadaCaja = request.PagadaCaja;
 
-        // Actualizar el movimiento de caja asociado usando FK (en vez de búsqueda por texto)
-        var movimiento = await _context.MovimientosCaja
-            .FirstOrDefaultAsync(m => m.CompraId == id);
-                                      
-        if (movimiento != null)
+            // 3. Reemplazar detalles
+            _context.DetallesCompra.RemoveRange(compra.Detalles);
+            compra.Detalles = request.Detalles.Select(d => new DetalleCompra
+            {
+                ProductoId = d.ProductoId,
+                DescripcionItem = d.DescripcionItem,
+                Cantidad = d.Cantidad,
+                CostoUnitario = d.CostoUnitario,
+                Subtotal = d.Cantidad * d.CostoUnitario
+            }).ToList();
+
+            // 4. Aplicar el impacto nuevo
+            foreach (var detalle in compra.Detalles)
+            {
+                if (detalle.ProductoId.HasValue)
+                {
+                    var producto = await _context.Productos.FindAsync(detalle.ProductoId.Value);
+                    if (producto != null)
+                    {
+                        decimal valorInventarioActual = producto.StockBodega * producto.CostoPromedio;
+                        decimal valorNuevaTransaccion = detalle.Cantidad * detalle.CostoUnitario;
+                        int nuevoStockTotal = producto.StockBodega + detalle.Cantidad;
+                        if (nuevoStockTotal > 0)
+                            producto.CostoPromedio = (valorInventarioActual + valorNuevaTransaccion) / nuevoStockTotal;
+                        producto.StockBodega = nuevoStockTotal;
+                        _context.Productos.Update(producto);
+                    }
+                }
+            }
+            
+            compra.MontoTotal = compra.Detalles.Sum(d => d.Subtotal);
+
+            // 5. Sincronizar Movimiento de Caja
+            var movimiento = await _context.MovimientosCaja.FirstOrDefaultAsync(m => m.CompraId == id);
+            if (compra.Estado == "PAGADA" && compra.PagadaCaja)
+            {
+                if (movimiento == null)
+                {
+                    movimiento = new MovimientoCaja { CompraId = id };
+                    _context.MovimientosCaja.Add(movimiento);
+                }
+                movimiento.Fecha = compra.FechaCompra;
+                movimiento.Descripcion = $"Factura/Boleta Nº {compra.NumeroDocumento} - {compra.Proveedor} (Editada)";
+                movimiento.Monto = -compra.MontoTotal;
+                movimiento.Tipo = "GASTO";
+                movimiento.Categoria = compra.TipoFactura == "MERCADERIA" ? "MERCADERIA" : "GASTOS GENERALES";
+            }
+            else if (movimiento != null)
+            {
+                _context.MovimientosCaja.Remove(movimiento);
+            }
+
+            await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
+            return compra;
+        }
+        catch (Exception)
         {
-            movimiento.Fecha = request.FechaCompra != DateTime.MinValue ? request.FechaCompra : movimiento.Fecha;
-            movimiento.Descripcion = $"Factura/Boleta Nº {request.NumeroDocumento} - {request.Proveedor}";
-            _context.MovimientosCaja.Update(movimiento);
+            await transaction.RollbackAsync();
+            throw;
         }
+    }
 
-        _context.Compras.Update(compra);
-        await _context.SaveChangesAsync();
-        return compra;
+    public async Task EliminarCompraAsync(int id)
+    {
+        using var transaction = await _context.Database.BeginTransactionAsync();
+        try
+        {
+            var compra = await _context.Compras
+                .Include(c => c.Detalles)
+                .FirstOrDefaultAsync(c => c.Id == id);
+
+            if (compra == null) return;
+
+            // 1. Revertir impacto en inventario y CPP
+            await RevertirImpactoInventario(compra.Detalles);
+
+            // 2. Eliminar movimiento de caja
+            var movimiento = await _context.MovimientosCaja.FirstOrDefaultAsync(m => m.CompraId == id);
+            if (movimiento != null) _context.MovimientosCaja.Remove(movimiento);
+
+            // 3. Eliminar la compra (detalles se eliminan por cascada o manualmente)
+            _context.Compras.Remove(compra);
+
+            await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
+        }
+        catch (Exception)
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
+    }
+
+    private async Task RevertirImpactoInventario(IEnumerable<DetalleCompra> detalles)
+    {
+        foreach (var detalle in detalles)
+        {
+            if (detalle.ProductoId.HasValue)
+            {
+                var producto = await _context.Productos.FindAsync(detalle.ProductoId.Value);
+                if (producto != null)
+                {
+                    decimal valorTotalActual = producto.StockBodega * producto.CostoPromedio;
+                    decimal valorARestar = detalle.Cantidad * detalle.CostoUnitario;
+                    int nuevoStock = producto.StockBodega - detalle.Cantidad;
+
+                    if (nuevoStock > 0)
+                    {
+                        // Nueva valoración = (Valor Total - Valor de esta compra) / Nuevo Stock
+                        producto.CostoPromedio = Math.Max(0, (valorTotalActual - valorARestar) / nuevoStock);
+                        producto.StockBodega = nuevoStock;
+                    }
+                    else
+                    {
+                        producto.StockBodega = 0;
+                        producto.CostoPromedio = 0;
+                    }
+                    _context.Productos.Update(producto);
+                }
+            }
+        }
     }
 }

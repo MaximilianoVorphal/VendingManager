@@ -105,4 +105,22 @@ public class TemplateRecargaController : ControllerBase
         var slots = await _service.GetSlotsForMaquinaAsync(maquinaId);
         return Ok(slots);
     }
+
+    /// <summary>
+    /// Sincronizar histórico de ventas con la configuración de este template
+    /// </summary>
+    [HttpPost("{id}/sincronizar-ventas")]
+    public async Task<ActionResult<object>> SincronizarVentas(int id, [FromQuery] bool actualizarCostos = false)
+    {
+        var template = await _service.GetByIdAsync(id);
+        if (template == null)
+            return NotFound($"Template con ID {id} no encontrado");
+
+        var amountUpdated = await _service.SyncVentasWithTemplateAsync(id, actualizarCostos);
+        
+        return Ok(new { 
+            message = "Ventas sincronizadas exitosamente",
+            count = amountUpdated 
+        });
+    }
 }

@@ -1,0 +1,346 @@
+@page "/compras/editar/{Id:int}"
+@using VendingManager.Shared.DTOs
+@inject HttpClient Http
+@inject NavigationManager Navigation
+
+<PageTitle>EDITAR COMPRA</PageTitle>
+
+<div class="container-fluid px-4 mt-4" style="font-family: 'Segoe UI', Consolas, monospace;">
+    <div class="row align-items-center mb-4 border-bottom border-3 border-dark pb-3 g-3">
+        <div class="col-md-8 col-12">
+            <h2 class="m-0 fw-bold text-uppercase" style="letter-spacing: -1px; color: #333;">
+                <i class="bi bi-pencil-square me-2"></i>EDITAR COMPRA #@Id
+            </h2>
+            <small class="text-muted fw-bold">MODIFICACIÓN DE FACTURA EXISTENTE</small>
+        </div>
+        <div class="col-md-4 col-12 text-md-end">
+            <button class="btn btn-outline-dark rounded-0 fw-bold shadow-sm" @onclick='() => Navigation.NavigateTo("/compras")'>
+                <i class="bi bi-arrow-left me-2"></i>VOLVER A COMPRAS
+            </button>
+        </div>
+    </div>
+
+    @if (Cargando)
+    {
+        <div class="text-center my-5">
+            <div class="spinner-border text-dark" role="status"></div>
+            <p class="mt-2 fw-bold">Cargando datos de la factura...</p>
+        </div>
+    }
+    else
+    {
+        <div class="row">
+            <div class="col-lg-4">
+                <div class="card border-2 border-dark rounded-0 shadow my-4">
+                    <div class="card-header bg-dark text-white rounded-0 fw-bold">
+                        <i class="bi bi-receipt"></i> DATOS DEL DOCUMENTO
+                    </div>
+                    <div class="card-body bg-light">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold small text-muted">PROVEEDOR *</label>
+                            <input type="text" class="form-control border-dark rounded-0" @bind="factura.Proveedor" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold small text-muted">Nº FACTURA / BOLETA</label>
+                            <input type="text" class="form-control border-dark rounded-0" @bind="factura.NumeroDocumento" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold small text-muted">FECHA DE COMPRA</label>
+                            <input type="date" class="form-control border-dark rounded-0" @bind="facturaData" />
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label fw-bold small text-muted">TIPO DE DOCUMENTO</label>
+                            <select class="form-select border-dark rounded-0 fw-bold @(factura.TipoFactura == "MERCADERIA" ? "text-success" : "text-primary")" @bind="factura.TipoFactura">
+                                <option value="MERCADERIA">🛒 MERCADERÍA (ABASTECIMIENTO)</option>
+                                <option value="GASTO_GENERAL">⛽ GASTO GENERAL (BENCINA, OTROS)</option>
+                            </select>
+                        </div>
+
+                        <div class="form-check form-switch pt-2 border-top border-dark mt-3 pt-3">
+                            <input class="form-check-input border-dark" type="checkbox" id="pagado" @bind="factura.PagadaCaja" />
+                            <label class="form-check-label fw-bold small" for="pagado">ESTADO: PAGADA AL CONTADO (Generar Gasto en Caja)</label>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="alert alert-warning border-dark rounded-0 small fw-bold shadow-sm">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                    <strong>Atención:</strong> Al guardar los cambios, el sistema revertirá automáticamente el stock y el CPP anterior para aplicar los nuevos valores definidos aquí.
+                </div>
+            </div>
+
+            <div class="col-lg-8">
+                <div class="card border-2 border-dark rounded-0 shadow my-4">
+                    <div class="card-header bg-dark text-white rounded-0 fw-bold d-flex justify-content-between align-items-center">
+                        <span><i class="bi bi-box-seam"></i> DETALLE DE PRODUCTOS</span>
+                        <span class="badge bg-success border border-white text-uppercase" style="font-size: 0.9rem;">Total: @(CalcularTotal().ToString("C0"))</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="row align-items-end mb-4 bg-light p-3 border border-dark mx-0">
+                            @if (factura.TipoFactura == "MERCADERIA")
+                            {
+                                <div class="col-md-6 mb-2 mb-md-0">
+                                    <label class="form-label fw-bold small text-muted">BUSCAR PRODUCTO MANUAL</label>
+                                    <select class="form-select border-dark rounded-0" @bind="productoSeleccionadoId">
+                                        <option value="0">-- SELECCIONE UN PRODUCTO --</option>
+                                        @foreach (var p in ProductosDisponibles)
+                                        {
+                                            <option value="@p.Id">@p.Nombre (Stock: @p.StockBodega)</option>
+                                        }
+                                    </select>
+                                </div>
+                                <div class="col-md-6 d-grid">
+                                    <button class="btn btn-outline-dark rounded-0 fw-bold" @onclick="AgregarProducto" disabled="@(productoSeleccionadoId == 0)">
+                                        <i class="bi bi-plus-lg me-1"></i> AÑADIR A LA LISTA
+                                    </button>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="col-md-6 mb-2 mb-md-0">
+                                    <label class="form-label fw-bold small text-muted">DESCRIPCIÓN DEL GASTO</label>
+                                    <input type="text" class="form-control border-dark rounded-0" @bind="descripcionGastoLibre" placeholder="Ej: Gasolina Camioneta" />
+                                </div>
+                                <div class="col-md-3 mb-2 mb-md-0">
+                                    <label class="form-label fw-bold small text-muted">MONTO $</label>
+                                    <input type="number" class="form-control border-dark rounded-0" @bind="montoGastoLibre" />
+                                </div>
+                                <div class="col-md-3 d-grid">
+                                    <button class="btn btn-primary rounded-0 fw-bold" @onclick="AgregarGastoGeneral" disabled="@(string.IsNullOrWhiteSpace(descripcionGastoLibre) || montoGastoLibre <= 0)">
+                                        <i class="bi bi-plus-lg me-1"></i> AÑADIR GASTO
+                                    </button>
+                                </div>
+                            }
+                        </div>
+
+                        <div class="table-responsive">
+                            <table class="table table-bordered border-dark table-hover align-middle">
+                                <thead class="bg-secondary text-white text-uppercase text-center" style="font-size: 0.85rem;">
+                                    <tr>
+                                        <th class="text-start">PRODUCTO / ITEM <i class="bi bi-tag"></i></th>
+                                        <th style="width: 100px;">CANT <i class="bi bi-hash"></i></th>
+                                        <th style="width: 150px;">PRECIO <i class="bi bi-currency-dollar"></i></th>
+                                        <th style="width: 130px;">SUBTOTAL</th>
+                                        <th style="width: 50px;"></th>
+                                    </tr>
+                                </thead>
+                                <tbody class="fw-bold" style="font-size: 0.9rem;">
+                                    @foreach (var d in detalles)
+                                    {
+                                        <tr>
+                                            <td>
+                                                @if (factura.TipoFactura == "MERCADERIA")
+                                                {
+                                                    @if (d.ProductoId == 0 || d.ProductoId == null)
+                                                    {
+                                                        <select class="form-select form-select-sm border-2 border-warning rounded-0 fw-bold bg-light text-dark" @bind="d.ProductoId">
+                                                            <option value="0">⚠️ ASIGNAR ITEM</option>
+                                                            @foreach (var p in ProductosDisponibles)
+                                                            {
+                                                                <option value="@p.Id">@p.Nombre</option>
+                                                            }
+                                                        </select>
+                                                    }
+                                                    else
+                                                    {
+                                                        <div class="d-flex align-items-center justify-content-between">
+                                                            <span>@d.ProductoNombre</span>
+                                                            <button class="btn btn-sm btn-link text-dark p-0 ms-2" @onclick="() => d.ProductoId = 0">
+                                                                <i class="bi bi-pencil-square"></i>
+                                                            </button>
+                                                        </div>
+                                                    }
+                                                }
+                                                else
+                                                {
+                                                    <input type="text" class="form-control form-control-sm border-dark rounded-0" @bind="d.DescripcionItem" />
+                                                }
+                                            </td>
+                                            <td>
+                                                <input type="number" class="form-control form-control-sm border-dark rounded-0 text-center font-monospace" @bind="d.Cantidad" @bind:event="oninput" min="1" disabled="@(factura.TipoFactura == "GASTO_GENERAL")" />
+                                            </td>
+                                            <td>
+                                                <div class="input-group input-group-sm">
+                                                    <span class="input-group-text bg-dark text-white border-dark rounded-0">$</span>
+                                                    <input type="number" class="form-control border-dark rounded-0 font-monospace text-end" @bind="d.CostoUnitario" @bind:event="oninput" min="0" />
+                                                </div>
+                                            </td>
+                                            <td class="text-end text-success font-monospace fs-6">
+                                                @((d.Cantidad * d.CostoUnitario).ToString("C0"))
+                                            </td>
+                                            <td class="text-center">
+                                                <button class="btn btn-sm btn-outline-danger border-dark rounded-0" @onclick="() => EliminarDetalle(d)">
+                                                    <i class="bi bi-trash-fill"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <div class="d-grid mt-4">
+                            <button class="btn btn-warning btn-lg rounded-0 border-dark fw-bold shadow-sm" @onclick="GuardarCambios" disabled="@Guardando">
+                                @if (Guardando)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+                                    <span> ACTUALIZANDO...</span>
+                                }
+                                else
+                                {
+                                    <i class="bi bi-save-fill me-2"></i> <span>GUARDAR CAMBIOS ($@(CalcularTotal().ToString("N0")))</span>
+                                }
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(MensajeError))
+    {
+        <div class="alert alert-danger border-dark rounded-0 fw-bold shadow-sm fade show mb-4">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i> @MensajeError
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public int Id { get; set; }
+    
+    private RegistrarCompraRequestDto factura = new();
+    private List<ProductoSimpleDto> ProductosDisponibles = new();
+    private List<DetalleUI> detalles = new();
+    
+    private int productoSeleccionadoId = 0;
+    private string descripcionGastoLibre = "";
+    private decimal montoGastoLibre = 0;
+    
+    private bool Cargando = true;
+    private bool Guardando = false;
+    private string? MensajeError;
+
+    // Helper for date binding
+    private DateTime facturaData 
+    {
+        get => factura.FechaCompra;
+        set => factura.FechaCompra = value;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            Cargando = true;
+            
+            // Cargar productos
+            var prods = await Http.GetFromJsonAsync<List<ProductoSimpleDto>>("api/productos");
+            if (prods != null) ProductosDisponibles = prods.OrderBy(p => p.Nombre).ToList();
+
+            // Cargar la compra
+            var c = await Http.GetFromJsonAsync<CompraDto>($"api/compras/{Id}");
+            if (c != null)
+            {
+                factura = new RegistrarCompraRequestDto
+                {
+                    Proveedor = c.Proveedor,
+                    NumeroDocumento = c.NumeroDocumento,
+                    FechaCompra = c.FechaCompra,
+                    Estado = c.Estado,
+                    TipoFactura = c.TipoFactura,
+                    PagadaCaja = c.PagadaCaja
+                };
+
+                detalles = c.Detalles.Select(d => new DetalleUI
+                {
+                    ProductoId = d.ProductoId,
+                    ProductoNombre = d.ProductoNombre ?? "S/N",
+                    DescripcionItem = d.DescripcionItem ?? d.ProductoNombre ?? "",
+                    Cantidad = d.Cantidad,
+                    CostoUnitario = d.CostoUnitario
+                }).ToList();
+            }
+        }
+        catch (Exception ex)
+        {
+            MensajeError = "Error al cargar la compra: " + ex.Message;
+        }
+        finally
+        {
+            Cargando = false;
+        }
+    }
+
+    private void AgregarProducto()
+    {
+        if (productoSeleccionadoId == 0) return;
+        var p = ProductosDisponibles.FirstOrDefault(x => x.Id == productoSeleccionadoId);
+        if (p != null)
+        {
+            detalles.Add(new DetalleUI
+            {
+                ProductoId = p.Id,
+                ProductoNombre = p.Nombre,
+                DescripcionItem = p.Nombre,
+                Cantidad = 1,
+                CostoUnitario = p.CostoPromedio
+            });
+        }
+        productoSeleccionadoId = 0;
+    }
+
+    private void AgregarGastoGeneral()
+    {
+        if (string.IsNullOrWhiteSpace(descripcionGastoLibre)) return;
+        detalles.Add(new DetalleUI
+        {
+            ProductoId = null,
+            ProductoNombre = descripcionGastoLibre,
+            DescripcionItem = descripcionGastoLibre,
+            Cantidad = 1,
+            CostoUnitario = montoGastoLibre
+        });
+        descripcionGastoLibre = "";
+        montoGastoLibre = 0;
+    }
+
+    private void EliminarDetalle(DetalleUI d) => detalles.Remove(d);
+    private decimal CalcularTotal() => detalles.Sum(d => d.Cantidad * d.CostoUnitario);
+
+    private async Task GuardarCambios()
+    {
+        MensajeError = null;
+        if (string.IsNullOrWhiteSpace(factura.Proveedor)) { MensajeError = "Proveedor requerido."; return; }
+        if (!detalles.Any()) { MensajeError = "Añada al menos un ítem."; return; }
+
+        Guardando = true;
+        try
+        {
+            factura.Estado = factura.PagadaCaja ? "PAGADA" : "PENDIENTE";
+            factura.Detalles = detalles.Select(d => new RegistrarDetalleCompraRequestDto
+            {
+                ProductoId = d.ProductoId,
+                DescripcionItem = d.DescripcionItem,
+                Cantidad = d.Cantidad,
+                CostoUnitario = d.CostoUnitario
+            }).ToList();
+
+            var response = await Http.PutAsJsonAsync($"api/compras/{Id}", factura);
+            if (response.IsSuccessStatusCode) Navigation.NavigateTo("/compras");
+            else MensajeError = "Error al guardar: " + await response.Content.ReadAsStringAsync();
+        }
+        catch (Exception ex) { MensajeError = "Error inesperado: " + ex.Message; }
+        finally { Guardando = false; }
+    }
+
+    private class DetalleUI
+    {
+        public int? ProductoId { get; set; }
+        public string ProductoNombre { get; set; } = string.Empty;
+        public string DescripcionItem { get; set; } = string.Empty;
+        public int Cantidad { get; set; }
+        public decimal CostoUnitario { get; set; }
+    }
+}

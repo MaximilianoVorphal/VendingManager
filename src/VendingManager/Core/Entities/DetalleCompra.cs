@@ -11,8 +11,10 @@ public class DetalleCompra
     public int CompraId { get; set; }
     // public Compra? Compra { get; set; }
 
-    public int ProductoId { get; set; }
+    public int? ProductoId { get; set; }
     public Producto? Producto { get; set; }
+    
+    public string? DescripcionItem { get; set; }
 
     public int Cantidad { get; set; } = 1;
 
