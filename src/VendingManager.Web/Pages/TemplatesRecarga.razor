@@ -2,6 +2,7 @@
 @using Microsoft.AspNetCore.Authorization
 @using VendingManager.Shared.Constants
 @using VendingManager.Shared.DTOs
+@using VendingManager.Shared.Enums
 @using Microsoft.AspNetCore.Components.Forms
 @using VendingManager.Web.Layout
 @attribute [Authorize(Roles = Roles.Admin)]
@@ -102,8 +103,9 @@
                         @onclick="() => AnalizarTemplate(template.Id)">
                                 <i class="bi bi-graph-up me-1"></i> ANALIZAR STOCKOUT
                             </button>
-                            <button class="btn btn-warning w-100 rounded-0 fw-bold"
-                        @onclick="() => AbrirModalSincronizar(template.Id)">
+<button class="btn btn-warning w-100 rounded-0 fw-bold"
+                                @onclick="() => AbrirModalSincronizar(template.Id)"
+                                disabled="@_syncCtors.Any()">
                                 <i class="bi bi-arrow-repeat me-1"></i> APLICAR A VENTAS
                             </button>
                         </div>
@@ -335,10 +337,10 @@
                                                     </button>
                                                 </div>
                                                 
-                                                <div class="mb-2 flex-grow-1 d-flex align-items-center">
-                                                    <select class="form-select form-select-sm border-dark shadow-none fw-bold text-center product-select" 
+                                                <div class="mb-2 flex-grow-1 d-flex align-items-center position-relative">
+                                                    <select class="form-select form-select-sm border-dark shadow-none fw-bold text-center product-select"
                                                         style="height: 100%; white-space: normal; appearance: none; background-image: none; cursor: pointer; padding: 2px;"
-                                                        @bind="slot.ProductoId" @bind:after="() => ActualizarNombreProducto(slot)">
+                                                        @bind="slot.ProductoId" @bind:after="() => OnSlotProductoChanged(slot, PeriodoEnEdicionVisual!.Id)">
                                                         <option value="">-- SELECCIONAR --</option>
                                                         @if (ListaProductos != null)
                                                         {
@@ -348,19 +350,34 @@
                                                             }
                                                         }
                                                     </select>
+                                                    @if (slot.Sincronizando)
+                                                    {
+                                                        <div class="position-absolute top-0 end-0 p-1">
+                                                            <div class="spinner-border spinner-border-sm text-dark" role="status"></div>
+                                                        </div>
+                                                    }
                                                 </div>
                                                 
                                                 <div class="mt-auto d-flex align-items-center justify-content-between border-top border-secondary pt-2">
                                                     <div class="d-flex flex-column w-50 pe-1 border-end border-secondary">
                                                         <span class="text-muted" style="font-size:0.6rem; font-weight: 800;">CANT.</span>
-                                                        <input type="number" class="form-control form-control-sm text-center border-dark p-0 fw-bold" 
+                                                        <input type="number" class="form-control form-control-sm text-center border-dark p-0 fw-bold"
                                                             style="height: 22px; font-size:0.85rem;" min="0" max="100" @bind="slot.CantidadInicial" title="Cantidad Inicial" />
                                                     </div>
                                                     <div class="d-flex flex-column w-50 ps-1">
                                                         <span class="text-muted" style="font-size:0.6rem; font-weight: 800;">CAPAC.</span>
-                                                        <input type="number" class="form-control form-control-sm text-center border-secondary p-0 text-muted bg-light" 
+                                                        <input type="number" class="form-control form-control-sm text-center border-secondary p-0 text-muted bg-light"
                                                             style="height: 22px; font-size:0.85rem;" min="0" max="100" @bind="slot.CapacidadSlot" title="Capacidad Máxima Slot" />
                                                     </div>
+                                                </div>
+                                                <div class="mt-2">
+                                                    <select class="form-select form-select-sm border-dark shadow-none fw-bold text-center @GetEstadoSlotCssClass(slot.Estado)"
+                                                        style="height: 2rem; font-size: 0.7rem;"
+                                                        @bind="slot.Estado">
+                                                        <option value="@EstadoSlot.Vacio">Vacío</option>
+                                                        <option value="@EstadoSlot.Pendiente">Pendiente</option>
+                                                        <option value="@EstadoSlot.Lleno">Lleno</option>
+                                                    </select>
                                                 </div>
                                             </div>
                                         }
@@ -606,6 +623,10 @@
             min-height: 100px !important;
         }
     }
+
+    .estado-vacio { background-color: #f8f9fa; }
+    .estado-pendiente { background-color: #fff3cd; border-color: #ffc107 !important; }
+    .estado-lleno { background-color: #d1e7dd; }
 </style>
 
 @code {
@@ -630,6 +651,7 @@
     private bool _fotoGuiaDragging = false;
     private double _fotoGuiaLastMouseX = 0;
     private double _fotoGuiaLastMouseY = 0;
+    private Dictionary<string, CancellationTokenSource> _syncCtors = new();
 
     // CSS transform string — must use InvariantCulture or comma-decimal cultures break CSS syntax
     private string FotoGuiaTransform =>
@@ -984,7 +1006,8 @@
                 ProductoId = s.ProductoId,
                 ProductoNombre = s.ProductoNombre,
                 CantidadInicial = s.CantidadInicial,
-                CapacidadSlot = s.CapacidadSlot
+                CapacidadSlot = s.CapacidadSlot,
+                Estado = s.Estado
             }).ToList()
         }).ToList();
         MostrarModal = true;
@@ -1024,6 +1047,59 @@
             slot.ProductoNombre = "";
         }
     }
+
+    private async Task OnSlotProductoChanged(SnapshotSlotFormModel slot, int periodoId)
+    {
+        if (!slot.ProductoId.HasValue || slot.ProductoId <= 0)
+            return;
+
+        // Cancel any in-flight request for this slot
+        if (_syncCtors.TryGetValue(slot.NumeroSlot, out var existing))
+        {
+            existing.Cancel();
+            _syncCtors.Remove(slot.NumeroSlot);
+        }
+
+        var cts = new CancellationTokenSource();
+        _syncCtors[slot.NumeroSlot] = cts;
+
+        slot.Sincronizando = true;
+        slot.SyncError = false;
+        StateHasChanged();
+
+        try
+        {
+            await Task.Delay(500, cts.Token); // debounce
+            if (cts.Token.IsCancellationRequested) return;
+
+            var response = await Http.PatchAsJsonAsync(
+                $"api/TemplateRecarga/{TemplateIdEdicion}/periodo/{periodoId}/slot/{slot.NumeroSlot}/sincronizar-producto",
+                new { productoId = slot.ProductoId });
+
+            if (!response.IsSuccessStatusCode)
+                slot.SyncError = true;
+            else
+                slot.SyncError = false;
+        }
+        catch (OperationCanceledException)
+        {
+            // Debounce cancelled — expected
+        }
+        finally
+        {
+            slot.Sincronizando = false;
+            _syncCtors.Remove(slot.NumeroSlot);
+            StateHasChanged();
+        }
+    }
+
+    private string GetEstadoSlotCssClass(EstadoSlot estado) => estado switch
+    {
+        EstadoSlot.Vacio => "estado-vacio",
+        EstadoSlot.Pendiente => "estado-pendiente",
+        EstadoSlot.Lleno => "estado-lleno",
+        _ => ""
+    };
 
     private async Task CargarSlotsParaPeriodo(int periodoIndex)
     {
@@ -1091,13 +1167,14 @@
                 FechaInicio = p.FechaInicio,
                 FechaFin = p.FechaFin,
                 SnapshotSlots = p.SnapshotSlots
-            .Where(s => s.ProductoId.HasValue && s.ProductoId > 0)
+            .Where(s => (s.ProductoId.HasValue && s.ProductoId > 0) || s.Estado == EstadoSlot.Pendiente)
             .Select(s => new CreateSnapshotSlotDto
             {
                 NumeroSlot = s.NumeroSlot,
                 ProductoId = s.ProductoId,
                 CantidadInicial = s.CantidadInicial,
-                CapacidadSlot = s.CapacidadSlot
+                CapacidadSlot = s.CapacidadSlot,
+                Estado = s.Estado
             }).ToList()
             }).ToList()
             };
@@ -1254,6 +1331,7 @@
         public string ProductoNombre { get; set; } = string.Empty;
         public int CantidadInicial { get; set; }
         public int CapacidadSlot { get; set; }
+        public EstadoSlot Estado { get; set; } = EstadoSlot.Vacio;
     }
 
     public class TemplateFormModel
@@ -1264,6 +1342,7 @@
 
     public class PeriodoFormModel
     {
+        public int Id { get; set; }
         public int MaquinaId { get; set; }
         public DateTime FechaInicio { get; set; }
         public DateTime FechaFin { get; set; }
@@ -1277,6 +1356,9 @@
         public string ProductoNombre { get; set; } = "";
         public int CantidadInicial { get; set; }
         public int CapacidadSlot { get; set; }
+        public EstadoSlot Estado { get; set; } = EstadoSlot.Vacio;
+        public bool Sincronizando { get; set; }
+        public bool SyncError { get; set; }
     }
 
     public class CreateTemplateDto
@@ -1300,6 +1382,7 @@
         public int? ProductoId { get; set; }
         public int CantidadInicial { get; set; }
         public int CapacidadSlot { get; set; }
+        public EstadoSlot Estado { get; set; } = EstadoSlot.Vacio;
     }
 
     }

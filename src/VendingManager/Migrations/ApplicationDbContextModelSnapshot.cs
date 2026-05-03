@@ -469,6 +469,9 @@ namespace VendingManager.Migrations
                     b.Property<int>("CapacidadSlot")
                         .HasColumnType("int");
 
+                    b.Property<int>("Estado")
+                        .HasColumnType("int");
+
                     b.Property<string>("NumeroSlot")
                         .IsRequired()
                         .HasMaxLength(10)
