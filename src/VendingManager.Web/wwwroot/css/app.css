@@ -385,3 +385,12 @@
         text-transform: uppercase;
     }
 }
+
+/* =========================================
+   IPAD-SPECIFIC REFINEMENTS (768px - 1199px)
+   ========================================= */
+@media (min-width: 768px) and (max-width: 1199px) {
+    h1.display-5 { font-size: clamp(1.8rem, 3.5vw, 2.5rem) !important; }
+    h1.display-4 { font-size: clamp(2rem, 4vw, 3rem) !important; }
+    .card-body { padding: 0.75rem !important; }
+}
