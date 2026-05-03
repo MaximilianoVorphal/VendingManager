@@ -65,6 +65,30 @@ async def ocr_invoice(file: UploadFile = File(...)):
         print(f"Error OCR: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
+@app.post("/api/ocr/recarga")
+async def ocr_recarga(file: UploadFile = File(...)):
+    try:
+        # Save temp file
+        temp_file_path = f"downloads/temp_recarga_{file.filename}"
+        with open(temp_file_path, "wb") as buffer:
+            buffer.write(await file.read())
+
+        try:
+            # Process with Gemini
+            result = gemini_ocr.extract_recarga_data(temp_file_path)
+        finally:
+            # Clean up temp file
+            try:
+                os.remove(temp_file_path)
+            except:
+                pass
+
+        return JSONResponse(content=result)
+    except Exception as e:
+        print(f"Error OCR recarga: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/health")
 def health_check():
     return {"status": "ok", "service": "Vending Scraper"}
