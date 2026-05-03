@@ -1,3 +1,8 @@
+/* Prevenir zoom accidental en iPad */
+html {
+    touch-action: manipulation;
+}
+
 /* =========================================
    NUEVA BARRA SUPERIOR (HEADER)
    ========================================= */
