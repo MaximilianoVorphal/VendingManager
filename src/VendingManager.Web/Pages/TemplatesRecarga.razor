@@ -633,7 +633,7 @@
             content.Add(byteContent, "file", file.Name);
 
             var response = await Http.PostAsync(
-                $"api/ordenes-carga/from-photo?maquinaId={PeriodoEnEdicionVisual.MaquinaId}",
+                $"api/ordencarga/from-photo?maquinaId={PeriodoEnEdicionVisual.MaquinaId}",
                 content);
 
             if (!response.IsSuccessStatusCode)
