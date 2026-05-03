@@ -10,11 +10,16 @@ namespace VendingManager.Controllers
     {
         private readonly IOrdenCargaService _service;
         private readonly IOrdenCargaExcelService _ordenCargaExcelService;
+        private readonly IRecargaOcrService _recargaOcrService;
 
-        public OrdenCargaController(IOrdenCargaService service, IOrdenCargaExcelService excelService)
+        public OrdenCargaController(
+            IOrdenCargaService service,
+            IOrdenCargaExcelService excelService,
+            IRecargaOcrService recargaOcrService)
         {
             _service = service;
             _ordenCargaExcelService = excelService;
+            _recargaOcrService = recargaOcrService;
         }
 
         [HttpPost]
@@ -126,6 +131,45 @@ namespace VendingManager.Controllers
             catch (Exception ex)
             {
                 return BadRequest("Error generando archivo global: " + ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// OCR endpoint: receives a refill list photo, extracts slot+quantity pairs via OCR,
+        /// performs fuzzy matching against the machine's slots, and returns matched results.
+        /// </summary>
+        [HttpPost("from-photo")]
+        public async Task<ActionResult<OcrRecargaResultDto>> ExtractFromPhoto(
+            IFormFile file,
+            [FromQuery] int maquinaId)
+        {
+            if (file == null || file.Length == 0)
+            {
+                return BadRequest("Archivo no proporcionado o vacío.");
+            }
+
+            // Max 10MB
+            const long maxSize = 10 * 1024 * 1024;
+            if (file.Length > maxSize)
+            {
+                return BadRequest("La foto supera los 10MB. Usá una foto más pequeña.");
+            }
+
+            // Validate image MIME type
+            var allowedTypes = new[] { "image/jpeg", "image/png", "image/jpg", "image/heic", "image/webp" };
+            if (!allowedTypes.Contains(file.ContentType.ToLowerInvariant()))
+            {
+                return BadRequest("Formato no soportado. Usá JPG, PNG o HEIC.");
+            }
+
+            try
+            {
+                var result = await _recargaOcrService.ExtractRecargaDataAsync(file, maquinaId);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, "Error OCR: " + ex.Message);
             }
         }
     }
