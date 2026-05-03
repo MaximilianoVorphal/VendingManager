@@ -123,4 +123,28 @@ public class TemplateRecargaController : ControllerBase
             count = amountUpdated 
         });
     }
+
+    /// <summary>
+    /// Sincronizar el producto de un slot específico en las ventas históricas
+    /// </summary>
+    [HttpPatch("{templateId}/periodo/{periodoId}/slot/{numeroSlot}/sincronizar-producto")]
+    public async Task<ActionResult<SyncSlotProductoResultDto>> SyncSlotProducto(
+        int templateId,
+        int periodoId,
+        string numeroSlot,
+        [FromBody] SyncSlotProductoRequestDto request)
+    {
+        if (request.ProductoId <= 0)
+            return BadRequest("productoId es requerido y debe ser mayor a 0");
+
+        try
+        {
+            var result = await _service.SyncSlotProductoAsync(templateId, periodoId, numeroSlot, request.ProductoId);
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return NotFound(ex.Message);
+        }
+    }
 }

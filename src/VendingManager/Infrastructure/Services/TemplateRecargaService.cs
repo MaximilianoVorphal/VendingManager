@@ -3,6 +3,7 @@ using VendingManager.Shared.DTOs;
 using VendingManager.Core.Entities;
 using VendingManager.Core.Interfaces;
 using VendingManager.Infrastructure.Data;
+using VendingManager.Shared.Enums;
 
 namespace VendingManager.Infrastructure.Services;
 
@@ -483,6 +484,39 @@ public class TemplateRecargaService : ITemplateRecargaService
         return ventasActualizadas;
     }
 
+    public async Task<SyncSlotProductoResultDto> SyncSlotProductoAsync(int templateId, int periodoId, string numeroSlot, int productoId)
+    {
+        var periodo = await _context.PeriodosRecarga
+            .FirstOrDefaultAsync(p => p.Id == periodoId && p.TemplateRecargaId == templateId)
+            ?? throw new InvalidOperationException($"Período {periodoId} no encontrado para el template {templateId}");
+
+        var ventas = await _context.Ventas
+            .Where(v => v.MaquinaId == periodo.MaquinaId)
+            .Where(v => v.NumeroSlot == numeroSlot)
+            .Where(v => v.FechaLocal >= periodo.FechaInicio && v.FechaLocal <= periodo.FechaFin)
+            .ToListAsync();
+
+        int count = 0;
+        foreach (var venta in ventas)
+        {
+            if (venta.ProductoId != productoId)
+            {
+                venta.ProductoId = productoId;
+                count++;
+            }
+        }
+
+        if (count > 0) await _context.SaveChangesAsync();
+
+        return new SyncSlotProductoResultDto
+        {
+            MaquinaId = periodo.MaquinaId,
+            NumeroSlot = numeroSlot,
+            ProductoId = productoId,
+            VentasActualizadas = count
+        };
+    }
+
     private class HistoricoCostoDto 
     {
         public int? ProductoId { get; set; }
@@ -512,7 +546,8 @@ public class TemplateRecargaService : ITemplateRecargaService
                     ProductoId = s.ProductoId,
                     ProductoNombre = s.Producto?.Nombre ?? "",
                     CantidadInicial = s.CantidadInicial,
-                    CapacidadSlot = s.CapacidadSlot
+                    CapacidadSlot = s.CapacidadSlot,
+                    Estado = s.Estado
                 }).ToList()
             }).ToList()
         };

@@ -1,4 +1,5 @@
 namespace VendingManager.Shared.DTOs;
+using VendingManager.Shared.Enums;
 
 /// <summary>
 /// DTO para mostrar un template de recarga con sus períodos
@@ -84,6 +85,7 @@ public class SnapshotSlotDto
     public string ProductoNombre { get; set; } = string.Empty;
     public int CantidadInicial { get; set; }
     public int CapacidadSlot { get; set; }
+    public EstadoSlot Estado { get; set; } = EstadoSlot.Vacio;
 }
 
 /// <summary>
@@ -95,5 +97,25 @@ public class CreateSnapshotSlotDto
     public int? ProductoId { get; set; }
     public int CantidadInicial { get; set; }
     public int CapacidadSlot { get; set; }
+    public EstadoSlot Estado { get; set; } = EstadoSlot.Vacio;
+}
+
+/// <summary>
+/// Resultado de sincronizar un slot específico con ventas históricas
+/// </summary>
+public class SyncSlotProductoResultDto
+{
+    public int MaquinaId { get; set; }
+    public string NumeroSlot { get; set; } = string.Empty;
+    public int ProductoId { get; set; }
+    public int VentasActualizadas { get; set; }
+}
+
+/// <summary>
+/// Request para sincronizar el producto de un slot
+/// </summary>
+public class SyncSlotProductoRequestDto
+{
+    public int ProductoId { get; set; }
 }
 
