@@ -1,4 +1,4 @@
-<div class="industrial-navbar">
+<div class="industrial-navbar @(Collapsed ? "navbar-collapsed" : "")">
     <div class="container-fluid px-4 d-flex justify-content-between align-items-center position-relative">
 
         <div class="brand-logo">
@@ -6,7 +6,7 @@
         </div>
 
         <!-- Botón Hamburger (Visible solo en móvil) -->
-        <button class="hamburger-btn" @onclick="ToggleNavMenu">
+        <button class="hamburger-btn" @onclick="OnToggleClick">
             <i class="bi bi-list"
                 style="visibility: visible; float: none; bottom: 1px; left: 5px; width: 26px; height: 28px"></i>
         </button>
@@ -104,6 +104,9 @@
 </div>
 
 @code {
+    [Parameter] public bool Collapsed { get; set; }
+    [Parameter] public EventCallback<bool> OnToggleCollapse { get; set; }
+
     private bool collapseNavMenu = true;
     private bool showGestionMenu = false;
     private bool showOperacionesMenu = false;
@@ -114,6 +117,12 @@
     private void ToggleNavMenu()
     {
         collapseNavMenu = !collapseNavMenu;
+    }
+
+    private async Task OnToggleClick()
+    {
+        collapseNavMenu = !collapseNavMenu;
+        await OnToggleCollapse.InvokeAsync(collapseNavMenu);
     }
 
     private void CloseNavMenu()
