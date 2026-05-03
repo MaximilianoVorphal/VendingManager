@@ -3,6 +3,7 @@
 @using VendingManager.Shared.Constants
 @using VendingManager.Shared.DTOs
 @using Microsoft.AspNetCore.Components.Forms
+@using VendingManager.Web.Layout
 @attribute [Authorize(Roles = Roles.Admin)]
 @inject HttpClient Http
 @inject Microsoft.Extensions.Logging.ILogger<TemplatesRecarga> Logger
@@ -303,10 +304,7 @@
                     {
                         <div class="text-center py-5">
                             <h5 class="text-muted fw-bold">NO HAY SLOTS CONFIGURADOS</h5>
-                            <p class="text-muted small mb-3">Esta máquina no tiene slots cargados. Volvé al paso anterior y usá el botón <strong>Slots</strong> para cargarlos desde la configuración de la máquina.</p>
-                            <button class="btn btn-success mt-3 rounded-0 fw-bold border-dark shadow-sm" @onclick="() => AgregarSlotVacio(PeriodoEnEdicionVisual)">
-                                <i class="bi bi-plus-circle me-2"></i> AGREGAR PRIMER SLOT
-                            </button>
+                            <p class="text-muted small">Esta máquina no tiene slots cargados. Volvé al paso anterior y usá el botón <strong>Slots</strong> para cargarlos desde la configuración de la máquina.</p>
                         </div>
                     }
                     else
@@ -404,9 +402,7 @@
                 </div>
                 <div class="modal-footer bg-light border-top border-dark rounded-0 px-4 py-3 d-flex justify-content-between flex-wrap gap-2">
                     <div class="d-flex gap-2 align-items-center">
-                        <button class="btn btn-dark rounded-0 fw-bold border-dark shadow-sm" @onclick="() => AgregarSlotVacio(PeriodoEnEdicionVisual)">
-                            <i class="bi bi-plus-circle me-2"></i>AÑADIR SLOT EXTRA
-                        </button>
+                        
                         <InputFile OnChange="HandleOcrPhotoUpload" accept="image/*" class="d-none" id="ocrRecargaFileInput" disabled="@ProcesandoOcr" />
                         <button class="btn btn-success rounded-0 fw-bold border-dark shadow-sm px-3" @onclick="TriggerOcrUpload" disabled="@ProcesandoOcr" title="Fotos legibles tardan ~5s. Asegurate de que los números de slot y cantidades sean claramente visibles. Formatos: JPG, PNG, HEIC. Máx 10MB.">
                             <i class="bi bi-camera-fill me-2"></i>SUBIR FOTO RECARGA
@@ -434,7 +430,7 @@
 <!-- MODAL FOTO GUÍA (Photo 2 — reference only, never sent to backend) -->
 @if (MostrarFotoGuia && !string.IsNullOrEmpty(FotoGuiaUrl))
 {
-    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.9); z-index: 1070;">
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.9); z-index: 1070;" @onkeydown="OnFotoGuiaKeydown">
         <div class="modal-dialog modal-xl modal-dialog-centered">
             <div class="modal-content border-3 border-dark rounded-0 bg-dark">
                 <div class="modal-header bg-dark text-white rounded-0 border-bottom border-dark">
@@ -443,17 +439,38 @@
                     </h5>
                     <button type="button" class="btn-close btn-close-white" @onclick="CerrarFotoGuiaModal"></button>
                 </div>
-                <div class="modal-body p-0 text-center" style="background-color: #111;">
-                    <img src="@FotoGuiaUrl" alt="Foto Guía" class="img-fluid" style="max-height: 80vh; object-fit: contain;" />
+                <div class="modal-body p-0"
+                     style="background-color: #111; overflow: hidden; position: relative; height: 80vh; cursor: @(_fotoGuiaDragging ? "grabbing" : "grab"); user-select: none;"
+                     @onwheel:preventDefault="true"
+                     @onwheel="OnFotoGuiaZoom"
+                     @onmousedown="OnFotoGuiaPanStart"
+                     @onmousemove="OnFotoGuiaPanMove"
+                     @onmouseup="OnFotoGuiaPanEnd"
+                     @onmouseleave="OnFotoGuiaPanLeave">
+                    <div style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%;">
+                        <img src="@FotoGuiaUrl" alt="Foto Guía"
+                             style="max-width: 100%; max-height: 100%; object-fit: contain; transform-origin: center; transform: @FotoGuiaTransform; pointer-events: none; display: block;" />
+                    </div>
                 </div>
-                <div class="modal-footer bg-dark border-top border-dark rounded-0">
-                    <small class="text-muted mx-auto">
-                        <i class="bi bi-info-circle-fill me-1"></i>
-                        Esta foto es solo referencia. No se envía a ningún servidor.
-                    </small>
-                    <button type="button" class="btn btn-light rounded-0 fw-bold" @onclick="CerrarFotoGuiaModal">
-                        CERRAR
-                    </button>
+                <div class="modal-footer bg-dark border-top border-dark rounded-0 d-flex justify-content-between align-items-center">
+                    <div>
+                        <small class="text-muted">
+                            <i class="bi bi-info-circle-fill me-1"></i>
+                            Esta foto es solo referencia. No se envía a ningún servidor.
+                        </small>
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        @if (_fotoGuiaZoom > 1.0 || _fotoGuiaPanX != 0 || _fotoGuiaPanY != 0)
+                        {
+                            <button class="btn btn-sm btn-outline-light rounded-0 fw-bold" @onclick="ResetFotoGuiaView" title="Restablecer zoom">
+                                <i class="bi bi-arrow-counterclockwise me-1"></i>RESTABLECER
+                            </button>
+                        }
+                        <span class="text-muted small fw-bold font-monospace">@(FotoGuiaZoomDisplay)x</span>
+                        <button type="button" class="btn btn-light rounded-0 fw-bold ms-2" @onclick="CerrarFotoGuiaModal">
+                            CERRAR
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -542,9 +559,58 @@
         box-shadow: 0 0 12px rgba(25, 135, 84, 0.5) !important;
         background-color: #d1e7dd !important;
     }
+
+    /* === RESPONSIVE: notebooks 14" y pantallas chicas === */
+    @@media (max-width: 1200px) {
+        .inventory-grid {
+            grid-template-columns: repeat(auto-fill, minmax(105px, 1fr)) !important;
+            gap: 8px !important;
+        }
+        
+        .slot-unit {
+            min-height: 110px !important;
+        }
+        
+        .modal-dialog.modal-xl {
+            max-width: 98vw !important;
+            margin: 0.25rem auto !important;
+        }
+        
+        .modal-body {
+            padding: 0.5rem !important;
+        }
+        
+        .modal-footer {
+            padding: 0.5rem !important;
+            gap: 0.25rem !important;
+        }
+
+        /* Reducir el tamaño de botones del footer para que no desborden */
+        .modal-footer .btn {
+            font-size: 0.8rem !important;
+            padding: 0.35rem 0.7rem !important;
+        }
+
+        h2 {
+            font-size: 1.2rem !important;
+        }
+    }
+
+    @@media (max-width: 768px) {
+        .inventory-grid {
+            grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)) !important;
+            gap: 6px !important;
+        }
+
+        .slot-unit {
+            min-height: 100px !important;
+        }
+    }
 </style>
 
 @code {
+    [CascadingParameter] public MainLayout? Layout { get; set; }
+
     private PeriodoFormModel? PeriodoEnEdicionVisual;
 
     // OCR-related state
@@ -557,6 +623,22 @@
     private HashSet<string> SlotsResaltados = new(); // Slots recently pre-filled via OCR
     private List<OcrRecargaSlotDto> UltimosSlotsNoCoincidentes = new(); // Unmatched OCR slots with quantity
 
+    // Foto Guía zoom/pan state (persists across photo modal close/reopen, resets when opening a different period)
+    private double _fotoGuiaZoom = 1.0;
+    private double _fotoGuiaPanX = 0;
+    private double _fotoGuiaPanY = 0;
+    private bool _fotoGuiaDragging = false;
+    private double _fotoGuiaLastMouseX = 0;
+    private double _fotoGuiaLastMouseY = 0;
+
+    // CSS transform string — must use InvariantCulture or comma-decimal cultures break CSS syntax
+    private string FotoGuiaTransform =>
+        $"scale({_fotoGuiaZoom.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)}) translate({_fotoGuiaPanX.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)}px, {_fotoGuiaPanY.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)}px)";
+
+    // Zoom display for footer — also InvariantCulture to avoid comma decimals in es-AR etc.
+    private string FotoGuiaZoomDisplay =>
+        _fotoGuiaZoom.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture);
+
     private void AbrirEdicionVisual(PeriodoFormModel periodo)
     {
         PeriodoEnEdicionVisual = periodo;
@@ -564,7 +646,13 @@
         ProcesandoOcr = false;
         MensajeErrorOcr = "";
         MensajeInfoOcr = "";
+        // Reset zoom/pan for new period (different machine = different photo)
+        _fotoGuiaZoom = 1.0;
+        _fotoGuiaPanX = 0;
+        _fotoGuiaPanY = 0;
         // Note: FotoGuiaData/FotoGuiaUrl intentionally preserved across opens for convenience
+        // Colapsar navbar para ganar espacio vertical en pantallas chicas
+        Layout?.CollapseNavbar();
     }
 
     private void CerrarEdicionVisual()
@@ -575,6 +663,8 @@
         }
         PeriodoEnEdicionVisual = null;
         RevokeFotoGuiaUrl();
+        // Restaurar navbar al salir del editor
+        Layout?.ExpandNavbar();
     }
 
     private async Task TriggerOcrUpload()
@@ -736,6 +826,12 @@
         StateHasChanged();
     }
 
+    private void OnFotoGuiaKeydown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape" && MostrarFotoGuia)
+            CerrarFotoGuiaModal();
+    }
+
     private void RevokeFotoGuiaUrl()
     {
         if (!string.IsNullOrEmpty(FotoGuiaUrl))
@@ -743,6 +839,51 @@
             FotoGuiaUrl = null;
         }
         // FotoGuiaData is kept in memory for convenience across opens
+    }
+
+    // === Foto Guía Zoom/Pan handlers ===
+    private void OnFotoGuiaZoom(WheelEventArgs e)
+    {
+        // Proportional zoom based on actual scroll distance.
+        // Mouse scrolls send DeltaY ~ ±120 per notch → ~ ±0.3 zoom per notch
+        // Touchpad smooth scrolling sends DeltaY ~ ±(1–15) per frame → fine-grained, proportional
+        var zoomDelta = -e.DeltaY / 400.0;
+        _fotoGuiaZoom = Math.Clamp(_fotoGuiaZoom + zoomDelta, 1.0, 5.0);
+    }
+
+    private void OnFotoGuiaPanStart(MouseEventArgs e)
+    {
+        _fotoGuiaDragging = true;
+        _fotoGuiaLastMouseX = e.ClientX;
+        _fotoGuiaLastMouseY = e.ClientY;
+    }
+
+    private void OnFotoGuiaPanMove(MouseEventArgs e)
+    {
+        if (!_fotoGuiaDragging) return;
+        var dx = e.ClientX - _fotoGuiaLastMouseX;
+        var dy = e.ClientY - _fotoGuiaLastMouseY;
+        _fotoGuiaPanX += dx / _fotoGuiaZoom;
+        _fotoGuiaPanY += dy / _fotoGuiaZoom;
+        _fotoGuiaLastMouseX = e.ClientX;
+        _fotoGuiaLastMouseY = e.ClientY;
+    }
+
+    private void OnFotoGuiaPanEnd(MouseEventArgs e)
+    {
+        _fotoGuiaDragging = false;
+    }
+
+    private void OnFotoGuiaPanLeave()
+    {
+        _fotoGuiaDragging = false;
+    }
+
+    private void ResetFotoGuiaView()
+    {
+        _fotoGuiaZoom = 1.0;
+        _fotoGuiaPanX = 0;
+        _fotoGuiaPanY = 0;
     }
 
     private bool Cargando = false;
@@ -869,27 +1010,6 @@
         {
             PeriodosActuales.RemoveAt(index);
         }
-    }
-
-    private void AgregarSlotVacio(PeriodoFormModel periodo)
-    {
-        // Calcular próximo número de slot basado en los existentes
-        var nextSlot = 1;
-        if (periodo.SnapshotSlots.Any())
-        {
-            var maxSlot = periodo.SnapshotSlots
-            .Select(s => int.TryParse(s.NumeroSlot, out var n) ? n : 0)
-            .DefaultIfEmpty(0)
-            .Max();
-            nextSlot = maxSlot + 1;
-        }
-
-        periodo.SnapshotSlots.Add(new SnapshotSlotFormModel
-        {
-            NumeroSlot = nextSlot.ToString(),
-            CantidadInicial = 10,
-            CapacidadSlot = 10
-        });
     }
 
     private void ActualizarNombreProducto(SnapshotSlotFormModel slot)
