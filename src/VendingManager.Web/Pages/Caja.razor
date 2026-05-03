@@ -81,9 +81,7 @@
                         <small class="fw-bold text-uppercase">DISPONIBLE EN CAJA</small>
                         <span class="badge bg-light text-dark rounded-0">TOTAL</span>
                     </div>
-                    <div class="d-flex align-items-center justify-content-between">
-                        <h2 class="fw-bold m-0">$@Resumen.SaldoFinal.ToString("N0")</h2>
-                    </div>
+                    <h4 class="fw-bold m-0">$@Resumen.SaldoFinal.ToString("N0")</h4>
                     <small class="text-white-50 mt-2 d-block" style="font-size: 0.7rem;">Total Real (Incluye Histórico)</small>
                 </div>
             </div>
@@ -142,7 +140,7 @@
             </div>
         }
 
-        <div class="row">
+        <div class="row g-3">
         <!-- FORMULARIO DE REGISTRO -->
         <div class="col-md-4 mb-4">
             <div class="card border-2 border-dark rounded-0 h-100 shadow-sm @(Resumen?.IsLocked == true ? "opacity-50" : "")">
@@ -159,7 +157,7 @@
 
                     <div class="mb-3">
                         <label class="fw-bold small text-uppercase mb-1">1. TIPO DE OPERACIÓN:</label>
-                        <div class="btn-group w-100 border border-dark" role="group">
+                        <div class="btn-group btn-group-sm w-100 border border-dark flex-wrap" role="group">
                             <input type="radio" class="btn-check" name="btnradio" id="btnGasto" autocomplete="off" checked @onclick='() => SetTipo("GASTO")'>
                             <label class="btn btn-outline-dark rounded-0 fw-bold @(Nuevo.Tipo == "GASTO" ? "active bg-danger text-white" : "")" for="btnGasto">🔴 GASTO</label>
 
@@ -179,7 +177,7 @@
 
                     <div class="mb-3">
                         <label class="fw-bold small text-uppercase mb-1">3. CATEGORÍA:</label>
-                        <select @bind="Nuevo.Categoria" class="form-select border-dark rounded-0 bg-white">
+                        <select @bind="Nuevo.Categoria" class="form-select border-dark rounded-0 bg-white text-truncate">
                             @if (Nuevo.Tipo == "GASTO")
                             {
                                 <optgroup label="📦 STOCK Y COSTOS">

@@ -49,10 +49,10 @@
                     </div>
                     <div class="p-4 text-center">
                         <small class="text-muted text-uppercase fw-bold" style="font-size: 0.7rem;">Venta</small>
-                        <h1 class="display-5 fw-bold my-2 text-dark" style="letter-spacing: -2px;">
+                        <h1 class="display-5 fw-bold my-2 text-dark kpi-amount" style="letter-spacing: -2px;">
                             $@Stats.Hoy.VentaTotal.ToString("N0")</h1>
 
-                        <div class="d-flex justify-content-between mt-4 border-top border-dark pt-3">
+                        <div class="d-flex justify-content-between gap-2 mt-4 border-top border-dark pt-3">
                             <div class="text-start lh-1">
                                 <span class="d-block text-uppercase text-dark fw-bold"
                                 style="font-size: 0.7rem;">Confirmado</span>
@@ -78,10 +78,10 @@
                     </div>
                     <div class="p-4 text-center">
                         <small class="text-muted text-uppercase fw-bold" style="font-size: 0.7rem;">Acumulado</small>
-                        <h1 class="display-5 fw-bold my-2 text-dark" style="letter-spacing: -2px;">
+                        <h1 class="display-5 fw-bold my-2 text-dark kpi-amount" style="letter-spacing: -2px;">
                             $@Stats.Semana.VentaTotal.ToString("N0")</h1>
 
-                        <div class="d-flex justify-content-between mt-4 border-top border-dark pt-3">
+                        <div class="d-flex justify-content-between gap-2 mt-4 border-top border-dark pt-3">
                             <div class="text-start lh-1">
                                 <span class="d-block text-uppercase text-dark fw-bold"
                                 style="font-size: 0.7rem;">Confirmado</span>
@@ -107,10 +107,10 @@
                     </div>
                     <div class="p-4 text-center">
                         <small class="text-muted text-uppercase fw-bold" style="font-size: 0.7rem;">Total Proyectado</small>
-                        <h1 class="display-5 fw-bold my-2 text-dark" style="letter-spacing: -2px;">
+                        <h1 class="display-5 fw-bold my-2 text-dark kpi-amount" style="letter-spacing: -2px;">
                             $@Stats.Mes.VentaTotal.ToString("N0")</h1>
 
-                        <div class="d-flex justify-content-between mt-4 border-top border-dark pt-3">
+                        <div class="d-flex justify-content-between gap-2 mt-4 border-top border-dark pt-3">
                             <div class="text-start lh-1">
                                 <span class="d-block text-uppercase text-dark fw-bold" style="font-size: 0.7rem;">Total
                                     Ingreso</span>
@@ -140,7 +140,7 @@
                         <div>
                             <small class="text-danger text-uppercase fw-bold d-block" style="font-size: 0.7rem;">Items en
                                 Riesgo</small>
-                            <h1 class="display-4 fw-bold my-0 text-danger" style="letter-spacing: -2px;">
+                            <h1 class="display-4 fw-bold my-0 text-danger kpi-amount-critico" style="letter-spacing: -2px;">
                                 @Stats.CantidadStockCritico
                             </h1>
                         </div>
@@ -299,6 +299,18 @@
     @@keyframes blinker {
         50% {
             opacity: 0;
+        }
+    }
+
+    /* iPad KPI font scaling */
+    @@media (max-width: 1199px) {
+        .kpi-amount {
+            font-size: clamp(1.5rem, 4vw, 2.2rem) !important;
+            letter-spacing: -1px;
+        }
+        .kpi-amount-critico {
+            font-size: clamp(2rem, 5vw, 2.8rem) !important;
+            letter-spacing: -1px;
         }
     }
 </style>
