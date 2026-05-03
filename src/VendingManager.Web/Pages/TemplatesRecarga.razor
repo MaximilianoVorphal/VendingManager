@@ -7,6 +7,7 @@
 @inject HttpClient Http
 @inject Microsoft.Extensions.Logging.ILogger<TemplatesRecarga> Logger
 @inject NavigationManager NavManager
+@inject IJSRuntime JS
 
 <div class="container-fluid px-2 px-md-4 mt-4" style="font-family: 'Segoe UI', Consolas, monospace;">
 
@@ -186,8 +187,10 @@
                                                         @foreach (var m in ListaMaquinas)
                                                         {
                                                             <option value="@m.Id">@m.Nombre</option>
-                                            </select>
-                                        </div>
+                                                        }
+                                                    }
+                                                </select>
+                                            </div>
                                         <div class="col-md-3">
                                             <label class="small fw-bold">DESDE:</label>
                                             <input type="datetime-local"
@@ -405,11 +408,11 @@
                             <i class="bi bi-plus-circle me-2"></i>AÑADIR SLOT EXTRA
                         </button>
                         <InputFile OnChange="HandleOcrPhotoUpload" accept="image/*" class="d-none" id="ocrRecargaFileInput" disabled="@ProcesandoOcr" />
-                        <button class="btn btn-success rounded-0 fw-bold border-dark shadow-sm px-3" @onclick="() => document.getElementById('ocrRecargaFileInput').click()" disabled="@ProcesandoOcr" title="Fotos legibles tardan ~5s. Asegurate de que los números de slot y cantidades sean claramente visibles. Formatos: JPG, PNG, HEIC. Máx 10MB.">
+                        <button class="btn btn-success rounded-0 fw-bold border-dark shadow-sm px-3" @onclick="TriggerOcrUpload" disabled="@ProcesandoOcr" title="Fotos legibles tardan ~5s. Asegurate de que los números de slot y cantidades sean claramente visibles. Formatos: JPG, PNG, HEIC. Máx 10MB.">
                             <i class="bi bi-camera-fill me-2"></i>SUBIR FOTO RECARGA
                         </button>
                         <InputFile OnChange="HandleFotoGuiaUpload" accept="image/*" class="d-none" id="fotoGuiaFileInput" />
-                        <button class="btn btn-outline-secondary rounded-0 fw-bold px-3" @onclick="() => document.getElementById('fotoGuiaFileInput').click()" title="Cargar foto de referencia (productos)">
+                        <button class="btn btn-outline-secondary rounded-0 fw-bold px-3" @onclick="TriggerFotoGuiaUpload" title="Cargar foto de referencia (productos)">
                             <i class="bi bi-image me-1"></i>FOTO GUÍA
                         </button>
                         @if (!string.IsNullOrEmpty(FotoGuiaUrl))
@@ -540,7 +543,7 @@
         box-shadow: 0 0 12px rgba(25, 135, 84, 0.5) !important;
     }
 
-    @keyframes ocrFlash {
+    @@keyframes ocrFlash {
         0% { background-color: #d1e7dd; border-color: #198754; }
         50% { background-color: #a3cfbb; }
         100% { background-color: transparent; border-color: #212529; }
@@ -580,6 +583,16 @@
         RevokeFotoGuiaUrl();
     }
 
+    private async Task TriggerOcrUpload()
+    {
+        await JS.InvokeVoidAsync("eval", "document.getElementById('ocrRecargaFileInput').click()");
+    }
+
+    private async Task TriggerFotoGuiaUpload()
+    {
+        await JS.InvokeVoidAsync("eval", "document.getElementById('fotoGuiaFileInput').click()");
+    }
+
     private async Task HandleOcrPhotoUpload(InputFileChangeEventArgs e)
     {
         if (PeriodoEnEdicionVisual == null) return;
@@ -615,7 +628,7 @@
 
         try
         {
-            using var stream = file.OpenReadStream(maxBytes: maxSize);
+            using var stream = file.OpenReadStream(maxSize);
             using var memoryStream = new MemoryStream();
             await stream.CopyToAsync(memoryStream);
             memoryStream.Position = 0;
