@@ -81,6 +81,7 @@ builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddScoped<ICompraService, CompraService>();
 builder.Services.AddScoped<IGastoRecurrenteService, GastoRecurrenteService>();
 builder.Services.AddHttpClient<IFacturaOcrService, FacturaOcrService>();
+builder.Services.AddHttpClient<IRecargaOcrService, RecargaOcrService>();
 // Servicios en segundo plano (Background Workers)
 builder.Services.AddHttpClient<VendingManager.Core.Interfaces.IScraperClient, VendingManager.Infrastructure.Clients.ScraperClient>();
 builder.Services.AddHostedService<AutomatedReportService>();

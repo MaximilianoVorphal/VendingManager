@@ -55,3 +55,43 @@ def extract_invoice_data(image_path: str) -> dict:
     except json.JSONDecodeError as e:
         print(f"Error parsing JSON from Gemini: {text_response}")
         raise ValueError(f"No se pudo decodificar la respuesta JSON de Gemini: {e}")
+
+
+def extract_recarga_data(image_path: str) -> dict:
+    """
+    Extracts slot number + quantity pairs from a handwritten refill list photo using Gemini.
+    Returns a dictionary with slots array: {"slots": [{"slot_number": "10", "quantity": 5}, ...]}
+    """
+    init_gemini()
+
+    model = genai.GenerativeModel("gemini-3-flash-preview")
+
+    prompt = """
+Analiza esta imagen de una lista de recarga de máquinas vending. La lista contiene
+números de slot y cantidades escritas a mano.
+
+Por cada item reconocido, extrae:
+- slot_number: el número de slot escrito (ej: "10", "A1", "23")
+- quantity: la cantidad como número entero positivo
+
+Devuelve ÚNICAMENTE un JSON válido con esta estructura exacta, sin texto adicional:
+{"slots": [{"slot_number": "10", "quantity": 5}, {"slot_number": "12", "quantity": 3}]}
+
+Reglas:
+- Ignora nombres de productos — solo interesa el slot y la cantidad
+- Si un slot tiene varias cantidades, usa la ÚLTIMA escrita
+- Devuelve slot_number como texto plano (ej: "10", "A1")
+- Devuelve quantity como entero (ej: 5, no "cinco")
+- Si no hay texto legible, devuelve {"slots": []}
+"""
+
+    img = Image.open(image_path)
+    response = model.generate_content([prompt, img])
+
+    text_response = response.text.replace("```json", "").replace("```", "").strip()
+
+    try:
+        return json.loads(text_response)
+    except json.JSONDecodeError as e:
+        print(f"Error parsing JSON from Gemini for recarga: {text_response}")
+        raise ValueError(f"No se pudo decodificar la respuesta JSON de Gemini: {e}")
