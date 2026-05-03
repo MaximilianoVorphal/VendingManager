@@ -1,6 +1,8 @@
 @page "/templates-recarga"
 @using Microsoft.AspNetCore.Authorization
 @using VendingManager.Shared.Constants
+@using VendingManager.Shared.DTOs
+@using Microsoft.AspNetCore.Components.Forms
 @attribute [Authorize(Roles = Roles.Admin)]
 @inject HttpClient Http
 @inject Microsoft.Extensions.Logging.ILogger<TemplatesRecarga> Logger
@@ -184,78 +186,76 @@
                                                         @foreach (var m in ListaMaquinas)
                                                         {
                                                             <option value="@m.Id">@m.Nombre</option>
-                                                        }
-                                                    }
-                                                </select>
-                                            </div>
-                                            <div class="col-md-3">
-                                                <label class="small fw-bold">DESDE:</label>
-                                                <input type="datetime-local"
-                                        class="form-control form-control-sm border-dark rounded-0"
-                                        @bind="periodo.FechaInicio" />
-                                            </div>
-                                            <div class="col-md-3">
-                                                <label class="small fw-bold">HASTA:</label>
-                                                <input type="datetime-local"
-                                        class="form-control form-control-sm border-dark rounded-0"
-                                        @bind="periodo.FechaFin" />
-                                            </div>
-                                            <div class="col-md-2">
-                                                <button class="btn btn-sm btn-outline-primary rounded-0 w-100"
-                                        @onclick="() => CargarSlotsParaPeriodo(index)"
-                                        disabled="@(periodo.MaquinaId == 0 || CargandoSlots)">
-                                                    <i class="bi bi-box-seam me-1"></i>Slots
-                                                </button>
-                                            </div>
-                                            <div class="col-md-1">
-                                                <button class="btn btn-sm btn-outline-danger rounded-0 w-100"
-                                        @onclick="() => EliminarPeriodo(index)">
-                                                    <i class="bi bi-x-lg"></i>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="small fw-bold">DESDE:</label>
+                                            <input type="datetime-local"
+                                    class="form-control form-control-sm border-dark rounded-0"
+                                    @bind="periodo.FechaInicio" />
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="small fw-bold">HASTA:</label>
+                                            <input type="datetime-local"
+                                    class="form-control form-control-sm border-dark rounded-0"
+                                    @bind="periodo.FechaFin" />
+                                        </div>
+                                        <div class="col-md-2">
+                                            <button class="btn btn-sm btn-outline-primary rounded-0 w-100"
+                                    @onclick="() => CargarSlotsParaPeriodo(index)"
+                                    disabled="@(periodo.MaquinaId == 0 || CargandoSlots)">
+                                                <i class="bi bi-box-seam me-1"></i>Slots
+                                            </button>
+                                        </div>
+                                        <div class="col-md-1">
+                                            <button class="btn btn-sm btn-outline-danger rounded-0 w-100"
+                                    @onclick="() => EliminarPeriodo(index)">
+                                                <i class="bi bi-x-lg"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    @if (periodo.SnapshotSlots.Any())
+                                    {
+                                        <div class="mt-3 p-3 bg-white border border-2 border-dark text-center shadow-sm">
+                                            <h6 class="fw-bold text-success mb-3 text-uppercase">
+                                                <i class="bi bi-check-circle-fill me-1"></i>
+                                                @periodo.SnapshotSlots.Count(s => s.ProductoId.HasValue && s.ProductoId > 0) productos configurados
+                                                <span class="text-muted ms-1">(de @periodo.SnapshotSlots.Count slots)</span>
+                                            </h6>
+                                            <button class="btn btn-warning rounded-0 fw-bold border-2 border-dark mb-2 px-4 py-2 text-uppercase btn-lg" style="box-shadow: 3px 3px 0px #000; transition: transform 0.1s;"
+                                                onmousedown="this.style.transform='translate(2px, 2px)'; this.style.boxShadow='1px 1px 0px #000';"
+                                                onmouseup="this.style.transform='none'; this.style.boxShadow='3px 3px 0px #000';"
+                                                onmouseleave="this.style.transform='none'; this.style.boxShadow='3px 3px 0px #000';"
+                                                @onclick="() => AbrirEdicionVisual(periodo)">
+                                                <i class="bi bi-grid-3x3-gap-fill me-2"></i> EDITAR SLOTS (GRILLA)
+                                            </button>
+                                            <div class="mt-3 border-top border-dark pt-3">
+                                                <button class="btn btn-sm btn-outline-danger rounded-0 fw-bold"
+                                                    @onclick="() => periodo.SnapshotSlots.Clear()">
+                                                    <i class="bi bi-trash"></i> VACIAR MÁQUINA
                                                 </button>
                                             </div>
                                         </div>
-
-                                        @if (periodo.SnapshotSlots.Any())
-                                        {
-                                            <div class="mt-3 p-3 bg-white border border-2 border-dark text-center shadow-sm">
-                                                <h6 class="fw-bold text-success mb-3 text-uppercase">
-                                                    <i class="bi bi-check-circle-fill me-1"></i>
-                                                    @periodo.SnapshotSlots.Count(s => s.ProductoId.HasValue && s.ProductoId > 0) productos configurados
-                                                    <span class="text-muted ms-1">(de @periodo.SnapshotSlots.Count slots)</span>
-                                                </h6>
-                                                <button class="btn btn-warning rounded-0 fw-bold border-2 border-dark mb-2 px-4 py-2 text-uppercase btn-lg" style="box-shadow: 3px 3px 0px #000; transition: transform 0.1s;"
-                                                    onmousedown="this.style.transform='translate(2px, 2px)'; this.style.boxShadow='1px 1px 0px #000';"
-                                                    onmouseup="this.style.transform='none'; this.style.boxShadow='3px 3px 0px #000';"
-                                                    onmouseleave="this.style.transform='none'; this.style.boxShadow='3px 3px 0px #000';"
-                                                    @onclick="() => AbrirEdicionVisual(periodo)">
-                                                    <i class="bi bi-grid-3x3-gap-fill me-2"></i> EDITAR SLOTS (GRILLA)
-                                                </button>
-                                                <div class="mt-3 border-top border-dark pt-3">
-                                                    <button class="btn btn-sm btn-outline-danger rounded-0 fw-bold"
-                                                        @onclick="() => periodo.SnapshotSlots.Clear()">
-                                                        <i class="bi bi-trash"></i> VACIAR MÁQUINA
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        }
-                                    </div>
+                                    }
                                 </div>
-                            }
+                            </div>
                         }
-                    </div>
+                    }
                 </div>
-                <div class="modal-footer border-top border-dark">
-                    <button type="button" class="btn btn-secondary rounded-0" @onclick="CerrarModal">
-                        CANCELAR
-                    </button>
-                    <button type="button" class="btn btn-success rounded-0 fw-bold" @onclick="GuardarTemplate"
-                    disabled="@Guardando">
-                        @(Guardando ? "GUARDANDO..." : (EsEdicion ? "ACTUALIZAR" : "GUARDAR TEMPLATE"))
-                    </button>
-                </div>
+            </div>
+            <div class="modal-footer border-top border-dark">
+                <button type="button" class="btn btn-secondary rounded-0" @onclick="CerrarModal">
+                    CANCELAR
+                </button>
+                <button type="button" class="btn btn-success rounded-0 fw-bold" @onclick="GuardarTemplate"
+                disabled="@Guardando">
+                    @(Guardando ? "GUARDANDO..." : (EsEdicion ? "ACTUALIZAR" : "GUARDAR TEMPLATE"))
+                </button>
             </div>
         </div>
     </div>
+</div>
 }
 
 <!-- MODAL EDICION VISUAL DE SLOTS -->
@@ -271,9 +271,27 @@
                     </h5>
                     <button type="button" class="btn-close btn-close-white" @onclick="CerrarEdicionVisual"></button>
                 </div>
-                <div class="modal-body bg-light p-4">
+                <div class="modal-body bg-light p-4" style="position: relative;">
+                    @if (ProcesandoOcr)
+                    {
+                        <div style="position: absolute; inset: 0; background: rgba(0,0,0,0.6); z-index: 50; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                            <div class="spinner-border text-light mb-3" style="width: 3rem; height: 3rem;" role="status"></div>
+                            <span class="text-white fw-bold text-uppercase" style="letter-spacing: 2px;">PROCESANDO OCR...</span>
+                        </div>
+                    }
+                    @if (!string.IsNullOrEmpty(MensajeErrorOcr))
+                    {
+                        <div class="alert alert-danger border-2 border-dark rounded-0 mb-3 small fw-bold">
+                            <i class="bi bi-exclamation-triangle-fill me-2"></i> @MensajeErrorOcr
+                        </div>
+                    }
+                    @if (!string.IsNullOrEmpty(MensajeInfoOcr))
+                    {
+                        <div class="alert alert-info border-2 border-dark rounded-0 mb-3 small fw-bold">
+                            <i class="bi bi-info-circle-fill me-2"></i> @MensajeInfoOcr
+                        </div>
+                    }
                     @{
-                        // Agrupar por pisos usando decenas
                         var validSlots = PeriodoEnEdicionVisual.SnapshotSlots.ToList();
                         var shelves = validSlots.GroupBy(s => (int.TryParse(s.NumeroSlot, out var n) ? n - 1 : 0) / 10).OrderBy(g => g.Key);
                     }
@@ -282,6 +300,7 @@
                     {
                         <div class="text-center py-5">
                             <h5 class="text-muted fw-bold">NO HAY SLOTS CONFIGURADOS</h5>
+                            <p class="text-muted small mb-3">Esta máquina no tiene slots cargados. Volvé al paso anterior y usá el botón <strong>Slots</strong> para cargarlos desde la configuración de la máquina.</p>
                             <button class="btn btn-success mt-3 rounded-0 fw-bold border-dark shadow-sm" @onclick="() => AgregarSlotVacio(PeriodoEnEdicionVisual)">
                                 <i class="bi bi-plus-circle me-2"></i> AGREGAR PRIMER SLOT
                             </button>
@@ -292,17 +311,17 @@
                         <div class="d-flex flex-column gap-4 machine-chassis">
                             @foreach (var shelf in shelves)
                             {
-                                int bgIndex = shelf.Key % 2; // Alternar colores ligeramente
+                                int bgIndex = shelf.Key % 2;
 
                                 <div class="shelf-container p-3 border border-3 border-dark bg-white shadow-sm" style="@(bgIndex == 1 ? "background-color: #fafafa !important;" : "")">
                                     <div class="badge bg-dark text-white rounded-0 px-3 py-2 mb-3 fs-6">PISO @(shelf.Key + 1)</div>
                                     <div class="inventory-grid">
                                         @foreach (var slot in shelf.OrderBy(s => int.TryParse(s.NumeroSlot, out var n) ? n : 999))
                                         {
+                                            var estaResaltado = SlotsResaltados.Contains(slot.NumeroSlot);
                                             string productColorClass = slot.ProductoId.HasValue ? "bg-white" : "bg-warning bg-opacity-25";
 
-                                            <div class="slot-unit p-2 border border-2 border-dark d-flex flex-column shadow-sm @productColorClass" style="min-height: 140px; transition: all 0.2s;">
-                                                <!-- TOP HEADER -->
+                                            <div class="slot-unit p-2 border border-2 border-dark d-flex flex-column shadow-sm @productColorClass @(estaResaltado ? "slot-ocr-highlight" : "")" style="min-height: 140px; transition: all 0.2s;">
                                                 <div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom border-secondary">
                                                     <div class="d-flex align-items-center">
                                                         <span class="text-muted fw-bold me-1" style="font-size:0.7rem;">SLOT</span>
@@ -315,7 +334,6 @@
                                                     </button>
                                                 </div>
                                                 
-                                                <!-- PRODUCT SELECTOR -->
                                                 <div class="mb-2 flex-grow-1 d-flex align-items-center">
                                                     <select class="form-select form-select-sm border-dark shadow-none fw-bold text-center product-select" 
                                                         style="height: 100%; white-space: normal; appearance: none; background-image: none; cursor: pointer; padding: 2px;"
@@ -331,7 +349,6 @@
                                                     </select>
                                                 </div>
                                                 
-                                                <!-- FOOTER INPUTS -->
                                                 <div class="mt-auto d-flex align-items-center justify-content-between border-top border-secondary pt-2">
                                                     <div class="d-flex flex-column w-50 pe-1 border-end border-secondary">
                                                         <span class="text-muted" style="font-size:0.6rem; font-weight: 800;">CANT.</span>
@@ -350,14 +367,89 @@
                                 </div>
                             }
                         </div>
+
+                        @if (UltimosSlotsNoCoincidentes.Any())
+                        {
+                            <div class="mt-4 p-3 border border-2 border-warning bg-warning bg-opacity-10 rounded-0">
+                                <h6 class="fw-bold text-uppercase mb-2">
+                                    <i class="bi bi-exclamation-triangle-fill text-warning me-2"></i>
+                                    Slots sin coincidencia (@UltimosSlotsNoCoincidentes.Count)
+                                </h6>
+                                <small class="text-muted mb-2 d-block">Estos slots fueron detectados en la foto pero no existen en la máquina. Revisalos manualmente.</small>
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-borderless m-0 small">
+                                        <thead>
+                                            <tr class="text-uppercase text-muted">
+                                                <th>Slot (OCR)</th>
+                                                <th>Cantidad</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach (var unmatched in UltimosSlotsNoCoincidentes)
+                                            {
+                                                <tr>
+                                                    <td class="font-monospace fw-bold">@unmatched.SlotNumber</td>
+                                                    <td class="fw-bold">@unmatched.Quantity</td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        }
                     }
                 </div>
-                <div class="modal-footer bg-light border-top border-dark rounded-0 px-4 py-3 d-flex justify-content-between">
-                    <button class="btn btn-dark rounded-0 fw-bold border-dark shadow-sm" @onclick="() => AgregarSlotVacio(PeriodoEnEdicionVisual)">
-                        <i class="bi bi-plus-circle me-2"></i>AÑADIR SLOT EXTRA
-                    </button>
+                <div class="modal-footer bg-light border-top border-dark rounded-0 px-4 py-3 d-flex justify-content-between flex-wrap gap-2">
+                    <div class="d-flex gap-2 align-items-center">
+                        <button class="btn btn-dark rounded-0 fw-bold border-dark shadow-sm" @onclick="() => AgregarSlotVacio(PeriodoEnEdicionVisual)">
+                            <i class="bi bi-plus-circle me-2"></i>AÑADIR SLOT EXTRA
+                        </button>
+                        <InputFile OnChange="HandleOcrPhotoUpload" accept="image/*" class="d-none" id="ocrRecargaFileInput" disabled="@ProcesandoOcr" />
+                        <button class="btn btn-success rounded-0 fw-bold border-dark shadow-sm px-3" @onclick="() => document.getElementById('ocrRecargaFileInput').click()" disabled="@ProcesandoOcr" title="Fotos legibles tardan ~5s. Asegurate de que los números de slot y cantidades sean claramente visibles. Formatos: JPG, PNG, HEIC. Máx 10MB.">
+                            <i class="bi bi-camera-fill me-2"></i>SUBIR FOTO RECARGA
+                        </button>
+                        <InputFile OnChange="HandleFotoGuiaUpload" accept="image/*" class="d-none" id="fotoGuiaFileInput" />
+                        <button class="btn btn-outline-secondary rounded-0 fw-bold px-3" @onclick="() => document.getElementById('fotoGuiaFileInput').click()" title="Cargar foto de referencia (productos)">
+                            <i class="bi bi-image me-1"></i>FOTO GUÍA
+                        </button>
+                        @if (!string.IsNullOrEmpty(FotoGuiaUrl))
+                        {
+                            <button class="btn btn-outline-info rounded-0 fw-bold px-3" @onclick="MostrarFotoGuiaModal" title="Ver foto guía">
+                                <i class="bi bi-eye me-1"></i>VER FOTO GUÍA
+                            </button>
+                        }
+                    </div>
                     <button type="button" class="btn btn-success px-5 py-2 fw-bold rounded-0 shadow-sm border-2 border-dark text-uppercase" style="font-size: 1.1rem" @onclick="CerrarEdicionVisual">
                         <i class="bi bi-save me-2"></i> GUARDAR CAMBIOS Y VOLVER
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- MODAL FOTO GUÍA (Photo 2 — reference only, never sent to backend) -->
+@if (MostrarFotoGuia && !string.IsNullOrEmpty(FotoGuiaUrl))
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.9); z-index: 1070;">
+        <div class="modal-dialog modal-xl modal-dialog-centered">
+            <div class="modal-content border-3 border-dark rounded-0 bg-dark">
+                <div class="modal-header bg-dark text-white rounded-0 border-bottom border-dark">
+                    <h5 class="modal-title fw-bold text-uppercase">
+                        <i class="bi bi-image-fill me-2"></i> FOTO GUÍA — @((ListaMaquinas?.FirstOrDefault(m => m.Id == PeriodoEnEdicionVisual?.MaquinaId)?.Nombre ?? "MÁQUINA"))
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CerrarFotoGuiaModal"></button>
+                </div>
+                <div class="modal-body p-0 text-center" style="background-color: #111;">
+                    <img src="@FotoGuiaUrl" alt="Foto Guía" class="img-fluid" style="max-height: 80vh; object-fit: contain;" />
+                </div>
+                <div class="modal-footer bg-dark border-top border-dark rounded-0">
+                    <small class="text-muted mx-auto">
+                        <i class="bi bi-info-circle-fill me-1"></i>
+                        Esta foto es solo referencia. No se envía a ningún servidor.
+                    </small>
+                    <button type="button" class="btn btn-light rounded-0 fw-bold" @onclick="CerrarFotoGuiaModal">
+                        CERRAR
                     </button>
                 </div>
             </div>
@@ -440,19 +532,210 @@
     .modal-backdrop.show+.modal-backdrop.show {
         z-index: 1055 !important;
     }
+
+    /* OCR pre-fill highlight animation */
+    .slot-ocr-highlight {
+        animation: ocrFlash 1.5s ease-in-out;
+        border-color: #198754 !important;
+        box-shadow: 0 0 12px rgba(25, 135, 84, 0.5) !important;
+    }
+
+    @keyframes ocrFlash {
+        0% { background-color: #d1e7dd; border-color: #198754; }
+        50% { background-color: #a3cfbb; }
+        100% { background-color: transparent; border-color: #212529; }
+    }
 </style>
 
 @code {
     private PeriodoFormModel? PeriodoEnEdicionVisual;
 
+    // OCR-related state
+    private bool ProcesandoOcr = false;
+    private string MensajeErrorOcr = "";
+    private string MensajeInfoOcr = "";
+    private byte[]? FotoGuiaData; // Photo 2 — never sent to server
+    private string? FotoGuiaUrl; // Blob URL for display
+    private bool MostrarFotoGuia = false;
+    private HashSet<string> SlotsResaltados = new(); // Slots recently pre-filled via OCR
+    private List<OcrRecargaSlotDto> UltimosSlotsNoCoincidentes = new(); // Unmatched OCR slots with quantity
+
     private void AbrirEdicionVisual(PeriodoFormModel periodo)
     {
         PeriodoEnEdicionVisual = periodo;
+        // Reset OCR state when opening
+        ProcesandoOcr = false;
+        MensajeErrorOcr = "";
+        MensajeInfoOcr = "";
+        // Note: FotoGuiaData/FotoGuiaUrl intentionally preserved across opens for convenience
     }
 
     private void CerrarEdicionVisual()
     {
+        if (MostrarFotoGuia)
+        {
+            MostrarFotoGuia = false;
+        }
         PeriodoEnEdicionVisual = null;
+        RevokeFotoGuiaUrl();
+    }
+
+    private async Task HandleOcrPhotoUpload(InputFileChangeEventArgs e)
+    {
+        if (PeriodoEnEdicionVisual == null) return;
+
+        var file = e.File;
+        MensajeErrorOcr = "";
+        MensajeInfoOcr = "";
+
+        // Client-side validation
+        if (file == null || file.Size == 0)
+        {
+            MensajeErrorOcr = "No se seleccionó ningún archivo.";
+            return;
+        }
+
+        const long maxSize = 10 * 1024 * 1024; // 10MB
+        if (file.Size > maxSize)
+        {
+            MensajeErrorOcr = "La foto supera los 10MB. Usá una foto más pequeña.";
+            return;
+        }
+
+        var allowedTypes = new[] { "image/jpeg", "image/png", "image/jpg", "image/heic", "image/webp" };
+        if (!allowedTypes.Contains(file.ContentType.ToLowerInvariant()))
+        {
+            MensajeErrorOcr = "Formato no soportado. Usá JPG, PNG o HEIC.";
+            return;
+        }
+
+        ProcesandoOcr = true;
+        MensajeErrorOcr = "";
+        StateHasChanged();
+
+        try
+        {
+            using var stream = file.OpenReadStream(maxBytes: maxSize);
+            using var memoryStream = new MemoryStream();
+            await stream.CopyToAsync(memoryStream);
+            memoryStream.Position = 0;
+
+            var content = new MultipartFormDataContent();
+            var byteContent = new ByteArrayContent(memoryStream.ToArray());
+            byteContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(file.ContentType);
+            content.Add(byteContent, "file", file.Name);
+
+            var response = await Http.PostAsync(
+                $"api/ordenes-carga/from-photo?maquinaId={PeriodoEnEdicionVisual.MaquinaId}",
+                content);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                MensajeErrorOcr = "Error OCR: " + error;
+                return;
+            }
+
+            var result = await response.Content.ReadFromJsonAsync<OcrRecargaResultDto>();
+            if (result == null)
+            {
+                MensajeErrorOcr = "No se recibió respuesta del servicio OCR.";
+                return;
+            }
+
+            // Empty result
+            if (result.ExtractedSlots.Count == 0 && result.UnmatchedOcrSlots.Count == 0)
+            {
+                MensajeInfoOcr = "No se detectaron slots en la foto. Verificá que la foto sea legible.";
+                return;
+            }
+
+            // Pre-fill matched slots
+            SlotsResaltados.Clear();
+            foreach (var matched in result.ExtractedSlots)
+            {
+                var slot = PeriodoEnEdicionVisual.SnapshotSlots
+                    .FirstOrDefault(s => s.NumeroSlot == matched.MatchedSlot);
+
+                if (slot != null)
+                {
+                    slot.CantidadInicial = matched.Quantity;
+                    SlotsResaltados.Add(slot.NumeroSlot);
+                }
+            }
+
+            // Build unmatched list with quantities (subtract matched from raw OCR slots)
+            var matchedSlotNumbers = result.ExtractedSlots
+                .Where(e => e.MatchedSlot != null)
+                .Select(e => e.MatchedSlot!)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            UltimosSlotsNoCoincidentes = result.Slots
+                .Where(s => !matchedSlotNumbers.Contains(s.SlotNumber))
+                .ToList();
+
+            // Brief green flash for matched slots — clean up after 1.5s
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(1500);
+                await InvokeAsync(() =>
+                {
+                    SlotsResaltados.Clear();
+                    StateHasChanged();
+                });
+            });
+        }
+        catch (Exception ex)
+        {
+            MensajeErrorOcr = "Error de red: " + ex.Message;
+        }
+        finally
+        {
+            ProcesandoOcr = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task HandleFotoGuiaUpload(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file == null || file.Size == 0) return;
+
+        RevokeFotoGuiaUrl();
+
+        using var stream = file.OpenReadStream();
+        using var memoryStream = new MemoryStream();
+        await stream.CopyToAsync(memoryStream);
+        FotoGuiaData = memoryStream.ToArray();
+
+        // Create blob URL — this is reference-only, never sent to any backend
+        var url = $"data:{file.ContentType};base64,{Convert.ToBase64String(FotoGuiaData)}";
+        FotoGuiaUrl = url;
+        StateHasChanged();
+    }
+
+    private void MostrarFotoGuiaModal()
+    {
+        if (!string.IsNullOrEmpty(FotoGuiaUrl))
+        {
+            MostrarFotoGuia = true;
+            StateHasChanged();
+        }
+    }
+
+    private void CerrarFotoGuiaModal()
+    {
+        MostrarFotoGuia = false;
+        StateHasChanged();
+    }
+
+    private void RevokeFotoGuiaUrl()
+    {
+        if (!string.IsNullOrEmpty(FotoGuiaUrl))
+        {
+            FotoGuiaUrl = null;
+        }
+        // FotoGuiaData is kept in memory for convenience across opens
     }
 
     private bool Cargando = false;
@@ -891,4 +1174,6 @@
         public int CantidadInicial { get; set; }
         public int CapacidadSlot { get; set; }
     }
-}
+
+    }
+
