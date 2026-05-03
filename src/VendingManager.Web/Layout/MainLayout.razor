@@ -1,21 +1,58 @@
 ﻿@inherits LayoutComponentBase
 @inject IJSRuntime JSRuntime
 
-<div class="industrial-wrapper">
-    <AuthorizeView>
-        <Authorized>
-            <NavMenu />
-        </Authorized>
-    </AuthorizeView>
+<CascadingValue Value="this">
+    <div class="industrial-wrapper">
+        <AuthorizeView>
+            <Authorized>
+                <NavMenu Collapsed="@_navbarCollapsed" OnToggleCollapse="ToggleNavbarCollapse" />
+            </Authorized>
+        </AuthorizeView>
 
         <main class="container-fluid px-3 px-lg-5">
-        <CustomErrorBoundary>
-            @Body
-        </CustomErrorBoundary>
-    </main>
-</div>
+            <CustomErrorBoundary>
+                @Body
+            </CustomErrorBoundary>
+        </main>
+    </div>
+</CascadingValue>
 
 @code {
+    private bool _navbarCollapsed;
+
+    /// <summary>
+    /// Permite a páginas hijas colapsar la navbar para ganar espacio (ej: editor visual de slots).
+    /// </summary>
+    public void CollapseNavbar()
+    {
+        if (!_navbarCollapsed)
+        {
+            _navbarCollapsed = true;
+            StateHasChanged();
+        }
+    }
+
+    /// <summary>
+    /// Restaura la navbar a su estado normal.
+    /// </summary>
+    public void ExpandNavbar()
+    {
+        if (_navbarCollapsed)
+        {
+            _navbarCollapsed = false;
+            StateHasChanged();
+        }
+    }
+
+    /// <summary>
+    /// Alterna el estado colapsado/expandido (usado por el botón toggle en la navbar).
+    /// </summary>
+    public void ToggleNavbarCollapse()
+    {
+        _navbarCollapsed = !_navbarCollapsed;
+        StateHasChanged();
+    }
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
