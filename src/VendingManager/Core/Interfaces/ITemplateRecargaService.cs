@@ -36,4 +36,10 @@ public interface ITemplateRecargaService
     /// en la tabla de Ventas utilizando la configuración del Template de Recarga.
     /// </summary>
     Task<int> SyncVentasWithTemplateAsync(int templateId, bool actualizarCostos);
+
+    /// <summary>
+    /// Sincroniza el producto de un slot específico en las ventas históricas
+    /// dentro de un período.
+    /// </summary>
+    Task<SyncSlotProductoResultDto> SyncSlotProductoAsync(int templateId, int periodoId, string numeroSlot, int productoId);
 }

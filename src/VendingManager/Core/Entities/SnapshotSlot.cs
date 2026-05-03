@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using VendingManager.Shared.Enums;
 
 namespace VendingManager.Core.Entities;
 
@@ -30,4 +31,9 @@ public class SnapshotSlot
     /// Capacidad máxima del slot
     /// </summary>
     public int CapacidadSlot { get; set; }
+
+    /// <summary>
+    /// Estado del slot: Vacio, Pendiente, o Lleno
+    /// </summary>
+    public EstadoSlot Estado { get; set; } = EstadoSlot.Vacio;
 }
