@@ -6,7 +6,7 @@
         </div>
 
         <!-- Botón Hamburger (Visible solo en móvil) -->
-        <button class="hamburger-btn" @onclick="OnToggleClick">
+        <button class="hamburger-btn" @onclick="ToggleNavMenu">
             <i class="bi bi-list"
                 style="visibility: visible; float: none; bottom: 1px; left: 5px; width: 26px; height: 28px"></i>
         </button>
@@ -105,7 +105,6 @@
 
 @code {
     [Parameter] public bool Collapsed { get; set; }
-    [Parameter] public EventCallback<bool> OnToggleCollapse { get; set; }
 
     private bool collapseNavMenu = true;
     private bool showGestionMenu = false;
@@ -117,12 +116,6 @@
     private void ToggleNavMenu()
     {
         collapseNavMenu = !collapseNavMenu;
-    }
-
-    private async Task OnToggleClick()
-    {
-        collapseNavMenu = !collapseNavMenu;
-        await OnToggleCollapse.InvokeAsync(collapseNavMenu);
     }
 
     private void CloseNavMenu()
