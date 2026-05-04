@@ -15,7 +15,7 @@ public class ExcelExportService : IExcelExportService
     public async Task<byte[]> ExportCajaReportAsync(
         CajaResumenDto resumen,
         List<MovimientoCaja> movimientos,
-        List<Venta> ventas,
+        IReadOnlyList<Venta> ventas,
         int month,
         int year,
         CancellationToken ct = default)
