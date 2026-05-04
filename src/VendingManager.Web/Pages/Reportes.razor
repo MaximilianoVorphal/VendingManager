@@ -1,10 +1,10 @@
 ﻿@page "/reportes"
 @using Microsoft.AspNetCore.WebUtilities
 
-<div class="container-fluid px-2 px-md-4 mt-4" style="font-family: 'Segoe UI', Consolas, monospace;">
+<div class="industrial-wrapper container-fluid px-4 mt-4">
 
     <!-- HEADER -->
-    <div class="row align-items-center mb-4 border-bottom border-3 border-dark pb-3">
+    <div class="row align-items-center mb-4 border-bottom border-3 border-dark pb-3 industrial-page-header">
         <div class="col-12">
             <h2 class="m-0 fw-bold text-uppercase" style="letter-spacing: -1px;">INFORME DE VENTAS</h2>
             <small class="text-muted fw-bold">ANÁLISIS DE RENDIMIENTO Y TRANSACCIONES</small>
@@ -126,7 +126,7 @@
     else if (Datos != null)
     {
             <!-- KPI CARDS -->
-            <div class="row g-3 mb-4">
+            <div class="industrial-kpi-grid mb-4">
             @{
                 // CALCULO EN CALIENTE BASADO EN DATOS FILTRADOS
                 var datosParaKpi = DetalleFiltrado;
@@ -146,44 +146,43 @@
                 var montoPhantom = Datos.MontoPhantom; // Fantasmas no se filtran
             }
 
-                <!-- 1. UTILIDAD REAL (SOLO CONFIRMADO) -->
-        <div class="col-6 col-lg-3">
-                    <div class="text-white bg-primary p-3 h-100 shadow-sm border border-2 border-dark position-relative"
-                style="background: linear-gradient(45deg, #0d6efd, #0a58ca);">
+<!-- 1. UTILIDAD REAL (SOLO CONFIRMADO) -->
+                <div class="col-6 col-lg-3">
+                    <div class="industrial-card p-3 h-100 position-relative text-white" style="background: linear-gradient(45deg, #0d6efd, #0a58ca);">
                         <div class="fw-bold text-uppercase small" style="letter-spacing: 1px; opacity: 0.9;">Utilidad (Real /
                             Pagada)
                         </div>
                         <h3 class="fw-bold mt-2 text-white" style="letter-spacing: -1px;">
                             $@gananciaConfirmada.ToString("N0")
                         </h3>
-                        <div class="mt-2 border-top border-white pt-2 d-flex justify-content-between align-items-center"
-                    style="opacity: 0.9;">
+                        <div class="mt-2 border-top pt-2 d-flex justify-content-between align-items-center"
+                    style="opacity: 0.9; border-color: rgba(255,255,255,0.3);">
                             <small class="fw-bold text-uppercase" style="font-size: 0.7rem;">Margen Neto Real</small>
                         @if (ventasConfirmadas > 0)
                         {
-                                    <span class="badge bg-white text-primary fw-bold border border-white"
+                                    <span class="industrial-badge industrial-badge--light"
                         style="color: #0d6efd !important;">
                                 @((gananciaConfirmada / ventasConfirmadas * 100).ToString("F1"))%
                                     </span>
                         }
                         else
                         {
-                                    <span class="badge bg-white text-muted fw-bold border border-white">0.0%</span>
+                                    <span class="industrial-badge industrial-badge--light" style="color: var(--industrial-gray-500) !important;">0.0%</span>
                         }
                         </div>
                     </div>
                 </div>
 
-                <!-- 2. VENTAS CONFIRMADAS (SOLO PAGADO) -->
-        <div class="col-6 col-lg-3">
-                    <div class="bg-success text-white p-3 h-100 shadow-sm border border-2 border-dark">
+<!-- 2. VENTAS CONFIRMADAS (SOLO PAGADO) -->
+                <div class="col-6 col-lg-3">
+                    <div class="industrial-card p-3 h-100 shadow-sm text-white" style="background-color: #198754;">
                         <div class="text-white fw-bold text-uppercase small" style="letter-spacing: 1px; opacity: 0.9;">Ventas
                             Confirmadas
                         </div>
                         <h3 class="fw-bold mt-2 text-white" style="letter-spacing: -1px;">
                             $@ventasConfirmadas.ToString("N0")
                         </h3>
-                        <div class="mt-2 border-top border-white pt-2" style="opacity: 0.9;">
+                        <div class="mt-2 border-top pt-2" style="opacity: 0.9; border-color: rgba(255,255,255,0.3);">
                             <small class="text-white fw-bold text-uppercase" style="font-size: 0.7rem;">
                             @datosParaKpi.Count(x => x.Estado == "Pagado") Transacciones
                             </small>
@@ -191,16 +190,16 @@
                     </div>
                 </div>
 
-                <!-- 3. LA DIFERENCIA (FANTASMA) -->
-        <div class="col-6 col-lg-3">
-                    <div role="button" @onclick="VerFantasmas" class="p-3 h-100 shadow-sm border border-2 border-dark text-white position-relative" style="background-color: #e6007e; cursor: pointer;">
+<!-- 3. LA DIFERENCIA (FANTASMA) -->
+                <div class="col-6 col-lg-3">
+                    <div role="button" @onclick="VerFantasmas" class="industrial-card p-3 h-100 shadow-sm text-white position-relative" style="background-color: #e6007e; cursor: pointer;">
                         <div class="text-white fw-bold text-uppercase small" style="letter-spacing: 1px; opacity: 0.9;">
                             Diferencias Transbank
                         </div>
                         <h3 class="fw-bold mt-2 text-white" style="letter-spacing: -1px;">
                             $@montoPhantom.ToString("N0")
                         </h3>
-                        <div class="mt-2 border-top border-white pt-2" style="opacity: 0.9;">
+                        <div class="mt-2 border-top pt-2" style="opacity: 0.9; border-color: rgba(255,255,255,0.3);">
                         @if (montoPhantom > 0)
                         {
                                     <small class="text-white fw-bold text-uppercase" style="font-size: 0.7rem;">Requiere
@@ -214,15 +213,15 @@
                     </div>
                 </div>
 
-                <!-- 4. PENDIENTE -->
-        <div class="col-6 col-lg-3">
-                    <div class="bg-warning text-dark p-3 h-100 shadow-sm border border-2 border-dark">
+<!-- 4. PENDIENTE -->
+                <div class="col-6 col-lg-3">
+                    <div class="industrial-card p-3 h-100 shadow-sm" style="background-color: #ffc107; color: var(--industrial-black);">
                         <div class="text-dark fw-bold text-uppercase small" style="letter-spacing: 1px; opacity: 0.8;">Pendiente
                             / Cash</div>
                         <h3 class="fw-bold mt-2 text-dark" style="letter-spacing: -1px;">
                             $@montoPendiente.ToString("N0")
                         </h3>
-                        <div class="mt-2 border-top border-dark pt-2" style="opacity: 0.8;">
+                        <div class="mt-2 border-top pt-2" style="opacity: 0.8; border-color: rgba(0,0,0,0.2);">
                             <small class="text-dark fw-bold text-uppercase" style="font-size: 0.7rem;">Por Confirmar</small>
                         </div>
                     </div>
@@ -240,24 +239,24 @@
                         placeholder="🔍 Filtrar producto..." />
                 </div>
                 <div class="table-responsive" style="max-height: 550px; overflow-y: auto;">
-                    <table class="table table-hover table-bordered border-dark m-0" style="min-width: 600px;">
+                    <table class="industrial-table table-hover table-bordered border-dark m-0" style="min-width: 600px;">
                         <thead class="bg-secondary text-white text-uppercase small">
                             <tr>
-                                <th role="button" class="sortable-header" @onclick='() => OrdenarPor("Fecha")'>
+                                <th role="button" class="industrial-sortable-header" @onclick='() => OrdenarPor("Fecha")'>
                                     FECHA LOCAL @RenderIcono("Fecha")
                                 </th>
-                                <th role="button" class="sortable-header" @onclick='() => OrdenarPor("Maquina")'>
+                                <th role="button" class="industrial-sortable-header" @onclick='() => OrdenarPor("Maquina")'>
                                     UNIDAD @RenderIcono("Maquina")
                                 </th>
-                                <th role="button" class="sortable-header text-center" @onclick='() => OrdenarPor("Slot")'>
+                                <th role="button" class="industrial-sortable-header text-center" @onclick='() => OrdenarPor("Slot")'>
                                     SLOT @RenderIcono("Slot")
                                 </th>
                                 <th>PRODUCTO</th>
-                                <th role="button" class="sortable-header text-end" @onclick='() => OrdenarPor("Monto")'>
+                                <th role="button" class="industrial-sortable-header text-end" @onclick='() => OrdenarPor("Monto")'>
                                     MONTO @RenderIcono("Monto")
                                 </th>
                                 <th class="text-end">GANANCIA</th>
-                                <th role="button" class="sortable-header text-center" @onclick='() => OrdenarPor("Estado")'>
+                                <th role="button" class="industrial-sortable-header text-center" @onclick='() => OrdenarPor("Estado")'>
                                     ESTADO @RenderIcono("Estado")
                                 </th>
                             </tr>
@@ -647,15 +646,4 @@
     </div>
 }
 
-<style>
-    .sortable-header {
-        cursor: pointer;
-        user-select: none;
-    }
-
-    .sortable-header:hover {
-        background-color: #555 !important;
-        color: white;
-    }
-</style>
 

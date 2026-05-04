@@ -6,9 +6,10 @@
 
 <PageTitle>INVENTARIO</PageTitle>
 
-<div class="container-fluid px-4 mt-4" style="font-family: 'Segoe UI', Consolas, monospace;">
+<div class="industrial-wrapper">
+    <div class="container-fluid px-4 mt-4">
 
-    <div class="row align-items-center mb-4 border-bottom border-3 border-dark pb-3 g-3">
+    <div class="row align-items-center mb-4 border-bottom border-3 border-dark pb-3 industrial-page-header g-3">
         <div class="col-md-5 col-12">
             <h2 class="m-0 fw-bold text-uppercase" style="letter-spacing: -1px; color: #333;">
                 <i class="bi bi-box-seam me-2"></i>MAESTRO DE PRODUCTOS
@@ -63,22 +64,22 @@
             <span>VALOR: $@FilteredProductos.Sum(x => x.StockBodega * x.CostoPromedio).ToString("N0")</span>
         </div>
         <div class="table-responsive">
-            <table class="table table-hover table-bordered border-dark m-0 align-middle">
+            <table class="industrial-table table-hover table-bordered border-dark m-0 align-middle">
                 <thead class="bg-secondary text-white text-uppercase" style="font-size: 0.85rem;">
                     <tr>
-                        <th class="sortable-header" @onclick="@(() => SortBy("Nombre"))">
+                        <th class="industrial-sortable-header" @onclick="@(() => SortBy("Nombre"))">
                             PRODUCTO <i class="@GetSortIcon("Nombre")"></i>
                         </th>
-                        <th class="text-center sortable-header" @onclick="@(() => SortBy("Categoria"))">
+                        <th class="text-center industrial-sortable-header" @onclick="@(() => SortBy("Categoria"))">
                             CATEGORÍA <i class="@GetSortIcon("Categoria")"></i>
                         </th>
-                        <th class="text-center sortable-header" @onclick="@(() => SortBy("Proveedor"))">
+                        <th class="text-center industrial-sortable-header" @onclick="@(() => SortBy("Proveedor"))">
                             PROVEEDOR <i class="@GetSortIcon("Proveedor")"></i>
                         </th>
-                        <th class="text-end sortable-header" @onclick="@(() => SortBy("Costo"))">
+                        <th class="text-end industrial-sortable-header" @onclick="@(() => SortBy("Costo"))">
                             COSTO <i class="@GetSortIcon("Costo")"></i>
                         </th>
-                        <th class="text-center sortable-header" @onclick="@(() => SortBy("Stock"))">
+                        <th class="text-center industrial-sortable-header" @onclick="@(() => SortBy("Stock"))">
                             STOCK <i class="@GetSortIcon("Stock")"></i>
                         </th>
                         <th class="text-center" style="min-width: 120px;">ACCIONES</th>
@@ -109,7 +110,7 @@
                     {
                         @foreach (var p in PagedProductos)
                         {
-                            <tr class="@(p.StockBodega < 5 ? "table-danger-custom" : "")">
+                            <tr class="@(p.StockBodega < 5 ? "industrial-table-danger" : "")">
                                 <td>@p.Nombre</td>
                                 <td class="text-center"><span
                                 class="badge bg-light text-dark border border-dark rounded-0">@p.Categoria</span></td>
@@ -170,22 +171,6 @@
             </div>
         }
     </div>
-</div>
-
-<style>
-    .sortable-header {
-        cursor: pointer;
-        user-select: none;
-    }
-
-    .sortable-header:hover {
-        background-color: #555 !important;
-    }
-
-    .table-danger-custom {
-        background-color: #fff5f5 !important;
-    }
-</style>
 
 <!-- MODAL UNIFICADO (INGRESO / SALIDA) -->
 @if (MostrarModal && ProductoSeleccionado != null)

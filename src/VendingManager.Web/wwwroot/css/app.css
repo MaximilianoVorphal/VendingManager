@@ -4,6 +4,26 @@ html {
 }
 
 /* =========================================
+   CSS CUSTOM PROPERTIES (DESIGN TOKENS)
+   ========================================= */
+:root {
+    /* Colors */
+    --industrial-black: #000;
+    --industrial-white: #fff;
+    --industrial-gray-100: #f4f4f4;
+    --industrial-gray-200: #e0e0e0;
+    --industrial-gray-500: #888888;
+
+    /* Borders */
+    --industrial-border: 2px solid var(--industrial-black);
+    --industrial-border-light: 1px solid var(--industrial-gray-200);
+
+    /* Typography */
+    --industrial-font-primary: 'Consolas', 'Courier New', monospace;
+    --industrial-font-secondary: 'Segoe UI', Consolas, monospace;
+}
+
+/* =========================================
    NUEVA BARRA SUPERIOR (HEADER)
    ========================================= */
 
@@ -20,6 +40,7 @@ html {
 .industrial-wrapper {
     background-color: #f4f4f4;
     min-height: 100vh;
+    font-family: 'Segoe UI', Consolas, monospace;
 }
 
 /* La Barra Superior */
@@ -453,6 +474,235 @@ html {
         font-size: 0.85rem;
         color: #333;
         text-transform: uppercase;
+    }
+}
+
+/* =========================================
+   SHARED COMPONENT CLASSES (T2.1 - T2.7)
+   ========================================= */
+
+/* T2.1 — Industrial Card */
+.industrial-card {
+    background-color: var(--industrial-white);
+    border: var(--industrial-border);
+    box-shadow: 2px 2px 0px rgba(0, 0, 0, 0.1);
+}
+
+.industrial-card-header {
+    background-color: var(--industrial-black);
+    color: var(--industrial-white);
+    font-weight: bold;
+    text-transform: uppercase;
+    font-family: var(--industrial-font-primary);
+    padding: 0.75rem 1rem;
+}
+
+/* T2.2 — Industrial Table */
+.industrial-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.industrial-table thead {
+    background-color: var(--industrial-black);
+    color: var(--industrial-white);
+    text-transform: uppercase;
+    font-family: var(--industrial-font-primary);
+    font-size: 0.85rem;
+}
+
+.industrial-table thead th {
+    padding: 0.5rem 0.75rem;
+    text-align: left;
+    font-weight: bold;
+    border: none;
+}
+
+.industrial-table tbody td {
+    padding: 0.5rem 0.75rem;
+    border-bottom: var(--industrial-border-light);
+}
+
+.industrial-table tbody tr:hover {
+    background-color: var(--industrial-gray-100);
+}
+
+/* Industrial Sortable Header */
+.industrial-sortable-header {
+    cursor: pointer;
+    user-select: none;
+}
+
+.industrial-sortable-header:hover {
+    background-color: #555;
+    color: #fff;
+}
+
+/* Industrial Table Row — Danger (low stock) */
+.industrial-table-danger {
+    background-color: #fff5f5;
+}
+
+/* T2.3 — Industrial Badge */
+.industrial-badge {
+    display: inline-block;
+    font-family: var(--industrial-font-primary);
+    font-size: 0.75rem;
+    font-weight: bold;
+    text-transform: uppercase;
+    padding: 0.25rem 0.5rem;
+    border: 2px solid var(--industrial-black);
+    border-radius: 0;
+    line-height: 1;
+}
+
+.industrial-badge--dark {
+    background-color: var(--industrial-black);
+    color: var(--industrial-white);
+}
+
+.industrial-badge--light {
+    background-color: var(--industrial-white);
+    color: var(--industrial-black);
+}
+
+.industrial-badge--success {
+    background-color: #198754;
+    color: var(--industrial-white);
+}
+
+.industrial-badge--danger {
+    background-color: #dc3545;
+    color: var(--industrial-white);
+}
+
+.industrial-badge--warning {
+    background-color: #ffc107;
+    color: var(--industrial-black);
+}
+
+/* T2.4 — Industrial Button */
+.industrial-btn {
+    font-family: var(--industrial-font-primary);
+    font-weight: bold;
+    text-transform: uppercase;
+    border-radius: 0;
+    border: 2px solid var(--industrial-black);
+    padding: 0.5rem 1rem;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    cursor: pointer;
+}
+
+.industrial-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 2px 2px 0px rgba(0, 0, 0, 0.2);
+}
+
+.industrial-btn--dark {
+    background-color: var(--industrial-black);
+    color: var(--industrial-white);
+}
+
+.industrial-btn--outline {
+    background-color: transparent;
+    color: var(--industrial-black);
+}
+
+.industrial-btn--sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+}
+
+/* T2.5 — Industrial Page Header */
+.industrial-page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+    padding-bottom: 1rem;
+    margin-bottom: 1.5rem;
+    border-bottom: 3px solid var(--industrial-black);
+}
+
+.industrial-page-header__title {
+    font-family: var(--industrial-font-primary);
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: -1px;
+}
+
+.industrial-page-header__subtitle {
+    font-family: var(--industrial-font-primary);
+    color: var(--industrial-gray-500);
+    text-transform: uppercase;
+    font-size: 0.85rem;
+}
+
+/* T2.6 — Industrial KPI Grid */
+.industrial-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+}
+
+@media (max-width: 1024px) {
+    .industrial-kpi-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 576px) {
+    .industrial-kpi-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* T2.7 — Industrial Form Control */
+.industrial-form-control {
+    font-family: var(--industrial-font-secondary);
+    border: 2px solid var(--industrial-black);
+    border-radius: 0;
+    padding: 0.5rem 0.75rem;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.industrial-form-control:focus {
+    outline: none;
+    border-color: var(--industrial-black);
+    box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.1);
+}
+
+/* Card Hover (from Home.razor T2.8) */
+.card-hover {
+    transition: transform 0.2s, background-color 0.2s;
+}
+
+.card-hover:hover {
+    transform: translateY(-5px);
+    background-color: var(--industrial-gray-100) !important;
+    border-color: var(--industrial-black) !important;
+    cursor: pointer;
+}
+
+/* Blinking Cursor (from Home.razor T2.8) */
+.blinking-cursor {
+    animation: blinker 1s linear infinite;
+}
+
+@keyframes blinker {
+    50% { opacity: 0; }
+}
+
+/* KPI Responsive Font (from Home.razor T2.8) */
+@media (max-width: 1199px) {
+    .kpi-amount {
+        font-size: clamp(1.5rem, 4vw, 2.2rem) !important;
+        letter-spacing: -1px;
+    }
+    .kpi-amount-critico {
+        font-size: clamp(2rem, 5vw, 2.8rem) !important;
+        letter-spacing: -1px;
     }
 }
 
