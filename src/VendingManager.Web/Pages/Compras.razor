@@ -50,6 +50,7 @@
             <table class="table table-hover table-bordered border-dark m-0 align-middle">
                 <thead class="bg-secondary text-white text-uppercase small font-monospace fw-bold">
                     <tr>
+                        <th style="width: 48px;">FACTURA</th>
                         <th>FECHA <i class="bi bi-calendar"></i></th>
                         <th>PROVEEDOR <i class="bi bi-shop"></i></th>
                         <th class="text-center">TIPO <i class="bi bi-tag"></i></th>
@@ -63,7 +64,7 @@
                     @if (Cargando)
                     {
                         <tr>
-                            <td colspan="6" class="text-center p-4">
+                            <td colspan="8" class="text-center p-4">
                                 <div class="spinner-border text-dark spinner-border-sm me-2" role="status"></div>
                                 Cargando datos...
                             </td>
@@ -72,13 +73,13 @@
                     else if (!ListaCompras.Any())
                     {
                         <tr>
-                            <td colspan="6" class="text-center p-4 text-muted">No se han registrado compras.</td>
+                            <td colspan="8" class="text-center p-4 text-muted">No se han registrado compras.</td>
                         </tr>
                     }
                     else if (!FilteredCompras.Any())
                     {
                         <tr>
-                            <td colspan="6" class="text-center p-4 text-muted">No se encontraron resultados para "@SearchTerm".</td>
+                            <td colspan="8" class="text-center p-4 text-muted">No se encontraron resultados para "@SearchTerm".</td>
                         </tr>
                     }
                     else
@@ -86,6 +87,18 @@
                         @foreach (var c in FilteredCompras)
                         {
                             <tr>
+                                <td class="text-center">
+                                    @if (!string.IsNullOrEmpty(c.FacturaImagenPath))
+                                    {
+                                        <a href="@c.FacturaImagenPath" target="_blank" title="Ver factura">
+                                            <img src="@c.FacturaImagenPath" width="40" height="40" class="rounded-1 border border-dark object-fit-cover" style="object-fit: cover;" />
+                                        </a>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted" title="Sin imagen de factura"><i class="bi bi-receipt" style="font-size: 1.5rem;"></i></span>
+                                    }
+                                </td>
                                 <td>@c.FechaCompra.ToString("dd/MM/yyyy HH:mm")</td>
                                 <td>@c.Proveedor</td>
                                 <td class="text-center">
