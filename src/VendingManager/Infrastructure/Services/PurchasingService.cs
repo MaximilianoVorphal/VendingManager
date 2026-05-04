@@ -24,7 +24,7 @@ namespace VendingManager.Infrastructure.Services
             var query = _context.ConfiguracionSlots
                 .Include(s => s.Maquina)
                 .Include(s => s.Producto)
-                .Where(s => s.StockActual <= 2 && s.ProductoId != 0);
+                .Where(s => s.StockActual <= s.StockMinimo && s.ProductoId != 0);
 
             if (maquinaId > 0)
             {
