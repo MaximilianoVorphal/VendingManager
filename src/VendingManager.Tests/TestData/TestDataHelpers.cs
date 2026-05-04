@@ -74,7 +74,8 @@ public static class TestDataHelpers
         int productoId = 1,
         int stockActual = 5,
         int capacidadMaxima = 10,
-        decimal precioVenta = 1000m)
+        decimal precioVenta = 1000m,
+        int stockMinimo = 2)
         => new ConfiguracionSlot
         {
             Id = id,
@@ -85,6 +86,7 @@ public static class TestDataHelpers
             NumeroSlot = $"SLOT-{id}",
             StockActual = stockActual,
             CapacidadMaxima = capacidadMaxima,
+            StockMinimo = stockMinimo,
             PrecioVenta = precioVenta
         };
 

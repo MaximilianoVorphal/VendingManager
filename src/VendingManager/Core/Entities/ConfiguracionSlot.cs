@@ -14,6 +14,7 @@ public class ConfiguracionSlot
 
     public int StockActual { get; set; } = 0;
     public int CapacidadMaxima { get; set; } = 10; // Valor por defecto
+    public int StockMinimo { get; set; } = 2; // Umbral de stock crítico por slot
 
     public decimal PrecioVenta { get; set; } // Ej: 950
 }
