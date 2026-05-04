@@ -43,11 +43,11 @@
                 </div>
                 <div class="col-6 col-md-3">
                     <label class="fw-bold small text-uppercase mb-1">DESDE:</label>
-                    <input type="date" @bind="FechaInicio" class="form-control border-dark rounded-0 fw-bold" disabled="@(TemplateSeleccionado > 0)" />
+                    <input type="date" @bind="FechaInicio" class="form-control border-dark rounded-0 fw-bold py-2" disabled="@(TemplateSeleccionado > 0)" />
                 </div>
                 <div class="col-6 col-md-3">
                     <label class="fw-bold small text-uppercase mb-1">HASTA:</label>
-                    <input type="date" @bind="FechaFin" class="form-control border-dark rounded-0 fw-bold" disabled="@(TemplateSeleccionado > 0)" />
+                    <input type="date" @bind="FechaFin" class="form-control border-dark rounded-0 fw-bold py-2" disabled="@(TemplateSeleccionado > 0)" />
                 </div>
                 <div class="col-12 col-md-7 d-flex gap-2 align-items-center">
                     <button class="btn btn-dark flex-grow-1 rounded-0 fw-bold py-2" @onclick="CargarReporte"
