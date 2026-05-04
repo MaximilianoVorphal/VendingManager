@@ -2,7 +2,9 @@ namespace VendingManager.Tests.Services;
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Options;
 using Moq;
+using VendingManager.Core.Configuration;
 using VendingManager.Core.Entities;
 using VendingManager.Core.Interfaces;
 using VendingManager.Infrastructure.Services;
@@ -13,6 +15,7 @@ public class CajaServiceTests : IDisposable
     private readonly ApplicationDbContext _context;
     private readonly Mock<IWebHostEnvironment> _mockEnvironment;
     private readonly Mock<IInformesService> _mockInformesService;
+    private readonly IOptions<VendingConfig> _config;
     private readonly CajaService _cajaService;
 
     public CajaServiceTests()
@@ -22,7 +25,17 @@ public class CajaServiceTests : IDisposable
         _mockEnvironment.Setup(e => e.EnvironmentName).Returns("Production");
         _mockEnvironment.Setup(e => e.ContentRootPath).Returns("/tmp");
         _mockInformesService = new Mock<IInformesService>();
-        _cajaService = new CajaService(_context, _mockEnvironment.Object, _mockInformesService.Object);
+
+        var vendingConfig = new VendingConfig
+        {
+            CajaStartDate = new DateTime(2025, 12, 18),
+            TransbankFee = 80,
+            RotacionStockMinimoDias = 30,
+            RotacionUmbralCritico = 7
+        };
+        _config = Options.Create(vendingConfig);
+
+        _cajaService = new CajaService(_context, _mockEnvironment.Object, _mockInformesService.Object, _config);
     }
 
     public void Dispose()

@@ -1,6 +1,8 @@
 namespace VendingManager.Tests.Services;
 
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+using VendingManager.Core.Configuration;
 using VendingManager.Core.Entities;
 using VendingManager.Infrastructure.Services;
 using VendingManager.Tests.TestData;
@@ -13,7 +15,17 @@ public class PurchasingServiceTests : IDisposable
     public PurchasingServiceTests()
     {
         _context = TestDataHelpers.CreateInMemoryContext($"PurchasingTestDb_{Guid.NewGuid()}");
-        _purchasingService = new PurchasingService(_context);
+
+        var vendingConfig = new VendingConfig
+        {
+            CajaStartDate = new DateTime(2025, 12, 18),
+            TransbankFee = 80,
+            RotacionStockMinimoDias = 30,
+            RotacionUmbralCritico = 7
+        };
+        var config = Options.Create(vendingConfig);
+
+        _purchasingService = new PurchasingService(_context, config);
     }
 
     public void Dispose()
