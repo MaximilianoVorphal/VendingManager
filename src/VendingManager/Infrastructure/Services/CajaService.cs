@@ -16,19 +16,22 @@ namespace VendingManager.Infrastructure.Services
         private readonly IInformesService _informesService;
         private readonly IOptions<VendingConfig> _config;
         private readonly IExcelExportService _excelExportService;
+        private readonly IVentaRepository _ventaRepository;
 
         public CajaService(
             ApplicationDbContext context,
             IWebHostEnvironment environment,
             IInformesService informesService,
             IOptions<VendingConfig> config,
-            IExcelExportService excelExportService)
+            IExcelExportService excelExportService,
+            IVentaRepository ventaRepository)
         {
             _context = context;
             _environment = environment;
             _informesService = informesService;
             _config = config;
             _excelExportService = excelExportService;
+            _ventaRepository = ventaRepository;
         }
 
         // 2. UploadComprobanteAsync
@@ -81,9 +84,8 @@ namespace VendingManager.Infrastructure.Services
 
             // 1. SALDO ANTERIOR
             // Se considera todo lo anterior al inicio de mes, PERO respetando la fecha global de inicio
-            var prevIngresosVentas = await _context.Ventas
-                .Where(v => v.Pagado && v.FechaHora < startOfMonth && v.FechaHora >= _config.Value.CajaStartDate)
-                .SumAsync(v => v.PrecioVenta);
+            var prevIngresosVentas = await _ventaRepository.SumPrecioVentaPaidInRangeAsync(
+                _config.Value.CajaStartDate, startOfMonth.AddSeconds(-1));
 
             var prevMovimientos = await _context.MovimientosCaja
                 .Where(m => m.Fecha < startOfMonth && m.Fecha >= _config.Value.CajaStartDate)
@@ -93,9 +95,7 @@ namespace VendingManager.Infrastructure.Services
 
             // 2. MOVIMIENTOS DEL MES
             // Solo considerar si están dentro del rango global
-            var monthIngresosVentas = await _context.Ventas
-                .Where(v => v.Pagado && v.FechaHora >= startOfMonth && v.FechaHora <= endOfMonth && v.FechaHora >= _config.Value.CajaStartDate)
-                .SumAsync(v => v.PrecioVenta);
+            var monthIngresosVentas = await _ventaRepository.SumPrecioVentaPaidInRangeAsync(startOfMonth, endOfMonth);
 
             var monthGastos = await _context.MovimientosCaja
                 .Where(m => m.Fecha >= startOfMonth && m.Fecha <= endOfMonth && m.Fecha >= _config.Value.CajaStartDate && m.Monto < 0)
@@ -106,9 +106,9 @@ namespace VendingManager.Infrastructure.Services
                 .SumAsync(m => m.Monto);
 
             // 3. UTILIDAD (PrecioVenta - CostoVenta)
-            var monthUtilidad = await _context.Ventas
-                .Where(v => v.Pagado && v.FechaHora >= startOfMonth && v.FechaHora <= endOfMonth && v.FechaHora >= _config.Value.CajaStartDate)
-                .SumAsync(v => v.PrecioVenta - v.CostoVenta);
+            var monthPrecioSum = await _ventaRepository.SumPrecioVentaPaidInRangeAsync(startOfMonth, endOfMonth);
+            var monthCostoSum = await _ventaRepository.SumCostoVentaPaidInRangeAsync(startOfMonth, endOfMonth);
+            var monthUtilidad = monthPrecioSum - monthCostoSum;
 
             // 4. GASTOS MERCADERIA (Categoria "MERCADERIA")
             var monthGastosMercaderia = await _context.MovimientosCaja
@@ -116,9 +116,7 @@ namespace VendingManager.Infrastructure.Services
                 .SumAsync(m => m.Monto);
 
             // [NEW] COSTO DE VENTA (Suma de los costos de los productos vendidos)
-            var monthCostoVenta = await _context.Ventas
-                .Where(v => v.Pagado && v.FechaHora >= startOfMonth && v.FechaHora <= endOfMonth && v.FechaHora >= _config.Value.CajaStartDate)
-                .SumAsync(v => v.CostoVenta);
+            var monthCostoVenta = monthCostoSum;
 
             // [NEW] MERMAS (Category "MERMA") - Treated as negative revenue or expense? User pic says "(-) Mermas".
             // Typically Mermas are negative amounts in MovimientosCaja.
@@ -173,10 +171,8 @@ namespace VendingManager.Infrastructure.Services
 
             // [NEW] TRANSBANK (Estimado)
             // Contamos ventas PAGADAS (asumimos Transbank) y que NO sean fantasmas
-            var cantVentasTB = await _context.Ventas
-                .Where(v => v.Pagado && v.FechaHora >= startOfMonth && v.FechaHora <= endOfMonth && v.FechaHora >= _config.Value.CajaStartDate 
-                       && v.IdOrdenMaquina != "TB-EXTRA" && v.IdOrdenMaquina != "TB-SIN-VENTA")
-                .CountAsync();
+            var excludedOrdenIds = new[] { "TB-EXTRA", "TB-SIN-VENTA" };
+            var cantVentasTB = await _ventaRepository.CountPaidInRangeExcludingAsync(startOfMonth, endOfMonth, excludedOrdenIds);
             
             decimal costoTransbank = cantVentasTB * _config.Value.TransbankFee;
 
@@ -308,18 +304,16 @@ namespace VendingManager.Infrastructure.Services
 
         public async Task<(byte[] content, string fileName)> ExportarCajaAsync(int month, int year)
         {
+            DateTime startOfMonth = new DateTime(year, month, 1);
+            DateTime endOfMonth = startOfMonth.AddMonths(1).AddSeconds(-1);
+
             var resumen = await GetResumenAsync(month, year);
             var movimientos = await _context.MovimientosCaja
                 .Where(m => m.Fecha.Month == month && m.Fecha.Year == year && m.Fecha >= _config.Value.CajaStartDate)
                 .OrderBy(m => m.Fecha)
                 .ToListAsync();
 
-            var ventas = await _context.Ventas
-                .Include(v => v.Maquina)
-                .Include(v => v.Producto)
-                .Where(v => v.Pagado && v.FechaHora.Month == month && v.FechaHora.Year == year && v.FechaHora >= _config.Value.CajaStartDate)
-                .OrderBy(v => v.FechaHora)
-                .ToListAsync();
+            var ventas = await _ventaRepository.GetPaidInRangeAsync(startOfMonth, endOfMonth);
 
             var bytes = await _excelExportService.ExportCajaReportAsync(resumen, movimientos, ventas, month, year);
             return (bytes, $"Reporte_{month}_{year}.xlsx");
