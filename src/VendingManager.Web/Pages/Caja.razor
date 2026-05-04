@@ -8,9 +8,10 @@
 
 <PageTitle>TESORERÍA</PageTitle>
 
-<div class="container-fluid px-4 mt-4" style="font-family: 'Segoe UI', Consolas, monospace;">
+<div class="industrial-wrapper">
+    <div class="container-fluid px-4 mt-4">
 
-    <div class="row align-items-center mb-4 border-bottom border-3 border-dark pb-3">
+    <div class="row align-items-center mb-4 border-bottom border-3 border-dark pb-3 industrial-page-header">
         <div class="col-12 d-flex justify-content-between align-items-center flex-wrap gap-3">
             <div>
                 <h2 class="m-0 fw-bold text-uppercase" style="letter-spacing: -1px;">CONTROL DE TESORERÍA</h2>
@@ -19,13 +20,13 @@
 
             <!-- MONTH SELECTOR -->
             <div class="d-flex align-items-center gap-2 flex-wrap justify-content-end">
-                <button class="btn btn-dark rounded-0 btn-sm" @onclick="() => ChangeMonth(-1)">◀</button>
-                <div class="bg-dark text-white px-3 py-2 fw-bold rounded-0 text-uppercase text-center" style="min-width: 180px;">
+                <button class="industrial-btn industrial-btn--dark industrial-btn--sm" @onclick="() => ChangeMonth(-1)">◀</button>
+                <div class="bg-dark text-white px-3 py-2 fw-bold text-uppercase text-center" style="min-width: 180px; font-family: var(--industrial-font-primary);">
                     @SelectedDate.ToString("MMMM yyyy")
                 </div>
-                <button class="btn btn-dark rounded-0 btn-sm" @onclick="() => ChangeMonth(1)">▶</button>
-                <button class="btn btn-outline-dark rounded-0 btn-sm" @onclick="GoToToday" title="Ir a Hoy">Hoy</button>
-                <a href="api/caja/exportar?month=@SelectedDate.Month&year=@SelectedDate.Year" target="_blank" class="btn btn-success rounded-0 btn-sm fw-bold">
+                <button class="industrial-btn industrial-btn--dark industrial-btn--sm" @onclick="() => ChangeMonth(1)">▶</button>
+                <button class="industrial-btn industrial-btn--outline industrial-btn--sm" @onclick="GoToToday" title="Ir a Hoy">Hoy</button>
+                <a href="api/caja/exportar?month=@SelectedDate.Month&year=@SelectedDate.Year" target="_blank" class="industrial-btn industrial-btn--sm" style="background-color: #198754; color: white;">
                     📊 EXPORTAR
                 </a>
             </div>
@@ -46,7 +47,7 @@
         <div class="row g-3 mb-5">
             <!-- 1. VENTAS (Operación) -->
             <div class="col-md-3">
-                <div class="border border-2 border-dark bg-white p-3 h-100 position-relative shadow-sm">
+                <div class="industrial-card p-3 h-100 position-relative">
                     <div class="position-absolute top-0 end-0 bg-success text-white px-2 py-1 small fw-bold" style="font-size: 0.6rem;">OPERACIÓN</div>
                     <small class="text-muted fw-bold text-uppercase">VENTAS DEL MES</small>
                     <h3 class="text-success fw-bold mt-2">$@Resumen.IngresosVentas.ToString("N0")</h3>
@@ -56,7 +57,7 @@
 
             <!-- 2. GASTOS (Salidas) -->
             <div class="col-md-3">
-                <div class="border border-2 border-dark bg-white p-3 h-100 position-relative shadow-sm">
+                <div class="industrial-card p-3 h-100 position-relative">
                     <div class="position-absolute top-0 end-0 bg-danger text-white px-2 py-1 small fw-bold" style="font-size: 0.6rem;">SALIDAS</div>
                     <small class="text-muted fw-bold text-uppercase">GASTOS TOTALES</small>
                     <h3 class="text-danger fw-bold mt-2">-$@Resumen.GastosOperativos.ToString("N0")</h3>
@@ -66,7 +67,7 @@
 
             <!-- 3. APORTES (Financiamiento) -->
             <div class="col-md-3">
-                <div class="border border-2 border-dark bg-white p-3 h-100 position-relative shadow-sm">
+                <div class="industrial-card p-3 h-100 position-relative">
                     <div class="position-absolute top-0 end-0 bg-primary text-white px-2 py-1 small fw-bold" style="font-size: 0.6rem;">CAPITAL</div>
                     <small class="text-muted fw-bold text-uppercase">APORTES / INYECCIONES</small>
                     <h3 class="text-primary fw-bold mt-2">$@Resumen.AportesExtra.ToString("N0")</h3>
@@ -76,13 +77,13 @@
 
             <!-- 4. SALDO FINAL (Resultado) -->
             <div class="col-md-3">
-                <div class="border border-2 border-dark bg-dark text-white p-3 h-100 shadow">
-                    <div class="d-flex justify-content-between align-items-center border-bottom border-light pb-2 mb-2">
+                <div class="industrial-card p-3 h-100 shadow" style="background-color: var(--industrial-black); color: var(--industrial-white);">
+                    <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-2">
                         <small class="fw-bold text-uppercase">DISPONIBLE EN CAJA</small>
-                        <span class="badge bg-light text-dark rounded-0">TOTAL</span>
+                        <span class="badge rounded-0" style="background-color: var(--industrial-white); color: var(--industrial-black);">TOTAL</span>
                     </div>
                     <h4 class="fw-bold m-0">$@Resumen.SaldoFinal.ToString("N0")</h4>
-                    <small class="text-white-50 mt-2 d-block" style="font-size: 0.7rem;">Total Real (Incluye Histórico)</small>
+                    <small class="mt-2 d-block" style="color: rgba(255,255,255,0.5); font-size: 0.7rem;">Total Real (Incluye Histórico)</small>
                 </div>
             </div>
         </div>
@@ -123,7 +124,7 @@
                         <span class="fw-bold text-uppercase">@GastosPendientes.Count gasto(s) fijo(s) sin registrar este mes</span>
                     </div>
                     <div class="d-flex gap-2">
-                        <button class="btn btn-outline-dark rounded-0 btn-sm fw-bold" @onclick="MostrarModalAplicar">
+                        <button class="industrial-btn industrial-btn--outline industrial-btn--sm" @onclick="MostrarModalAplicar">
                             <i class="bi bi-check2-all me-1"></i>REVISAR Y APLICAR
                         </button>
                     </div>

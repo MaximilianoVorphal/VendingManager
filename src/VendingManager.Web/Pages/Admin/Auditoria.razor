@@ -6,26 +6,30 @@
 @inject HttpClient Http
 
 <PageTitle>Auditoría</PageTitle>
+<div class="industrial-wrapper">
+    <div class="container-fluid px-4 mt-4">
 
-<h1>Registro de Auditoría</h1>
-
-
-
-<div class="row mb-3">
-    <div class="col-md-3">
-        <label class="form-label">Usuario:</label>
-        <input type="text" class="form-control" @bind="filtroUsuario" placeholder="Ej: admin" />
+    <div class="row align-items-center mb-4 border-bottom border-3 border-dark pb-3">
+        <div class="col-12">
+            <h1 class="m-0 fw-bold text-uppercase" style="letter-spacing: -1px;">Registro de Auditoría</h1>
+        </div>
     </div>
-    <div class="col-md-3">
-        <label class="form-label">Acción:</label>
-        <input type="text" class="form-control" @bind="filtroAccion" placeholder="Ej: Login" />
+
+    <div class="row mb-3">
+        <div class="col-md-3">
+            <label class="form-label fw-bold">Usuario:</label>
+            <input type="text" class="form-control border-dark rounded-0" @bind="filtroUsuario" placeholder="Ej: admin" />
+        </div>
+        <div class="col-md-3">
+            <label class="form-label fw-bold">Acción:</label>
+            <input type="text" class="form-control border-dark rounded-0" @bind="filtroAccion" placeholder="Ej: Login" />
+        </div>
+        <div class="col-md-2 d-flex align-items-end">
+            <button class="btn btn-dark w-100 fw-bold rounded-0" @onclick="CargarLogs">
+                <i class="bi bi-search me-2"></i>Filtrar
+            </button>
+        </div>
     </div>
-    <div class="col-md-2 d-flex align-items-end">
-        <button class="btn btn-primary w-100" @onclick="CargarLogs">
-            <i class="bi bi-search me-2"></i>Filtrar
-        </button>
-    </div>
-</div>
 
 @if (logs == null)
 {
@@ -38,8 +42,8 @@ else if (!logs.Any())
 else
 {
     <div class="table-responsive">
-        <table class="table table-striped table-hover">
-            <thead>
+        <table class="table table-striped table-hover table-bordered border-dark">
+            <thead class="bg-secondary text-white text-uppercase">
                 <tr>
                     <th>Fecha</th>
                     <th>Usuario</th>
@@ -61,6 +65,7 @@ else
         </table>
     </div>
 }
+</div>
 
 @code {
     private List<AuditoriaDto>? logs;
