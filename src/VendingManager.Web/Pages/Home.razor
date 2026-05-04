@@ -6,7 +6,8 @@
 
 <PageTitle>CENTRO DE COMANDO</PageTitle>
 
-<div class="container-fluid px-4 mt-4" style="font-family: 'Segoe UI', Consolas, monospace;">
+<div class="industrial-wrapper">
+    <div class="container-fluid px-4 mt-4">
 
     <div class="row align-items-center mb-4 border-bottom border-3 border-dark pb-3">
         <div class="col-md-8">
@@ -41,7 +42,7 @@
         <div class="row g-4 mb-5">
             <!-- DIARIO -->
         <div class="col-md-4">
-                <div class="card-hover border border-2 border-dark bg-white p-0 h-100 shadow-sm position-relative cursor-pointer"
+                <div class="industrial-card card-hover h-100 position-relative cursor-pointer"
                 @onclick="@(() => IrAReporte("HOY"))" role="button">
                     <div class="bg-dark text-white p-2 fw-bold text-center text-uppercase small"
                     style="letter-spacing: 1px;">
@@ -70,7 +71,7 @@
 
             <!-- SEMANAL -->
         <div class="col-md-4">
-                <div class="card-hover border border-2 border-dark bg-white p-0 h-100 shadow-sm cursor-pointer"
+                <div class="industrial-card card-hover h-100 cursor-pointer"
                 @onclick="@(() => IrAReporte("SEMANA"))" role="button">
                     <div class="bg-secondary text-white p-2 fw-bold text-center text-uppercase small border-bottom border-dark"
                     style="letter-spacing: 1px;">
@@ -99,7 +100,7 @@
 
             <!-- MENSUAL -->
         <div class="col-md-4">
-                <div class="card-hover border border-2 border-dark bg-light p-0 h-100 shadow-sm cursor-pointer"
+                <div class="industrial-card card-hover h-100 cursor-pointer"
                 @onclick="@(() => IrAReporte("MES"))" role="button">
                     <div class="p-2 fw-bold text-center border-bottom border-2 border-dark text-uppercase small"
                     style="background-color: #dcdcdc; letter-spacing: 1px;">
@@ -130,7 +131,7 @@
         <!-- CARD DE STOCK CRITICO -->
         <div class="row mb-5">
             <div class="col-12">
-                <div class="card-hover border border-2 border-danger bg-white p-0 shadow-sm cursor-pointer position-relative"
+                <div class="industrial-card card-hover h-100 cursor-pointer position-relative"
                 @onclick="AbrirModalCritico" role="button">
                     <div class="bg-danger text-white p-2 fw-bold text-center text-uppercase small"
                     style="letter-spacing: 1px;">
@@ -276,44 +277,6 @@
         </div>
     </div>
 }
-
-<style>
-    /* Efecto de parpadeo para el texto de carga */
-    .blinking-cursor {
-        animation: blinker 1s linear infinite;
-    }
-
-    /* Hover effects for Dashboard Cards */
-    .card-hover {
-        transition: transform 0.2s, background-color 0.2s;
-    }
-
-    .card-hover:hover {
-        transform: translateY(-5px);
-        background-color: #f8f9fa !important;
-        /* Slightly grayer */
-        border-color: #000 !important;
-        cursor: pointer;
-    }
-
-    @@keyframes blinker {
-        50% {
-            opacity: 0;
-        }
-    }
-
-    /* iPad KPI font scaling */
-    @@media (max-width: 1199px) {
-        .kpi-amount {
-            font-size: clamp(1.5rem, 4vw, 2.2rem) !important;
-            letter-spacing: -1px;
-        }
-        .kpi-amount-critico {
-            font-size: clamp(2rem, 5vw, 2.8rem) !important;
-            letter-spacing: -1px;
-        }
-    }
-</style>
 
 @code {
     private DashboardStats? Stats;

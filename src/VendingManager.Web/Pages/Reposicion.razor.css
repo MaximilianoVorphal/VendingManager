@@ -1,0 +1,204 @@
+/* Reposicion.razor — Page-specific CSS (Blazor CSS Isolation) */
+
+.industrial-wrapper .active-tool {
+    background-color: #000;
+    color: #fff;
+    box-shadow: inset 0 3px 5px rgba(0,0,0,0.125);
+}
+
+/* Mobile-First tweaks */
+.machine-chassis {
+    background-color: #222;
+    padding: 5px;
+    border-radius: 4px;
+    border: 2px solid #444;
+}
+
+.industrial-wrapper .shelf-container {
+    border-bottom: 4px solid #666;
+    background-color: #ddd;
+    padding: 5px;
+}
+
+/* INVENTORY GRID - CSS Grid for responsive layout */
+.inventory-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(85px, 1fr));
+    gap: 8px;
+    padding: 4px;
+}
+
+.slot-unit {
+    min-height: 100px;
+    border: 2px solid #333;
+    padding: 4px;
+    font-family: 'Segoe UI', sans-serif;
+    font-weight: bold;
+    transition: all 0.1s;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    background-color: white;
+}
+
+/* On very small screens */
+@media (max-width: 576px) {
+    .industrial-wrapper .container-fluid {
+        padding-left: 5px;
+        padding-right: 5px;
+    }
+    .industrial-wrapper .card-body {
+        padding: 5px;
+    }
+    .inventory-grid {
+        grid-template-columns: repeat(auto-fill, minmax(75px, 1fr));
+        gap: 4px;
+    }
+}
+
+.slot-unit:active {
+    transform: scale(0.95);
+}
+
+.slot-product-name {
+    font-size: 0.7rem;
+    line-height: 1.1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    word-break: break-word;
+}
+
+/* STATES */
+.slot-empty {
+    background-color: #f8d7da;
+    border-color: #dc3545;
+    color: #721c24;
+}
+
+.slot-full {
+    background-color: #d1e7dd;
+    border-color: #198754;
+    color: #0f5132;
+}
+
+.slot-partial {
+    background-color: #fff3cd;
+    border-color: #ffc107;
+    color: #555;
+}
+
+.slot-disabled {
+    opacity: 0.5;
+    filter: grayscale(50%);
+}
+
+/* ACTION OVERLAYS */
+.industrial-wrapper .action-refill {
+    background-color: #cfe2ff;
+    border: 3px solid #0d6efd;
+    color: #084298;
+}
+
+.industrial-wrapper .action-empty {
+    background-color: #dc3545;
+    border: 3px solid #b02a37;
+    color: white;
+}
+
+.industrial-wrapper .action-swap {
+    background-color: #6f42c1;
+    border: 3px solid #59359a;
+    color: white;
+}
+
+/* STICKY HEADER — specificity: .industrial-wrapper */
+.industrial-wrapper .sticky-tools-header {
+    position: sticky;
+    top: 0;
+    z-index: 1020;
+    background-color: #f4f4f4;
+    margin-left: -1.5rem;
+    margin-right: -1.5rem;
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+    border-bottom: 2px solid #000;
+}
+
+/* DISABLED BUTTON STYLING */
+.btn-disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* FLOATING ACTION BUTTON */
+.fab-container {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 1050;
+    display: none;
+}
+
+@media (max-width: 768px) {
+    .fab-container {
+        display: block;
+    }
+    .industrial-wrapper .sticky-tools-header {
+        display: none;
+    }
+}
+
+.fab-main {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background-color: #000;
+    color: #fff;
+    border: 2px solid #000;
+    font-size: 1.5rem;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    transition: transform 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.fab-main.fab-open {
+    transform: rotate(45deg);
+}
+
+.fab-menu {
+    position: absolute;
+    bottom: 70px;
+    right: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.fab-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    background: #fff;
+    border: 2px solid #000;
+    font-weight: bold;
+    font-size: 0.9rem;
+    white-space: nowrap;
+    box-shadow: 2px 2px 0 #000;
+    transition: all 0.1s;
+}
+
+.fab-option:active {
+    transform: scale(0.95);
+}
+
+.industrial-wrapper .fab-active {
+    background-color: #000;
+    color: #fff;
+}
