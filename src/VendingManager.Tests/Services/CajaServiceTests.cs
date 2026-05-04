@@ -75,6 +75,17 @@ public class CajaServiceTests : IDisposable
         result.TotalIngresos.Should().Be(1500m);   // SaldoAnterior + IngresosVentas
         result.UtilidadOperacional.Should().Be(300m); // (500-200) margen bruto, no gastos
         result.SaldoFinal.Should().Be(1500m); // TotalIngresos + Gastos (0)
+        result.TotalCostoVenta.Should().Be(200m); // January venta costo
+        result.Mermas.Should().Be(0m);
+        result.GastosVariables.Should().Be(0m);
+        result.GastosFijos.Should().Be(0m);
+        result.AportesExtra.Should().Be(0m);
+        result.GastosMercaderia.Should().Be(0m);
+        result.CostoTransbank.Should().Be(0m);
+        result.CantidadVentasTransbank.Should().Be(0);
+        result.UtilidadTotal.Should().Be(300m);
+        result.UtilidadNeta.Should().Be(300m);
+        result.IsLocked.Should().BeFalse();
     }
 
     [Fact]
@@ -129,6 +140,17 @@ public class CajaServiceTests : IDisposable
         result.GastosOperativos.Should().Be(150m); // Variables (LOGISTICA = 150)
         result.TotalIngresos.Should().Be(1300m);    // 1000 + 300
         result.SaldoFinal.Should().Be(1150m);       // 1000 + 300 + (-150)
+        result.TotalCostoVenta.Should().Be(100m);   // January venta costo
+        result.Mermas.Should().Be(0m);
+        result.GastosVariables.Should().Be(150m);   // LOGISTICA = 150
+        result.GastosFijos.Should().Be(0m);
+        result.AportesExtra.Should().Be(0m);
+        result.GastosMercaderia.Should().Be(0m);
+        result.CostoTransbank.Should().Be(0m);
+        result.CantidadVentasTransbank.Should().Be(0);
+        result.UtilidadTotal.Should().Be(200m);     // IngresosVentas - TotalCostoVenta
+        result.UtilidadNeta.Should().Be(200m);     // UtilidadTotal - GastosOperativos
+        result.IsLocked.Should().BeFalse();
     }
 
     [Fact]
@@ -160,6 +182,19 @@ public class CajaServiceTests : IDisposable
         result.IngresosVentas.Should().Be(0m);
         result.GastosOperativos.Should().Be(0m);
         result.SaldoFinal.Should().Be(500m); // Just saldo anterior, no activity
+        result.TotalIngresos.Should().Be(500m);
+        result.TotalCostoVenta.Should().Be(0m);
+        result.Mermas.Should().Be(0m);
+        result.GastosVariables.Should().Be(0m);
+        result.GastosFijos.Should().Be(0m);
+        result.AportesExtra.Should().Be(0m);
+        result.GastosMercaderia.Should().Be(0m);
+        result.CostoTransbank.Should().Be(0m);
+        result.CantidadVentasTransbank.Should().Be(0);
+        result.UtilidadTotal.Should().Be(0m);
+        result.UtilidadNeta.Should().Be(0m);
+        result.UtilidadOperacional.Should().Be(0m);
+        result.IsLocked.Should().BeFalse();
     }
 
     [Fact]
@@ -201,5 +236,19 @@ public class CajaServiceTests : IDisposable
         result.Should().NotBeNull();
         result.SaldoAnterior.Should().Be(0m); // Nothing before Dec 18
         result.IngresosVentas.Should().Be(1000m); // Only from Dec 20 venta
+        result.TotalIngresos.Should().Be(1000m);
+        result.SaldoFinal.Should().Be(1000m);
+        result.TotalCostoVenta.Should().Be(400m);
+        result.Mermas.Should().Be(0m);
+        result.GastosVariables.Should().Be(0m);
+        result.GastosFijos.Should().Be(0m);
+        result.AportesExtra.Should().Be(0m);
+        result.GastosMercaderia.Should().Be(0m);
+        result.CostoTransbank.Should().Be(0m);
+        result.CantidadVentasTransbank.Should().Be(0);
+        result.UtilidadTotal.Should().Be(600m);   // 1000 - 400
+        result.UtilidadNeta.Should().Be(600m);    // No gastos
+        result.UtilidadOperacional.Should().Be(600m);
+        result.IsLocked.Should().BeFalse();
     }
 }
