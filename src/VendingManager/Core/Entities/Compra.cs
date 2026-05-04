@@ -28,5 +28,8 @@ public class Compra
     // Usuario que registró la compra (opcional, para auditoría)
     public string? UsuarioRegistra { get; set; }
 
+    // Ruta relativa a la imagen de la factura/boleta (ej: /uploads/compras/facturas/{guid}.jpg)
+    public string? FacturaImagenPath { get; set; }
+
     public List<DetalleCompra> Detalles { get; set; } = new();
 }
