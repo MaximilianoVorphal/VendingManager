@@ -10,6 +10,7 @@ public class CompraDto
     public string Estado { get; set; } = "PAGADA";
     public string TipoFactura { get; set; } = "MERCADERIA";
     public bool PagadaCaja { get; set; } = true;
+    public string? FacturaImagenPath { get; set; }
     public List<DetalleCompraDto> Detalles { get; set; } = new();
 }
 
