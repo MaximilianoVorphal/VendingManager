@@ -13,12 +13,15 @@
 
         public decimal CostoTransbank { get; set; }
         public int CantidadVentasTransbank { get; set; }
-        public decimal TotalCostoVenta { get; set; } 
+        public decimal TotalCostoVenta { get; set; }
         public decimal Mermas { get; set; }          // [NEW]
         public decimal GastosVariables { get; set; } // [NEW] Logistica
         public decimal GastosFijos { get; set; }     // [NEW] Estructurales
         public decimal UtilidadOperacional { get; set; } // [NEW] EBITDA
         public decimal UtilidadNeta { get; set; }    // Real Net
         public bool IsLocked { get; set; }
+
+        // Computed property for test compatibility
+        public decimal TotalIngresos => SaldoAnterior + IngresosVentas;
     }
 }

@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Scalar.AspNetCore;
+using VendingManager.Core.Configuration;
 using VendingManager.Infrastructure.Data;
 using VendingManager.Infrastructure.Services;
 using VendingManager.Web;
@@ -62,6 +63,9 @@ builder.Services.AddAuthorization(options =>
 // 2. Base de Datos (SQL Express)
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// 2.1 Configuration — VendingConfig
+builder.Services.Configure<VendingConfig>(builder.Configuration.GetSection("VendingConfig"));
 
 // 3. Registrar tus Servicios (Clean Architecture)
 builder.Services.AddScoped<ISyncOrchestratorService, SyncOrchestratorService>();

@@ -1,6 +1,8 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Options;
 using System.IO;
+using VendingManager.Core.Configuration;
 using VendingManager.Core.Entities;
 using VendingManager.Core.Interfaces;
 using VendingManager.Shared.DTOs;
@@ -12,15 +14,14 @@ namespace VendingManager.Infrastructure.Services
         private readonly ApplicationDbContext _context;
         private readonly IWebHostEnvironment _environment;
         private readonly IInformesService _informesService;
+        private readonly IOptions<VendingConfig> _config;
 
-        // FECHA DE INICIO GLOBAL PARA EL CUADRE DE CAJA
-        private static readonly DateTime GlobalStartDate = new DateTime(2025, 12, 18);
-
-        public CajaService(ApplicationDbContext context, IWebHostEnvironment environment, IInformesService informesService)
+        public CajaService(ApplicationDbContext context, IWebHostEnvironment environment, IInformesService informesService, IOptions<VendingConfig> config)
         {
             _context = context;
             _environment = environment;
             _informesService = informesService;
+            _config = config;
         }
 
         // 2. UploadComprobanteAsync
@@ -74,11 +75,11 @@ namespace VendingManager.Infrastructure.Services
             // 1. SALDO ANTERIOR
             // Se considera todo lo anterior al inicio de mes, PERO respetando la fecha global de inicio
             var prevIngresosVentas = await _context.Ventas
-                .Where(v => v.Pagado && v.FechaHora < startOfMonth && v.FechaHora >= GlobalStartDate)
+                .Where(v => v.Pagado && v.FechaHora < startOfMonth && v.FechaHora >= _config.Value.CajaStartDate)
                 .SumAsync(v => v.PrecioVenta);
 
             var prevMovimientos = await _context.MovimientosCaja
-                .Where(m => m.Fecha < startOfMonth && m.Fecha >= GlobalStartDate)
+                .Where(m => m.Fecha < startOfMonth && m.Fecha >= _config.Value.CajaStartDate)
                 .SumAsync(m => m.Monto);
 
             decimal saldoAnterior = prevIngresosVentas + prevMovimientos;
@@ -86,36 +87,36 @@ namespace VendingManager.Infrastructure.Services
             // 2. MOVIMIENTOS DEL MES
             // Solo considerar si están dentro del rango global
             var monthIngresosVentas = await _context.Ventas
-                .Where(v => v.Pagado && v.FechaHora >= startOfMonth && v.FechaHora <= endOfMonth && v.FechaHora >= GlobalStartDate)
+                .Where(v => v.Pagado && v.FechaHora >= startOfMonth && v.FechaHora <= endOfMonth && v.FechaHora >= _config.Value.CajaStartDate)
                 .SumAsync(v => v.PrecioVenta);
 
             var monthGastos = await _context.MovimientosCaja
-                .Where(m => m.Fecha >= startOfMonth && m.Fecha <= endOfMonth && m.Fecha >= GlobalStartDate && m.Monto < 0)
+                .Where(m => m.Fecha >= startOfMonth && m.Fecha <= endOfMonth && m.Fecha >= _config.Value.CajaStartDate && m.Monto < 0)
                 .SumAsync(m => m.Monto);
 
             var monthAportes = await _context.MovimientosCaja
-                .Where(m => m.Fecha >= startOfMonth && m.Fecha <= endOfMonth && m.Fecha >= GlobalStartDate && m.Monto > 0)
+                .Where(m => m.Fecha >= startOfMonth && m.Fecha <= endOfMonth && m.Fecha >= _config.Value.CajaStartDate && m.Monto > 0)
                 .SumAsync(m => m.Monto);
 
             // 3. UTILIDAD (PrecioVenta - CostoVenta)
             var monthUtilidad = await _context.Ventas
-                .Where(v => v.Pagado && v.FechaHora >= startOfMonth && v.FechaHora <= endOfMonth && v.FechaHora >= GlobalStartDate)
+                .Where(v => v.Pagado && v.FechaHora >= startOfMonth && v.FechaHora <= endOfMonth && v.FechaHora >= _config.Value.CajaStartDate)
                 .SumAsync(v => v.PrecioVenta - v.CostoVenta);
 
             // 4. GASTOS MERCADERIA (Categoria "MERCADERIA")
             var monthGastosMercaderia = await _context.MovimientosCaja
-                .Where(m => m.Fecha >= startOfMonth && m.Fecha <= endOfMonth && m.Fecha >= GlobalStartDate && m.Monto < 0 && m.Categoria == "MERCADERIA")
+                .Where(m => m.Fecha >= startOfMonth && m.Fecha <= endOfMonth && m.Fecha >= _config.Value.CajaStartDate && m.Monto < 0 && m.Categoria == "MERCADERIA")
                 .SumAsync(m => m.Monto);
 
             // [NEW] COSTO DE VENTA (Suma de los costos de los productos vendidos)
             var monthCostoVenta = await _context.Ventas
-                .Where(v => v.Pagado && v.FechaHora >= startOfMonth && v.FechaHora <= endOfMonth && v.FechaHora >= GlobalStartDate)
+                .Where(v => v.Pagado && v.FechaHora >= startOfMonth && v.FechaHora <= endOfMonth && v.FechaHora >= _config.Value.CajaStartDate)
                 .SumAsync(v => v.CostoVenta);
 
             // [NEW] MERMAS (Category "MERMA") - Treated as negative revenue or expense? User pic says "(-) Mermas".
             // Typically Mermas are negative amounts in MovimientosCaja.
             var monthMermas = await _context.MovimientosCaja
-                .Where(m => m.Fecha >= startOfMonth && m.Fecha <= endOfMonth && m.Fecha >= GlobalStartDate && m.Monto < 0 && m.Categoria == "MERMA")
+                .Where(m => m.Fecha >= startOfMonth && m.Fecha <= endOfMonth && m.Fecha >= _config.Value.CajaStartDate && m.Monto < 0 && m.Categoria == "MERMA")
                 .SumAsync(m => m.Monto);
             decimal mermasAbs = Math.Abs(monthMermas);
             
@@ -126,7 +127,7 @@ namespace VendingManager.Infrastructure.Services
             // Categories: LOGISTICA, PEAJES, INSUMOS, MANTENCION
             var categoriesVariables = new[] { "LOGISTICA", "PEAJES", "INSUMOS", "MANTENCION" };
             var monthGastosVariables = await _context.MovimientosCaja
-                 .Where(m => m.Fecha >= startOfMonth && m.Fecha <= endOfMonth && m.Fecha >= GlobalStartDate && m.Monto < 0 && categoriesVariables.Contains(m.Categoria))
+                 .Where(m => m.Fecha >= startOfMonth && m.Fecha <= endOfMonth && m.Fecha >= _config.Value.CajaStartDate && m.Monto < 0 && categoriesVariables.Contains(m.Categoria))
                  .SumAsync(m => m.Monto);
             decimal gastosVariablesAbs = Math.Abs(monthGastosVariables);
 
@@ -134,7 +135,7 @@ namespace VendingManager.Infrastructure.Services
             // Categories: INFRA, ARRIENDO_POS, INTERNET, COMISIONES, OTROS
             var categoriesFijos = new[] { "INFRA", "ARRIENDO_POS", "INTERNET", "COMISIONES", "OTROS" };
              var monthGastosFijos = await _context.MovimientosCaja
-                 .Where(m => m.Fecha >= startOfMonth && m.Fecha <= endOfMonth && m.Fecha >= GlobalStartDate && m.Monto < 0 && categoriesFijos.Contains(m.Categoria))
+                 .Where(m => m.Fecha >= startOfMonth && m.Fecha <= endOfMonth && m.Fecha >= _config.Value.CajaStartDate && m.Monto < 0 && categoriesFijos.Contains(m.Categoria))
                  .SumAsync(m => m.Monto);
             decimal gastosFijosAbs = Math.Abs(monthGastosFijos);
 
@@ -166,11 +167,11 @@ namespace VendingManager.Infrastructure.Services
             // [NEW] TRANSBANK (Estimado)
             // Contamos ventas PAGADAS (asumimos Transbank) y que NO sean fantasmas
             var cantVentasTB = await _context.Ventas
-                .Where(v => v.Pagado && v.FechaHora >= startOfMonth && v.FechaHora <= endOfMonth && v.FechaHora >= GlobalStartDate 
+                .Where(v => v.Pagado && v.FechaHora >= startOfMonth && v.FechaHora <= endOfMonth && v.FechaHora >= _config.Value.CajaStartDate 
                        && v.IdOrdenMaquina != "TB-EXTRA" && v.IdOrdenMaquina != "TB-SIN-VENTA")
                 .CountAsync();
             
-            decimal costoTransbank = cantVentasTB * 80; // $80 por tx
+            decimal costoTransbank = cantVentasTB * _config.Value.TransbankFee;
 
             return new CajaResumenDto
             {
@@ -204,7 +205,7 @@ namespace VendingManager.Infrastructure.Services
         public async Task<List<MovimientoCaja>> GetMovimientosAsync(int month, int year)
         {
             return await _context.MovimientosCaja
-                .Where(m => m.Fecha.Month == month && m.Fecha.Year == year && m.Fecha >= GlobalStartDate)
+                .Where(m => m.Fecha.Month == month && m.Fecha.Year == year && m.Fecha >= _config.Value.CajaStartDate)
                 .OrderByDescending(m => m.Fecha)
                 .ToListAsync();
         }
@@ -220,16 +221,16 @@ namespace VendingManager.Infrastructure.Services
             }
 
             // Validar que no se registren movimientos antes de la fecha global
-            if (mov.Fecha < GlobalStartDate)
+            if (mov.Fecha < _config.Value.CajaStartDate)
             {
                 // Opcional: Permitir registro pero advertir, o bloquear duro. 
                 // Dado el requerimiento "desde el dia 18... hacer el cuadre", 
                 // bloquear registros antiguos parece coherente para mantener la integridad.
                 // Sin embargo, el usuario podría querer registrar algo antiguo como "histórico".
-                // Pero si el sistema filtra por GlobalStartDate, ese registro no se vería nunca.
+                // Pero si el sistema filtra por _config.Value.CajaStartDate, ese registro no se vería nunca.
                 // Mejor lo dejamos pasar pero sabiendo que no sumará, O lanzamos error.
                 // Voy a lanzar error para evitar data "fantasma".
-                 throw new InvalidOperationException($"No se pueden registrar movimientos anteriores al inicio del cuadre ({GlobalStartDate:dd/MM/yyyy}).");
+                 throw new InvalidOperationException($"No se pueden registrar movimientos anteriores al inicio del cuadre ({_config.Value.CajaStartDate:dd/MM/yyyy}).");
             }
 
             if (mov.Fecha == DateTime.MinValue) mov.Fecha = DateTime.Now;
@@ -302,14 +303,14 @@ namespace VendingManager.Infrastructure.Services
         {
             var resumen = await GetResumenAsync(month, year);
             var movimientos = await _context.MovimientosCaja
-                .Where(m => m.Fecha.Month == month && m.Fecha.Year == year && m.Fecha >= GlobalStartDate)
+                .Where(m => m.Fecha.Month == month && m.Fecha.Year == year && m.Fecha >= _config.Value.CajaStartDate)
                 .OrderBy(m => m.Fecha)
                 .ToListAsync();
 
             var ventas = await _context.Ventas
                 .Include(v => v.Maquina)
                 .Include(v => v.Producto)
-                .Where(v => v.Pagado && v.FechaHora.Month == month && v.FechaHora.Year == year && v.FechaHora >= GlobalStartDate)
+                .Where(v => v.Pagado && v.FechaHora.Month == month && v.FechaHora.Year == year && v.FechaHora >= _config.Value.CajaStartDate)
                 .OrderBy(v => v.FechaHora)
                 .ToListAsync();
 
@@ -404,7 +405,7 @@ namespace VendingManager.Infrastructure.Services
         public async Task<(byte[] content, string fileName)> ExportarMovimientosAsync(int month, int year)
         {
             var movimientos = await _context.MovimientosCaja
-                .Where(m => m.Fecha.Month == month && m.Fecha.Year == year && m.Fecha >= GlobalStartDate)
+                .Where(m => m.Fecha.Month == month && m.Fecha.Year == year && m.Fecha >= _config.Value.CajaStartDate)
                 .OrderBy(m => m.Fecha)
                 .ToListAsync();
 
