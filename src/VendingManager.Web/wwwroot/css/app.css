@@ -501,6 +501,7 @@ html {
 .industrial-table {
     width: 100%;
     border-collapse: collapse;
+    border-color: var(--industrial-black) !important;
 }
 
 .industrial-table thead {
@@ -515,12 +516,22 @@ html {
     padding: 0.5rem 0.75rem;
     text-align: left;
     font-weight: bold;
-    border: none;
+    border: none !important;
 }
 
 .industrial-table tbody td {
     padding: 0.5rem 0.75rem;
     border-bottom: var(--industrial-border-light);
+}
+
+.industrial-table.table-bordered > :not(caption) > * > * {
+    border-width: 1px;
+    border-color: var(--industrial-black);
+}
+
+.industrial-table.table-bordered > :not(caption) > * {
+    border-width: 1px;
+    border-color: var(--industrial-black);
 }
 
 .industrial-table tbody tr:hover {
