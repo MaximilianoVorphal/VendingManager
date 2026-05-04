@@ -10,8 +10,7 @@ public static class TestDataHelpers
         decimal costoVenta = 400m,
         bool pagado = true,
         int maquinaId = 1,
-        int? productoId = 1,
-        string tipoOperacion = "Ingreso")
+        int? productoId = 1)
         => new Venta
         {
             FechaHora = fechaLocal ?? _globalStart.AddDays(1),
@@ -24,8 +23,7 @@ public static class TestDataHelpers
             PrecioVenta = precioVenta,
             CostoVenta = costoVenta,
             Pagado = pagado,
-            IdOrdenMaquina = "TEST-001",
-            TipoOperacion = tipoOperacion
+            IdOrdenMaquina = "TEST-001"
         };
 
     public static MovimientoCaja CreateMovimientoCaja(

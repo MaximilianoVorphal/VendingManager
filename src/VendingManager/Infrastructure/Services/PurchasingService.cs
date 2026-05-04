@@ -1,9 +1,11 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using VendingManager.Core.Configuration;
 using VendingManager.Core.Interfaces;
 using VendingManager.Infrastructure.Data;
 using VendingManager.Shared.DTOs;
@@ -13,10 +15,12 @@ namespace VendingManager.Infrastructure.Services
     public class PurchasingService : IPurchasingService
     {
         private readonly ApplicationDbContext _context;
+        private readonly IOptions<VendingConfig> _config;
 
-        public PurchasingService(ApplicationDbContext context)
+        public PurchasingService(ApplicationDbContext context, IOptions<VendingConfig> config)
         {
             _context = context;
+            _config = config;
         }
 
         public async Task<List<StockCriticoDto>> GetStockCriticoAsync(int maquinaId)
@@ -47,8 +51,9 @@ namespace VendingManager.Infrastructure.Services
                 .ToListAsync();
         }
 
-        public async Task<List<PurchaseSuggestionDto>> GetPurchaseSuggestionAsync(int dias = 30, int maquinaId = 0)
+        public async Task<List<PurchaseSuggestionDto>> GetPurchaseSuggestionAsync(int dias = 0, int maquinaId = 0)
         {
+            if (dias <= 0) dias = _config.Value.RotacionStockMinimoDias;
             DateTime fechaInicio = DateTime.Now.Date.AddDays(-dias);
             
             var queryVentas = _context.Ventas
