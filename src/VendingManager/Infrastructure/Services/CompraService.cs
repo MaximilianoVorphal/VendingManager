@@ -2,16 +2,19 @@ using Microsoft.EntityFrameworkCore;
 using VendingManager.Core.Entities;
 using VendingManager.Core.Interfaces;
 using VendingManager.Infrastructure.Data;
+using Microsoft.AspNetCore.Http;
 
 namespace VendingManager.Infrastructure.Services;
 
 public class CompraService : ICompraService
 {
     private readonly ApplicationDbContext _context;
+    private readonly IWebHostEnvironment _env;
 
-    public CompraService(ApplicationDbContext context)
+    public CompraService(ApplicationDbContext context, IWebHostEnvironment env)
     {
         _context = context;
+        _env = env;
     }
 
     public async Task<IEnumerable<Compra>> GetComprasAsync(int? count = null)
@@ -260,5 +263,48 @@ public class CompraService : ICompraService
                 }
             }
         }
+    }
+
+    public async Task<string> SaveFacturaImagenAsync(int compraId, IFormFile file)
+    {
+        if (file == null || file.Length == 0)
+            throw new ArgumentException("No se proporcionó ningún archivo.");
+
+        const long maxSize = 5 * 1024 * 1024; // 5MB
+        if (file.Length > maxSize)
+            throw new ArgumentException("El archivo excede el límite de 5MB.");
+
+        var allowedExt = new[] { ".jpg", ".jpeg", ".png", ".pdf" };
+        var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+        if (!allowedExt.Contains(ext))
+            throw new ArgumentException("Formato de archivo no permitido. Use JPG, PNG o PDF.");
+
+        var compra = await _context.Compras.FindAsync(compraId);
+        if (compra == null)
+            throw new KeyNotFoundException($"Compra {compraId} no encontrada.");
+
+        var uploadDir = Path.Combine(_env.WebRootPath, "uploads", "compras", "facturas");
+        Directory.CreateDirectory(uploadDir);
+
+        // Delete old image if exists
+        if (!string.IsNullOrEmpty(compra.FacturaImagenPath))
+        {
+            var oldPath = Path.Combine(_env.WebRootPath, compra.FacturaImagenPath.TrimStart('/'));
+            if (System.IO.File.Exists(oldPath))
+                System.IO.File.Delete(oldPath);
+        }
+
+        var fileName = $"{Guid.NewGuid()}{ext}";
+        var relativePath = $"/uploads/compras/facturas/{fileName}";
+        var physicalPath = Path.Combine(uploadDir, fileName);
+
+        await using var stream = new FileStream(physicalPath, FileMode.Create);
+        await file.CopyToAsync(stream);
+
+        compra.FacturaImagenPath = relativePath;
+        _context.Compras.Update(compra);
+        await _context.SaveChangesAsync();
+
+        return relativePath;
     }
 }
