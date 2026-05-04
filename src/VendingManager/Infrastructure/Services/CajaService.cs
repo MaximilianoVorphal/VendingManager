@@ -15,13 +15,20 @@ namespace VendingManager.Infrastructure.Services
         private readonly IWebHostEnvironment _environment;
         private readonly IInformesService _informesService;
         private readonly IOptions<VendingConfig> _config;
+        private readonly IExcelExportService _excelExportService;
 
-        public CajaService(ApplicationDbContext context, IWebHostEnvironment environment, IInformesService informesService, IOptions<VendingConfig> config)
+        public CajaService(
+            ApplicationDbContext context,
+            IWebHostEnvironment environment,
+            IInformesService informesService,
+            IOptions<VendingConfig> config,
+            IExcelExportService excelExportService)
         {
             _context = context;
             _environment = environment;
             _informesService = informesService;
             _config = config;
+            _excelExportService = excelExportService;
         }
 
         // 2. UploadComprobanteAsync
@@ -314,92 +321,8 @@ namespace VendingManager.Infrastructure.Services
                 .OrderBy(v => v.FechaHora)
                 .ToListAsync();
 
-            using (var workbook = new ClosedXML.Excel.XLWorkbook())
-            {
-                // Implementación de lógica de exportación... (copiada de ExportarCaja en Controller)
-                // ... (Simplificado para no repetir todo el código literal, pero importante incluirlo)
-                // Voy a incluir la lógica completa
-
-                var s1 = workbook.Worksheets.Add("Resumen Financiero");
-                s1.Cell(1, 1).Value = "REPORTE FINANCIERO MENSUAL";
-                s1.Range(1, 1, 1, 4).Merge().Style.Font.Bold = true;
-                s1.Cell(2, 1).Value = $"PERIODO: {month}/{year}";
-
-                s1.Cell(4, 1).Value = "CONCEPTO";
-                s1.Cell(4, 2).Value = "MONTO";
-                s1.Row(4).Style.Font.Bold = true;
-
-                s1.Cell(5, 1).Value = "Saldo Anterior";
-                s1.Cell(5, 2).Value = resumen.SaldoAnterior;
-
-                s1.Cell(6, 1).Value = "(+) Ingresos por Ventas";
-                s1.Cell(6, 2).Value = resumen.IngresosVentas;
-
-                s1.Cell(7, 1).Value = "(+) Aportes de Capital";
-                s1.Cell(7, 2).Value = resumen.AportesExtra;
-
-                s1.Cell(8, 1).Value = "(-) Gastos y Retiros";
-                s1.Cell(8, 2).Value = resumen.GastosOperativos;
-
-                s1.Cell(9, 1).Value = "SALDO FINAL CAJA";
-                s1.Cell(9, 2).Value = resumen.SaldoFinal;
-                s1.Row(9).Style.Font.Bold = true;
-
-                s1.Column(2).Style.NumberFormat.Format = "$ #,##0";
-                s1.Columns().AdjustToContents();
-
-                var s2 = workbook.Worksheets.Add("Libro Caja");
-                s2.Cell(1, 1).Value = "Fecha";
-                s2.Cell(1, 2).Value = "Tipo";
-                s2.Cell(1, 3).Value = "Categoría";
-                s2.Cell(1, 4).Value = "Descripción";
-                s2.Cell(1, 5).Value = "Monto";
-                s2.Row(1).Style.Font.Bold = true;
-
-                int row = 2;
-                foreach (var m in movimientos)
-                {
-                    s2.Cell(row, 1).Value = m.Fecha;
-                    s2.Cell(row, 2).Value = m.Tipo;
-                    s2.Cell(row, 3).Value = m.Categoria;
-                    s2.Cell(row, 4).Value = m.Descripcion;
-                    s2.Cell(row, 5).Value = m.Monto;
-                    row++;
-                }
-                s2.Column(5).Style.NumberFormat.Format = "$ #,##0";
-                s2.Columns().AdjustToContents();
-
-                var s3 = workbook.Worksheets.Add("Detalle Ventas");
-                s3.Cell(1, 1).Value = "Fecha";
-                s3.Cell(1, 2).Value = "Máquina";
-                s3.Cell(1, 3).Value = "Slot";
-                s3.Cell(1, 4).Value = "Producto";
-                s3.Cell(1, 5).Value = "P. Venta";
-                s3.Cell(1, 6).Value = "P. Costo (Histórico)";
-                s3.Cell(1, 7).Value = "Margen $";
-                s3.Row(1).Style.Font.Bold = true;
-
-                row = 2;
-                foreach (var v in ventas)
-                {
-                    s3.Cell(row, 1).Value = v.FechaHora;
-                    s3.Cell(row, 2).Value = v.Maquina?.Nombre ?? "N/A";
-                    s3.Cell(row, 3).Value = v.NumeroSlot;
-                    s3.Cell(row, 4).Value = v.Producto?.Nombre ?? "Indefinido";
-                    s3.Cell(row, 5).Value = v.PrecioVenta;
-                    s3.Cell(row, 6).Value = v.CostoVenta;
-                    s3.Cell(row, 7).FormulaA1 = $"E{row}-F{row}";
-                    row++;
-                }
-                s3.Range(2, 5, row, 7).Style.NumberFormat.Format = "$ #,##0";
-                s3.Columns().AdjustToContents();
-
-                using (var stream = new MemoryStream())
-                {
-                    workbook.SaveAs(stream);
-                    return (stream.ToArray(), $"Reporte_{month}_{year}.xlsx");
-                }
-            }
+            var bytes = await _excelExportService.ExportCajaReportAsync(resumen, movimientos, ventas, month, year);
+            return (bytes, $"Reporte_{month}_{year}.xlsx");
         }
 
         public async Task<(byte[] content, string fileName)> ExportarMovimientosAsync(int month, int year)
@@ -409,43 +332,8 @@ namespace VendingManager.Infrastructure.Services
                 .OrderBy(m => m.Fecha)
                 .ToListAsync();
 
-            using (var workbook = new ClosedXML.Excel.XLWorkbook())
-            {
-                var worksheet = workbook.Worksheets.Add($"Caja {month}-{year}");
-                // Headers... (Logic from ExportarExcel in Controller)
-                worksheet.Cell(1, 1).Value = "ID";
-                worksheet.Cell(1, 2).Value = "FECHA";
-                worksheet.Cell(1, 3).Value = "TIPO";
-                worksheet.Cell(1, 4).Value = "CATEGORIA";
-                worksheet.Cell(1, 5).Value = "DESCRIPCION";
-                worksheet.Cell(1, 6).Value = "MONTO";
-
-                var rangoHeader = worksheet.Range("A1:F1");
-                rangoHeader.Style.Font.Bold = true;
-                rangoHeader.Style.Fill.BackgroundColor = ClosedXML.Excel.XLColor.LightGray;
-
-                int row = 2;
-                foreach (var m in movimientos)
-                {
-                    worksheet.Cell(row, 1).Value = m.Id;
-                    worksheet.Cell(row, 2).Value = m.Fecha;
-                    worksheet.Cell(row, 3).Value = m.Tipo;
-                    worksheet.Cell(row, 4).Value = m.Categoria;
-                    worksheet.Cell(row, 5).Value = m.Descripcion;
-                    worksheet.Cell(row, 6).Value = m.Monto;
-                    worksheet.Cell(row, 6).Style.NumberFormat.Format = "$ #,##0";
-                    if (m.Monto < 0) worksheet.Cell(row, 6).Style.Font.FontColor = ClosedXML.Excel.XLColor.Red;
-                    else worksheet.Cell(row, 6).Style.Font.FontColor = ClosedXML.Excel.XLColor.Green;
-                    row++;
-                }
-                worksheet.Columns().AdjustToContents();
-
-                using (var stream = new MemoryStream())
-                {
-                    workbook.SaveAs(stream);
-                    return (stream.ToArray(), $"Caja_{month}_{year}.xlsx");
-                }
-            }
+            var bytes = await _excelExportService.ExportMovimientosAsync(movimientos, month, year);
+            return (bytes, $"Caja_{month}_{year}.xlsx");
         }
         public async Task<ValorizacionStockDto> GetValorizacionStockAsync()
         {

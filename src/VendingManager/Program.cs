@@ -84,6 +84,7 @@ builder.Services.AddScoped<ITemplateRecargaService, TemplateRecargaService>();
 builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddScoped<ICompraService, CompraService>();
 builder.Services.AddScoped<IGastoRecurrenteService, GastoRecurrenteService>();
+builder.Services.AddScoped<IExcelExportService, ExcelExportService>();
 builder.Services.AddHttpClient<IFacturaOcrService, FacturaOcrService>();
 builder.Services.AddHttpClient<IRecargaOcrService, RecargaOcrService>();
 // Servicios en segundo plano (Background Workers)

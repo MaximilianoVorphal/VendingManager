@@ -15,10 +15,12 @@ namespace VendingManager.Infrastructure.Services
     public class SalesAnalyticsService : ISalesAnalyticsService
     {
         private readonly ApplicationDbContext _context;
+        private readonly IExcelExportService _excelExportService;
 
-        public SalesAnalyticsService(ApplicationDbContext context)
+        public SalesAnalyticsService(ApplicationDbContext context, IExcelExportService excelExportService)
         {
             _context = context;
+            _excelExportService = excelExportService;
         }
 
         public async Task<DashboardStats> GetDashboardStatsAsync(int maquinaId)
@@ -229,53 +231,9 @@ namespace VendingManager.Infrastructure.Services
             if (reporte == null || reporte.Detalle.Count == 0)
                 throw new InvalidOperationException("No hay datos para exportar en el rango seleccionado.");
 
-            using (var workbook = new ClosedXML.Excel.XLWorkbook())
-            {
-                var worksheet = workbook.Worksheets.Add("Ventas");
-
-                worksheet.Cell(1, 1).Value = "FECHA LOCAL";
-                worksheet.Cell(1, 2).Value = "MAQUINA";
-                worksheet.Cell(1, 3).Value = "SLOT";
-                worksheet.Cell(1, 4).Value = "PRODUCTO";
-                worksheet.Cell(1, 5).Value = "COSTO";
-                worksheet.Cell(1, 6).Value = "VENTA";
-                worksheet.Cell(1, 7).Value = "GANANCIA";
-                worksheet.Cell(1, 8).Value = "ESTADO";
-
-                var rangoHeader = worksheet.Range("A1:H1");
-                rangoHeader.Style.Font.Bold = true;
-                rangoHeader.Style.Fill.BackgroundColor = ClosedXML.Excel.XLColor.LightGray;
-
-                int row = 2;
-                foreach (var v in reporte.Detalle)
-                {
-                    worksheet.Cell(row, 1).Value = v.FechaRaw;
-                    worksheet.Cell(row, 2).Value = v.Maquina;
-                    worksheet.Cell(row, 3).Value = v.Slot;
-                    worksheet.Cell(row, 4).Value = v.Producto;
-                    worksheet.Cell(row, 5).Value = v.CostoUnitario;
-                    worksheet.Cell(row, 6).Value = v.Monto;
-                    worksheet.Cell(row, 7).Value = v.Ganancia;
-                    worksheet.Cell(row, 8).Value = v.Estado;
-
-                    worksheet.Cell(row, 5).Style.NumberFormat.Format = "$ #,##0";
-                    worksheet.Cell(row, 6).Style.NumberFormat.Format = "$ #,##0";
-                    worksheet.Cell(row, 7).Style.NumberFormat.Format = "$ #,##0";
-
-                    if (v.Ganancia > 0) worksheet.Cell(row, 7).Style.Font.FontColor = ClosedXML.Excel.XLColor.Green;
-
-                    row++;
-                }
-
-                worksheet.Columns().AdjustToContents();
-
-                using (var stream = new MemoryStream())
-                {
-                    workbook.SaveAs(stream);
-                    string name = $"Reporte_{inicio:ddMMyy}_{fin:ddMMyy}.xlsx";
-                    return (stream.ToArray(), name);
-                }
-            }
+            var bytes = await _excelExportService.ExportSalesReportAsync(reporte.Detalle, inicio, fin);
+            string name = $"Reporte_{inicio:ddMMyy}_{fin:ddMMyy}.xlsx";
+            return (bytes, name);
         }
 
         public async Task<List<AnalisisProductoDto>> GetAnalisisProductosAsync(DateTime inicio, DateTime fin, int maquinaId)
