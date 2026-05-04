@@ -39,8 +39,8 @@ namespace VendingManager.Infrastructure.Services
             stats.Semana = await GetPeriodoStats(query, inicioSemana);
             stats.Mes = await GetPeriodoStats(query, inicioMes);
 
-            // Fetch Critical Stock Count
-            var slotsQuery = _context.ConfiguracionSlots.Where(s => s.StockActual <= 2 && s.ProductoId != 0);
+            // Fetch Critical Stock Count: slots where StockActual <= per-slot StockMinimo
+            var slotsQuery = _context.ConfiguracionSlots.Where(s => s.StockActual <= s.StockMinimo && s.ProductoId != 0);
             if (maquinaId > 0) slotsQuery = slotsQuery.Where(s => s.MaquinaId == maquinaId);
             stats.CantidadStockCritico = await slotsQuery.CountAsync();
 

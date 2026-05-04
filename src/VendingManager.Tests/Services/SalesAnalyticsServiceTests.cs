@@ -51,8 +51,8 @@ public class SalesAnalyticsServiceTests : IDisposable
         result.Semana.CantidadVentas.Should().Be(0);
         result.Mes.VentaTotal.Should().Be(0m);
         result.Mes.CantidadVentas.Should().Be(0);
-        // StockCriticoCount: slots where StockActual <= 2
-        result.CantidadStockCritico.Should().Be(1); // slot2 has StockActual=1
+        // StockCriticoCount: slots where StockActual <= StockMinimo (slot2: 1<=2)
+        result.CantidadStockCritico.Should().Be(1);
     }
 
     [Fact]
@@ -112,20 +112,23 @@ public class SalesAnalyticsServiceTests : IDisposable
     [Fact]
     public async Task GetDashboardStatsAsync_WithStockCritico_ReturnsCorrectCount()
     {
-        // Arrange - 10 products, 3 below StockMinimo (using StockActual <= 2 as proxy)
+        // Arrange - 10 products, 3 with stock below their StockMinimo threshold
         var maquina = TestDataHelpers.CreateMaquina(id: 1, nombre: "Test Machine");
         _context.Maquinas.Add(maquina);
 
-        // Add 10 slots, 3 with stock <= 2 (critical)
+        // Add 7 slots with adequate stock (StockActual > StockMinimo)
         for (int i = 1; i <= 7; i++)
         {
             _context.ConfiguracionSlots.Add(TestDataHelpers.CreateSlot(
-                id: i, maquinaId: 1, productoId: i, stockActual: 5, capacidadMaxima: 10));
+                id: i, maquinaId: 1, productoId: i, stockActual: 5, capacidadMaxima: 10, stockMinimo: 3));
         }
-        // Critical stock slots (StockActual <= 2)
-        _context.ConfiguracionSlots.Add(TestDataHelpers.CreateSlot(id: 8, maquinaId: 1, productoId: 8, stockActual: 1, capacidadMaxima: 10));
-        _context.ConfiguracionSlots.Add(TestDataHelpers.CreateSlot(id: 9, maquinaId: 1, productoId: 9, stockActual: 2, capacidadMaxima: 10));
-        _context.ConfiguracionSlots.Add(TestDataHelpers.CreateSlot(id: 10, maquinaId: 1, productoId: 10, stockActual: 0, capacidadMaxima: 10));
+        // Critical stock slots (StockActual <= StockMinimo per product)
+        // slot 8: StockActual=1 <= StockMinimo=2 → critical
+        _context.ConfiguracionSlots.Add(TestDataHelpers.CreateSlot(id: 8, maquinaId: 1, productoId: 8, stockActual: 1, capacidadMaxima: 10, stockMinimo: 2));
+        // slot 9: StockActual=2 <= StockMinimo=3 → critical (threshold higher than value)
+        _context.ConfiguracionSlots.Add(TestDataHelpers.CreateSlot(id: 9, maquinaId: 1, productoId: 9, stockActual: 2, capacidadMaxima: 10, stockMinimo: 3));
+        // slot 10: StockActual=0 <= StockMinimo=1 → critical
+        _context.ConfiguracionSlots.Add(TestDataHelpers.CreateSlot(id: 10, maquinaId: 1, productoId: 10, stockActual: 0, capacidadMaxima: 10, stockMinimo: 1));
 
         await _context.SaveChangesAsync();
 
@@ -134,7 +137,7 @@ public class SalesAnalyticsServiceTests : IDisposable
 
         // Assert
         result.Should().NotBeNull();
-        // 3 slots have StockActual <= 2
+        // 3 slots have StockActual <= their respective StockMinimo
         result.CantidadStockCritico.Should().Be(3);
     }
 }
