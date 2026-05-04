@@ -1,0 +1,205 @@
+namespace VendingManager.Tests.Services;
+
+using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Hosting;
+using Moq;
+using VendingManager.Core.Entities;
+using VendingManager.Core.Interfaces;
+using VendingManager.Infrastructure.Services;
+using VendingManager.Tests.TestData;
+
+public class CajaServiceTests : IDisposable
+{
+    private readonly ApplicationDbContext _context;
+    private readonly Mock<IWebHostEnvironment> _mockEnvironment;
+    private readonly Mock<IInformesService> _mockInformesService;
+    private readonly CajaService _cajaService;
+
+    public CajaServiceTests()
+    {
+        _context = TestDataHelpers.CreateInMemoryContext($"CajaTestDb_{Guid.NewGuid()}");
+        _mockEnvironment = new Mock<IWebHostEnvironment>();
+        _mockEnvironment.Setup(e => e.EnvironmentName).Returns("Production");
+        _mockEnvironment.Setup(e => e.ContentRootPath).Returns("/tmp");
+        _mockInformesService = new Mock<IInformesService>();
+        _cajaService = new CajaService(_context, _mockEnvironment.Object, _mockInformesService.Object);
+    }
+
+    public void Dispose()
+    {
+        _context.Dispose();
+    }
+
+    [Fact]
+    public async Task GetResumenAsync_WithSingleSaleInMonth_ReturnsCorrectFinancials()
+    {
+        // Arrange
+        var globalStart = new DateTime(2025, 12, 18);
+        var targetDate = new DateTime(2026, 1, 15);
+
+        // Seed a venta in January 2026 (within target month)
+        var venta = TestDataHelpers.CreateVenta(
+            fechaLocal: targetDate,
+            precioVenta: 500m,
+            costoVenta: 200m,
+            pagado: true,
+            maquinaId: 1,
+            productoId: 1
+        );
+        venta.FechaHora = targetDate;
+        venta.FechaLocal = targetDate;
+        _context.Ventas.Add(venta);
+
+        // Seed previous month ventas for SaldoAnterior calculation
+        var prevVenta = TestDataHelpers.CreateVenta(
+            fechaLocal: new DateTime(2025, 12, 20),
+            precioVenta: 1000m,
+            costoVenta: 400m,
+            pagado: true,
+            maquinaId: 1,
+            productoId: 1
+        );
+        prevVenta.FechaHora = new DateTime(2025, 12, 20);
+        prevVenta.FechaLocal = new DateTime(2025, 12, 20);
+        _context.Ventas.Add(prevVenta);
+
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _cajaService.GetResumenAsync(1, 2026);
+
+        // Assert
+        result.Should().NotBeNull();
+        result.SaldoAnterior.Should().Be(1000m); // From December venta
+        result.IngresosVentas.Should().Be(500m);  // From January venta
+        result.TotalIngresos.Should().Be(1500m);   // SaldoAnterior + IngresosVentas
+        result.UtilidadOperacional.Should().Be(300m); // (500-200) margen bruto, no gastos
+        result.SaldoFinal.Should().Be(1500m); // TotalIngresos + Gastos (0)
+    }
+
+    [Fact]
+    public async Task GetResumenAsync_WithMixedOperations_ReturnsCorrectFinancials()
+    {
+        // Arrange
+        var globalStart = new DateTime(2025, 12, 18);
+
+        // Seed previous month venta for SaldoAnterior
+        var prevVenta = TestDataHelpers.CreateVenta(
+            fechaLocal: new DateTime(2025, 12, 20),
+            precioVenta: 1000m,
+            costoVenta: 400m,
+            pagado: true,
+            maquinaId: 1
+        );
+        prevVenta.FechaHora = new DateTime(2025, 12, 20);
+        prevVenta.FechaLocal = new DateTime(2025, 12, 20);
+        _context.Ventas.Add(prevVenta);
+
+        // Seed January venta (Ingreso = 300)
+        var ingresoVenta = TestDataHelpers.CreateVenta(
+            fechaLocal: new DateTime(2026, 1, 10),
+            precioVenta: 300m,
+            costoVenta: 100m,
+            pagado: true,
+            maquinaId: 1
+        );
+        ingresoVenta.FechaHora = new DateTime(2026, 1, 10);
+        ingresoVenta.FechaLocal = new DateTime(2026, 1, 10);
+        _context.Ventas.Add(ingresoVenta);
+
+        // Seed January gasto via MovimientoCaja (Gasto = 150, tipo GASTO stored as negative)
+        var gastoMovimiento = TestDataHelpers.CreateMovimientoCaja(
+            monto: -150m,
+            fecha: new DateTime(2026, 1, 12),
+            categoria: "LOGISTICA",
+            tipo: "GASTO",
+            descripcion: "Gasto logístico"
+        );
+        _context.MovimientosCaja.Add(gastoMovimiento);
+
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _cajaService.GetResumenAsync(1, 2026);
+
+        // Assert
+        result.Should().NotBeNull();
+        result.SaldoAnterior.Should().Be(1000m);
+        result.IngresosVentas.Should().Be(300m);
+        result.GastosOperativos.Should().Be(150m); // Variables (LOGISTICA = 150)
+        result.TotalIngresos.Should().Be(1300m);    // 1000 + 300
+        result.SaldoFinal.Should().Be(1150m);       // 1000 + 300 + (-150)
+    }
+
+    [Fact]
+    public async Task GetResumenAsync_WithEmptyMonth_ReturnsOnlySaldoAnterior()
+    {
+        // Arrange
+        var globalStart = new DateTime(2025, 12, 18);
+
+        // Seed previous month venta for SaldoAnterior
+        var prevVenta = TestDataHelpers.CreateVenta(
+            fechaLocal: new DateTime(2025, 12, 20),
+            precioVenta: 500m,
+            costoVenta: 200m,
+            pagado: true,
+            maquinaId: 1
+        );
+        prevVenta.FechaHora = new DateTime(2025, 12, 20);
+        prevVenta.FechaLocal = new DateTime(2025, 12, 20);
+        _context.Ventas.Add(prevVenta);
+
+        await _context.SaveChangesAsync();
+
+        // Act - query February 2026 which has no data
+        var result = await _cajaService.GetResumenAsync(2, 2026);
+
+        // Assert
+        result.Should().NotBeNull();
+        result.SaldoAnterior.Should().Be(500m); // From December
+        result.IngresosVentas.Should().Be(0m);
+        result.GastosOperativos.Should().Be(0m);
+        result.SaldoFinal.Should().Be(500m); // Just saldo anterior, no activity
+    }
+
+    [Fact]
+    public async Task GetResumenAsync_RespectsGlobalStartDate_FiltersOutOldData()
+    {
+        // Arrange
+        var globalStart = new DateTime(2025, 12, 18);
+
+        // Seed a venta BEFORE GlobalStartDate (should be excluded)
+        var oldVenta = TestDataHelpers.CreateVenta(
+            fechaLocal: new DateTime(2025, 12, 10), // Before GlobalStartDate
+            precioVenta: 5000m,
+            costoVenta: 2000m,
+            pagado: true,
+            maquinaId: 1
+        );
+        oldVenta.FechaHora = new DateTime(2025, 12, 10);
+        oldVenta.FechaLocal = new DateTime(2025, 12, 10);
+        _context.Ventas.Add(oldVenta);
+
+        // Seed a venta AFTER GlobalStartDate (should be included)
+        var validVenta = TestDataHelpers.CreateVenta(
+            fechaLocal: new DateTime(2025, 12, 20),
+            precioVenta: 1000m,
+            costoVenta: 400m,
+            pagado: true,
+            maquinaId: 1
+        );
+        validVenta.FechaHora = new DateTime(2025, 12, 20);
+        validVenta.FechaLocal = new DateTime(2025, 12, 20);
+        _context.Ventas.Add(validVenta);
+
+        await _context.SaveChangesAsync();
+
+        // Act - query December 2025
+        var result = await _cajaService.GetResumenAsync(12, 2025);
+
+        // Assert - only the valid venta (1000) should be counted, not the old one (5000)
+        result.Should().NotBeNull();
+        result.SaldoAnterior.Should().Be(0m); // Nothing before Dec 18
+        result.IngresosVentas.Should().Be(1000m); // Only from Dec 20 venta
+    }
+}
