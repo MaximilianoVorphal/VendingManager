@@ -37,6 +37,7 @@ public class ComprasController : ControllerBase
                 Estado = c.Estado,
                 TipoFactura = c.TipoFactura,
                 PagadaCaja = c.PagadaCaja,
+                FacturaImagenPath = c.FacturaImagenPath,
                 Detalles = c.Detalles.Select(d => new DetalleCompraDto
                 {
                     Id = d.Id,
@@ -74,6 +75,7 @@ public class ComprasController : ControllerBase
             Estado = c.Estado,
             TipoFactura = c.TipoFactura,
             PagadaCaja = c.PagadaCaja,
+            FacturaImagenPath = c.FacturaImagenPath,
             Detalles = c.Detalles.Select(d => new DetalleCompraDto
             {
                 Id = d.Id,
@@ -175,5 +177,47 @@ public class ComprasController : ControllerBase
         {
             return StatusCode(500, $"Error procesando factura con IA: {ex.Message}");
         }
+    }
+
+    [HttpPost("{id}/factura")]
+    public async Task<IActionResult> UploadFacturaImagen(int id, IFormFile file)
+    {
+        try
+        {
+            var path = await _compraService.SaveFacturaImagenAsync(id, file);
+            return Ok(new { Path = path });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, $"Error guardando imagen: {ex.Message}");
+        }
+    }
+
+    [HttpGet("{id}/factura")]
+    public async Task<IActionResult> GetFacturaImagen(int id)
+    {
+        var compra = await _compraService.GetCompraByIdAsync(id);
+        if (compra == null) return NotFound();
+
+        if (string.IsNullOrEmpty(compra.FacturaImagenPath))
+            return NotFound("Esta compra no tiene imagen de factura.");
+
+        var filePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", compra.FacturaImagenPath.TrimStart('/'));
+        if (!System.IO.File.Exists(filePath))
+            return NotFound("Archivo de imagen no encontrado en disco.");
+
+        var contentType = compra.FacturaImagenPath.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)
+            ? "application/pdf"
+            : "image/" + Path.GetExtension(compra.FacturaImagenPath).TrimStart('.').ToLowerInvariant();
+
+        return PhysicalFile(Path.GetFullPath(filePath), contentType);
     }
 }
