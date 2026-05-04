@@ -2,4 +2,5 @@
   <Project Path="VendingManager.Web/VendingManager.Web.csproj" Id="cbda9774-f25a-4487-9878-9fa746fc4bd2" />
   <Project Path="VendingManager/VendingManager.csproj" />
   <Project Path="VendingManager.Shared/VendingManager.Shared.csproj" />
+  <Project Path="VendingManager.Tests/VendingManager.Tests.csproj" />
 </Solution>
