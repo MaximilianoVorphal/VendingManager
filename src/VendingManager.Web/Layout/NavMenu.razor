@@ -71,12 +71,6 @@
             </div>
 
             <AuthorizeView Roles="Admin">
-                <NavLink class="industrial-link" href="documentos" @onclick="CloseNavMenu">
-                    [ DOCUMENTOS ]
-                </NavLink>
-            </AuthorizeView>
-
-            <AuthorizeView Roles="Admin">
                 <div class="industrial-dropdown">
                     <button class="industrial-dropdown-toggle" @onclick="ToggleAdminMenu">
                         [ ADMINISTRACIÓN ▾ ]
