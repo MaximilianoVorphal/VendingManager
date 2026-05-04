@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Scalar.AspNetCore;
 using VendingManager.Core.Configuration;
 using VendingManager.Infrastructure.Data;
+using VendingManager.Infrastructure.Data.Repositories;
 using VendingManager.Infrastructure.Services;
 using VendingManager.Web;
 using Microsoft.AspNetCore.Components.Authorization;
@@ -85,6 +86,8 @@ builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddScoped<ICompraService, CompraService>();
 builder.Services.AddScoped<IGastoRecurrenteService, GastoRecurrenteService>();
 builder.Services.AddScoped<IExcelExportService, ExcelExportService>();
+builder.Services.AddScoped<IVentaRepository, VentaRepository>();
+builder.Services.AddScoped<IMaquinaRepository, MaquinaRepository>();
 builder.Services.AddHttpClient<IFacturaOcrService, FacturaOcrService>();
 builder.Services.AddHttpClient<IRecargaOcrService, RecargaOcrService>();
 // Servicios en segundo plano (Background Workers)
