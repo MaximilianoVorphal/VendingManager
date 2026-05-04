@@ -49,19 +49,19 @@
                     <label class="fw-bold small text-uppercase mb-1">HASTA:</label>
                     <input type="date" @bind="FechaFin" class="form-control border-dark rounded-0 fw-bold" disabled="@(TemplateSeleccionado > 0)" />
                 </div>
-                <div class="col-12 col-md-3 d-flex gap-2 flex-wrap">
+                <div class="col-12 col-md-7 d-flex gap-2 align-items-center">
                     <button class="btn btn-dark flex-grow-1 rounded-0 fw-bold py-2" @onclick="CargarReporte"
                         disabled="@Cargando">
                         @(Cargando ? "PROCESANDO..." : "EJECUTAR QUERY")
                     </button>
-                    <!-- Finaciero Button -->
+                    <!-- Financiero Button -->
                     <button class="btn btn-primary rounded-0 fw-bold border-dark py-2" @onclick="VerInformeFinanciero"
                         title="Ver Estado de Resultados">
                         <i class="bi bi-graph-up-arrow"></i>
                     </button>
                     <!-- Excel Button -->
                     <button class="btn btn-success rounded-0 fw-bold border-dark py-2" @onclick="ExportarExcel"
-                        title="Exportar a Excel" style="width: 50px;">
+                        title="Exportar a Excel">
                         <i class="bi bi-file-earmark-excel"></i>
                     </button>
                     <!-- SYNC BUTTON -->
