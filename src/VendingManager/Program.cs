@@ -74,6 +74,7 @@ builder.Services.AddScoped<ISalesImportService, SalesImportService>();
 builder.Services.AddScoped<ICatalogExcelService, CatalogExcelService>();
 builder.Services.AddScoped<IOrdenCargaExcelService, OrdenCargaExcelService>();
 builder.Services.AddScoped<ICajaService, CajaService>();
+builder.Services.AddScoped<CajaBusinessService>();
 builder.Services.AddScoped<IVentasService, VentasService>();
 builder.Services.AddScoped<ISalesAnalyticsService, SalesAnalyticsService>();
 builder.Services.AddScoped<IPurchasingService, PurchasingService>();
