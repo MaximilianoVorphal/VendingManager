@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -16,11 +17,13 @@ namespace VendingManager.Infrastructure.Services
     {
         private readonly ApplicationDbContext _context;
         private readonly IExcelExportService _excelExportService;
+        private readonly IMemoryCache _cache;
 
-        public SalesAnalyticsService(ApplicationDbContext context, IExcelExportService excelExportService)
+        public SalesAnalyticsService(ApplicationDbContext context, IExcelExportService excelExportService, IMemoryCache cache)
         {
             _context = context;
             _excelExportService = excelExportService;
+            _cache = cache;
         }
 
         public async Task<DashboardStats> GetDashboardStatsAsync(int maquinaId)
@@ -74,109 +77,118 @@ namespace VendingManager.Infrastructure.Services
 
         public async Task<ReporteDto> GetReporteRangoAsync(DateTime inicio, DateTime fin, int maquinaId, bool includePhantom = false, int? templateId = null)
         {
-            var query = _context.Ventas
-                .Include(v => v.Maquina)
-                .Include(v => v.Producto)
-                .AsQueryable();
+            var key = $"SalesAnalyticsService:GetReporteRangoAsync:{inicio:yyyyMMdd}-{fin:yyyyMMdd}-M{maquinaId}-Phantom{includePhantom}-T{templateId}";
 
-            if (templateId.HasValue && templateId.Value > 0)
+            var result = await _cache.GetOrCreateAsync(key, async (entry) =>
             {
-                var periodos = await _context.PeriodosRecarga
-                    .Where(p => p.TemplateRecargaId == templateId)
-                    .ToListAsync();
+                entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromDays(5);
 
-                if (periodos.Any())
+                var query = _context.Ventas
+                    .Include(v => v.Maquina)
+                    .Include(v => v.Producto)
+                    .AsQueryable();
+
+                if (templateId.HasValue && templateId.Value > 0)
                 {
-                    var parameter = Expression.Parameter(typeof(Venta), "v");
-                    Expression? body = null;
+                    var periodos = await _context.PeriodosRecarga
+                        .Where(p => p.TemplateRecargaId == templateId)
+                        .ToListAsync();
 
-                    foreach (var p in periodos)
+                    if (periodos.Any())
                     {
-                        var maquinaEq = Expression.Equal(Expression.Property(parameter, nameof(Venta.MaquinaId)), Expression.Constant(p.MaquinaId));
-                        var fechaGte = Expression.GreaterThanOrEqual(Expression.Property(parameter, nameof(Venta.FechaLocal)), Expression.Constant(p.FechaInicio));
-                        var fechaLte = Expression.LessThanOrEqual(Expression.Property(parameter, nameof(Venta.FechaLocal)), Expression.Constant(p.FechaFin));
+                        var parameter = Expression.Parameter(typeof(Venta), "v");
+                        Expression? body = null;
 
-                        var range = Expression.AndAlso(maquinaEq, Expression.AndAlso(fechaGte, fechaLte));
-                        body = body == null ? range : Expression.OrElse(body, range);
+                        foreach (var p in periodos)
+                        {
+                            var maquinaEq = Expression.Equal(Expression.Property(parameter, nameof(Venta.MaquinaId)), Expression.Constant(p.MaquinaId));
+                            var fechaGte = Expression.GreaterThanOrEqual(Expression.Property(parameter, nameof(Venta.FechaLocal)), Expression.Constant(p.FechaInicio));
+                            var fechaLte = Expression.LessThanOrEqual(Expression.Property(parameter, nameof(Venta.FechaLocal)), Expression.Constant(p.FechaFin));
+
+                            var range = Expression.AndAlso(maquinaEq, Expression.AndAlso(fechaGte, fechaLte));
+                            body = body == null ? range : Expression.OrElse(body, range);
+                        }
+
+                        if (body != null)
+                        {
+                            var lambda = Expression.Lambda<Func<Venta, bool>>(body, parameter);
+                            query = query.Where(lambda);
+                        }
                     }
-
-                    if (body != null)
+                    else
                     {
-                        var lambda = Expression.Lambda<Func<Venta, bool>>(body, parameter);
-                        query = query.Where(lambda);
+                        query = query.Where(v => false);
                     }
                 }
                 else
                 {
-                    query = query.Where(v => false);
+                    DateTime finAjustado = fin.Date.AddDays(1).AddTicks(-1);
+                    DateTime inicioAjustado = inicio.Date;
+                    query = query.Where(v => v.FechaLocal >= inicioAjustado && v.FechaLocal <= finAjustado);
                 }
-            }
-            else
-            {
-                DateTime finAjustado = fin.Date.AddDays(1).AddTicks(-1);
-                DateTime inicioAjustado = inicio.Date;
-                query = query.Where(v => v.FechaLocal >= inicioAjustado && v.FechaLocal <= finAjustado);
-            }
 
-            if (maquinaId > 0)
-            {
-                query = query.Where(v => v.MaquinaId == maquinaId);
-            }
-
-            var listaVentas = await query
-                .OrderByDescending(v => v.FechaLocal)
-                .ToListAsync();
-
-            var reporte = new ReporteDto
-            {
-                TotalVentas = listaVentas.Count,
-                MontoTotal = listaVentas.Sum(v => v.PrecioVenta),
-                MontoPagado = listaVentas.Where(v => v.Pagado).Sum(v => v.PrecioVenta),
-                MontoPendiente = listaVentas.Where(v => !v.Pagado).Sum(v => v.PrecioVenta),
-                MontoPhantom = listaVentas.Where(v => v.IdOrdenMaquina == "TB-EXTRA" || v.IdOrdenMaquina == "TB-SIN-VENTA").Sum(v => v.PrecioVenta),
-                Detalle = new List<DetalleVentaDto>(),
-                Fantasmas = new List<DetalleVentaDto>()
-            };
-
-            reporte.TotalVentas -= listaVentas.Count(v => v.IdOrdenMaquina == "TB-EXTRA" || v.IdOrdenMaquina == "TB-SIN-VENTA");
-            reporte.MontoTotal -= reporte.MontoPhantom;
-            reporte.MontoPagado -= reporte.MontoPhantom;
-
-            foreach (var v in listaVentas)
-            {
-                bool esFantasma = (v.IdOrdenMaquina == "TB-EXTRA" || v.IdOrdenMaquina == "TB-SIN-VENTA");
-
-                decimal costo = v.CostoVenta;
-                if (costo == 0 && v.Producto != null) costo = v.Producto.CostoPromedio;
-
-                decimal ganancia = v.PrecioVenta - costo;
-
-                var detalleDto = new DetalleVentaDto
+                if (maquinaId > 0)
                 {
-                    FechaRaw = v.FechaLocal,
-                    Maquina = v.Maquina?.Nombre ?? "Desconocida",
-                    Slot = v.NumeroSlot,
-                    Producto = v.Producto?.Nombre ?? "---",
-                    Monto = v.PrecioVenta,
-                    CostoUnitario = costo,
-                    Ganancia = ganancia,
-                    Estado = v.Pagado ? "Pagado" : "Pendiente"
+                    query = query.Where(v => v.MaquinaId == maquinaId);
+                }
+
+                var listaVentas = await query
+                    .OrderByDescending(v => v.FechaLocal)
+                    .ToListAsync();
+
+                var reporte = new ReporteDto
+                {
+                    TotalVentas = listaVentas.Count,
+                    MontoTotal = listaVentas.Sum(v => v.PrecioVenta),
+                    MontoPagado = listaVentas.Where(v => v.Pagado).Sum(v => v.PrecioVenta),
+                    MontoPendiente = listaVentas.Where(v => !v.Pagado).Sum(v => v.PrecioVenta),
+                    MontoPhantom = listaVentas.Where(v => v.IdOrdenMaquina == "TB-EXTRA" || v.IdOrdenMaquina == "TB-SIN-VENTA").Sum(v => v.PrecioVenta),
+                    Detalle = new List<DetalleVentaDto>(),
+                    Fantasmas = new List<DetalleVentaDto>()
                 };
 
-                if (esFantasma)
+                reporte.TotalVentas -= listaVentas.Count(v => v.IdOrdenMaquina == "TB-EXTRA" || v.IdOrdenMaquina == "TB-SIN-VENTA");
+                reporte.MontoTotal -= reporte.MontoPhantom;
+                reporte.MontoPagado -= reporte.MontoPhantom;
+
+                foreach (var v in listaVentas)
                 {
-                    reporte.Fantasmas.Add(detalleDto);
+                    bool esFantasma = (v.IdOrdenMaquina == "TB-EXTRA" || v.IdOrdenMaquina == "TB-SIN-VENTA");
+
+                    decimal costo = v.CostoVenta;
+                    if (costo == 0 && v.Producto != null) costo = v.Producto.CostoPromedio;
+
+                    decimal ganancia = v.PrecioVenta - costo;
+
+                    var detalleDto = new DetalleVentaDto
+                    {
+                        FechaRaw = v.FechaLocal,
+                        Maquina = v.Maquina?.Nombre ?? "Desconocida",
+                        Slot = v.NumeroSlot,
+                        Producto = v.Producto?.Nombre ?? "---",
+                        Monto = v.PrecioVenta,
+                        CostoUnitario = costo,
+                        Ganancia = ganancia,
+                        Estado = v.Pagado ? "Pagado" : "Pendiente"
+                    };
+
+                    if (esFantasma)
+                    {
+                        reporte.Fantasmas.Add(detalleDto);
+                    }
+
+                    if (!esFantasma || includePhantom)
+                    {
+                        reporte.Detalle.Add(detalleDto);
+                    }
                 }
 
-                if (!esFantasma || includePhantom)
-                {
-                    reporte.Detalle.Add(detalleDto);
-                }
-            }
+                reporte.GananciaTotal = reporte.Detalle.Sum(d => d.Ganancia);
 
-            reporte.GananciaTotal = reporte.Detalle.Sum(d => d.Ganancia);
+                return reporte;
+            });
 
-            return reporte;
+            return result!;
         }
 
         public async Task<InformeFinancieroDto> GetInformeFinancieroAsync(DateTime inicio, DateTime fin, int maquinaId)
@@ -238,85 +250,94 @@ namespace VendingManager.Infrastructure.Services
 
         public async Task<List<AnalisisProductoDto>> GetAnalisisProductosAsync(DateTime inicio, DateTime fin, int maquinaId)
         {
-            DateTime finAjustado = fin.Date.AddDays(1).AddTicks(-1);
-            DateTime inicioAjustado = inicio.Date;
+            var key = $"SalesAnalyticsService:GetAnalisisProductosAsync:{inicio:yyyyMMdd}-{fin:yyyyMMdd}-M{maquinaId}";
 
-            var allProducts = await _context.Productos.ToListAsync();
-
-            var query = _context.Ventas.Where(v => v.FechaLocal >= inicioAjustado && v.FechaLocal <= finAjustado);
-            if (maquinaId > 0)
+            var result = await _cache.GetOrCreateAsync(key, async (entry) =>
             {
-                query = query.Where(v => v.MaquinaId == maquinaId);
-            }
+                entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromDays(5);
 
-            var sales = await query.Select(v => new { v.ProductoId, v.PrecioVenta, v.CostoVenta, v.Producto }).ToListAsync();
+                DateTime finAjustado = fin.Date.AddDays(1).AddTicks(-1);
+                DateTime inicioAjustado = inicio.Date;
 
-            var salesGrouped = sales.Where(s => s.ProductoId.HasValue)
-                                    .GroupBy(s => s.ProductoId.Value)
-                                    .ToDictionary(g => g.Key, g => new
-                                    {
-                                        Count = g.Count(),
-                                        TotalVentas = g.Sum(x => x.PrecioVenta),
-                                        TotalCosto = g.Sum(x => x.CostoVenta > 0 ? x.CostoVenta : (x.Producto != null ? x.Producto.CostoPromedio : 0))
-                                    });
+                var allProducts = await _context.Productos.ToListAsync();
 
-            var result = new List<AnalisisProductoDto>();
-
-            double daysInPeriod = (finAjustado - inicioAjustado).TotalDays;
-            if (daysInPeriod < 1) daysInPeriod = 1;
-
-            foreach (var p in allProducts)
-            {
-                var dto = new AnalisisProductoDto
+                var query = _context.Ventas.Where(v => v.FechaLocal >= inicioAjustado && v.FechaLocal <= finAjustado);
+                if (maquinaId > 0)
                 {
-                    ProductoId = p.Id,
-                    Nombre = p.Nombre,
-                    Codigo = !string.IsNullOrEmpty(p.SKU) ? p.SKU : p.CodigoBarras ?? "",
-                    Categoria = p.Categoria ?? "General"
-                };
-
-                if (salesGrouped.TryGetValue(p.Id, out var stats))
-                {
-                    dto.CantidadVendida = stats.Count;
-                    dto.TotalVentas = stats.TotalVentas;
-                    var totalCosto = stats.TotalCosto;
-                    dto.TotalGanancia = dto.TotalVentas - totalCosto;
-                }
-                else
-                {
-                    dto.CantidadVendida = 0;
-                    dto.TotalVentas = 0;
-                    dto.TotalGanancia = 0;
+                    query = query.Where(v => v.MaquinaId == maquinaId);
                 }
 
-                dto.RotacionDiaria = (decimal)(dto.CantidadVendida / daysInPeriod);
+                var sales = await query.Select(v => new { v.ProductoId, v.PrecioVenta, v.CostoVenta, v.Producto }).ToListAsync();
 
-                decimal TH_Rotacion_Alta = 1.0m;
-                decimal TH_Rotacion_Media = 0.2m;
-                decimal TH_Margen_Alto = 50.0m;
+                var salesGrouped = sales.Where(s => s.ProductoId.HasValue)
+                                        .GroupBy(s => s.ProductoId.Value)
+                                        .ToDictionary(g => g.Key, g => new
+                                        {
+                                            Count = g.Count(),
+                                            TotalVentas = g.Sum(x => x.PrecioVenta),
+                                            TotalCosto = g.Sum(x => x.CostoVenta > 0 ? x.CostoVenta : (x.Producto != null ? x.Producto.CostoPromedio : 0))
+                                        });
 
-                decimal margenPct = dto.TotalVentas > 0 ? (dto.TotalGanancia / dto.TotalVentas) * 100 : 0;
+                var resultInner = new List<AnalisisProductoDto>();
 
-                if (dto.RotacionDiaria >= TH_Rotacion_Alta)
+                double daysInPeriod = (finAjustado - inicioAjustado).TotalDays;
+                if (daysInPeriod < 1) daysInPeriod = 1;
+
+                foreach (var p in allProducts)
                 {
-                    dto.Clasificacion = "Estrella";
-                }
-                else if (dto.RotacionDiaria < TH_Rotacion_Media)
-                {
-                    if (margenPct >= TH_Margen_Alto)
-                        dto.Clasificacion = "Joya";
+                    var dto = new AnalisisProductoDto
+                    {
+                        ProductoId = p.Id,
+                        Nombre = p.Nombre,
+                        Codigo = !string.IsNullOrEmpty(p.SKU) ? p.SKU : p.CodigoBarras ?? "",
+                        Categoria = p.Categoria ?? "General"
+                    };
+
+                    if (salesGrouped.TryGetValue(p.Id, out var stats))
+                    {
+                        dto.CantidadVendida = stats.Count;
+                        dto.TotalVentas = stats.TotalVentas;
+                        var totalCosto = stats.TotalCosto;
+                        dto.TotalGanancia = dto.TotalVentas - totalCosto;
+                    }
                     else
-                        dto.Clasificacion = "Cacho";
-                }
-                else
-                {
-                    dto.Clasificacion = "Normal";
+                    {
+                        dto.CantidadVendida = 0;
+                        dto.TotalVentas = 0;
+                        dto.TotalGanancia = 0;
+                    }
+
+                    dto.RotacionDiaria = (decimal)(dto.CantidadVendida / daysInPeriod);
+
+                    decimal TH_Rotacion_Alta = 1.0m;
+                    decimal TH_Rotacion_Media = 0.2m;
+                    decimal TH_Margen_Alto = 50.0m;
+
+                    decimal margenPct = dto.TotalVentas > 0 ? (dto.TotalGanancia / dto.TotalVentas) * 100 : 0;
+
+                    if (dto.RotacionDiaria >= TH_Rotacion_Alta)
+                    {
+                        dto.Clasificacion = "Estrella";
+                    }
+                    else if (dto.RotacionDiaria < TH_Rotacion_Media)
+                    {
+                        if (margenPct >= TH_Margen_Alto)
+                            dto.Clasificacion = "Joya";
+                        else
+                            dto.Clasificacion = "Cacho";
+                    }
+                    else
+                    {
+                        dto.Clasificacion = "Normal";
+                    }
+
+                    resultInner.Add(dto);
                 }
 
-                result.Add(dto);
-            }
+                return resultInner.OrderByDescending(x => x.CantidadVendida).ToList();
+            });
 
-            return result.OrderByDescending(x => x.CantidadVendida).ToList();
+            return result!;
         }
 
         public async Task<List<StockoutAnalysisDto>> GetStockoutAnalysisAsync(

@@ -2,6 +2,7 @@ namespace VendingManager.Tests.Services;
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 using Moq;
 using VendingManager.Core.Configuration;
@@ -18,6 +19,7 @@ public class CajaServiceTests : IDisposable
     private readonly Mock<IInformesService> _mockInformesService;
     private readonly Mock<IExcelExportService> _mockExcelExport;
     private readonly IOptions<VendingConfig> _config;
+    private readonly IMemoryCache _cache;
     private readonly CajaService _cajaService;
 
     public CajaServiceTests()
@@ -28,6 +30,7 @@ public class CajaServiceTests : IDisposable
         _mockEnvironment.Setup(e => e.ContentRootPath).Returns("/tmp");
         _mockInformesService = new Mock<IInformesService>();
         _mockExcelExport = new Mock<IExcelExportService>();
+        _cache = new MemoryCache(new MemoryCacheOptions());
 
         var vendingConfig = new VendingConfig
         {
@@ -40,7 +43,7 @@ public class CajaServiceTests : IDisposable
 
         var ventaRepo = new VentaRepository(_context);
         var maquinaRepo = new MaquinaRepository(_context);
-        var business = new CajaBusinessService(_context, ventaRepo, maquinaRepo, _mockExcelExport.Object, _config);
+        var business = new CajaBusinessService(_context, ventaRepo, maquinaRepo, _mockExcelExport.Object, _config, _cache);
 
         _cajaService = new CajaService(_context, _mockEnvironment.Object, _mockInformesService.Object, _config, _mockExcelExport.Object, business);
     }
@@ -48,6 +51,7 @@ public class CajaServiceTests : IDisposable
     public void Dispose()
     {
         _context.Dispose();
+        _cache.Dispose();
     }
 
     [Fact]

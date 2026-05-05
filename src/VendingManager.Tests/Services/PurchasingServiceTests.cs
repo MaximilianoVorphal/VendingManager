@@ -1,6 +1,7 @@
 namespace VendingManager.Tests.Services;
 
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 using Moq;
 using VendingManager.Core.Configuration;
@@ -13,6 +14,7 @@ public class PurchasingServiceTests : IDisposable
 {
     private readonly ApplicationDbContext _context;
     private readonly Mock<IExcelExportService> _mockExcelExport;
+    private readonly IMemoryCache _cache;
     private readonly PurchasingService _purchasingService;
 
     public PurchasingServiceTests()
@@ -28,12 +30,14 @@ public class PurchasingServiceTests : IDisposable
         };
         var config = Options.Create(vendingConfig);
         _mockExcelExport = new Mock<IExcelExportService>();
+        _cache = new MemoryCache(new MemoryCacheOptions());
 
-        _purchasingService = new PurchasingService(_context, config, _mockExcelExport.Object);
+        _purchasingService = new PurchasingService(_context, config, _mockExcelExport.Object, _cache);
     }
 
     public void Dispose()
     {
+        _cache.Dispose();
         _context.Dispose();
     }
 

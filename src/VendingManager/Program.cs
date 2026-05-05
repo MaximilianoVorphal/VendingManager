@@ -1,16 +1,32 @@
 using Microsoft.EntityFrameworkCore;
 using Scalar.AspNetCore;
+using Serilog;
+using Serilog.Events;
+using Serilog.Formatting.Compact;
 using VendingManager.Core.Configuration;
 using VendingManager.Infrastructure.Data;
 using VendingManager.Infrastructure.Data.Repositories;
+using VendingManager.Infrastructure.Interceptors;
 using VendingManager.Infrastructure.Services;
 using VendingManager.Web;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.RateLimiting;
 using System.Threading.RateLimiting;
 using VendingManager.Shared.Constants;
+using VendingManager.Web.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// 0. Serilog — structured JSON logging, coexisting with ILogger<T>
+builder.Logging.ClearProviders();
+Log.Logger = new LoggerConfiguration()
+    .MinimumLevel.Information()
+    .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
+    .MinimumLevel.Override("Microsoft.Hosting.Lifetime", LogEventLevel.Information)
+    .Enrich.FromLogContext()
+    .WriteTo.Console(formatter: new RenderedCompactJsonFormatter())
+    .CreateLogger();
+builder.Host.UseSerilog();
 
 // 1. Configurar CORS (DEBE ir ANTES de AddControllers)
 builder.Services.AddCors(options =>
@@ -51,8 +67,8 @@ builder.Services.AddAuthentication(Microsoft.AspNetCore.Authentication.Cookies.C
         options.Cookie.Name = "auth_token";
         options.LoginPath = "/login";
         options.Cookie.SameSite = SameSiteMode.Strict;
-        options.Cookie.SecurePolicy = builder.Environment.IsDevelopment() 
-            ? CookieSecurePolicy.SameAsRequest 
+        options.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
+            ? CookieSecurePolicy.SameAsRequest
             : CookieSecurePolicy.Always;
     });
 
@@ -62,8 +78,13 @@ builder.Services.AddAuthorization(options =>
 });
 
 // 2. Base de Datos (SQL Express)
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddSingleton<AuditSaveChangesInterceptor>();
+builder.Services.AddDbContext<ApplicationDbContext>((sp, options) =>
+{
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"));
+    options.AddInterceptors(sp.GetRequiredService<AuditSaveChangesInterceptor>());
+});
 
 // 2.1 Configuration — VendingConfig
 builder.Services.Configure<VendingConfig>(builder.Configuration.GetSection("VendingConfig"));
@@ -115,6 +136,15 @@ builder.Services.AddResponseCompression(options =>
 // Registrar HttpClient para Pre-rendering (Server Side)
 builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri("http://localhost:8080") });
 
+// 5. Health Checks
+builder.Services.AddHealthChecks()
+    .AddCheck("self", () => Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult.Healthy("App is running"), tags: ["liveness"])
+    .AddSqlServer(
+        builder.Configuration.GetConnectionString("DefaultConnection")
+            ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found."),
+        name: "sqlserver",
+        tags: ["db", "readiness"]);
+
 var app = builder.Build();
 
 // Auto-migrate database on startup
@@ -132,11 +162,11 @@ using (var scope = app.Services.CreateScope())
             // Only seed if expressly allowed or strictly in Development with no users
             // For now, we keep it simple: if no users, create admin via Env Var or default if Dev
             var seedPassword = Environment.GetEnvironmentVariable("SEED_ADMIN_PASSWORD");
-            
+
             if (app.Environment.IsDevelopment() || !string.IsNullOrEmpty(seedPassword))
             {
                 var passwordToUse = !string.IsNullOrEmpty(seedPassword) ? seedPassword : "admin";
-                
+
                 var adminUser = new VendingManager.Core.Entities.User
                 {
                     Username = "admin",
@@ -150,7 +180,7 @@ using (var scope = app.Services.CreateScope())
     }
     catch (Exception ex)
     {
-        var logger = services.GetRequiredService<ILogger<Program>>();
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
         logger.LogError(ex, "An error occurred while migrating the database.");
     }
 }
@@ -178,7 +208,23 @@ app.UseRateLimiter(); // Apply Rate Limiting
 app.UseAuthentication();
 app.UseAuthorization();
 
-// 5. Mapear componentes y API
+// 6. Serilog request logging middleware (captures HTTP request duration)
+app.UseSerilogRequestLogging();
+
+// 7. Global ProblemDetails middleware (after routing, before MapControllers)
+app.UseMiddleware<GlobalProblemDetailsMiddleware>();
+
+// 8. Map health check endpoints
+app.MapHealthChecks("/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    Predicate = _ => false // liveness: only self-check (always passes if app is running)
+});
+app.MapHealthChecks("/health/db", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("db") // readiness: SQL Server check
+});
+
+// 9. Mapear componentes y API
 app.MapStaticAssets();
 app.MapControllers();
 
