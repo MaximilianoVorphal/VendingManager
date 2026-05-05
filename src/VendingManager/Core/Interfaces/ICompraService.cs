@@ -11,4 +11,5 @@ public interface ICompraService
     Task<Compra> ActualizarCompraAsync(int id, VendingManager.Shared.DTOs.RegistrarCompraRequestDto request);
     Task EliminarCompraAsync(int id);
     Task<string> SaveFacturaImagenAsync(int compraId, IFormFile file);
+    string ResolveFacturaPhysicalPath(string relativePath);
 }

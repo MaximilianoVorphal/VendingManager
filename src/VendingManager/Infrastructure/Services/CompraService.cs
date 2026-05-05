@@ -1,8 +1,10 @@
 using Microsoft.EntityFrameworkCore;
 using VendingManager.Core.Entities;
 using VendingManager.Core.Interfaces;
+using VendingManager.Core.Configuration;
 using VendingManager.Infrastructure.Data;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Options;
 
 namespace VendingManager.Infrastructure.Services;
 
@@ -10,11 +12,13 @@ public class CompraService : ICompraService
 {
     private readonly ApplicationDbContext _context;
     private readonly IWebHostEnvironment _env;
+    private readonly IOptions<VendingConfig> _config;
 
-    public CompraService(ApplicationDbContext context, IWebHostEnvironment env)
+    public CompraService(ApplicationDbContext context, IWebHostEnvironment env, IOptions<VendingConfig> config)
     {
         _context = context;
         _env = env;
+        _config = config;
     }
 
     public async Task<IEnumerable<Compra>> GetComprasAsync(int? count = null)
@@ -284,21 +288,16 @@ public class CompraService : ICompraService
         if (compra == null)
             throw new KeyNotFoundException($"Compra {compraId} no encontrada.");
 
-        // Use WebRootPath if available, fall back to ContentRootPath/wwwroot
-        var webRoot = _env.WebRootPath;
-        if (string.IsNullOrEmpty(webRoot))
-        {
-            webRoot = Path.Combine(_env.ContentRootPath, "wwwroot");
-            Directory.CreateDirectory(webRoot);
-        }
+        // Use configured upload path if set, otherwise fall back to wwwroot
+        var basePath = GetUploadBasePath();
 
-        var uploadDir = Path.Combine(webRoot, "uploads", "compras", "facturas");
+        var uploadDir = Path.Combine(basePath, "uploads", "compras", "facturas");
         Directory.CreateDirectory(uploadDir);
 
         // Delete old image if exists
         if (!string.IsNullOrEmpty(compra.FacturaImagenPath))
         {
-            var oldPath = Path.Combine(webRoot, compra.FacturaImagenPath.TrimStart('/'));
+            var oldPath = Path.Combine(basePath, compra.FacturaImagenPath.TrimStart('/'));
             if (System.IO.File.Exists(oldPath))
                 System.IO.File.Delete(oldPath);
         }
@@ -315,5 +314,33 @@ public class CompraService : ICompraService
         await _context.SaveChangesAsync();
 
         return relativePath;
+    }
+
+    /// <summary>
+    /// Resuelve la ruta base para uploads. Usa FacturaUploadPath del config si está seteado,
+    /// sino fallback a WebRootPath (o ContentRootPath/wwwroot).
+    /// </summary>
+    private string GetUploadBasePath()
+    {
+        // 1. Config explícita (para Docker/producción)
+        var configuredPath = _config.Value.FacturaUploadPath;
+        if (!string.IsNullOrEmpty(configuredPath))
+            return configuredPath;
+
+        // 2. Fallback: WebRootPath (cuando wwwroot existe)
+        var webRoot = _env.WebRootPath;
+        if (!string.IsNullOrEmpty(webRoot))
+            return webRoot;
+
+        // 3. Último fallback: ContentRootPath/wwwroot
+        webRoot = Path.Combine(_env.ContentRootPath, "wwwroot");
+        Directory.CreateDirectory(webRoot);
+        return webRoot;
+    }
+
+    public string ResolveFacturaPhysicalPath(string relativePath)
+    {
+        var basePath = GetUploadBasePath();
+        return Path.Combine(basePath, relativePath.TrimStart('/'));
     }
 }
