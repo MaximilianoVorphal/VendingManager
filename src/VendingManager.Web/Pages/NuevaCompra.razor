@@ -378,7 +378,7 @@
                 int compraId = result.GetProperty("id").GetInt32();
 
                 // Upload factura image if attached
-                if (FacturaFile != null)
+                if (FacturaPreviewData != null)
                 {
                     await UploadFacturaImagen(compraId);
                 }
@@ -404,20 +404,19 @@
 
     private async Task UploadFacturaImagen(int compraId)
     {
-        if (FacturaFile == null) return;
+        if (FacturaPreviewData == null) return;
 
         try
         {
             using var content = new MultipartFormDataContent();
-            var stream = FacturaFile.OpenReadStream(maxAllowedSize: 5 * 1024 * 1024);
-            using var streamContent = new StreamContent(stream);
-            streamContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(FacturaFile.ContentType);
-            content.Add(streamContent, "file", FacturaFile.Name);
+            var byteContent = new ByteArrayContent(FacturaPreviewData);
+            byteContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(FacturaFile?.ContentType ?? "image/jpeg");
+            content.Add(byteContent, "file", FacturaFile?.Name ?? "factura.jpg");
 
             var uploadResponse = await Http.PostAsync($"api/compras/{compraId}/factura", content);
             if (!uploadResponse.IsSuccessStatusCode)
             {
-                MensajeError = "Compra guardada, pero falló la carga de la imagen de factura.";
+                MensajeError = "Compra guardada, pero falló la carga de la imagen de factura: " + await uploadResponse.Content.ReadAsStringAsync();
             }
         }
         catch (Exception ex)
@@ -501,7 +500,7 @@
         }
     }
 
-    private void HandleFacturaUpload(InputFileChangeEventArgs e)
+    private async Task HandleFacturaUpload(InputFileChangeEventArgs e)
     {
         var file = e.File;
         if (file == null) return;
@@ -515,10 +514,8 @@
 
         FacturaFile = file;
 
-        // Generate base64 preview
-        FacturaPreviewData = null;
-        FacturaPreviewUrl = null;
-        _ = LoadFacturaPreviewData(file);
+        // Read file bytes for preview AND upload (avoids opening stream twice)
+        await LoadFacturaPreviewData(file);
         StateHasChanged();
     }
 
