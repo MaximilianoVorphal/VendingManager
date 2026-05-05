@@ -378,13 +378,20 @@
                 int compraId = result.GetProperty("id").GetInt32();
 
                 // Upload factura image if attached
+                bool uploadOk = true;
                 if (FacturaPreviewData != null)
                 {
-                    await UploadFacturaImagen(compraId);
+                    uploadOk = await UploadFacturaImagen(compraId);
                 }
 
-                ClearFacturaPreview();
-                Navigation.NavigateTo("/compras");
+                // Only navigate if upload succeeded (or wasn't needed)
+                if (uploadOk)
+                {
+                    ClearFacturaPreview();
+                    Navigation.NavigateTo("/compras");
+                }
+                // If upload failed, MensajeError was already set by UploadFacturaImagen
+                // Stay on page so user can see the error and retry
             }
             else
             {
@@ -402,9 +409,9 @@
         }
     }
 
-    private async Task UploadFacturaImagen(int compraId)
+    private async Task<bool> UploadFacturaImagen(int compraId)
     {
-        if (FacturaPreviewData == null) return;
+        if (FacturaPreviewData == null) return true;
 
         try
         {
@@ -416,12 +423,15 @@
             var uploadResponse = await Http.PostAsync($"api/compras/{compraId}/factura", content);
             if (!uploadResponse.IsSuccessStatusCode)
             {
-                MensajeError = "Compra guardada, pero falló la carga de la imagen de factura: " + await uploadResponse.Content.ReadAsStringAsync();
+                MensajeError = "Compra guardada (ID: " + compraId + "), pero falló la carga de la imagen de factura: " + await uploadResponse.Content.ReadAsStringAsync();
+                return false;
             }
+            return true;
         }
         catch (Exception ex)
         {
-            MensajeError = "Compra guardada, pero falló la carga de la imagen de factura: " + ex.Message;
+            MensajeError = "Compra guardada (ID: " + compraId + "), pero falló la carga de la imagen de factura: " + ex.Message;
+            return false;
         }
     }
 

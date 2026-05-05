@@ -186,6 +186,10 @@ public class ComprasController : ControllerBase
     {
         try
         {
+            // Extra validation before calling service
+            if (file == null || file.Length == 0)
+                return BadRequest("No se proporcionó ningún archivo.");
+
             var path = await _compraService.SaveFacturaImagenAsync(id, file);
             return Ok(new { Path = path });
         }
@@ -197,9 +201,17 @@ public class ComprasController : ControllerBase
         {
             return NotFound(ex.Message);
         }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(500, $"Error de permisos al guardar la imagen: {ex.Message}. Verifique que el directorio de uploads tenga permisos de escritura.");
+        }
+        catch (IOException ex)
+        {
+            return StatusCode(500, $"Error de E/S al guardar la imagen: {ex.Message}");
+        }
         catch (Exception ex)
         {
-            return StatusCode(500, $"Error guardando imagen: {ex.Message}");
+            return StatusCode(500, $"Error guardando imagen: {ex.GetType().Name} - {ex.Message}");
         }
     }
 

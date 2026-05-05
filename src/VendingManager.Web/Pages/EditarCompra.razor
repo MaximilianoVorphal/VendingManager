@@ -438,13 +438,17 @@
             if (response.IsSuccessStatusCode)
             {
                 // Upload new factura image if attached
+                bool uploadOk = true;
                 if (FacturaPreviewData != null)
                 {
-                    await UploadFacturaImagen();
+                    uploadOk = await UploadFacturaImagen();
                 }
 
-                ClearFacturaPreview();
-                Navigation.NavigateTo("/compras");
+                if (uploadOk)
+                {
+                    ClearFacturaPreview();
+                    Navigation.NavigateTo("/compras");
+                }
             }
             else MensajeError = "Error al guardar: " + await response.Content.ReadAsStringAsync();
         }
@@ -452,9 +456,9 @@
         finally { Guardando = false; }
     }
 
-    private async Task UploadFacturaImagen()
+    private async Task<bool> UploadFacturaImagen()
     {
-        if (FacturaPreviewData == null) return;
+        if (FacturaPreviewData == null) return true;
 
         try
         {
@@ -467,17 +471,20 @@
             if (!uploadResponse.IsSuccessStatusCode)
             {
                 MensajeError = "Compra actualizada, pero falló la carga de la imagen de factura: " + await uploadResponse.Content.ReadAsStringAsync();
+                return false;
             }
             else
             {
                 // Update local path to reflect the saved image
                 var result = await uploadResponse.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
                 FacturaImagenPath = result.GetProperty("Path").GetString();
+                return true;
             }
         }
         catch (Exception ex)
         {
             MensajeError = "Compra actualizada, pero falló la carga de la imagen de factura: " + ex.Message;
+            return false;
         }
     }
 

@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 @using Microsoft.AspNetCore.Components.Web
+@using Microsoft.AspNetCore.Components.Forms
 @using VendingManager.Web
 @inject VendingManager.Web.Auth.PersistingAuthenticationStateProvider PersistingAuthStateProvider
 <html lang="en">
@@ -18,6 +19,7 @@
 </head>
 
 <body>
+    <AntiforgeryToken />
     <div id="app">
         <!-- Static Loading UI (shown while Blazor starts) -->
         <div class="loading-overlay">
