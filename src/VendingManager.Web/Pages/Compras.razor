@@ -132,6 +132,13 @@
                                 </td>
                                 <td class="text-center">
                                     <div class="d-flex justify-content-center gap-2 flex-wrap">
+                                        @if (!string.IsNullOrEmpty(c.FacturaImagenPath))
+                                        {
+                                            <a href="api/compras/@c.Id/factura" target="_blank" 
+                                               class="btn btn-sm btn-outline-info rounded-0 fw-bold border-dark" title="Ver factura escaneada">
+                                                <i class="bi bi-file-earmark-arrow-down-fill"></i> VER FACTURA
+                                            </a>
+                                        }
                                         <button class="btn btn-sm btn-outline-dark rounded-0 fw-bold border-dark" title="Ver Detalles" @onclick="() => VerDetalles(c)">
                                             <i class="bi bi-eye-fill"></i> DETALLES
                                         </button>
@@ -180,6 +187,25 @@
                         </div>
                     </div>
                     
+                    @if (!string.IsNullOrEmpty(CompraSeleccionada.FacturaImagenPath))
+                    {
+                        <div class="mb-4 p-3 border border-dark bg-white">
+                            <h6 class="fw-bold mb-2"><i class="bi bi-file-earmark-arrow-down-fill me-2"></i>FACTURA ESCANEADA</h6>
+                            <a href="api/compras/@CompraSeleccionada.Id/factura" target="_blank">
+                                <img src="api/compras/@CompraSeleccionada.Id/factura" 
+                                     class="img-fluid border border-dark" 
+                                     style="max-height: 400px; width: 100%; object-fit: contain; background: #f5f5f5;"
+                                     alt="Factura de @CompraSeleccionada.Proveedor" />
+                            </a>
+                            <div class="mt-2">
+                                <a href="api/compras/@CompraSeleccionada.Id/factura" target="_blank" 
+                                   class="btn btn-sm btn-outline-dark rounded-0 fw-bold">
+                                    <i class="bi bi-arrows-fullscreen me-1"></i> ABRIR EN PANTALLA COMPLETA
+                                </a>
+                            </div>
+                        </div>
+                    }
+
                     <h6 class="fw-bold mb-3 border-bottom border-dark pb-2">
                         @(CompraSeleccionada.TipoFactura == "MERCADERIA" ? "PRODUCTOS ADQUIRIDOS" : "DETALLE DE GASTOS")
                     </h6>
