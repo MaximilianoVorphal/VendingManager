@@ -60,51 +60,56 @@ namespace VendingManager.Controllers
         {
             var historyItems = new List<HistoryListItemDto>();
 
-            // Query each history table
-            var historyTypes = new[]
+            // Each history table queried directly (no dynamic EF Core reflection — avoids SQL translation errors)
+            var tasks = new List<Task<List<HistoryListItemDto>>>
             {
-                (Type: typeof(ProductoHistory), Name: "Producto"),
-                (Type: typeof(CompraHistory), Name: "Compra"),
-                (Type: typeof(MaquinaHistory), Name: "Maquina"),
-                (Type: typeof(VentaHistory), Name: "Venta"),
-                (Type: typeof(MovimientoCajaHistory), Name: "MovimientoCaja"),
-                (Type: typeof(ConfiguracionSlotHistory), Name: "ConfiguracionSlot"),
-                (Type: typeof(GastoRecurrenteHistory), Name: "GastoRecurrente"),
-                (Type: typeof(OrdenCargaHistory), Name: "OrdenCarga"),
-                (Type: typeof(UserHistory), Name: "User")
+                GetHistoryRecords<CompraHistory>("Compra"),
+                GetHistoryRecords<ProductoHistory>("Producto"),
+                GetHistoryRecords<MaquinaHistory>("Maquina"),
+                GetHistoryRecords<VentaHistory>("Venta"),
+                GetHistoryRecords<MovimientoCajaHistory>("MovimientoCaja"),
+                GetHistoryRecords<ConfiguracionSlotHistory>("ConfiguracionSlot"),
+                GetHistoryRecords<GastoRecurrenteHistory>("GastoRecurrente"),
+                GetHistoryRecords<OrdenCargaHistory>("OrdenCarga"),
+                GetHistoryRecords<UserHistory>("User")
             };
 
-            foreach (var (historyType, entityName) in historyTypes)
-            {
-                var dbSetMethod = _context.GetType().GetMethod("Set")!.MakeGenericMethod(historyType);
-                var dbSet = dbSetMethod.Invoke(_context, null);
+            var results = await Task.WhenAll(tasks);
+            foreach (var list in results)
+                historyItems.AddRange(list);
 
-                var queryableMethod = dbSet!.GetType().GetMethod("AsQueryable")!;
-                var query = (IQueryable<object>)queryableMethod.Invoke(dbSet, null)!;
-
-                var items = await query
-                    .OrderByDescending(e => (DateTime)historyType.GetProperty("Timestamp")!.GetValue(e)!)
-                    .Take(100) // Limit per entity type
-                    .ToListAsync();
-
-                foreach (var item in items)
-                {
-                    historyItems.Add(new HistoryListItemDto(
-                        Id: (int)historyType.GetProperty("Id")!.GetValue(item)!,
-                        EntityId: (int)historyType.GetProperty("EntityId")!.GetValue(item)!,
-                        EntityType: entityName,
-                        Action: (string)historyType.GetProperty("Action")!.GetValue(item)!,
-                        Usuario: (string)historyType.GetProperty("Usuario")!.GetValue(item)!,
-                        Timestamp: (DateTime)historyType.GetProperty("Timestamp")!.GetValue(item)!,
-                        BeforeJson: (string?)historyType.GetProperty("BeforeJson")!.GetValue(item),
-                        AfterJson: (string?)historyType.GetProperty("AfterJson")!.GetValue(item)
-                    ));
-                }
-            }
-
-            // Sort by timestamp descending across all types
+            // Sort by timestamp descending across all types (in memory)
             var sorted = historyItems.OrderByDescending(h => h.Timestamp).Take(200).ToList();
             return Ok(sorted);
+        }
+
+        private async Task<List<HistoryListItemDto>> GetHistoryRecords<THistory>(string entityName)
+            where THistory : class
+        {
+            var records = await _context.Set<THistory>()
+                .AsQueryable()
+                .Take(100)
+                .ToListAsync();
+
+            var historyType = typeof(THistory);
+            var idProp = historyType.GetProperty("Id")!;
+            var entityIdProp = historyType.GetProperty("EntityId")!;
+            var actionProp = historyType.GetProperty("Action")!;
+            var usuarioProp = historyType.GetProperty("Usuario")!;
+            var timestampProp = historyType.GetProperty("Timestamp")!;
+            var beforeJsonProp = historyType.GetProperty("BeforeJson");
+            var afterJsonProp = historyType.GetProperty("AfterJson");
+
+            return records.Select(r => new HistoryListItemDto(
+                Id: (int)idProp.GetValue(r)!,
+                EntityId: entityIdProp != null ? (int)entityIdProp.GetValue(r)! : 0,
+                EntityType: entityName,
+                Action: (string)actionProp.GetValue(r)!,
+                Usuario: (string)usuarioProp.GetValue(r)!,
+                Timestamp: (DateTime)timestampProp.GetValue(r)!,
+                BeforeJson: beforeJsonProp?.GetValue(r) as string,
+                AfterJson: afterJsonProp?.GetValue(r) as string
+            )).ToList();
         }
 
         /// <summary>
@@ -113,135 +118,47 @@ namespace VendingManager.Controllers
         [HttpPost("rollback/{entityType}/{entityId}/{historyId}")]
         public async Task<IActionResult> Rollback(string entityType, int entityId, int historyId)
         {
-            // Map entity type name to the entity type
-            var entityTypeMap = new Dictionary<string, Type>(StringComparer.OrdinalIgnoreCase)
-            {
-                { "Producto", typeof(Producto) },
-                { "Compra", typeof(Compra) },
-                { "Maquina", typeof(Maquina) },
-                { "Venta", typeof(Venta) },
-                { "MovimientoCaja", typeof(MovimientoCaja) },
-                { "ConfiguracionSlot", typeof(ConfiguracionSlot) },
-                { "GastoRecurrente", typeof(GastoRecurrente) },
-                { "OrdenCarga", typeof(OrdenCarga) },
-                { "User", typeof(User) }
-            };
-
-            if (!entityTypeMap.TryGetValue(entityType, out var targetType))
-            {
-                return NotFound(new ProblemDetails
-                {
-                    Title = "Resource not found",
-                    Detail = $"Entity type '{entityType}' is not supported for rollback.",
-                    Status = StatusCodes.Status404NotFound
-                });
-            }
-
-            // Map entity type to its history type
-            var historyTypeMap = new Dictionary<string, Type>(StringComparer.OrdinalIgnoreCase)
-            {
-                { "Producto", typeof(ProductoHistory) },
-                { "Compra", typeof(CompraHistory) },
-                { "Maquina", typeof(MaquinaHistory) },
-                { "Venta", typeof(VentaHistory) },
-                { "MovimientoCaja", typeof(MovimientoCajaHistory) },
-                { "ConfiguracionSlot", typeof(ConfiguracionSlotHistory) },
-                { "GastoRecurrente", typeof(GastoRecurrenteHistory) },
-                { "OrdenCarga", typeof(OrdenCargaHistory) },
-                { "User", typeof(UserHistory) }
-            };
-
-            var historyType = historyTypeMap[entityType];
-
-            // Find the history record
-            var historyDbSetMethod = _context.GetType().GetMethod("Set")!.MakeGenericMethod(historyType);
-            var historyDbSet = historyDbSetMethod.Invoke(_context, null);
-            var historyQueryableMethod = historyDbSet!.GetType().GetMethod("AsQueryable")!;
-            var historyQuery = (IQueryable<object>)historyQueryableMethod.Invoke(historyDbSet, null)!;
-
-            var historyRecord = await historyQuery
-                .FirstOrDefaultAsync(e => (int)historyType.GetProperty("Id")!.GetValue(e)! == historyId);
-
+            // Find history record and deserialize BeforeJson
+            var (beforeJson, historyRecord) = await FindHistoryRecord(entityType, historyId);
             if (historyRecord == null)
-            {
                 return NotFound(new ProblemDetails
                 {
                     Title = "Resource not found",
                     Detail = $"History record with ID {historyId} not found.",
                     Status = StatusCodes.Status404NotFound
                 });
-            }
 
-            // Get BeforeJson
-            var beforeJson = (string?)historyType.GetProperty("BeforeJson")!.GetValue(historyRecord);
             if (string.IsNullOrEmpty(beforeJson))
-            {
                 return BadRequest(new ProblemDetails
                 {
                     Title = "Bad request",
                     Detail = "Cannot rollback: BeforeJson is null. This record may be an Added state.",
                     Status = StatusCodes.Status400BadRequest
                 });
-            }
 
-            // Deserialize the BeforeJson into the target entity type
             var jsonOptions = new JsonSerializerOptions { ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles };
-            var entity = JsonSerializer.Deserialize(beforeJson, targetType, jsonOptions);
-            if (entity == null)
-            {
-                return BadRequest(new ProblemDetails
-                {
-                    Title = "Bad request",
-                    Detail = "Failed to deserialize the history record.",
-                    Status = StatusCodes.Status400BadRequest
-                });
-            }
-
-            // Find the current entity in the database
-            var dbSetMethod = _context.GetType().GetMethod("Set")!.MakeGenericMethod(targetType);
-            var dbSet = dbSetMethod.Invoke(_context, null);
-            var findMethod = dbSet!.GetType().GetMethod("Find", new[] { typeof(object[]) })!;
-            var currentEntity = findMethod.Invoke(dbSet, new[] { new object[] { entityId } });
-
-            if (currentEntity == null)
-            {
-                return NotFound(new ProblemDetails
-                {
-                    Title = "Resource not found",
-                    Detail = $"Entity '{entityType}' with ID {entityId} not found.",
-                    Status = StatusCodes.Status404NotFound
-                });
-            }
-
-            // Update scalar properties via reflection
-            var targetProps = targetType.GetProperties();
-            var entityProps = entity.GetType().GetProperties();
-
-            foreach (var prop in targetProps)
-            {
-                if (prop.Name == "Id") continue; // Don't update the primary key
-
-                var entityProp = entityProps.FirstOrDefault(p => p.Name == prop.Name);
-                if (entityProp != null)
-                {
-                    var value = entityProp.GetValue(entity);
-                    // Skip complex types
-                    if (value is not string and not ValueType and not null)
-                        continue;
-                    prop.SetValue(currentEntity, value);
-                }
-            }
 
             try
             {
-                await _context.SaveChangesAsync();
-
-                return Ok(new RollbackResponseDto(
-                    EntityId: entityId,
-                    EntityType: entityType,
-                    HistoryId: historyId,
-                    RolledBackAt: DateTime.UtcNow
-                ));
+                // Dispatch to type-specific rollback handler
+                return entityType.ToLowerInvariant() switch
+                {
+                    "producto" => await RollbackEntity<Producto, ProductoHistory>(entityId, beforeJson, historyRecord, jsonOptions),
+                    "compra" => await RollbackEntity<Compra, CompraHistory>(entityId, beforeJson, historyRecord, jsonOptions),
+                    "maquina" => await RollbackEntity<Maquina, MaquinaHistory>(entityId, beforeJson, historyRecord, jsonOptions),
+                    "venta" => await RollbackEntity<Venta, VentaHistory>(entityId, beforeJson, historyRecord, jsonOptions),
+                    "movimientocaja" => await RollbackEntity<MovimientoCaja, MovimientoCajaHistory>(entityId, beforeJson, historyRecord, jsonOptions),
+                    "configuracionslot" => await RollbackEntity<ConfiguracionSlot, ConfiguracionSlotHistory>(entityId, beforeJson, historyRecord, jsonOptions),
+                    "gastorecurrente" => await RollbackEntity<GastoRecurrente, GastoRecurrenteHistory>(entityId, beforeJson, historyRecord, jsonOptions),
+                    "ordencarga" => await RollbackEntity<OrdenCarga, OrdenCargaHistory>(entityId, beforeJson, historyRecord, jsonOptions),
+                    "user" => await RollbackEntity<User, UserHistory>(entityId, beforeJson, historyRecord, jsonOptions),
+                    _ => NotFound(new ProblemDetails
+                    {
+                        Title = "Resource not found",
+                        Detail = $"Entity type '{entityType}' is not supported for rollback.",
+                        Status = StatusCodes.Status404NotFound
+                    })
+                };
             }
             catch (DbUpdateException ex)
             {
@@ -252,6 +169,69 @@ namespace VendingManager.Controllers
                     Status = StatusCodes.Status409Conflict
                 });
             }
+        }
+
+        private async Task<(string? beforeJson, object? historyRecord)> FindHistoryRecord(string entityType, int historyId)
+        {
+            return entityType.ToLowerInvariant() switch
+            {
+                "producto" => (await FindHistory<ProductoHistory>(historyId)) is { } h ? (h.BeforeJson, h) : (null, null),
+                "compra" => (await FindHistory<CompraHistory>(historyId)) is { } h ? (h.BeforeJson, h) : (null, null),
+                "maquina" => (await FindHistory<MaquinaHistory>(historyId)) is { } h ? (h.BeforeJson, h) : (null, null),
+                "venta" => (await FindHistory<VentaHistory>(historyId)) is { } h ? (h.BeforeJson, h) : (null, null),
+                "movimientocaja" => (await FindHistory<MovimientoCajaHistory>(historyId)) is { } h ? (h.BeforeJson, h) : (null, null),
+                "configuracionslot" => (await FindHistory<ConfiguracionSlotHistory>(historyId)) is { } h ? (h.BeforeJson, h) : (null, null),
+                "gastorecurrente" => (await FindHistory<GastoRecurrenteHistory>(historyId)) is { } h ? (h.BeforeJson, h) : (null, null),
+                "ordencarga" => (await FindHistory<OrdenCargaHistory>(historyId)) is { } h ? (h.BeforeJson, h) : (null, null),
+                "user" => (await FindHistory<UserHistory>(historyId)) is { } h ? (h.BeforeJson, h) : (null, null),
+                _ => (null, null)
+            };
+        }
+
+        private async Task<THistory?> FindHistory<THistory>(int historyId) where THistory : class
+        {
+            return await _context.Set<THistory>().FindAsync(historyId) as THistory;
+        }
+
+        private async Task<IActionResult> RollbackEntity<TEntity, THistory>(int entityId, string beforeJson, object historyRecord, JsonSerializerOptions jsonOptions)
+            where TEntity : class
+            where THistory : class
+        {
+            var snapshot = JsonSerializer.Deserialize<TEntity>(beforeJson, jsonOptions);
+            if (snapshot == null)
+                return BadRequest(new ProblemDetails
+                {
+                    Title = "Bad request",
+                    Detail = "Failed to deserialize the history record.",
+                    Status = StatusCodes.Status400BadRequest
+                });
+
+            var current = await _context.Set<TEntity>().FindAsync(entityId);
+            if (current == null)
+                return NotFound(new ProblemDetails
+                {
+                    Title = "Resource not found",
+                    Detail = $"Entity with ID {entityId} not found.",
+                    Status = StatusCodes.Status404NotFound
+                });
+
+            // Copy scalar properties from snapshot to current entity
+            foreach (var prop in typeof(TEntity).GetProperties())
+            {
+                if (prop.Name == "Id") continue;
+                var value = prop.GetValue(snapshot);
+                if (value is not string and not ValueType and not null) continue;
+                prop.SetValue(current, value);
+            }
+
+            await _context.SaveChangesAsync();
+
+            return Ok(new RollbackResponseDto(
+                EntityId: entityId,
+                EntityType: typeof(TEntity).Name,
+                HistoryId: (int)typeof(THistory).GetProperty("Id")!.GetValue(historyRecord)!,
+                RolledBackAt: DateTime.UtcNow
+            ));
         }
     }
 }
