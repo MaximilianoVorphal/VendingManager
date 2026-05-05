@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Scalar.AspNetCore;
 using Serilog;
 using Serilog.Events;
+using Serilog.Formatting.Compact;
 using VendingManager.Core.Configuration;
 using VendingManager.Infrastructure.Data;
 using VendingManager.Infrastructure.Data.Repositories;
@@ -22,7 +23,7 @@ Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
     .MinimumLevel.Override("Microsoft.Hosting.Lifetime", LogEventLevel.Information)
     .Enrich.FromLogContext()
-    .WriteTo.Console(outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj} {Properties:j}{NewLine}{Exception}")
+    .WriteTo.Console(formatter: new RenderedCompactJsonFormatter())
     .CreateLogger();
 builder.Host.UseSerilog();
 
