@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 using System;
 using System.Collections.Generic;
@@ -17,12 +18,14 @@ namespace VendingManager.Infrastructure.Services
         private readonly ApplicationDbContext _context;
         private readonly IOptions<VendingConfig> _config;
         private readonly IExcelExportService _excelExportService;
+        private readonly IMemoryCache _cache;
 
-        public PurchasingService(ApplicationDbContext context, IOptions<VendingConfig> config, IExcelExportService excelExportService)
+        public PurchasingService(ApplicationDbContext context, IOptions<VendingConfig> config, IExcelExportService excelExportService, IMemoryCache cache)
         {
             _context = context;
             _config = config;
             _excelExportService = excelExportService;
+            _cache = cache;
         }
 
         public async Task<List<StockCriticoDto>> GetStockCriticoAsync(int maquinaId)
@@ -56,62 +59,71 @@ namespace VendingManager.Infrastructure.Services
         public async Task<List<PurchaseSuggestionDto>> GetPurchaseSuggestionAsync(int dias = 0, int maquinaId = 0)
         {
             if (dias <= 0) dias = _config.Value.RotacionStockMinimoDias;
-            DateTime fechaInicio = DateTime.Now.Date.AddDays(-dias);
-            
-            var queryVentas = _context.Ventas
-                .Where(v => v.FechaLocal >= fechaInicio)
-                .Where(v => v.ProductoId != null && v.ProductoId != 0);
-            if (maquinaId > 0) queryVentas = queryVentas.Where(v => v.MaquinaId == maquinaId);
+            var key = $"PurchasingService:GetPurchaseSuggestionAsync:{dias}-M{maquinaId}";
 
-            var ventas = await queryVentas
-                .GroupBy(v => v.ProductoId!.Value)
-                .Select(g => new { ProductoId = g.Key, Cantidad = g.Count() })
-                .ToListAsync();
-
-            var querySlots = _context.ConfiguracionSlots
-                .Where(s => s.ProductoId != null && s.ProductoId != 0);
-            if (maquinaId > 0) querySlots = querySlots.Where(s => s.MaquinaId == maquinaId);
-
-            var stockMaquinas = await querySlots
-                .GroupBy(s => s.ProductoId!.Value)
-                .Select(g => new { ProductoId = g.Key, Stock = g.Sum(s => s.StockActual) })
-                .ToListAsync();
-
-            var querySlotsAll = _context.ConfiguracionSlots
-                .Where(s => s.ProductoId != null && s.ProductoId != 0);
-            if (maquinaId > 0) querySlotsAll = querySlotsAll.Where(s => s.MaquinaId == maquinaId);
-
-            var configSlots = await querySlotsAll
-                .Select(s => s.ProductoId!.Value)
-                .Distinct()
-                .ToListAsync();
-            var productosEnSlots = new HashSet<int>(configSlots);
-
-            var productos = await _context.Productos.ToListAsync();
-
-            var result = new List<PurchaseSuggestionDto>();
-
-            foreach (var p in productos)
+            var result = await _cache.GetOrCreateAsync(key, async (entry) =>
             {
-                var ventasPeriodo = ventas.FirstOrDefault(v => v.ProductoId == p.Id)?.Cantidad ?? 0;
-                var stockEnMaquinas = stockMaquinas.FirstOrDefault(s => s.ProductoId == p.Id)?.Stock ?? 0;
-                
-                int sugerido = ventasPeriodo - (stockEnMaquinas + p.StockBodega);
-                if (sugerido < 0) sugerido = 0;
+                entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromDays(5);
 
-                result.Add(new PurchaseSuggestionDto
+                DateTime fechaInicio = DateTime.Now.Date.AddDays(-dias);
+
+                var queryVentas = _context.Ventas
+                    .Where(v => v.FechaLocal >= fechaInicio)
+                    .Where(v => v.ProductoId != null && v.ProductoId != 0);
+                if (maquinaId > 0) queryVentas = queryVentas.Where(v => v.MaquinaId == maquinaId);
+
+                var ventas = await queryVentas
+                    .GroupBy(v => v.ProductoId!.Value)
+                    .Select(g => new { ProductoId = g.Key, Cantidad = g.Count() })
+                    .ToListAsync();
+
+                var querySlots = _context.ConfiguracionSlots
+                    .Where(s => s.ProductoId != null && s.ProductoId != 0);
+                if (maquinaId > 0) querySlots = querySlots.Where(s => s.MaquinaId == maquinaId);
+
+                var stockMaquinas = await querySlots
+                    .GroupBy(s => s.ProductoId!.Value)
+                    .Select(g => new { ProductoId = g.Key, Stock = g.Sum(s => s.StockActual) })
+                    .ToListAsync();
+
+                var querySlotsAll = _context.ConfiguracionSlots
+                    .Where(s => s.ProductoId != null && s.ProductoId != 0);
+                if (maquinaId > 0) querySlotsAll = querySlotsAll.Where(s => s.MaquinaId == maquinaId);
+
+                var configSlots = await querySlotsAll
+                    .Select(s => s.ProductoId!.Value)
+                    .Distinct()
+                    .ToListAsync();
+                var productosEnSlots = new HashSet<int>(configSlots);
+
+                var productos = await _context.Productos.ToListAsync();
+
+                var resultInner = new List<PurchaseSuggestionDto>();
+
+                foreach (var p in productos)
                 {
-                    ProductoId = p.Id,
-                    NombreProducto = p.Nombre,
-                    VentasUltimos30Dias = ventasPeriodo,
-                    StockActualMaquinas = stockEnMaquinas,
-                    StockBodega = p.StockBodega,
-                    CantidadSugerida = sugerido,
-                    EnMaquina = productosEnSlots.Contains(p.Id)
-                });
-            }
+                    var ventasPeriodo = ventas.FirstOrDefault(v => v.ProductoId == p.Id)?.Cantidad ?? 0;
+                    var stockEnMaquinas = stockMaquinas.FirstOrDefault(s => s.ProductoId == p.Id)?.Stock ?? 0;
 
-            return result.OrderByDescending(x => x.CantidadSugerida).ThenByDescending(x => x.VentasUltimos30Dias).ToList();
+                    int sugerido = ventasPeriodo - (stockEnMaquinas + p.StockBodega);
+                    if (sugerido < 0) sugerido = 0;
+
+                    resultInner.Add(new PurchaseSuggestionDto
+                    {
+                        ProductoId = p.Id,
+                        NombreProducto = p.Nombre,
+                        VentasUltimos30Dias = ventasPeriodo,
+                        StockActualMaquinas = stockEnMaquinas,
+                        StockBodega = p.StockBodega,
+                        CantidadSugerida = sugerido,
+                        EnMaquina = productosEnSlots.Contains(p.Id)
+                    });
+                }
+
+                return resultInner.OrderByDescending(x => x.CantidadSugerida).ThenByDescending(x => x.VentasUltimos30Dias).ToList();
+            });
+
+            return result!;
         }
 
         public async Task<(byte[] content, string fileName)> ExportarSugerenciaCompraAsync(int dias = 30, int maquinaId = 0)
