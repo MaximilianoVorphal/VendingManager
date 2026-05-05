@@ -23,6 +23,7 @@ public class CompraService : ICompraService
             .Include(c => c.Detalles)
             .ThenInclude(d => d.Producto)
             .OrderByDescending(c => c.FechaCompra)
+            .ThenByDescending(c => c.Id)
             .AsQueryable();
 
         if (count.HasValue)
