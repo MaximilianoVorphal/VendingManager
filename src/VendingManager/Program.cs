@@ -6,6 +6,7 @@ using Serilog.Formatting.Compact;
 using VendingManager.Core.Configuration;
 using VendingManager.Infrastructure.Data;
 using VendingManager.Infrastructure.Data.Repositories;
+using VendingManager.Infrastructure.Interceptors;
 using VendingManager.Infrastructure.Services;
 using VendingManager.Web;
 using Microsoft.AspNetCore.Components.Authorization;
@@ -77,8 +78,13 @@ builder.Services.AddAuthorization(options =>
 });
 
 // 2. Base de Datos (SQL Express)
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddSingleton<AuditSaveChangesInterceptor>();
+builder.Services.AddDbContext<ApplicationDbContext>((sp, options) =>
+{
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"));
+    options.AddInterceptors(sp.GetRequiredService<AuditSaveChangesInterceptor>());
+});
 
 // 2.1 Configuration — VendingConfig
 builder.Services.Configure<VendingConfig>(builder.Configuration.GetSection("VendingConfig"));
