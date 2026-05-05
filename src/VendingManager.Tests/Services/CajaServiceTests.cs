@@ -7,6 +7,7 @@ using Moq;
 using VendingManager.Core.Configuration;
 using VendingManager.Core.Entities;
 using VendingManager.Core.Interfaces;
+using VendingManager.Infrastructure.Data.Repositories;
 using VendingManager.Infrastructure.Services;
 using VendingManager.Tests.TestData;
 
@@ -15,6 +16,7 @@ public class CajaServiceTests : IDisposable
     private readonly ApplicationDbContext _context;
     private readonly Mock<IWebHostEnvironment> _mockEnvironment;
     private readonly Mock<IInformesService> _mockInformesService;
+    private readonly Mock<IExcelExportService> _mockExcelExport;
     private readonly IOptions<VendingConfig> _config;
     private readonly CajaService _cajaService;
 
@@ -25,6 +27,7 @@ public class CajaServiceTests : IDisposable
         _mockEnvironment.Setup(e => e.EnvironmentName).Returns("Production");
         _mockEnvironment.Setup(e => e.ContentRootPath).Returns("/tmp");
         _mockInformesService = new Mock<IInformesService>();
+        _mockExcelExport = new Mock<IExcelExportService>();
 
         var vendingConfig = new VendingConfig
         {
@@ -35,7 +38,11 @@ public class CajaServiceTests : IDisposable
         };
         _config = Options.Create(vendingConfig);
 
-        _cajaService = new CajaService(_context, _mockEnvironment.Object, _mockInformesService.Object, _config);
+        var ventaRepo = new VentaRepository(_context);
+        var maquinaRepo = new MaquinaRepository(_context);
+        var business = new CajaBusinessService(_context, ventaRepo, maquinaRepo, _mockExcelExport.Object, _config);
+
+        _cajaService = new CajaService(_context, _mockEnvironment.Object, _mockInformesService.Object, _config, _mockExcelExport.Object, business);
     }
 
     public void Dispose()

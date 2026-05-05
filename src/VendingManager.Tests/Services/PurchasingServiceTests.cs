@@ -2,14 +2,17 @@ namespace VendingManager.Tests.Services;
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using Moq;
 using VendingManager.Core.Configuration;
 using VendingManager.Core.Entities;
+using VendingManager.Core.Interfaces;
 using VendingManager.Infrastructure.Services;
 using VendingManager.Tests.TestData;
 
 public class PurchasingServiceTests : IDisposable
 {
     private readonly ApplicationDbContext _context;
+    private readonly Mock<IExcelExportService> _mockExcelExport;
     private readonly PurchasingService _purchasingService;
 
     public PurchasingServiceTests()
@@ -24,8 +27,9 @@ public class PurchasingServiceTests : IDisposable
             RotacionUmbralCritico = 7
         };
         var config = Options.Create(vendingConfig);
+        _mockExcelExport = new Mock<IExcelExportService>();
 
-        _purchasingService = new PurchasingService(_context, config);
+        _purchasingService = new PurchasingService(_context, config, _mockExcelExport.Object);
     }
 
     public void Dispose()

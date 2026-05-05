@@ -11,12 +11,14 @@ using VendingManager.Tests.TestData;
 public class SalesAnalyticsServiceTests : IDisposable
 {
     private readonly ApplicationDbContext _context;
+    private readonly Mock<IExcelExportService> _mockExcelExport;
     private readonly SalesAnalyticsService _analyticsService;
 
     public SalesAnalyticsServiceTests()
     {
         _context = TestDataHelpers.CreateInMemoryContext($"AnalyticsTestDb_{Guid.NewGuid()}");
-        _analyticsService = new SalesAnalyticsService(_context);
+        _mockExcelExport = new Mock<IExcelExportService>();
+        _analyticsService = new SalesAnalyticsService(_context, _mockExcelExport.Object);
     }
 
     public void Dispose()
