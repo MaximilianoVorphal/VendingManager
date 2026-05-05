@@ -15,10 +15,12 @@ namespace VendingManager.Controllers
     public class AuditoriaController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
+        private readonly ILogger<AuditoriaController> _logger;
 
-        public AuditoriaController(ApplicationDbContext context)
+        public AuditoriaController(ApplicationDbContext context, ILogger<AuditoriaController> logger)
         {
             _context = context;
+            _logger = logger;
         }
 
         [HttpGet]
@@ -58,38 +60,54 @@ namespace VendingManager.Controllers
         [HttpGet("history")]
         public async Task<ActionResult<IEnumerable<HistoryListItemDto>>> GetHistory()
         {
-            var historyItems = new List<HistoryListItemDto>();
-
-            // Each history table queried directly (no dynamic EF Core reflection — avoids SQL translation errors)
-            var tasks = new List<Task<List<HistoryListItemDto>>>
+            try
             {
-                GetHistoryRecords<CompraHistory>("Compra"),
-                GetHistoryRecords<ProductoHistory>("Producto"),
-                GetHistoryRecords<MaquinaHistory>("Maquina"),
-                GetHistoryRecords<VentaHistory>("Venta"),
-                GetHistoryRecords<MovimientoCajaHistory>("MovimientoCaja"),
-                GetHistoryRecords<ConfiguracionSlotHistory>("ConfiguracionSlot"),
-                GetHistoryRecords<GastoRecurrenteHistory>("GastoRecurrente"),
-                GetHistoryRecords<OrdenCargaHistory>("OrdenCarga"),
-                GetHistoryRecords<UserHistory>("User")
-            };
+                var historyItems = new List<HistoryListItemDto>();
 
-            var results = await Task.WhenAll(tasks);
-            foreach (var list in results)
-                historyItems.AddRange(list);
+                // Each history table queried directly (no dynamic EF Core reflection — avoids SQL translation errors)
+                var tasks = new List<Task<List<HistoryListItemDto>>>
+                {
+                    GetHistoryRecords<CompraHistory>("Compra"),
+                    GetHistoryRecords<ProductoHistory>("Producto"),
+                    GetHistoryRecords<MaquinaHistory>("Maquina"),
+                    GetHistoryRecords<VentaHistory>("Venta"),
+                    GetHistoryRecords<MovimientoCajaHistory>("MovimientoCaja"),
+                    GetHistoryRecords<ConfiguracionSlotHistory>("ConfiguracionSlot"),
+                    GetHistoryRecords<GastoRecurrenteHistory>("GastoRecurrente"),
+                    GetHistoryRecords<OrdenCargaHistory>("OrdenCarga"),
+                    GetHistoryRecords<UserHistory>("User")
+                };
 
-            // Sort by timestamp descending across all types (in memory)
-            var sorted = historyItems.OrderByDescending(h => h.Timestamp).Take(200).ToList();
-            return Ok(sorted);
+                var results = await Task.WhenAll(tasks);
+                foreach (var list in results)
+                    historyItems.AddRange(list);
+
+                // Sort by timestamp descending across all types (in memory)
+                var sorted = historyItems.OrderByDescending(h => h.Timestamp).Take(200).ToList();
+                return Ok(sorted);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "GetHistory failed. ExceptionType: {ExceptionType}, Message: {Message}",
+                    ex.GetType().FullName, ex.Message);
+                throw; // Let ProblemDetails middleware handle it
+            }
         }
 
         private async Task<List<HistoryListItemDto>> GetHistoryRecords<THistory>(string entityName)
             where THistory : class
         {
-            var records = await _context.Set<THistory>()
-                .AsQueryable()
-                .Take(100)
-                .ToListAsync();
+            List<THistory> records;
+            try
+            {
+                records = await _context.Set<THistory>().Take(100).ToListAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to query history table {EntityType}. Exception: {ExceptionType} — {Message}",
+                    entityName, ex.GetType().FullName, ex.Message);
+                return new List<HistoryListItemDto>(); // Return empty, don't crash the whole page
+            }
 
             var historyType = typeof(THistory);
             var idProp = historyType.GetProperty("Id")!;
