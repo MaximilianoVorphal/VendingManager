@@ -284,13 +284,21 @@ public class CompraService : ICompraService
         if (compra == null)
             throw new KeyNotFoundException($"Compra {compraId} no encontrada.");
 
-        var uploadDir = Path.Combine(_env.WebRootPath, "uploads", "compras", "facturas");
+        // Use WebRootPath if available, fall back to ContentRootPath/wwwroot
+        var webRoot = _env.WebRootPath;
+        if (string.IsNullOrEmpty(webRoot))
+        {
+            webRoot = Path.Combine(_env.ContentRootPath, "wwwroot");
+            Directory.CreateDirectory(webRoot);
+        }
+
+        var uploadDir = Path.Combine(webRoot, "uploads", "compras", "facturas");
         Directory.CreateDirectory(uploadDir);
 
         // Delete old image if exists
         if (!string.IsNullOrEmpty(compra.FacturaImagenPath))
         {
-            var oldPath = Path.Combine(_env.WebRootPath, compra.FacturaImagenPath.TrimStart('/'));
+            var oldPath = Path.Combine(webRoot, compra.FacturaImagenPath.TrimStart('/'));
             if (System.IO.File.Exists(oldPath))
                 System.IO.File.Delete(oldPath);
         }
