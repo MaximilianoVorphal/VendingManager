@@ -23,6 +23,15 @@ namespace VendingManager.Infrastructure.Data
         public DbSet<Compra> Compras { get; set; } = null!;
         public DbSet<DetalleCompra> DetallesCompra { get; set; } = null!;
         public DbSet<GastoRecurrente> GastosRecurrentes { get; set; } = null!;
+        public DbSet<CompraHistory> ComprasHistory { get; set; } = null!;
+        public DbSet<ProductoHistory> ProductosHistory { get; set; } = null!;
+        public DbSet<MaquinaHistory> MaquinasHistory { get; set; } = null!;
+        public DbSet<VentaHistory> VentasHistory { get; set; } = null!;
+        public DbSet<MovimientoCajaHistory> MovimientosCajaHistory { get; set; } = null!;
+        public DbSet<ConfiguracionSlotHistory> ConfiguracionSlotsHistory { get; set; } = null!;
+        public DbSet<GastoRecurrenteHistory> GastosRecurrentesHistory { get; set; } = null!;
+        public DbSet<OrdenCargaHistory> OrdenesCargaHistory { get; set; } = null!;
+        public DbSet<UserHistory> UsersHistory { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
