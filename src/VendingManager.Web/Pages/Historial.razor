@@ -1,0 +1,404 @@
+@page "/historial"
+@using VendingManager.Shared.DTOs
+@using DiffPlex
+@using DiffPlex.DiffBuilder
+@using DiffPlex.DiffBuilder.Model
+@inject HttpClient Http
+@inject NavigationManager Navigation
+
+<PageTitle>HISTORIAL DE CAMBIOS</PageTitle>
+
+<div class="industrial-wrapper container-fluid px-4 mt-4">
+    <div class="row align-items-center mb-4 border-bottom border-3 border-dark pb-3">
+        <div class="col-12 d-flex justify-content-between align-items-center flex-wrap gap-3">
+            <div>
+                <h2 class="m-0 fw-bold text-uppercase" style="letter-spacing: -1px;">HISTORIAL DE CAMBIOS</h2>
+                <small class="text-muted fw-bold">AUDITORÍA DE ENTIDADES</small>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <span class="badge bg-dark rounded-0 fw-bold px-3 py-2">
+                    @HistorialItems.Count REGISTROS
+                </span>
+                <button class="btn btn-outline-dark rounded-0 fw-bold" @onclick="CargarHistorial">
+                    <i class="bi bi-arrow-clockwise me-2"></i>ACTUALIZAR
+                </button>
+            </div>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(Error))
+    {
+        <div class="alert alert-danger border-dark rounded-0 fw-bold mb-4 shadow-sm fade show">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i> @Error
+        </div>
+    }
+
+    <div class="card border-2 border-dark rounded-0 shadow my-4">
+        <div class="card-header bg-dark text-white rounded-0 fw-bold d-flex justify-content-between align-items-center">
+            <span><i class="bi bi-clock-history me-2"></i>REGISTROS DE HISTORIAL</span>
+            <span class="badge bg-light text-dark">@($"Últimos {HistorialItems.Count} cambios")</span>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover table-bordered border-dark m-0 align-middle">
+                <thead class="bg-secondary text-white text-uppercase small font-monospace fw-bold">
+                    <tr>
+                        <th style="min-width: 120px;">TIMESTAMP</th>
+                        <th style="min-width: 100px;">ENTIDAD</th>
+                        <th style="min-width: 80px;">ACCIÓN</th>
+                        <th style="min-width: 120px;">USUARIO</th>
+                        <th style="width: 80px;">DETALLES</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white fw-bold" style="font-size: 0.9rem;">
+                    @if (Cargando)
+                    {
+                        <tr>
+                            <td colspan="5" class="text-center p-4">
+                                <div class="spinner-border text-dark spinner-border-sm me-2" role="status"></div>
+                                Cargando historial...
+                            </td>
+                        </tr>
+                    }
+                    else if (!HistorialItems.Any())
+                    {
+                        <tr>
+                            <td colspan="5" class="text-center p-4 text-muted">
+                                <i class="bi bi-inbox" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
+                                No hay registros de historial
+                            </td>
+                        </tr>
+                    }
+                    else
+                    {
+                        @foreach (var item in HistorialItems)
+                        {
+                            <tr>
+                                <td class="font-monospace text-nowrap">
+                                    @item.Timestamp.ToString("yyyy-MM-dd HH:mm:ss")
+                                </td>
+                                <td>
+                                    <span class="badge bg-dark rounded-0 fw-bold">@item.EntityType</span>
+                                </td>
+                                <td>
+                                    @switch (item.Action)
+                                    {
+                                        case "Added":
+                                            <span class="badge bg-success rounded-0 fw-bold"><i class="bi bi-plus-circle me-1"></i>AGREGADO</span>
+                                            break;
+                                        case "Modified":
+                                            <span class="badge bg-warning text-dark rounded-0 fw-bold"><i class="bi bi-pencil-square me-1"></i>MODIFICADO</span>
+                                            break;
+                                        case "Deleted":
+                                            <span class="badge bg-danger rounded-0 fw-bold"><i class="bi bi-trash-fill me-1"></i>ELIMINADO</span>
+                                            break;
+                                        default:
+                                            <span class="badge bg-secondary rounded-0">@item.Action</span>
+                                            break;
+                                    }
+                                </td>
+                                <td class="text-nowrap">
+                                    <i class="bi bi-person me-1"></i>@item.Usuario
+                                </td>
+                                <td class="text-center">
+                                    <button class="btn btn-sm btn-outline-dark rounded-0 fw-bold border-dark"
+                                            @onclick="() => ToggleExpand(item.Id)">
+                                        @if (expandedItems.Contains(item.Id))
+                                        {
+                                            <i class="bi bi-chevron-up"></i>
+                                        }
+                                        else
+                                        {
+                                            <i class="bi bi-chevron-down"></i>
+                                        }
+                                        VER DIFF
+                                    </button>
+                                </td>
+                            </tr>
+                            @if (expandedItems.Contains(item.Id))
+                            {
+                                <tr class="bg-light">
+                                    <td colspan="5" class="p-4">
+                                        <div class="border border-dark p-3 bg-white">
+                                            <h6 class="fw-bold mb-3 border-bottom border-dark pb-2">
+                                                <i class="bi bi-arrow-left-right me-2"></i>COMPARACIÓN DE CAMBIOS
+                                            </h6>
+                                            @if (!string.IsNullOrEmpty(item.BeforeJson) && !string.IsNullOrEmpty(item.AfterJson))
+                                            {
+                                                <div class="diff-container">
+                                                    @RenderDiff(item.BeforeJson, item.AfterJson)
+                                                </div>
+                                            }
+                                            else if (!string.IsNullOrEmpty(item.BeforeJson) && string.IsNullOrEmpty(item.AfterJson))
+                                            {
+                                                <div class="diff-container">
+                                                    <div class="diff-removed-only">
+                                                        <strong>ANTES (entidad eliminada):</strong>
+                                                        <pre class="mb-0 p-2 bg-danger bg-opacity-10 border border-danger">@item.BeforeJson</pre>
+                                                    </div>
+                                                </div>
+                                            }
+                                            else if (string.IsNullOrEmpty(item.BeforeJson) && !string.IsNullOrEmpty(item.AfterJson))
+                                            {
+                                                <div class="diff-container">
+                                                    <div class="diff-added-only">
+                                                        <strong>DESPUÉS (entidad agregada):</strong>
+                                                        <pre class="mb-0 p-2 bg-success bg-opacity-10 border border-success">@item.AfterJson</pre>
+                                                    </div>
+                                                </div>
+                                            }
+                                            else
+                                            {
+                                                <p class="text-muted mb-0">No hay datos JSON disponibles para mostrar.</p>
+                                            }
+
+                                            <!-- Rollback button -->
+                                            @if (!string.IsNullOrEmpty(item.BeforeJson) && item.Action == "Modified")
+                                            {
+                                                <div class="mt-3 pt-3 border-top border-dark">
+                                                    <button class="btn btn-warning rounded-0 fw-bold border-dark text-dark"
+                                                            @onclick="() => ConfirmarRollback(item)"
+                                                            disabled="@ProcesandoRollback">
+                                                        <i class="bi bi-arrow-counterclockwise me-2"></i>RESTAURAR ESTA VERSIÓN
+                                                    </button>
+                                                    <small class="text-muted ms-2">Restaurará el estado anterior a este cambio.</small>
+                                                </div>
+                                            }
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Confirmación Rollback -->
+@if (ItemParaRollback != null)
+{
+    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content rounded-0 border-2 border-dark shadow-lg">
+                <div class="modal-header bg-warning text-dark rounded-0 border-bottom border-dark">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-exclamation-triangle me-2"></i>CONFIRMAR ROLLBACK</h5>
+                    <button type="button" class="btn-close" @onclick="CancelarRollback"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <p class="fs-5">
+                        ¿Estás seguro de que deseas restaurar <strong>@ItemParaRollback.EntityType</strong> al estado anterior?
+                    </p>
+                    <p class="text-muted">
+                        Esta acción modificará la entidad y se registrará en el historial de auditoría.
+                    </p>
+                    @if (!string.IsNullOrEmpty(ErrorRollback))
+                    {
+                        <div class="alert alert-danger border-dark rounded-0 fw-bold mb-0">
+                            <i class="bi bi-exclamation-triangle-fill me-2"></i> @ErrorRollback
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer bg-light rounded-0">
+                    <button type="button" class="btn btn-outline-dark rounded-0 fw-bold" @onclick="CancelarRollback" disabled="@ProcesandoRollback">
+                        CANCELAR
+                    </button>
+                    <button type="button" class="btn btn-warning rounded-0 fw-bold border-dark text-dark" @onclick="EjecutarRollback" disabled="@ProcesandoRollback">
+                        @if (ProcesandoRollback)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                        }
+                        else
+                        {
+                            <i class="bi bi-arrow-counterclockwise me-2"></i>
+                        }
+                        CONFIRMAR ROLLBACK
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<style>
+    .diff-container {
+        font-family: 'Courier New', monospace;
+        font-size: 0.85rem;
+        line-height: 1.4;
+    }
+
+    .diff-line {
+        padding: 2px 8px;
+        white-space: pre-wrap;
+        word-break: break-all;
+    }
+
+    .diff-added {
+        background-color: #d4edda !important;
+        color: #155724 !important;
+    }
+
+    .diff-removed {
+        background-color: #f8d7da !important;
+        color: #721c24 !important;
+        text-decoration: line-through;
+    }
+
+    .diff-modified {
+        background-color: #fff3cd !important;
+        color: #856404 !important;
+    }
+
+    .diff-unchanged {
+        background-color: #ffffff !important;
+        color: #333333 !important;
+    }
+
+    .diff-header {
+        background-color: #e9ecef !important;
+        color: #495057 !important;
+        font-weight: bold;
+    }
+
+    pre {
+        white-space: pre-wrap;
+        word-wrap: break-word;
+    }
+</style>
+
+@code {
+    private List<HistoryListItemDto> HistorialItems = new();
+    private bool Cargando = true;
+    private string? Error;
+    private HashSet<int> expandedItems = new();
+
+    // Rollback state
+    private HistoryListItemDto? ItemParaRollback;
+    private bool ProcesandoRollback = false;
+    private string? ErrorRollback;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarHistorial();
+    }
+
+    private async Task CargarHistorial()
+    {
+        try
+        {
+            Cargando = true;
+            Error = null;
+            HistorialItems = await Http.GetFromJsonAsync<List<HistoryListItemDto>>("api/auditoria/history") ?? new();
+        }
+        catch (Exception ex)
+        {
+            Error = $"Error al cargar historial: {ex.Message}";
+        }
+        finally
+        {
+            Cargando = false;
+        }
+    }
+
+    private void ToggleExpand(int id)
+    {
+        if (expandedItems.Contains(id))
+            expandedItems.Remove(id);
+        else
+            expandedItems.Add(id);
+    }
+
+    private void ConfirmarRollback(HistoryListItemDto item)
+    {
+        ItemParaRollback = item;
+        ErrorRollback = null;
+    }
+
+    private void CancelarRollback()
+    {
+        ItemParaRollback = null;
+        ErrorRollback = null;
+    }
+
+    private async Task EjecutarRollback()
+    {
+        if (ItemParaRollback == null) return;
+
+        try
+        {
+            ProcesandoRollback = true;
+            ErrorRollback = null;
+
+            var response = await Http.PostAsync(
+                $"api/auditoria/rollback/{ItemParaRollback.EntityType}/{ItemParaRollback.EntityId}/{ItemParaRollback.Id}",
+                null);
+
+            if (response.IsSuccessStatusCode)
+            {
+                CancelarRollback();
+                await CargarHistorial();
+            }
+            else
+            {
+                var content = await response.Content.ReadAsStringAsync();
+                ErrorRollback = $"Error {response.StatusCode}: {content}";
+            }
+        }
+        catch (Exception ex)
+        {
+            ErrorRollback = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            ProcesandoRollback = false;
+        }
+    }
+
+    private RenderFragment RenderDiff(string beforeJson, string afterJson)
+    {
+        return builder =>
+        {
+            var differ = new InlineDiffBuilder(new Differ());
+            var diffModel = differ.BuildDiffModel(beforeJson, afterJson);
+
+            builder.OpenElement(0, "div");
+            builder.AddAttribute(1, "class", "diff-container");
+
+            // Header row
+            builder.OpenElement(2, "div");
+            builder.AddAttribute(3, "class", "diff-line diff-header");
+            builder.AddContent(4, "COMPARACIÓN DE VERSIONES");
+            builder.CloseElement();
+
+            var lineNumber = 5;
+            foreach (var line in diffModel.Lines)
+            {
+                builder.OpenElement(lineNumber++, "div");
+
+                var cssClass = line.Type switch
+                {
+                    ChangeType.Inserted => "diff-line diff-added",
+                    ChangeType.Deleted => "diff-line diff-removed",
+                    ChangeType.Modified => "diff-line diff-modified",
+                    ChangeType.Imaginary => "diff-line diff-unchanged",
+                    _ => "diff-line diff-unchanged"
+                };
+
+                builder.AddAttribute(lineNumber++, "class", cssClass);
+
+                var prefix = line.Type switch
+                {
+                    ChangeType.Inserted => "+ ",
+                    ChangeType.Deleted => "- ",
+                    ChangeType.Modified => "~ ",
+                    _ => "  "
+                };
+
+                builder.AddContent(lineNumber++, $"{prefix}{line.Text}");
+                builder.CloseElement();
+            }
+
+            builder.CloseElement();
+        };
+    }
+}
