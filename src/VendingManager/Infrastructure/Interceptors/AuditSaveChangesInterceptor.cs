@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
@@ -13,6 +14,15 @@ namespace VendingManager.Infrastructure.Interceptors;
 /// </summary>
 public class AuditSaveChangesInterceptor : SaveChangesInterceptor
 {
+    private readonly IHttpContextAccessor? _httpContextAccessor;
+
+    public AuditSaveChangesInterceptor() { }
+
+    public AuditSaveChangesInterceptor(IHttpContextAccessor httpContextAccessor)
+    {
+        _httpContextAccessor = httpContextAccessor;
+    }
+
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         ReferenceHandler = ReferenceHandler.IgnoreCycles,
@@ -37,7 +47,7 @@ public class AuditSaveChangesInterceptor : SaveChangesInterceptor
             if (entry.State is EntityState.Detached or EntityState.Unchanged)
                 continue;
 
-            var auditoria = CreateAuditoriaRecord(entry, context);
+            var auditoria = CreateAuditoriaRecord(entry, context, _httpContextAccessor);
             if (auditoria is not null)
             {
                 context.Set<Auditoria>().Add(auditoria);
@@ -47,7 +57,10 @@ public class AuditSaveChangesInterceptor : SaveChangesInterceptor
         return base.SavingChangesAsync(eventData, result, cancellationToken);
     }
 
-    private static Auditoria? CreateAuditoriaRecord(EntityEntry entry, DbContext context)
+    private static Auditoria? CreateAuditoriaRecord(
+        EntityEntry entry,
+        DbContext context,
+        IHttpContextAccessor? httpContextAccessor)
     {
         var entityType = entry.Entity.GetType().Name;
         var action = entry.State switch
@@ -76,7 +89,7 @@ public class AuditSaveChangesInterceptor : SaveChangesInterceptor
         }
 
         // Resolve Usuario: try IHttpContextAccessor, fallback to "system"
-        var usuario = ResolveUsuario(context);
+        var usuario = ResolveUsuario(context, httpContextAccessor);
 
         // Capture entity primary key
         var entityId = CaptureEntityId(entry);
@@ -88,6 +101,10 @@ public class AuditSaveChangesInterceptor : SaveChangesInterceptor
         {
             Usuario = usuario,
             Accion = action,
+            EntityId = entityId,
+            EntityType = entityType,
+            BeforeJson = beforeJson,
+            AfterJson = afterJson,
             Detalle = detalle,
             Fecha = DateTime.UtcNow
         };
@@ -137,16 +154,13 @@ public class AuditSaveChangesInterceptor : SaveChangesInterceptor
         return null;
     }
 
-    private static string ResolveUsuario(DbContext context)
+    private static string ResolveUsuario(DbContext context, IHttpContextAccessor? httpContextAccessor)
     {
-        if (context is IServiceProvider sp)
+        // Try injected HttpContextAccessor first
+        if (httpContextAccessor?.HttpContext?.User?.Identity?.Name is { } username
+            && !string.IsNullOrEmpty(username))
         {
-            var httpContextAccessor = sp.GetService<IHttpContextAccessor>();
-            if (httpContextAccessor?.HttpContext?.User?.Identity?.Name is { } username
-                && !string.IsNullOrEmpty(username))
-            {
-                return username;
-            }
+            return username;
         }
 
         return "system";
