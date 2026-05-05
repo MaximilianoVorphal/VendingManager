@@ -29,6 +29,23 @@ public class AuditSaveChangesInterceptor : SaveChangesInterceptor
         WriteIndented = false
     };
 
+    /// <summary>
+    /// Map from entity type name to its history type name.
+    /// Only entities in this map get history records written.
+    /// </summary>
+    private static readonly Dictionary<string, string> HistoryTypeMap = new()
+    {
+        { "Compra", "CompraHistory" },
+        { "Producto", "ProductoHistory" },
+        { "Maquina", "MaquinaHistory" },
+        { "Venta", "VentaHistory" },
+        { "MovimientoCaja", "MovimientoCajaHistory" },
+        { "ConfiguracionSlot", "ConfiguracionSlotHistory" },
+        { "GastoRecurrente", "GastoRecurrenteHistory" },
+        { "OrdenCarga", "OrdenCargaHistory" },
+        { "User", "UserHistory" }
+    };
+
     public override ValueTask<InterceptionResult<int>> SavingChangesAsync(
         DbContextEventData eventData,
         InterceptionResult<int> result,
@@ -51,6 +68,22 @@ public class AuditSaveChangesInterceptor : SaveChangesInterceptor
             if (auditoria is not null)
             {
                 context.Set<Auditoria>().Add(auditoria);
+            }
+
+            // Write history record if entity type is in the history map
+            var historyRecord = CreateHistoryRecord(entry, context, _httpContextAccessor);
+            if (historyRecord is not null)
+            {
+                var historyTypeName = entry.Entity.GetType().Name;
+                if (HistoryTypeMap.TryGetValue(historyTypeName, out var historyTypeFullName))
+                {
+                    var historyType = Type.GetType($"VendingManager.Core.Entities.{historyTypeFullName}");
+                    if (historyType is not null)
+                    {
+                        // Use context.Add for the dynamic entity - works with object parameter
+                        context.Add(historyRecord);
+                    }
+                }
             }
         }
 
@@ -108,6 +141,69 @@ public class AuditSaveChangesInterceptor : SaveChangesInterceptor
             Detalle = detalle,
             Fecha = DateTime.UtcNow
         };
+    }
+
+    private static object? CreateHistoryRecord(
+        EntityEntry entry,
+        DbContext context,
+        IHttpContextAccessor? httpContextAccessor)
+    {
+        var entityType = entry.Entity.GetType().Name;
+        if (!HistoryTypeMap.ContainsKey(entityType))
+            return null;
+
+        var action = entry.State switch
+        {
+            EntityState.Added => "Added",
+            EntityState.Modified => "Modified",
+            EntityState.Deleted => "Deleted",
+            _ => null
+        };
+
+        if (action is null)
+            return null;
+
+        string? beforeJson = null;
+        string? afterJson = null;
+
+        if (entry.State is EntityState.Added or EntityState.Modified)
+            afterJson = SerializeToJson(entry.CurrentValues);
+
+        if (entry.State is EntityState.Modified or EntityState.Deleted)
+            beforeJson = SerializeToJson(entry.OriginalValues);
+
+        var usuario = ResolveUsuario(context, httpContextAccessor);
+        var entityId = CaptureEntityId(entry);
+
+        // Build a dynamic history record using the history type's constructor
+        var historyTypeName = HistoryTypeMap[entityType];
+        var historyType = Type.GetType($"VendingManager.Core.Entities.{historyTypeName}");
+        if (historyType is null)
+            return null;
+
+        var historyRecord = Activator.CreateInstance(historyType);
+        if (historyRecord is null)
+            return null;
+
+        // Set audit properties via reflection
+        var historyTypeProps = historyType.GetProperties();
+        foreach (var prop in historyTypeProps)
+        {
+            if (prop.Name == "EntityId" && entityId.HasValue)
+                prop.SetValue(historyRecord, entityId.Value);
+            else if (prop.Name == "Action")
+                prop.SetValue(historyRecord, action);
+            else if (prop.Name == "BeforeJson")
+                prop.SetValue(historyRecord, beforeJson);
+            else if (prop.Name == "AfterJson")
+                prop.SetValue(historyRecord, afterJson);
+            else if (prop.Name == "Timestamp")
+                prop.SetValue(historyRecord, DateTime.UtcNow);
+            else if (prop.Name == "Usuario")
+                prop.SetValue(historyRecord, usuario);
+        }
+
+        return historyRecord;
     }
 
     private static string? SerializeToJson(PropertyValues propertyValues)
