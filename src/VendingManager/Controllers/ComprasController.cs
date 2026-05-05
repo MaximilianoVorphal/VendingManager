@@ -13,13 +13,11 @@ public class ComprasController : ControllerBase
 {
     private readonly ICompraService _compraService;
     private readonly IFacturaOcrService _facturaOcrService;
-    private readonly IWebHostEnvironment _env;
 
-    public ComprasController(ICompraService compraService, IFacturaOcrService facturaOcrService, IWebHostEnvironment env)
+    public ComprasController(ICompraService compraService, IFacturaOcrService facturaOcrService)
     {
         _compraService = compraService;
         _facturaOcrService = facturaOcrService;
-        _env = env;
     }
 
     [HttpGet]
@@ -224,11 +222,7 @@ public class ComprasController : ControllerBase
         if (string.IsNullOrEmpty(compra.FacturaImagenPath))
             return NotFound("Esta compra no tiene imagen de factura.");
 
-        var webRoot = _env.WebRootPath;
-        if (string.IsNullOrEmpty(webRoot))
-            webRoot = Path.Combine(_env.ContentRootPath, "wwwroot");
-
-        var filePath = Path.Combine(webRoot, compra.FacturaImagenPath.TrimStart('/'));
+        var filePath = _compraService.ResolveFacturaPhysicalPath(compra.FacturaImagenPath);
         if (!System.IO.File.Exists(filePath))
             return NotFound("Archivo de imagen no encontrado en disco.");
 
