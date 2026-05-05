@@ -4,8 +4,10 @@ using System.Linq;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using ExcelDataReader;
 using System.Data;
+using VendingManager.Core.Configuration;
 using VendingManager.Infrastructure.Data;
 using VendingManager.Core.Interfaces;
 using VendingManager.Core.Entities;
@@ -15,10 +17,12 @@ namespace VendingManager.Infrastructure.Services
     public class SalesImportService : ISalesImportService
     {
         private readonly ApplicationDbContext _context;
+        private readonly IOptions<VendingConfig> _config;
 
-        public SalesImportService(ApplicationDbContext context)
+        public SalesImportService(ApplicationDbContext context, IOptions<VendingConfig> config)
         {
             _context = context;
+            _config = config;
         }
 
         public async Task<string> ImportarVentasMaquina(Stream fileStream, string nombreArchivo, DateTime? fechaLimite = null, string? maquinaIdEsperado = null)
@@ -154,7 +158,7 @@ namespace VendingManager.Infrastructure.Services
 
                         var configSlot = maquina.Slots.FirstOrDefault(s => s.NumeroSlot == slot);
 
-                        if (fechaLocal.Date < new DateTime(2025, 12, 18))
+                        if (fechaLocal.Date < _config.Value.CajaStartDate)
                         {
                             configSlot = null;
                         }
