@@ -212,7 +212,11 @@ public class ComprasController : ControllerBase
         if (string.IsNullOrEmpty(compra.FacturaImagenPath))
             return NotFound("Esta compra no tiene imagen de factura.");
 
-        var filePath = Path.Combine(_env.WebRootPath, compra.FacturaImagenPath.TrimStart('/'));
+        var webRoot = _env.WebRootPath;
+        if (string.IsNullOrEmpty(webRoot))
+            webRoot = Path.Combine(_env.ContentRootPath, "wwwroot");
+
+        var filePath = Path.Combine(webRoot, compra.FacturaImagenPath.TrimStart('/'));
         if (!System.IO.File.Exists(filePath))
             return NotFound("Archivo de imagen no encontrado en disco.");
 
