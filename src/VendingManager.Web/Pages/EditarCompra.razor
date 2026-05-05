@@ -370,7 +370,7 @@
     private void EliminarDetalle(DetalleUI d) => detalles.Remove(d);
     private decimal CalcularTotal() => detalles.Sum(d => d.Cantidad * d.CostoUnitario);
 
-    private void HandleFacturaUpload(InputFileChangeEventArgs e)
+    private async Task HandleFacturaUpload(InputFileChangeEventArgs e)
     {
         var file = e.File;
         if (file == null) return;
@@ -385,7 +385,7 @@
         FacturaFile = file;
         FacturaPreviewUrl = null;
         FacturaPreviewData = null;
-        _ = LoadFacturaPreviewData(file);
+        await LoadFacturaPreviewData(file);
         MensajeError = null;
         StateHasChanged();
     }
@@ -438,7 +438,7 @@
             if (response.IsSuccessStatusCode)
             {
                 // Upload new factura image if attached
-                if (FacturaFile != null)
+                if (FacturaPreviewData != null)
                 {
                     await UploadFacturaImagen();
                 }
@@ -454,20 +454,19 @@
 
     private async Task UploadFacturaImagen()
     {
-        if (FacturaFile == null) return;
+        if (FacturaPreviewData == null) return;
 
         try
         {
             using var content = new MultipartFormDataContent();
-            var stream = FacturaFile.OpenReadStream(maxAllowedSize: 5 * 1024 * 1024);
-            using var streamContent = new StreamContent(stream);
-            streamContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(FacturaFile.ContentType);
-            content.Add(streamContent, "file", FacturaFile.Name);
+            var byteContent = new ByteArrayContent(FacturaPreviewData);
+            byteContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(FacturaFile?.ContentType ?? "image/jpeg");
+            content.Add(byteContent, "file", FacturaFile?.Name ?? "factura.jpg");
 
             var uploadResponse = await Http.PostAsync($"api/compras/{Id}/factura", content);
             if (!uploadResponse.IsSuccessStatusCode)
             {
-                MensajeError = "Compra actualizada, pero falló la carga de la imagen de factura.";
+                MensajeError = "Compra actualizada, pero falló la carga de la imagen de factura: " + await uploadResponse.Content.ReadAsStringAsync();
             }
             else
             {
