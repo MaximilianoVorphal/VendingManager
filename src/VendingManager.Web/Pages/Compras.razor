@@ -90,13 +90,20 @@
                                 <td class="text-center">
                                     @if (!string.IsNullOrEmpty(c.FacturaImagenPath))
                                     {
-                                        <a href="@c.FacturaImagenPath" target="_blank" title="Ver factura">
-                                            <img src="@c.FacturaImagenPath" width="40" height="40" class="rounded-1 border border-dark object-fit-cover" style="object-fit: cover;" />
+                                        <a href="api/compras/@c.Id/factura" target="_blank" title="Ver factura original" class="d-inline-block position-relative">
+                                            <img src="api/compras/@c.Id/factura" width="40" height="40" 
+                                                 class="rounded-1 border border-dark" style="object-fit: cover;" 
+                                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';" />
+                                            <i class="bi bi-file-earmark-arrow-down-fill text-dark" 
+                                               style="font-size: 1.5rem; display: none;" 
+                                               title="Factura disponible (click para abrir)"></i>
                                         </a>
                                     }
                                     else
                                     {
-                                        <span class="text-muted" title="Sin imagen de factura"><i class="bi bi-receipt" style="font-size: 1.5rem;"></i></span>
+                                        <span class="text-muted" title="Sin imagen de factura">
+                                            <i class="bi bi-receipt" style="font-size: 1.5rem;"></i>
+                                        </span>
                                     }
                                 </td>
                                 <td>@c.FechaCompra.ToString("dd/MM/yyyy HH:mm")</td>
