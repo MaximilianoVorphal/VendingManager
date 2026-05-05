@@ -64,23 +64,16 @@ namespace VendingManager.Controllers
             {
                 var historyItems = new List<HistoryListItemDto>();
 
-                // Each history table queried directly (no dynamic EF Core reflection — avoids SQL translation errors)
-                var tasks = new List<Task<List<HistoryListItemDto>>>
-                {
-                    GetHistoryRecords<CompraHistory>("Compra"),
-                    GetHistoryRecords<ProductoHistory>("Producto"),
-                    GetHistoryRecords<MaquinaHistory>("Maquina"),
-                    GetHistoryRecords<VentaHistory>("Venta"),
-                    GetHistoryRecords<MovimientoCajaHistory>("MovimientoCaja"),
-                    GetHistoryRecords<ConfiguracionSlotHistory>("ConfiguracionSlot"),
-                    GetHistoryRecords<GastoRecurrenteHistory>("GastoRecurrente"),
-                    GetHistoryRecords<OrdenCargaHistory>("OrdenCarga"),
-                    GetHistoryRecords<UserHistory>("User")
-                };
-
-                var results = await Task.WhenAll(tasks);
-                foreach (var list in results)
-                    historyItems.AddRange(list);
+                // Queries must be sequential — DbContext is not thread-safe (scoped, shared instance)
+                historyItems.AddRange(await GetHistoryRecords<CompraHistory>("Compra"));
+                historyItems.AddRange(await GetHistoryRecords<ProductoHistory>("Producto"));
+                historyItems.AddRange(await GetHistoryRecords<MaquinaHistory>("Maquina"));
+                historyItems.AddRange(await GetHistoryRecords<VentaHistory>("Venta"));
+                historyItems.AddRange(await GetHistoryRecords<MovimientoCajaHistory>("MovimientoCaja"));
+                historyItems.AddRange(await GetHistoryRecords<ConfiguracionSlotHistory>("ConfiguracionSlot"));
+                historyItems.AddRange(await GetHistoryRecords<GastoRecurrenteHistory>("GastoRecurrente"));
+                historyItems.AddRange(await GetHistoryRecords<OrdenCargaHistory>("OrdenCarga"));
+                historyItems.AddRange(await GetHistoryRecords<UserHistory>("User"));
 
                 // Sort by timestamp descending across all types (in memory)
                 var sorted = historyItems.OrderByDescending(h => h.Timestamp).Take(200).ToList();
