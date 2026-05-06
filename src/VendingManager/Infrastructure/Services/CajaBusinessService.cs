@@ -9,9 +9,9 @@ using VendingManager.Shared.DTOs;
 namespace VendingManager.Infrastructure.Services;
 
 /// <summary>
-/// Business logic service for caja operations.
-/// CajaService delegates financial calculations and report data gathering to this class.
-/// Registered as a concrete type in DI — no public interface.
+/// Servicio de lógica de negocio para operaciones de caja.
+/// CajaService delega cálculos financieros y recopilación de datos de reportes a esta clase.
+/// Registrado como tipo concreto en DI — sin interfaz pública.
 /// </summary>
 public class CajaBusinessService
 {
@@ -39,7 +39,7 @@ public class CajaBusinessService
     }
 
     /// <summary>
-    /// Compute the full financial summary for a given month/year.
+    /// Calcula el resumen financiero completo para un mes/año dado.
     /// </summary>
     public async Task<CajaResumenDto> GetResumenAsync(int month, int year)
     {
@@ -86,7 +86,7 @@ public class CajaBusinessService
             // COSTO DE VENTA
             var monthCostoVenta = monthCostoSum;
 
-            // MERMAS (Category "MERMA")
+            // MERMAS (Categoria "MERMA")
             var monthMermas = await _context.MovimientosCaja
                 .Where(m => m.Fecha >= startOfMonth && m.Fecha <= endOfMonth && m.Fecha >= _config.Value.CajaStartDate && m.Monto < 0 && m.Categoria == "MERMA")
                 .SumAsync(m => m.Monto);
@@ -120,7 +120,7 @@ public class CajaBusinessService
             var cantVentasTB = await _ventaRepository.CountPaidInRangeExcludingAsync(startOfMonth, endOfMonth, excludedOrdenIds);
             decimal costoTransbank = cantVentasTB * _config.Value.TransbankFee;
 
-            // IsLocked check using static method from CajaService
+            // Verificación de IsLocked usando método estático de CajaService
             bool isLocked = IsMonthLockedStatic(month, year);
 
             return new CajaResumenDto
@@ -148,7 +148,7 @@ public class CajaBusinessService
     }
 
     /// <summary>
-    /// Get all caja movements for a given month/year.
+    /// Obtiene todos los movimientos de caja para un mes/año dado.
     /// </summary>
     public async Task<List<MovimientoCaja>> GetMovimientosAsync(int month, int year)
     {
@@ -159,7 +159,7 @@ public class CajaBusinessService
     }
 
     /// <summary>
-    /// Get all data needed for the caja report: resumen, movimientos, and paid ventas in range.
+    /// Obtiene todos los datos necesarios para el reporte de caja: resumen, movimientos y ventas pagadas en el rango.
     /// </summary>
     public async Task<(CajaResumenDto resumen, List<MovimientoCaja> movimientos, IReadOnlyList<Venta> ventas)> GetCajaReportDataAsync(int month, int year)
     {
@@ -177,7 +177,7 @@ public class CajaBusinessService
     }
 
     /// <summary>
-    /// Compute stock valorization (bodega + maquinas).
+    /// Calcula la valorización de stock (bodega + máquinas).
     /// </summary>
     public async Task<ValorizacionStockDto> GetValorizacionStockAsync()
     {
@@ -199,7 +199,7 @@ public class CajaBusinessService
     }
 
     /// <summary>
-    /// Static helper — same locking logic as CajaService.IsMonthLocked.
+    /// Helper estático — misma lógica de bloqueo que CajaService.IsMonthLocked.
     /// </summary>
     private static bool IsMonthLockedStatic(int month, int year)
     {
@@ -207,6 +207,6 @@ public class CajaBusinessService
         DateTime targetDateEnd = new DateTime(year, month, 1).AddMonths(1).AddSeconds(-1);
         if (targetDateEnd >= now) return false;
         DateTime lockDate = targetDateEnd.AddDays(5);
-        return false; // Currently disabled in original
+        return false; // Actualmente deshabilitado en el original
     }
 }
