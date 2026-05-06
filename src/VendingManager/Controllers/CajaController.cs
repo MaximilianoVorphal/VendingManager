@@ -7,6 +7,7 @@ namespace VendingManager.Web.Controllers
     [Microsoft.AspNetCore.Authorization.Authorize]
     public class CajaController(ICajaService cajaService, Core.Interfaces.IInventarioService inventarioService, Core.Interfaces.IAuditService auditService) : ControllerBase
     {
+        [HttpGet("resumen")]
         public async Task<ActionResult<CajaResumenDto>> GetResumen([FromQuery] int? month, [FromQuery] int? year)
         {
             int targetMonth = month ?? DateTime.Now.Month;

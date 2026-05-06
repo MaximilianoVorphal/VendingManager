@@ -28,28 +28,37 @@ namespace VendingManager.Infrastructure.Services
 
         public async Task<DashboardStats> GetDashboardStatsAsync(int maquinaId)
         {
-            var stats = new DashboardStats();
-            var hoy = DateTime.Now.Date;
-            var diff = (7 + (hoy.DayOfWeek - DayOfWeek.Monday)) % 7;
-            var inicioSemana = hoy.AddDays(-1 * diff).Date;
-            var inicioMes = new DateTime(hoy.Year, hoy.Month, 1);
+            var key = $"SalesAnalyticsService:GetDashboardStatsAsync:M{maquinaId}";
 
-            var query = _context.Ventas.AsQueryable();
-            if (maquinaId > 0)
+            var stats = await _cache.GetOrCreateAsync(key, async (entry) =>
             {
-                query = query.Where(v => v.MaquinaId == maquinaId);
-            }
+                entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(60);
 
-            stats.Hoy = await GetPeriodoStats(query, hoy);
-            stats.Semana = await GetPeriodoStats(query, inicioSemana);
-            stats.Mes = await GetPeriodoStats(query, inicioMes);
+                var result = new DashboardStats();
+                var hoy = DateTime.Now.Date;
+                var diff = (7 + (hoy.DayOfWeek - DayOfWeek.Monday)) % 7;
+                var inicioSemana = hoy.AddDays(-1 * diff).Date;
+                var inicioMes = new DateTime(hoy.Year, hoy.Month, 1);
 
-            // Fetch Critical Stock Count: slots where StockActual <= per-slot StockMinimo
-            var slotsQuery = _context.ConfiguracionSlots.Where(s => s.StockActual <= s.StockMinimo && s.ProductoId != 0);
-            if (maquinaId > 0) slotsQuery = slotsQuery.Where(s => s.MaquinaId == maquinaId);
-            stats.CantidadStockCritico = await slotsQuery.CountAsync();
+                var query = _context.Ventas.AsQueryable();
+                if (maquinaId > 0)
+                {
+                    query = query.Where(v => v.MaquinaId == maquinaId);
+                }
 
-            return stats;
+                result.Hoy = await GetPeriodoStats(query, hoy);
+                result.Semana = await GetPeriodoStats(query, inicioSemana);
+                result.Mes = await GetPeriodoStats(query, inicioMes);
+
+                // Fetch Critical Stock Count: slots where StockActual <= per-slot StockMinimo
+                var slotsQuery = _context.ConfiguracionSlots.Where(s => s.StockActual <= s.StockMinimo && s.ProductoId != 0);
+                if (maquinaId > 0) slotsQuery = slotsQuery.Where(s => s.MaquinaId == maquinaId);
+                result.CantidadStockCritico = await slotsQuery.CountAsync();
+
+                return result;
+            });
+
+            return stats!;
         }
 
         private async Task<PeriodoStats> GetPeriodoStats(IQueryable<Venta> baseQuery, DateTime fechaDesde)
