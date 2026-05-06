@@ -1,0 +1,81 @@
+@namespace VendingManager.Web.Components
+
+@* IndustrialAlert — Alerta con estilo industrial y variante de colores *@
+@* Parámetros: Message (string), Variant (AlertVariant enum), IsDismissible (bool), OnDismiss (EventCallback) *@
+
+<div class="alert alert-@GetVariantClass() border-2 border-dark rounded-0 fw-bold mb-4 shadow-sm @((IsDismissible) ? "alert-dismissible fade show" : "")" role="alert">
+    <i class="bi @GetIconClass() me-2"></i>
+    @Message
+    @if (IsDismissible)
+    {
+        <button type="button" class="btn-close btn-close-dark position-absolute top-50 end-0 translate-middle-y me-3" @onclick="HandleDismiss" aria-label="Cerrar"></button>
+    }
+</div>
+
+@code {
+    /// <summary>
+    /// Variante de alerta: Danger, Success, Warning, Info.
+    /// </summary>
+    public enum AlertVariant
+    {
+        Danger,
+        Success,
+        Warning,
+        Info
+    }
+
+    /// <summary>
+    /// Mensaje a mostrar en la alerta.
+    /// </summary>
+    [Parameter] public string Message { get; set; } = "";
+
+    /// <summary>
+    /// Variante de color de la alerta.
+    /// </summary>
+    [Parameter] public AlertVariant Variant { get; set; } = AlertVariant.Danger;
+
+    /// <summary>
+    /// Indica si la alerta es descartable.
+    /// </summary>
+    [Parameter] public bool IsDismissible { get; set; } = false;
+
+    /// <summary>
+    /// Callback cuando se descarta la alerta.
+    /// </summary>
+    [Parameter] public EventCallback? OnDismiss { get; set; }
+
+    /// <summary>
+    /// Obtiene la clase CSS de Bootstrap según la variante.
+    /// </summary>
+    private string GetVariantClass() => Variant switch
+    {
+        AlertVariant.Danger => "danger",
+        AlertVariant.Success => "success",
+        AlertVariant.Warning => "warning",
+        AlertVariant.Info => "info",
+        _ => "info"
+    };
+
+    /// <summary>
+    /// Obtiene la clase del icono según la variante.
+    /// </summary>
+    private string GetIconClass() => Variant switch
+    {
+        AlertVariant.Danger => "bi-exclamation-triangle-fill",
+        AlertVariant.Success => "bi-check-circle-fill",
+        AlertVariant.Warning => "bi-exclamation-circle-fill",
+        AlertVariant.Info => "bi-info-circle-fill",
+        _ => "bi-info-circle-fill"
+    };
+
+    /// <summary>
+    /// Maneja el evento de descarte.
+    /// </summary>
+    private async Task HandleDismiss()
+    {
+        if (OnDismiss.HasValue)
+        {
+            await OnDismiss.Value.InvokeAsync();
+        }
+    }
+}

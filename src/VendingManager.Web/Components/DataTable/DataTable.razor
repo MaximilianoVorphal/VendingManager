@@ -1,0 +1,62 @@
+@namespace VendingManager.Web.Components
+
+@* DataTable — Estructura de tabla compartida con header y body configurables *@
+@* Parámetros: TableHeader (RenderFragment, requerido), TableBody (RenderFragment, requerido), IsLoading (bool), IsEmpty (bool), EmptyMessage (string) *@
+
+<div class="table-responsive">
+    <table class="table table-striped table-hover align-middle">
+        <thead class="table-dark">
+            @TableHeader
+        </thead>
+        <tbody class="bg-white">
+            @if (IsLoading)
+            {
+                <tr>
+                    <td colspan="100%" class="text-center p-4">
+                        <div class="spinner-border text-dark spinner-border-sm me-2" role="status"></div>
+                        Cargando datos...
+                    </td>
+                </tr>
+            }
+            else if (IsEmpty)
+            {
+                <tr>
+                    <td colspan="100%" class="text-center p-4 text-muted">
+                        @EmptyMessage
+                    </td>
+                </tr>
+            }
+            else
+            {
+                @TableBody
+            }
+        </tbody>
+    </table>
+</div>
+
+@code {
+    /// <summary>
+    /// Contenido del encabezado de la tabla (elementos tr/th).
+    /// </summary>
+    [Parameter] public RenderFragment? TableHeader { get; set; }
+
+    /// <summary>
+    /// Contenido del cuerpo de la tabla (elementos tr/td).
+    /// </summary>
+    [Parameter] public RenderFragment? TableBody { get; set; }
+
+    /// <summary>
+    /// Indica si se está cargando datos.
+    /// </summary>
+    [Parameter] public bool IsLoading { get; set; } = false;
+
+    /// <summary>
+    /// Indica si no hay datos para mostrar.
+    /// </summary>
+    [Parameter] public bool IsEmpty { get; set; } = false;
+
+    /// <summary>
+    /// Mensaje a mostrar cuando IsEmpty es true.
+    /// </summary>
+    [Parameter] public string EmptyMessage { get; set; } = "No hay datos disponibles.";
+}
