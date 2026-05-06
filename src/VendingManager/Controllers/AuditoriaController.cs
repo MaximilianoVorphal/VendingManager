@@ -217,7 +217,7 @@ namespace VendingManager.Controllers
                     Status = StatusCodes.Status404NotFound
                 });
 
-            // Copy scalar properties from snapshot to current entity
+            // Copiar propiedades escalares del snapshot a la entidad actual
             foreach (var prop in typeof(TEntity).GetProperties())
             {
                 if (prop.Name == "Id") continue;

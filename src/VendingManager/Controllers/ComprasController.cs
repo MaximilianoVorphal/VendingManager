@@ -174,7 +174,7 @@ public class ComprasController(ICompraService compraService, IFacturaOcrService 
     {
         try
         {
-            // Extra validation before calling service
+            // Validación extra antes de llamar al servicio
             if (file == null || file.Length == 0)
                 return BadRequest("No se proporcionó ningún archivo.");
 
