@@ -1,10 +1,10 @@
-name: CI
+name: CI/CD Pipeline
 
 on:
   push:
-    branches: [main, develop]
+    branches: [master, main, develop]
   pull_request:
-    branches: [main, develop]
+    branches: [master, main, develop]
 
 jobs:
   build:
@@ -35,3 +35,25 @@ jobs:
         run: dotnet build src/VendingManager.slnx --no-restore --configuration Release
       - name: Test
         run: dotnet test src/VendingManager.Tests/VendingManager.Tests.csproj --no-build --verbosity normal --configuration Release
+
+  deploy:
+    needs: test
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Conectar a Tailscale
+        uses: tailscale/github-action@v2
+        with:
+          authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
+          version: latest
+
+      - name: Ejecutar despliegue por SSH
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd /ruta/a/tu/proyecto
+            git pull origin master
+            docker compose up -d --build
