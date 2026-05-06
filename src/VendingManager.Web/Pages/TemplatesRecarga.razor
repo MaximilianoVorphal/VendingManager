@@ -194,13 +194,18 @@
                                                     }
                                                 </select>
                                             </div>
-                                        <div class="col-md-2 col-6">
+                                        <div class="col-md-3 col-6">
                                             <label class="small fw-bold">DESDE:</label>
                                             <input type="datetime-local"
                                     class="form-control form-control-sm border-dark rounded-0"
                                     @bind="periodo.FechaInicio" />
+                                            <div class="mt-1 d-flex gap-1">
+                                                <button class="btn btn-xs btn-outline-success rounded-0 fw-bold py-0 px-1" style="font-size:0.65rem;" @onclick='() => AplicarIntervalo(index, "manana")' title="08:00-14:00">🌅 Mañana</button>
+                                                <button class="btn btn-xs btn-outline-warning rounded-0 fw-bold py-0 px-1" style="font-size:0.65rem;" @onclick='() => AplicarIntervalo(index, "tarde")' title="14:00-20:00">🌆 Tarde</button>
+                                                <button class="btn btn-xs btn-outline-secondary rounded-0 fw-bold py-0 px-1" style="font-size:0.65rem;" @onclick='() => AplicarIntervalo(index, "completo")' title="08:00-20:00">☀️ Completo</button>
+                                            </div>
                                         </div>
-                                        <div class="col-md-2 col-6">
+                                        <div class="col-md-3 col-6">
                                             <label class="small fw-bold">HASTA:</label>
                                             <input type="datetime-local"
                                     class="form-control form-control-sm border-dark rounded-0"
@@ -927,6 +932,34 @@
             FechaInicio = DateTime.Today.AddHours(8),
             FechaFin = DateTime.Today.AddDays(7).AddHours(18)
         });
+    }
+
+    private void AplicarIntervalo(int index, string tipo)
+    {
+        if (index < 0 || index >= PeriodosActuales.Count) return;
+        var p = PeriodosActuales[index];
+
+        var inicio = p.FechaInicio;
+        var fin = p.FechaFin;
+
+        switch (tipo)
+        {
+            case "manana":
+                inicio = inicio.Date.AddHours(8).AddMinutes(0);
+                fin = fin.Date.AddHours(14).AddMinutes(0);
+                break;
+            case "tarde":
+                inicio = inicio.Date.AddHours(14).AddMinutes(0);
+                fin = fin.Date.AddHours(20).AddMinutes(0);
+                break;
+            case "completo":
+                inicio = inicio.Date.AddHours(8).AddMinutes(0);
+                fin = fin.Date.AddHours(20).AddMinutes(0);
+                break;
+        }
+
+        p.FechaInicio = inicio;
+        p.FechaFin = fin;
     }
 
     private void EliminarPeriodo(int index)

@@ -40,6 +40,14 @@
         </div>
     }
 
+    <!-- MENSAJE DE ERROR -->
+    @if (!string.IsNullOrEmpty(ErrorCarga))
+    {
+        <div class="alert alert-danger border-dark rounded-0 fw-bold mb-4 shadow-sm">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i> @ErrorCarga
+        </div>
+    }
+
     <!-- RESUMEN DE KPI -->
     @if (Resumen != null)
     {
@@ -93,8 +101,9 @@
             @for (int i = 0; i < 4; i++)
             {
                 <div class="col-md-3">
-                    <div class="industrial-card p-3 h-100">
-                        <div class="placeholder-glow">
+                    <div class="industrial-card p-3 h-100 d-flex flex-column align-items-center justify-content-center">
+                        <div class="spinner-border text-dark mb-3" role="status"></div>
+                        <div class="placeholder-glow w-100">
                             <span class="placeholder col-8 mb-2" style="height: 12px;"></span>
                             <span class="placeholder col-5 mb-2" style="height: 28px;"></span>
                             <span class="placeholder col-6" style="height: 10px;"></span>
@@ -902,6 +911,7 @@
     private Dictionary<int, decimal> MontosReales = new();
 
     // Form Logic
+    private string ErrorCarga = "";
     private List<Producto> ListaProductos = new();
     private MovimientoCaja Nuevo = new() { Tipo = "GASTO", Categoria = "MERCADERIA" };
     private DateTime FechaRegistro = DateTime.Now;
@@ -1016,6 +1026,7 @@
 
     private async Task CargarDatos()
     {
+        ErrorCarga = "";
         try
         {
             string query = $"?month={SelectedDate.Month}&year={SelectedDate.Year}";
@@ -1038,7 +1049,7 @@
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error: {ex.Message}");
+            ErrorCarga = $"Error al cargar datos: {ex.Message}. Verificá que el servidor esté corriendo.";
         }
 
         if (SelectedDate.Month == DateTime.Now.Month && SelectedDate.Year == DateTime.Now.Year)
