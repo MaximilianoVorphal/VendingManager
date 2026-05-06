@@ -196,26 +196,26 @@
                                              </div>
                                          <div class="col-md-3 col-12">
                                              <label class="small fw-bold">DESDE:</label>
-                                             <div class="d-flex gap-1">
+                                             <div class="input-group input-group-sm">
                                                   <input type="date"
-                                                         class="form-control form-control-sm border-dark rounded-0"
+                                                         class="form-control border-dark rounded-0"
                                                          value="@periodo.FechaInicio.ToString("yyyy-MM-dd")"
                                                          @onchange="(ChangeEventArgs e) => OnFechaDateChanged(index, true, e)" />
                                                    <input type="time"
-                                                          class="form-control form-control-sm border-dark rounded-0 time-input"
+                                                          class="form-control border-dark rounded-0 time-input"
                                                           value="@periodo.FechaInicio.ToString("HH:mm")"
                                                           @onchange="(ChangeEventArgs e) => OnFechaTimeChanged(index, true, e)" />
                                              </div>
                                          </div>
                                          <div class="col-md-3 col-12">
                                              <label class="small fw-bold">HASTA:</label>
-                                             <div class="d-flex gap-1">
+                                             <div class="input-group input-group-sm">
                                                   <input type="date"
-                                                         class="form-control form-control-sm border-dark rounded-0"
+                                                         class="form-control border-dark rounded-0"
                                                          value="@periodo.FechaFin.ToString("yyyy-MM-dd")"
                                                          @onchange="(ChangeEventArgs e) => OnFechaDateChanged(index, false, e)" />
                                                    <input type="time"
-                                                          class="form-control form-control-sm border-dark rounded-0 time-input"
+                                                          class="form-control border-dark rounded-0 time-input"
                                                           value="@periodo.FechaFin.ToString("HH:mm")"
                                                           @onchange="(ChangeEventArgs e) => OnFechaTimeChanged(index, false, e)" />
                                              </div>
