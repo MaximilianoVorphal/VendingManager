@@ -4,7 +4,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace VendingManager.Core.Entities;
 
 /// <summary>
-/// History entity for GastoRecurrente. Mirrors columns plus audit fields.
+/// Entidad history para GastoRecurrente. Refleja las columnas más los campos de auditoría.
 /// </summary>
 public class GastoRecurrenteHistory
 {

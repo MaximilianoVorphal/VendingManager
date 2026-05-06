@@ -46,7 +46,7 @@ namespace VendingManager.Controllers
         }
 
         /// <summary>
-        /// Returns all history records from all history tables, ordered by timestamp descending.
+        /// Retorna todos los registros de historia de todas las tablas history, ordenados por timestamp descendente.
         /// </summary>
         [HttpGet("history")]
         public async Task<ActionResult<IEnumerable<HistoryListItemDto>>> GetHistory()
@@ -55,7 +55,7 @@ namespace VendingManager.Controllers
             {
                 var historyItems = new List<HistoryListItemDto>();
 
-                // Queries must be sequential — DbContext is not thread-safe (scoped, shared instance)
+                // Las consultas deben ser secuenciales — DbContext no es thread-safe (scoped, shared instance)
                 historyItems.AddRange(await GetHistoryRecords<CompraHistory>("Compra"));
                 historyItems.AddRange(await GetHistoryRecords<ProductoHistory>("Producto"));
                 historyItems.AddRange(await GetHistoryRecords<MaquinaHistory>("Maquina"));
@@ -66,7 +66,7 @@ namespace VendingManager.Controllers
                 historyItems.AddRange(await GetHistoryRecords<OrdenCargaHistory>("OrdenCarga"));
                 historyItems.AddRange(await GetHistoryRecords<UserHistory>("User"));
 
-                // Sort by timestamp descending across all types (in memory)
+                // Ordenar por timestamp descendente en memoria (cruza todos los tipos)
                 var sorted = historyItems.OrderByDescending(h => h.Timestamp).Take(200).ToList();
                 return Ok(sorted);
             }
@@ -90,7 +90,7 @@ namespace VendingManager.Controllers
             {
                 logger.LogError(ex, "Failed to query history table {EntityType}. Exception: {ExceptionType} — {Message}",
                     entityName, ex.GetType().FullName, ex.Message);
-                return new List<HistoryListItemDto>(); // Return empty, don't crash the whole page
+                return new List<HistoryListItemDto>(); // Retornar vacío, no romper toda la página
             }
 
             var historyType = typeof(THistory);
@@ -115,12 +115,12 @@ namespace VendingManager.Controllers
         }
 
         /// <summary>
-        /// Rolls back an entity to its state at a specific history record.
+        /// Hace rollback de una entidad a su estado en un registro histórico específico.
         /// </summary>
         [HttpPost("rollback/{entityType}/{entityId}/{historyId}")]
         public async Task<IActionResult> Rollback(string entityType, int entityId, int historyId)
         {
-            // Find history record and deserialize BeforeJson
+            // Buscar registro histórico y deserializar BeforeJson
             var (beforeJson, historyRecord) = await FindHistoryRecord(entityType, historyId);
             if (historyRecord == null)
                 return NotFound(new ProblemDetails

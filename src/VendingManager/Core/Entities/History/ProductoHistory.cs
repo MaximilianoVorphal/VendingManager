@@ -1,7 +1,7 @@
 namespace VendingManager.Core.Entities;
 
 /// <summary>
-/// History entity for Producto. Mirrors Producto columns plus audit fields.
+/// Entidad history para Producto. Refleja las columnas de Producto más los campos de auditoría.
 /// </summary>
 public class ProductoHistory
 {
