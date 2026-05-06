@@ -166,11 +166,11 @@ using (var scope = app.Services.CreateScope())
         var context = services.GetRequiredService<VendingManager.Infrastructure.Data.ApplicationDbContext>();
         context.Database.Migrate();
 
-        // Seed default user if not exists (Safety net for both Dev and Prod)
+        // Crear usuario por defecto si no existe (Safety net para Dev y Prod)
         if (!context.Users.Any())
         {
-            // Only seed if expressly allowed or strictly in Development with no users
-            // For now, we keep it simple: if no users, create admin via Env Var or default if Dev
+            // Solo crear seed si está expresamente permitido o estrictamente en Development sin usuarios
+            // Por ahora lo mantenemos simple: si no hay usuarios, crear admin via Env Var o default si Dev
             var seedPassword = Environment.GetEnvironmentVariable("SEED_ADMIN_PASSWORD");
 
             if (app.Environment.IsDevelopment() || !string.IsNullOrEmpty(seedPassword))
@@ -204,7 +204,7 @@ if (app.Environment.IsDevelopment())
 else
 {
     app.UseExceptionHandler("/Error");
-    // Customize HSTS for production
+    // Personalizar HSTS para producción
     app.UseHsts();
 }
 
@@ -214,7 +214,7 @@ app.UseAntiforgery();
 app.UseResponseCompression();
 app.UseCors("PermitirBlazor"); // Activar CORS
 
-app.UseRateLimiter(); // Apply Rate Limiting
+app.UseRateLimiter(); // Aplicar Rate Limiting
 app.UseAuthentication();
 app.UseAuthorization();
 
