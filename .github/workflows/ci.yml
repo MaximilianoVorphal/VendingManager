@@ -45,7 +45,6 @@ jobs:
         uses: tailscale/github-action@v2
         with:
           authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
-          version: latest
 
       - name: Ejecutar despliegue por SSH
         uses: appleboy/ssh-action@master
