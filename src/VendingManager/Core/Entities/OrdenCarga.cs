@@ -33,12 +33,12 @@ namespace VendingManager.Core.Entities
         // public OrdenCarga OrdenCarga { get; set; }
 
         public int ProductoId { get; set; }
-        public string ProductoNombre { get; set; } = ""; // Snapshot name
+        public string ProductoNombre { get; set; } = ""; // Nombre snapshot al momento de crear la orden
 
-        public int CantidadSolicitada { get; set; } // Qty taken from warehouse
-        public int CantidadRetornada { get; set; } = 0; // Qty returned (sobras)
-        public decimal CostoUnitario { get; set; } // Snapshot of CostoPromedio at order creation
+        public int CantidadSolicitada { get; set; } // Cantidad tomada del stock de bodega
+        public int CantidadRetornada { get; set; } = 0; // Cantidad retornada (sobras devueltas)
+        public decimal CostoUnitario { get; set; } // Snapshot de CostoPromedio al momento de crear la orden
 
-        public int? MaquinaId { get; set; } // For consolidated orders
+        public int? MaquinaId { get; set; } // Para órdenes consolidadas
     }
 }
