@@ -71,7 +71,7 @@ namespace VendingManager.Controllers
         {
             try
             {
-                // Fetch slots and machine name for detailed logging
+                // Obtener slots y nombre de máquina para logging detallado
                 var maquina = await maquinaService.GetMaquinaAsync(id);
                 var slots = await maquinaService.GetSlotsAsync(id);
                 var slotDict = slots.ToDictionary(s => s.Id, s => s);
@@ -79,7 +79,7 @@ namespace VendingManager.Controllers
 
                 await maquinaService.ProcesarMovimientosLoteAsync(id, acciones);
 
-                // Build detailed log
+                // Construir log detallado
                 var detalles = new List<string>();
                 foreach (var a in acciones)
                 {

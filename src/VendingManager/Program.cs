@@ -35,7 +35,7 @@ Log.Logger = new LoggerConfiguration()
     .CreateLogger();
 builder.Host.UseSerilog();
 
-// Memory Cache (required by CajaBusinessService, SalesAnalyticsService, PurchasingService)
+// Memory Cache (requerido por CajaBusinessService, SalesAnalyticsService, PurchasingService)
 builder.Services.AddMemoryCache();
 
 // 1. Configurar CORS (DEBE ir ANTES de AddControllers)

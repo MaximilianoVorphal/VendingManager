@@ -143,7 +143,7 @@ namespace VendingManager.Controllers
                 return BadRequest("La foto supera los 10MB. Usá una foto más pequeña.");
             }
 
-            // Validate image MIME type
+            // Validar tipo MIME de la imagen
             var allowedTypes = new[] { "image/jpeg", "image/png", "image/jpg", "image/heic", "image/webp" };
             if (!allowedTypes.Contains(file.ContentType.ToLowerInvariant()))
             {
