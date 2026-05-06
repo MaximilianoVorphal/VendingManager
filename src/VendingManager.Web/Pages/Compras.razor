@@ -314,11 +314,6 @@
     private CompraDto? CompraSeleccionada;
     private bool ProcesandoPago = false;
 
-    // Modal Editar
-    private ActualizarCompraRequestDto? CompraEditar;
-    private int IdCompraEditar = 0;
-    private bool ProcesandoEdicion = false;
-
     protected override async Task OnInitializedAsync()
     {
         await CargarCompras();
