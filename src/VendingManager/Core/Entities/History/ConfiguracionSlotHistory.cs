@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace VendingManager.Core.Entities;
 
 /// <summary>
-/// History entity for ConfiguracionSlot. Mirrors columns plus audit fields.
+/// Entidad history para ConfiguracionSlot. Refleja las columnas más los campos de auditoría.
 /// </summary>
 public class ConfiguracionSlotHistory
 {

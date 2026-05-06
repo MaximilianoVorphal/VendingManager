@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations;
 namespace VendingManager.Core.Entities;
 
 /// <summary>
-/// History entity for User. Mirrors User columns plus audit fields.
+/// Entidad history para User. Refleja las columnas de User más los campos de auditoría.
 /// </summary>
 public class UserHistory
 {

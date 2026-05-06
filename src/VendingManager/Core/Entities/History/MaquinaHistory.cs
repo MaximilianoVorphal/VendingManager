@@ -1,7 +1,7 @@
 namespace VendingManager.Core.Entities;
 
 /// <summary>
-/// History entity for Maquina. Mirrors Maquina columns plus audit fields.
+/// Entidad history para Maquina. Refleja las columnas de Maquina más los campos de auditoría.
 /// </summary>
 public class MaquinaHistory
 {

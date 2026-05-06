@@ -5,9 +5,9 @@ using Microsoft.Extensions.Configuration;
 namespace VendingManager.Infrastructure.Data;
 
 /// <summary>
-/// Design-time factory for EF Core migrations. Bypasses the full DI container
-/// so that dotnet ef migrations can run without resolving services like IMemoryCache.
-/// </summary>
+    /// Factory para diseño-time de EF Core migrations. Bypassea el contenedor DI completo
+    /// para que dotnet ef migrations pueda ejecutarse sin resolver servicios como IMemoryCache.
+    /// </summary>
 public class ApplicationDbContextFactory : IDesignTimeDbContextFactory<ApplicationDbContext>
 {
     public ApplicationDbContext CreateDbContext(string[] args)

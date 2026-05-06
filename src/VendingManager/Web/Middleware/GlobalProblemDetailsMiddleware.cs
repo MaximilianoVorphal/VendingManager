@@ -7,8 +7,8 @@ using Microsoft.EntityFrameworkCore;
 namespace VendingManager.Web.Middleware;
 
 /// <summary>
-/// RFC 7807 ProblemDetails global exception middleware.
-/// Catches all unhandled exceptions and returns a RFC 7807-compliant response.
+/// Middleware global de ProblemDetails según RFC 7807.
+/// Captura todas las excepciones no manejadas y retorna una respuesta conforme a RFC 7807.
 /// </summary>
 public sealed class GlobalProblemDetailsMiddleware
 {
@@ -132,7 +132,7 @@ public sealed class GlobalProblemDetailsMiddleware
 }
 
 /// <summary>
-/// Custom exception for forbidden access scenarios (403).
+/// Excepción personalizada para escenarios de acceso prohibido (403).
 /// </summary>
 public class ForbiddenAccessException : Exception
 {

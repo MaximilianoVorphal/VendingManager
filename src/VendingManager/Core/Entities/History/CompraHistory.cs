@@ -4,7 +4,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace VendingManager.Core.Entities;
 
 /// <summary>
-/// History entity for Compra. Mirrors Compra columns plus audit fields.
+/// Entidad history para Compra. Refleja las columnas de Compra más los campos de auditoría.
 /// </summary>
 public class CompraHistory
 {

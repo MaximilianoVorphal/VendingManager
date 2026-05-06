@@ -9,9 +9,9 @@ using VendingManager.Core.Entities;
 namespace VendingManager.Infrastructure.Interceptors;
 
 /// <summary>
-/// EF Core interceptor that automatically captures entity state changes
-/// and writes audit records to the Auditoria table.
-/// </summary>
+    /// Interceptor de EF Core que captura automáticamente los cambios de estado de entidades
+    /// y escribe registros de auditoría en la tabla Auditoria.
+    /// </summary>
 public class AuditSaveChangesInterceptor : SaveChangesInterceptor
 {
     private readonly IHttpContextAccessor? _httpContextAccessor;
@@ -30,8 +30,8 @@ public class AuditSaveChangesInterceptor : SaveChangesInterceptor
     };
 
     /// <summary>
-    /// Map from entity type name to its history type name.
-    /// Only entities in this map get history records written.
+    /// Mapa de nombre de tipo de entidad a nombre de tipo history.
+    /// Solo entidades en este mapa escriben registros history.
     /// </summary>
     private static readonly Dictionary<string, string> HistoryTypeMap = new()
     {
