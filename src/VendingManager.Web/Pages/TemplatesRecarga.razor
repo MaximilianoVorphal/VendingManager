@@ -180,46 +180,60 @@
                                 <div class="card rounded-0 border-dark mb-2">
                                     <div class="card-body p-2">
                                         <div class="row g-2 align-items-end">
-                                            <div class="col-md-4 col-12">
-                                                <label class="small fw-bold">MÁQUINA:</label>
-                                                <select class="form-select border-dark rounded-0 text-truncate"
-                                        @bind="periodo.MaquinaId">
-                                                    <option value="0">-- Seleccionar --</option>
-                                                    @if (ListaMaquinas != null)
-                                                    {
-                                                        @foreach (var m in ListaMaquinas)
-                                                        {
-                                                            <option value="@m.Id">@m.Nombre</option>
-                                                        }
-                                                    }
-                                                </select>
-                                            </div>
-                                        <div class="col-md-3 col-6">
-                                            <label class="small fw-bold">DESDE:</label>
-                                            <input type="datetime-local"
-                                    class="form-control form-control-sm border-dark rounded-0"
-                                    @bind="periodo.FechaInicio" />
-                                        </div>
-                                        <div class="col-md-3 col-6">
-                                            <label class="small fw-bold">HASTA:</label>
-                                            <input type="datetime-local"
-                                    class="form-control form-control-sm border-dark rounded-0"
-                                    @bind="periodo.FechaFin" />
-                                        </div>
-                                        <div class="col-md-2 col-6">
-                                            <button class="btn btn-sm btn-outline-primary rounded-0 w-100"
-                                    @onclick="() => CargarSlotsParaPeriodo(index)"
-                                    disabled="@(periodo.MaquinaId == 0 || CargandoSlots)">
-                                                <i class="bi bi-box-seam me-1"></i>Slots
-                                            </button>
-                                        </div>
-                                        <div class="col-md-2 col-6">
-                                            <button class="btn btn-sm btn-outline-danger rounded-0 w-100"
-                                    @onclick="() => EliminarPeriodo(index)">
-                                                <i class="bi bi-x-lg"></i>
-                                            </button>
-                                        </div>
-                                    </div>
+                                             <div class="col-md-4 col-12">
+                                                 <label class="small fw-bold">MÁQUINA:</label>
+                                                 <select class="form-select border-dark rounded-0 text-truncate"
+                                         @bind="periodo.MaquinaId">
+                                                     <option value="0">-- Seleccionar --</option>
+                                                     @if (ListaMaquinas != null)
+                                                     {
+                                                         @foreach (var m in ListaMaquinas)
+                                                         {
+                                                             <option value="@m.Id">@m.Nombre</option>
+                                                         }
+                                                     }
+                                                 </select>
+                                             </div>
+                                         <div class="col-md-3 col-6">
+                                             <label class="small fw-bold">DESDE:</label>
+                                             <div class="d-flex gap-1">
+                                                  <input type="date"
+                                                         class="form-control form-control-sm border-dark rounded-0"
+                                                         value="@periodo.FechaInicio.ToString("yyyy-MM-dd")"
+                                                         @onchange="(ChangeEventArgs e) => OnFechaDateChanged(index, true, e)" />
+                                                  <input type="time"
+                                                         class="form-control form-control-sm border-dark rounded-0"
+                                                         value="@periodo.FechaInicio.ToString("HH:mm")"
+                                                         @onchange="(ChangeEventArgs e) => OnFechaTimeChanged(index, true, e)" />
+                                             </div>
+                                         </div>
+                                         <div class="col-md-3 col-6">
+                                             <label class="small fw-bold">HASTA:</label>
+                                             <div class="d-flex gap-1">
+                                                  <input type="date"
+                                                         class="form-control form-control-sm border-dark rounded-0"
+                                                         value="@periodo.FechaFin.ToString("yyyy-MM-dd")"
+                                                         @onchange="(ChangeEventArgs e) => OnFechaDateChanged(index, false, e)" />
+                                                  <input type="time"
+                                                         class="form-control form-control-sm border-dark rounded-0"
+                                                         value="@periodo.FechaFin.ToString("HH:mm")"
+                                                         @onchange="(ChangeEventArgs e) => OnFechaTimeChanged(index, false, e)" />
+                                             </div>
+                                         </div>
+                                         <div class="col-md-2 col-12">
+                                             <div class="d-flex gap-1">
+                                                 <button class="btn btn-sm btn-outline-primary rounded-0 flex-fill"
+                                         @onclick="() => CargarSlotsParaPeriodo(index)"
+                                         disabled="@(periodo.MaquinaId == 0 || CargandoSlots)">
+                                                     <i class="bi bi-box-seam me-1"></i> Slots
+                                                 </button>
+                                                 <button class="btn btn-sm btn-outline-danger rounded-0"
+                                         @onclick="() => EliminarPeriodo(index)">
+                                                     <i class="bi bi-x-lg"></i>
+                                                 </button>
+                                             </div>
+                                         </div>
+                                     </div>
 
                                     @if (periodo.SnapshotSlots.Any())
                                     {
@@ -934,6 +948,42 @@
         if (index >= 0 && index < PeriodosActuales.Count)
         {
             PeriodosActuales.RemoveAt(index);
+        }
+    }
+
+    private void OnFechaDateChanged(int index, bool esInicio, ChangeEventArgs e)
+    {
+        var dateVal = e.Value?.ToString();
+        if (string.IsNullOrEmpty(dateVal) || index < 0 || index >= PeriodosActuales.Count) return;
+        var p = PeriodosActuales[index];
+        var timePart = esInicio ? p.FechaInicio.ToString("HH:mm") : p.FechaFin.ToString("HH:mm");
+        if (DateTime.TryParseExact(
+                $"{dateVal} {timePart}",
+                "yyyy-MM-dd HH:mm",
+                System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.None,
+                out var d))
+        {
+            if (esInicio) p.FechaInicio = d;
+            else p.FechaFin = d;
+        }
+    }
+
+    private void OnFechaTimeChanged(int index, bool esInicio, ChangeEventArgs e)
+    {
+        var timeVal = e.Value?.ToString();
+        if (string.IsNullOrEmpty(timeVal) || index < 0 || index >= PeriodosActuales.Count) return;
+        var p = PeriodosActuales[index];
+        var datePart = esInicio ? p.FechaInicio.ToString("yyyy-MM-dd") : p.FechaFin.ToString("yyyy-MM-dd");
+        if (DateTime.TryParseExact(
+                $"{datePart} {timeVal}",
+                "yyyy-MM-dd HH:mm",
+                System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.None,
+                out var d))
+        {
+            if (esInicio) p.FechaInicio = d;
+            else p.FechaFin = d;
         }
     }
 
