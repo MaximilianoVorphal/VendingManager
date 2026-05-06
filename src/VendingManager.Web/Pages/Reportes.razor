@@ -64,9 +64,9 @@
                         title="Exportar a Excel">
                         <i class="bi bi-file-earmark-excel"></i>
                     </button>
-                    <!-- SYNC BUTTON -->
+                    <!-- SYNC BUTTON (ORIGINAL) -->
                     <button class="btn btn-info rounded-0 fw-bold border-dark py-2" @onclick="AbrirModalSync"
-                        disabled="@Sincronizando" title="Sincronizar con Ourvend">
+                        disabled="@Sincronizando" title="Sincronizar con Ourvend (original)">
                         @if (Sincronizando)
                         {
                                 <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
@@ -74,6 +74,18 @@
                         else
                         {
                                 <i class="bi bi-cloud-arrow-down-fill text-white"></i>
+                        }
+                    </button>
+                    <!-- SYNC ALT BUTTON (ROJO - experimental) -->
+                    <button class="btn btn-danger rounded-0 fw-bold border-dark py-2" @onclick="SincronizarPortalAlt"
+                        disabled="@SincronizandoAlt" title="Sincronizar ALT (inglés + todas las máquinas)">
+                        @if (SincronizandoAlt)
+                        {
+                                <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                        }
+                        else
+                        {
+                                <i class="bi bi-cloud-arrow-down-fill"></i>
                         }
                     </button>
                     <!-- FILTER BUTTON -->

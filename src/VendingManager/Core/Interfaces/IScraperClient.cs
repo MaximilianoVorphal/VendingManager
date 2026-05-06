@@ -10,5 +10,10 @@ namespace VendingManager.Core.Interfaces
         /// <param name="endDate">Fecha fin (yyyy-MM-dd)</param>
         /// <returns>Tupla con el Stream del archivo y el nombre sugerido</returns>
         Task<(Stream FileStream, string FileName)> DownloadReportAsync(string machineId, DateTime startDate, DateTime endDate);
+
+        /// <summary>
+        /// Versión alternativa del scraper: inglés, sin filtrar por máquina, orden corregido.
+        /// </summary>
+        Task<(Stream FileStream, string FileName)> DownloadReportAltAsync(string machineId, DateTime startDate, DateTime endDate);
     }
 }
