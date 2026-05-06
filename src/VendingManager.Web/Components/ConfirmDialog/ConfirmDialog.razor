@@ -1,0 +1,94 @@
+@namespace VendingManager.Web.Components
+
+@* ConfirmDialog — Modal de confirmación con botones *@
+@* Parámetros: IsVisible, Title, Message, ConfirmText, CancelText, ConfirmButtonClass, OnConfirm, OnCancel *@
+
+@if (IsVisible)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5); z-index: 1050;">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-2 border-dark rounded-0 shadow">
+                <div class="modal-header bg-dark text-white rounded-0 border-bottom border-dark">
+                    <h5 class="modal-title fw-bold text-uppercase">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>@Title
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="OnCancel"></button>
+                </div>
+                <div class="modal-body p-4 text-center">
+                    <p class="fs-5 fw-bold">@Message</p>
+                </div>
+                <div class="modal-footer bg-light rounded-0 border-top border-dark">
+                    <button type="button" class="btn btn-outline-dark rounded-0 fw-bold" @onclick="OnCancel" disabled="@IsProcessing">
+                        @CancelText
+                    </button>
+                    <button type="button" class="btn @ConfirmButtonClass rounded-0 fw-bold border-dark px-4 @((ConfirmButtonClass == "btn-danger") ? "border-danger" : "")"
+                            @onclick="HandleConfirm" disabled="@IsProcessing">
+                        @if (IsProcessing)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                        }
+                        @ConfirmText
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    /// <summary>
+    /// Indica si el diálogo es visible.
+    /// </summary>
+    [Parameter] public bool IsVisible { get; set; }
+
+    /// <summary>
+    /// Título del diálogo.
+    /// </summary>
+    [Parameter] public string Title { get; set; } = "Confirmar";
+
+    /// <summary>
+    /// Mensaje de confirmación.
+    /// </summary>
+    [Parameter] public string Message { get; set; } = "¿Está seguro?";
+
+    /// <summary>
+    /// Texto del botón de confirmar.
+    /// </summary>
+    [Parameter] public string ConfirmText { get; set; } = "Eliminar";
+
+    /// <summary>
+    /// Texto del botón de cancelar.
+    /// </summary>
+    [Parameter] public string CancelText { get; set; } = "Cancelar";
+
+    /// <summary>
+    /// Clase CSS del botón de confirmar.
+    /// </summary>
+    [Parameter] public string ConfirmButtonClass { get; set; } = "btn-danger";
+
+    /// <summary>
+    /// Callback cuando se confirma.
+    /// </summary>
+    [Parameter] public EventCallback OnConfirm { get; set; }
+
+    /// <summary>
+    /// Callback cuando se cancela.
+    /// </summary>
+    [Parameter] public EventCallback OnCancel { get; set; }
+
+    /// <summary>
+    /// Indica si se está procesando la confirmación.
+    /// </summary>
+    private bool IsProcessing { get; set; } = false;
+
+    /// <summary>
+    /// Maneja el click en confirmar.
+    /// </summary>
+    private async Task HandleConfirm()
+    {
+        if (IsProcessing) return;
+        IsProcessing = true;
+        await OnConfirm.InvokeAsync();
+        IsProcessing = false;
+    }
+}
