@@ -76,11 +76,11 @@ namespace VendingManager.Infrastructure.Services
         {
             if (slot.Id > 0)
             {
-                // EDIT MODE (Update existing)
+                // MODO EDICIÓN (Actualizar existente)
                 var existing = await _context.ConfiguracionSlots.FindAsync(slot.Id);
                 if (existing != null)
                 {
-                    // Check if target slot number is already taken by ANOTHER slot in same machine
+                    // Verificar si el número de slot objetivo ya está tomado por OTRO slot en la misma máquina
                     var collision = await _context.ConfiguracionSlots
                         .FirstOrDefaultAsync(s => s.MaquinaId == slot.MaquinaId &&
                                                   s.NumeroSlot == slot.NumeroSlot &&
@@ -88,16 +88,16 @@ namespace VendingManager.Infrastructure.Services
 
                     if (collision != null)
                     {
-                        // SWAP LOGIC: Exchange Slot Numbers
-                        // Store the "old" number locally to give to the collision
+                        // LÓGICA DE SWAP: Intercambiar Números de Slot
+                        // Guardar el número "viejo" localmente para dárselo a la colisión
                         string oldNumber = existing.NumeroSlot;
 
-                        // Give collision the old number (swap complete)
+                        // Darle a la colisión el número viejo (swap completo)
                         collision.NumeroSlot = oldNumber;
                         _context.Entry(collision).State = EntityState.Modified;
                     }
 
-                    // Apply updates to target
+                    // Aplicar actualizaciones al objetivo
                     existing.NumeroSlot = slot.NumeroSlot;
                     existing.ProductoId = (slot.ProductoId == 0) ? null : slot.ProductoId;
                     existing.PrecioVenta = slot.PrecioVenta;
@@ -109,8 +109,8 @@ namespace VendingManager.Infrastructure.Services
             }
             else
             {
-                // CREATE MODE (New Slot)
-                // Check if slot number exists
+                // MODO CREACIÓN (Nuevo Slot)
+                // Verificar si el número de slot ya existe
                 var collision = await _context.ConfiguracionSlots
                        .FirstOrDefaultAsync(s => s.MaquinaId == slot.MaquinaId && s.NumeroSlot == slot.NumeroSlot);
 
@@ -155,15 +155,15 @@ namespace VendingManager.Infrastructure.Services
                 // --- ACCIÓN: VACIAR ---
                 if (accion.ActionType == "EMPTY")
                 {
-                    // Always clear, even if stock is 0, because user wants to unassign.
+                    // Siempre limpiar, aunque stock sea 0, porque el usuario quiere desasignar.
                     string prod = slot.Producto?.Nombre ?? "VACÍO";
                     logDetalle.Add($"[VACIADO] Slot {slot.NumeroSlot} ({prod}): {slot.StockActual} -> 0 (Desasignado)");
                     
                     slot.StockActual = 0;
-                    slot.ProductoId = null; // Remove product assignment
+                    slot.ProductoId = null; // Quitar asignación de producto
                     _context.Entry(slot).State = EntityState.Modified;
                     
-                    continue; // Done with this slot
+                    continue; // Listo con este slot
                 }
 
                 // --- ACCIÓN: CAMBIAR PRODUCTO ---
@@ -180,7 +180,7 @@ namespace VendingManager.Infrastructure.Services
                             slot.ProductoId = nuevoProd.Id;
                             slot.StockActual = 0; 
                             
-                            // Update price if provided
+                            // Actualizar precio si se entrega
                             if (accion.NewPrecioVenta.HasValue)
                             {
                                 slot.PrecioVenta = accion.NewPrecioVenta.Value;
@@ -192,7 +192,7 @@ namespace VendingManager.Infrastructure.Services
                     }
                     else if (accion.NewProductoId == null || accion.NewProductoId == 0)
                     {
-                        // Clearing product
+                        // Limpiando producto
                          logDetalle.Add($"[BORRADO] Slot {slot.NumeroSlot}: {slot.Producto?.Nombre} -> VACÍO");
                          slot.ProductoId = null;
                          slot.StockActual = 0;
@@ -205,7 +205,7 @@ namespace VendingManager.Infrastructure.Services
                 if (accion.Cantidad <= 0) continue;
                 if (slot.Producto == null) continue;
 
-                // Logica original de Reposicion
+                // Lógica original de Reposición
                 slot.Producto.StockBodega -= accion.Cantidad;
                 _context.Entry(slot.Producto).State = EntityState.Modified;
 
