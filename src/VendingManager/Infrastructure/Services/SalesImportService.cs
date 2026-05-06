@@ -421,8 +421,8 @@ namespace VendingManager.Infrastructure.Services
         {
             decimal sumaActual = actual.Sum(v => v.PrecioVenta);
 
-            if (sumaActual == meta) return actual; // Found
-            if (sumaActual > meta) return null;    // Exceeded
+            if (sumaActual == meta) return actual; // Encontrado
+            if (sumaActual > meta) return null;    // Excedido
             if (index >= pool.Count) return null;  // Límite excedido
 
             var nuevoIntento = new List<Venta>(actual) { pool[index] };
