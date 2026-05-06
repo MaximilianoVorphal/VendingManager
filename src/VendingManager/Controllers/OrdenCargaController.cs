@@ -39,7 +39,7 @@ namespace VendingManager.Controllers
         }
 
         [HttpPatch("{id}/nombre")]
-        public async Task<IActionResult> ActualizarNombre(int id, [FromBody] string nombre) // using simple string body
+        public async Task<IActionResult> ActualizarNombre(int id, [FromBody] string nombre) // usando body de string simple
         {
             try 
             {
