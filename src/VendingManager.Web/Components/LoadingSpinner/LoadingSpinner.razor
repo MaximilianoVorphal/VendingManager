@@ -1,0 +1,24 @@
+@namespace VendingManager.Web.Components
+
+@* LoadingSpinner — Estado de carga con spinner industrial *@
+@* Parámetros: IsLoading (bool, default true), Message (string, default "Cargando...") *@
+
+@if (IsLoading)
+{
+    <div class="loading-spinner-container text-center py-5 border border-dark border-2 bg-light">
+        <div class="spinner-grow text-dark" role="status"></div>
+        <p class="mt-2 fw-bold text-uppercase" style="letter-spacing: 2px;">@Message</p>
+    </div>
+}
+
+@code {
+    /// <summary>
+    /// Indica si se debe mostrar el spinner de carga.
+    /// </summary>
+    [Parameter] public bool IsLoading { get; set; } = true;
+
+    /// <summary>
+    /// Mensaje a mostrar junto al spinner.
+    /// </summary>
+    [Parameter] public string Message { get; set; } = "Cargando...";
+}

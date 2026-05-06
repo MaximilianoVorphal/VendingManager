@@ -1,0 +1,29 @@
+@namespace VendingManager.Web.Components
+
+@* EmptyState — Estado vacío reutilizable con icono y mensaje *@
+@* Parámetros: Message (string, requerido), IconClass (string, default "bi-inbox"), ShowIcon (bool, default true) *@
+
+<div class="empty-state-container text-center py-5 border border-dark border-2 bg-light">
+    @if (ShowIcon)
+    {
+        <i class="bi @IconClass fs-1 text-muted"></i>
+    }
+    <p class="mt-2 fw-bold text-uppercase text-muted">@Message</p>
+</div>
+
+@code {
+    /// <summary>
+    /// Mensaje a mostrar en el estado vacío.
+    /// </summary>
+    [Parameter] public string Message { get; set; } = "No hay datos disponibles";
+
+    /// <summary>
+    /// Clase CSS del icono de Bootstrap Icons.
+    /// </summary>
+    [Parameter] public string IconClass { get; set; } = "bi-inbox";
+
+    /// <summary>
+    /// Indica si se debe mostrar el icono.
+    /// </summary>
+    [Parameter] public bool ShowIcon { get; set; } = true;
+}

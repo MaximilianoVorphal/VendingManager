@@ -1,0 +1,40 @@
+@namespace VendingManager.Web.Components
+
+@* StatusBadge — Badge booleano para mostrar estado activo/inactivo *@
+@* Parámetros: IsActive (bool), ActiveText (string), InactiveText (string), ActiveClass (string), InactiveClass (string) *@
+
+<span class="badge @GetBadgeClass() rounded-0 fw-bold px-2 py-1 border border-dark">
+    @(IsActive ? ActiveText : InactiveText)
+</span>
+
+@code {
+    /// <summary>
+    /// Indica si el estado es activo.
+    /// </summary>
+    [Parameter] public bool IsActive { get; set; }
+
+    /// <summary>
+    /// Texto a mostrar cuando está activo.
+    /// </summary>
+    [Parameter] public string ActiveText { get; set; } = "Sí";
+
+    /// <summary>
+    /// Texto a mostrar cuando está inactivo.
+    /// </summary>
+    [Parameter] public string InactiveText { get; set; } = "No";
+
+    /// <summary>
+    /// Clase CSS para estado activo (bg-success por defecto).
+    /// </summary>
+    [Parameter] public string ActiveClass { get; set; } = "bg-success";
+
+    /// <summary>
+    /// Clase CSS para estado inactivo (bg-secondary por defecto).
+    /// </summary>
+    [Parameter] public string InactiveClass { get; set; } = "bg-secondary";
+
+    /// <summary>
+    /// Obtiene la clase CSS del badge según el estado.
+    /// </summary>
+    private string GetBadgeClass() => IsActive ? ActiveClass : InactiveClass;
+}

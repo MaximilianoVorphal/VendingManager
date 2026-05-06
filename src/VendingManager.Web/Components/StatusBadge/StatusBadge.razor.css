@@ -1,0 +1,9 @@
+/* StatusBadge.razor — CSS Isolation */
+/* Los estilos de badge se heredan de Bootstrap 5 */
+.status-badge-active {
+    /* Clase adicional para estado activo si se necesita */
+}
+
+.status-badge-inactive {
+    /* Clase adicional para estado inactivo si se necesita */
+}
