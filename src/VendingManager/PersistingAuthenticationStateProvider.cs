@@ -3,45 +3,44 @@ using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Web;
 using System.Security.Claims;
 
-namespace VendingManager.Web.Auth
+namespace VendingManager.Web.Auth;
+
+// Este clase está pensada para ser usada en el PROYECTO SERVIDOR para persistir el estado de autenticación
+// así el cliente WASM puede recuperarlo sin una llamada HTTP extra.
+public class PersistingAuthenticationStateProvider : IDisposable
 {
-    // This class is intended to be used on the SERVER project to persist the authentication state
-    // so the WASM client can pick it up without an extra HTTP call.
-    public class PersistingAuthenticationStateProvider : IDisposable
+    private readonly PersistentComponentState _state;
+    private readonly AuthenticationStateProvider _authenticationStateProvider;
+    private readonly PersistingComponentStateSubscription _subscription;
+
+    public PersistingAuthenticationStateProvider(
+        PersistentComponentState state,
+        AuthenticationStateProvider authenticationStateProvider)
     {
-        private readonly PersistentComponentState _state;
-        private readonly AuthenticationStateProvider _authenticationStateProvider;
-        private readonly PersistingComponentStateSubscription _subscription;
+        _state = state;
+        _authenticationStateProvider = authenticationStateProvider;
+        _subscription = _state.RegisterOnPersisting(OnPersistingAsync, RenderMode.InteractiveWebAssembly);
+    }
 
-        public PersistingAuthenticationStateProvider(
-            PersistentComponentState state,
-            AuthenticationStateProvider authenticationStateProvider)
+    private async Task OnPersistingAsync()
+    {
+        var authenticationState = await _authenticationStateProvider.GetAuthenticationStateAsync();
+        var principal = authenticationState.User;
+
+        if (principal.Identity?.IsAuthenticated == true)
         {
-            _state = state;
-            _authenticationStateProvider = authenticationStateProvider;
-            _subscription = _state.RegisterOnPersisting(OnPersistingAsync, RenderMode.InteractiveWebAssembly);
-        }
+            var name = principal.FindFirst(ClaimTypes.Name)?.Value;
+            var role = principal.FindFirst(ClaimTypes.Role)?.Value;
 
-        private async Task OnPersistingAsync()
-        {
-            var authenticationState = await _authenticationStateProvider.GetAuthenticationStateAsync();
-            var principal = authenticationState.User;
-
-            if (principal.Identity?.IsAuthenticated == true)
+            if (name != null)
             {
-                var name = principal.FindFirst(ClaimTypes.Name)?.Value;
-                var role = principal.FindFirst(ClaimTypes.Role)?.Value;
-
-                if (name != null)
-                {
-                    _state.PersistAsJson("UserInfo", new UserInfo { Name = name, Role = role ?? "User" });
-                }
+                _state.PersistAsJson("UserInfo", new UserInfo { Name = name, Role = role ?? "User" });
             }
         }
+    }
 
-        public void Dispose()
-        {
-            _subscription.Dispose();
-        }
+    public void Dispose()
+    {
+        _subscription.Dispose();
     }
 }

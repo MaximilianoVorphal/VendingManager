@@ -3,73 +3,72 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 
-namespace VendingManager.Web.Auth
+namespace VendingManager.Web.Auth;
+
+public class CookieAuthenticationStateProvider : AuthenticationStateProvider
 {
-    public class CookieAuthenticationStateProvider : AuthenticationStateProvider
+    private readonly HttpClient _httpClient;
+    private readonly PersistentComponentState _state;
+    private bool _isInitialized = false;
+    private Task<AuthenticationState>? _authenticationStateTask;
+
+    public CookieAuthenticationStateProvider(HttpClient httpClient, PersistentComponentState state)
     {
-        private readonly HttpClient _httpClient;
-        private readonly PersistentComponentState _state;
-        private bool _isInitialized = false;
-        private Task<AuthenticationState>? _authenticationStateTask;
+        _httpClient = httpClient;
+        _state = state;
 
-        public CookieAuthenticationStateProvider(HttpClient httpClient, PersistentComponentState state)
+        if (_state.TryTakeFromJson<UserInfo>("UserInfo", out var userInfo) && userInfo != null)
         {
-            _httpClient = httpClient;
-            _state = state;
+            var user = CreateUser(userInfo.Name, userInfo.Role);
+            _authenticationStateTask = Task.FromResult(new AuthenticationState(user));
+        }
+    }
 
-            if (_state.TryTakeFromJson<UserInfo>("UserInfo", out var userInfo) && userInfo != null)
+    public override async Task<AuthenticationState> GetAuthenticationStateAsync()
+    {
+        if (_authenticationStateTask != null)
+        {
+            return await _authenticationStateTask;
+        }
+
+        var emptyUser = new ClaimsPrincipal(new ClaimsIdentity());
+        try
+        {
+            var userInfo = await _httpClient.GetFromJsonAsync<UserInfo>("api/account/user");
+            if (userInfo != null && !string.IsNullOrEmpty(userInfo.Name))
             {
                 var user = CreateUser(userInfo.Name, userInfo.Role);
-                _authenticationStateTask = Task.FromResult(new AuthenticationState(user));
+                return new AuthenticationState(user);
             }
         }
-
-        public override async Task<AuthenticationState> GetAuthenticationStateAsync()
+        catch
         {
-            if (_authenticationStateTask != null)
-            {
-                return await _authenticationStateTask;
-            }
-
-            var emptyUser = new ClaimsPrincipal(new ClaimsIdentity());
-            try
-            {
-                var userInfo = await _httpClient.GetFromJsonAsync<UserInfo>("api/account/user");
-                if (userInfo != null && !string.IsNullOrEmpty(userInfo.Name))
-                {
-                    var user = CreateUser(userInfo.Name, userInfo.Role);
-                    return new AuthenticationState(user);
-                }
-            }
-            catch
-            {
-                // User is not logged in or error checking
-            }
-
-            return new AuthenticationState(emptyUser);
+            // Usuario no logueado o error al verificar
         }
 
-        private ClaimsPrincipal CreateUser(string name, string role)
-        {
-            var claims = new[] 
-            { 
-                new Claim(ClaimTypes.Name, name),
-                new Claim(ClaimTypes.Role, role ?? "User")
-            };
-            var identity = new ClaimsIdentity(claims, "Cookies");
-            return new ClaimsPrincipal(identity);
-        }
-
-        public void NotifyAuthenticationStateChanged()
-        {
-            _authenticationStateTask = null; // Reset cached task
-            NotifyAuthenticationStateChanged(GetAuthenticationStateAsync());
-        }
+        return new AuthenticationState(emptyUser);
     }
 
-    public class UserInfo
+    private static ClaimsPrincipal CreateUser(string name, string role)
     {
-        public string Name { get; set; } = string.Empty;
-        public string Role { get; set; } = string.Empty;
+        var claims = new[]
+        {
+            new Claim(ClaimTypes.Name, name),
+            new Claim(ClaimTypes.Role, role ?? "User")
+        };
+        var identity = new ClaimsIdentity(claims, "Cookies");
+        return new ClaimsPrincipal(identity);
     }
+
+    public void NotifyAuthenticationStateChanged()
+    {
+        _authenticationStateTask = null;
+        NotifyAuthenticationStateChanged(GetAuthenticationStateAsync());
+    }
+}
+
+public class UserInfo
+{
+    public string Name { get; set; } = string.Empty;
+    public string Role { get; set; } = string.Empty;
 }
