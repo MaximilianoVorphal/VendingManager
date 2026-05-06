@@ -6,22 +6,15 @@ using VendingManager.Infrastructure.Data;
 
 namespace VendingManager.Infrastructure.Services
 {
-    public class OrdenCargaService : IOrdenCargaService
+    public class OrdenCargaService(ApplicationDbContext context) : IOrdenCargaService
     {
-        private readonly ApplicationDbContext _context;
-
-        public OrdenCargaService(ApplicationDbContext context)
-        {
-            _context = context;
-        }
-
         public async Task<OrdenCargaDto> CrearOrdenAsync(CrearOrdenDto dto)
         {
             // 1. Validate Machine (Only if not global)
             Maquina? maquina = null;
             if (dto.MaquinaId.HasValue && dto.MaquinaId.Value > 0)
             {
-                maquina = await _context.Maquinas.FindAsync(dto.MaquinaId);
+                maquina = await context.Maquinas.FindAsync(dto.MaquinaId);
                 if (maquina == null) throw new Exception("Máquina no encontrada.");
             }
 
@@ -29,7 +22,7 @@ namespace VendingManager.Infrastructure.Services
             var orden = new OrdenCarga
             {
                 MaquinaId = (dto.MaquinaId.HasValue && dto.MaquinaId.Value > 0) ? dto.MaquinaId : null,
-                Nombre = dto.Nombre, // Save Name
+                Nombre = dto.Nombre,
                 FechaCreacion = dto.Fecha ?? DateTime.Now,
                 Estado = "PENDIENTE"
             };
@@ -39,53 +32,48 @@ namespace VendingManager.Infrastructure.Services
             {
                 if (item.Cantidad <= 0) continue;
 
-                var producto = await _context.Productos.FindAsync(item.ProductoId);
-                if (producto == null) continue; // Skip invalid products
+                var producto = await context.Productos.FindAsync(item.ProductoId);
+                if (producto == null) continue;
 
-                // Check stock availability (unless ignored)
-                 if (!dto.IgnorarStock && producto.StockBodega < item.Cantidad)
-                 {
-                     throw new Exception($"Stock insuficiente para '{producto.Nombre}'. Disponible: {producto.StockBodega}, Solicitado: {item.Cantidad}");
-                 }
+                if (!dto.IgnorarStock && producto.StockBodega < item.Cantidad)
+                {
+                    throw new Exception($"Stock insuficiente para '{producto.Nombre}'. Disponible: {producto.StockBodega}, Solicitado: {item.Cantidad}");
+                }
 
-                // Deduct Stock
                 producto.StockBodega -= item.Cantidad;
 
-                // Determine Machine ID for this detail
                 int? itemMaquinaId = item.MaquinaId;
                 if (!itemMaquinaId.HasValue && orden.MaquinaId.HasValue)
                 {
                     itemMaquinaId = orden.MaquinaId;
                 }
 
-                // Add Detail
                 orden.Detalles.Add(new DetalleOrdenCarga
                 {
                     ProductoId = producto.Id,
                     ProductoNombre = producto.Nombre,
                     CantidadSolicitada = item.Cantidad,
                     CantidadRetornada = 0,
-                    CostoUnitario = producto.CostoPromedio, // Snapshot del costo
+                    CostoUnitario = producto.CostoPromedio,
                     MaquinaId = itemMaquinaId
                 });
             }
 
-            _context.OrdenesCarga.Add(orden);
-            await _context.SaveChangesAsync();
+            context.OrdenesCarga.Add(orden);
+            await context.SaveChangesAsync();
 
             return MapToDto(orden, maquina?.Nombre ?? "RUTA GLOBAL");
         }
 
         public async Task<bool> FinalizarOrdenAsync(FinalizarOrdenDto dto)
         {
-            var orden = await _context.OrdenesCarga
+            var orden = await context.OrdenesCarga
                 .Include(o => o.Detalles)
                 .FirstOrDefaultAsync(o => o.Id == dto.OrdenId);
 
             if (orden == null) throw new Exception("Orden no encontrada.");
             if (orden.Estado == "FINALIZADA") throw new Exception("La orden ya fue finalizada.");
 
-            // Process Returns
             foreach (var ret in dto.Retornos)
             {
                 if (ret.CantidadRetornada <= 0) continue;
@@ -98,39 +86,34 @@ namespace VendingManager.Infrastructure.Services
                     throw new Exception($"Error en '{detalle.ProductoNombre}': Retorno ({ret.CantidadRetornada}) no puede ser mayor a lo solicitado ({detalle.CantidadSolicitada}).");
                 }
 
-                // Update Detail
                 detalle.CantidadRetornada = ret.CantidadRetornada;
 
-                // Return Stock to Warehouse
-                var producto = await _context.Productos.FindAsync(detalle.ProductoId);
+                var producto = await context.Productos.FindAsync(detalle.ProductoId);
                 if (producto != null)
                 {
                     producto.StockBodega += ret.CantidadRetornada;
                 }
             }
 
-            // Actualizar stock de cada slot de la máquina
             foreach (var detalle in orden.Detalles)
             {
                 int cantidadCargada = detalle.CantidadSolicitada - detalle.CantidadRetornada;
                 int? maqId = detalle.MaquinaId ?? orden.MaquinaId;
                 if (maqId.HasValue && cantidadCargada > 0)
                 {
-                    var slot = await _context.ConfiguracionSlots
-                        .FirstOrDefaultAsync(s => s.MaquinaId == maqId.Value 
+                    var slot = await context.ConfiguracionSlots
+                        .FirstOrDefaultAsync(s => s.MaquinaId == maqId.Value
                                                && s.ProductoId == detalle.ProductoId);
                     if (slot != null)
                     {
                         slot.StockActual += cantidadCargada;
-                        // Clamp to capacity
                         if (slot.StockActual > slot.CapacidadMaxima)
                             slot.StockActual = slot.CapacidadMaxima;
                     }
                 }
             }
 
-            // Registrar MovimientoCaja con costo total real
-            decimal costoTotal = orden.Detalles.Sum(d => 
+            decimal costoTotal = orden.Detalles.Sum(d =>
                 (d.CantidadSolicitada - d.CantidadRetornada) * d.CostoUnitario);
 
             if (costoTotal > 0)
@@ -138,13 +121,13 @@ namespace VendingManager.Infrastructure.Services
                 string maquinaNombre = "RUTA GLOBAL";
                 if (orden.MaquinaId.HasValue)
                 {
-                    maquinaNombre = await _context.Maquinas
+                    maquinaNombre = await context.Maquinas
                         .Where(m => m.Id == orden.MaquinaId.Value)
                         .Select(m => m.Nombre)
                         .FirstOrDefaultAsync() ?? "Desconocida";
                 }
 
-                _context.MovimientosCaja.Add(new MovimientoCaja
+                context.MovimientosCaja.Add(new MovimientoCaja
                 {
                     Fecha = DateTime.Now,
                     Descripcion = $"Carga #{orden.Id} — {(string.IsNullOrEmpty(orden.Nombre) ? maquinaNombre : orden.Nombre)}",
@@ -158,13 +141,13 @@ namespace VendingManager.Infrastructure.Services
             orden.Estado = "FINALIZADA";
             orden.FechaFinalizacion = DateTime.Now;
 
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
             return true;
         }
 
         public async Task<List<OrdenCargaDto>> GetOrdenesAsync(int maquinaId = 0)
         {
-            var query = _context.OrdenesCarga
+            var query = context.OrdenesCarga
                 .Include(o => o.Detalles)
                 .AsQueryable();
 
@@ -174,24 +157,24 @@ namespace VendingManager.Infrastructure.Services
             }
 
             var ordenes = await query.OrderByDescending(o => o.FechaCreacion).ToListAsync();
-            
-            var maquinas = await _context.Maquinas.ToDictionaryAsync(m => m.Id, m => m.Nombre);
+
+            var maquinas = await context.Maquinas.ToDictionaryAsync(m => m.Id, m => m.Nombre);
 
             return ordenes.Select(o => MapToDto(o, (o.MaquinaId.HasValue && maquinas.ContainsKey(o.MaquinaId.Value)) ? maquinas[o.MaquinaId.Value] : "RUTA GLOBAL")).ToList();
         }
 
         public async Task<OrdenCargaDto?> GetOrdenByIdAsync(int id)
         {
-             var orden = await _context.OrdenesCarga
+            var orden = await context.OrdenesCarga
                 .Include(o => o.Detalles)
                 .FirstOrDefaultAsync(o => o.Id == id);
-            
+
             if (orden == null) return null;
 
             string maquinaName = "RUTA GLOBAL";
-            if(orden.MaquinaId.HasValue)
+            if (orden.MaquinaId.HasValue)
             {
-                maquinaName = await _context.Maquinas
+                maquinaName = await context.Maquinas
                     .Where(m => m.Id == orden.MaquinaId.Value)
                     .Select(m => m.Nombre)
                     .FirstOrDefaultAsync() ?? "Desconocida";
@@ -202,13 +185,12 @@ namespace VendingManager.Infrastructure.Services
 
         public async Task<List<StockCriticoDto>> GetSugerenciaCargaAsync(int maquinaId)
         {
-             // Returns list of items where StockActual < Capacidad
-             var slots = await _context.ConfiguracionSlots
-                .Include(s => s.Maquina)
-                .Include(s => s.Producto)
-                .Where(s => s.MaquinaId == maquinaId && s.ProductoId != null)
-                .Where(s => s.StockActual < s.CapacidadMaxima)
-                .ToListAsync();
+            var slots = await context.ConfiguracionSlots
+               .Include(s => s.Maquina)
+               .Include(s => s.Producto)
+               .Where(s => s.MaquinaId == maquinaId && s.ProductoId != null)
+               .Where(s => s.StockActual < s.CapacidadMaxima)
+               .ToListAsync();
 
             var dtos = slots.Select(s => new StockCriticoDto
             {
@@ -221,13 +203,12 @@ namespace VendingManager.Infrastructure.Services
                 CapacidadMaxima = s.CapacidadMaxima
             }).ToList();
 
-            // NUMERIC SORT
             return SortSlotsNumerically(dtos);
         }
 
         public async Task<List<StockCriticoDto>> GetSugerenciaGlobalAsync()
         {
-            var slots = await _context.ConfiguracionSlots
+            var slots = await context.ConfiguracionSlots
                 .Include(s => s.Maquina)
                 .Include(s => s.Producto)
                 .Where(s => s.ProductoId != null)
@@ -245,7 +226,6 @@ namespace VendingManager.Infrastructure.Services
                 CapacidadMaxima = s.CapacidadMaxima
             }).ToList();
 
-            // Sort by Machine Name then Slot
             var sorted = SortSlotsNumerically(dtos);
             return sorted.OrderBy(x => x.Maquina).ThenBy(x => x.NumeroSlot, new NumericStringComparer()).ToList();
         }
@@ -255,7 +235,6 @@ namespace VendingManager.Infrastructure.Services
             return list.OrderBy(x => x.NumeroSlot, new NumericStringComparer()).ToList();
         }
 
-        // Helper Class for Sorting
         public class NumericStringComparer : IComparer<string>
         {
             public int Compare(string? x, string? y)
@@ -271,11 +250,8 @@ namespace VendingManager.Infrastructure.Services
                 {
                     return xInt.CompareTo(yInt);
                 }
-                
-                // If one is numeric and the other isn't, usually numbers come first? or last?
-                // Let's standard string compare if not both numbers.
-                // Or try to parse mixed content? For now simple int parse is enough for "1", "10", etc.
-                if (isXNumeric) return -1; // Numbers first
+
+                if (isXNumeric) return -1;
                 if (isYNumeric) return 1;
 
                 return string.Compare(x, y, StringComparison.OrdinalIgnoreCase);
@@ -284,23 +260,23 @@ namespace VendingManager.Infrastructure.Services
 
         public async Task<bool> ActualizarNombreOrdenAsync(int ordenId, string nuevoNombre)
         {
-            var orden = await _context.OrdenesCarga.FindAsync(ordenId);
+            var orden = await context.OrdenesCarga.FindAsync(ordenId);
             if (orden == null) return false;
-            
+
             orden.Nombre = nuevoNombre;
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
             return true;
         }
 
         public async Task<bool> ActualizarOrdenAsync(int ordenId, ActualizarOrdenRequestDto dto)
         {
-            var orden = await _context.OrdenesCarga.FindAsync(ordenId);
+            var orden = await context.OrdenesCarga.FindAsync(ordenId);
             if (orden == null) return false;
 
             orden.Nombre = dto.Nombre;
             orden.FechaCreacion = dto.FechaCreacion;
-            
-            await _context.SaveChangesAsync();
+
+            await context.SaveChangesAsync();
             return true;
         }
 
