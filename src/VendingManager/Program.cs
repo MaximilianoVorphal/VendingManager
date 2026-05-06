@@ -17,6 +17,13 @@ using VendingManager.Web.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// User-secrets para desarrollo local — sobreescribe variables de entorno del .env
+// Docker Compose sigue usando .env para contenedores, pero dotnet run usa user-secrets
+if (builder.Environment.IsDevelopment())
+{
+    builder.Configuration.AddUserSecrets<Program>();
+}
+
 // 0. Serilog — structured JSON logging, coexisting with ILogger<T>
 builder.Logging.ClearProviders();
 Log.Logger = new LoggerConfiguration()
