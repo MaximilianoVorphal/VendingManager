@@ -1,0 +1,4 @@
+/* IndustrialHeader.razor — CSS Isolation */
+.industrial-wrapper .border-bottom.border-3.border-dark.pb-3 {
+    border-bottom-style: solid !important;
+}
