@@ -157,7 +157,7 @@
             <div class="modal-content rounded-0 border-2 border-dark shadow-lg">
                 <div class="modal-header bg-warning text-dark rounded-0 border-bottom border-dark">
                     <h5 class="modal-title fw-bold">
-                        <i class="bi @(maquinaActual.Id == 0 ? "bi-plus-circle" : "bi-pencil-square") me-2"></i>
+                        <i class="bi @(maquinaActual!.Id == 0 ? "bi-plus-circle" : "bi-pencil-square") me-2"></i>
                         @(maquinaActual.Id == 0 ? "REGISTRAR NUEVA UNIDAD" : "EDITAR UNIDAD")
                     </h5>
                     <button type="button" class="btn-close" @onclick="CerrarModal"></button>
@@ -210,14 +210,19 @@
 
 @code {
     private List<Maquina>? listaMaquinas;
-    
+
     // Filtro de búsqueda
     private string SearchTerm = "";
-    
+
     [SupplyParameterFromForm]
-    public Maquina maquinaActual { get; set; } = new Maquina();
-    
+    public Maquina? maquinaActual { get; set; }
+
     private bool MostrarModal = false;
+
+    protected override void OnInitialized()
+    {
+        maquinaActual = new Maquina();
+    }
 
     // Propiedad calculada para filtrar
     private IEnumerable<Maquina> FilteredMaquinas
@@ -277,7 +282,7 @@
 
     private async Task GuardarMaquina()
     {
-        if (maquinaActual.Id != 0)
+        if (maquinaActual!.Id != 0)
         {
             // Edición con confirmación
             string nombreConfirmacion = await JS.InvokeAsync<string>("prompt", $"PARA CONFIRMAR CAMBIOS, ESCRIBA EL NOMBRE DE LA MÁQUINA: {maquinaActual.Nombre}");
