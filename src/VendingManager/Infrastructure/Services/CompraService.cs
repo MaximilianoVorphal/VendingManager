@@ -288,13 +288,13 @@ public class CompraService : ICompraService
         if (compra == null)
             throw new KeyNotFoundException($"Compra {compraId} no encontrada.");
 
-        // Use configured upload path if set, otherwise fall back to wwwroot
+        // Usar ruta de upload configurada si está seteada, sinon fallback a wwwroot
         var basePath = GetUploadBasePath();
 
         var uploadDir = Path.Combine(basePath, "uploads", "compras", "facturas");
         Directory.CreateDirectory(uploadDir);
 
-        // Delete old image if exists
+        // Eliminar imagen anterior si existe
         if (!string.IsNullOrEmpty(compra.FacturaImagenPath))
         {
             var oldPath = Path.Combine(basePath, compra.FacturaImagenPath.TrimStart('/'));

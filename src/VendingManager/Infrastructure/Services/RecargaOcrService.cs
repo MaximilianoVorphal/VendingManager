@@ -35,7 +35,7 @@ namespace VendingManager.Infrastructure.Services
                 throw new Exception("ScraperServiceUrl no está configurado.");
             }
 
-            // Load machine slots for fuzzy matching
+            // Cargar slots de la máquina para fuzzy matching
             var machineSlots = await _context.ConfiguracionSlots
                 .Where(s => s.MaquinaId == maquinaId)
                 .Select(s => s.NumeroSlot)
@@ -47,7 +47,7 @@ namespace VendingManager.Infrastructure.Services
                 "[RecargaOCR] Processing image {FileName} for maquinaId={MaquinaId}. Machine slots: {SlotCount}",
                 imageFile.FileName, maquinaId, machineSlotNumbers.Count);
 
-            // Call Python OCR endpoint
+            // Llamar al endpoint de OCR de Python
             using var content = new MultipartFormDataContent();
             using var stream = imageFile.OpenReadStream();
             using var streamContent = new StreamContent(stream);
@@ -88,18 +88,18 @@ namespace VendingManager.Infrastructure.Services
                 };
             }
 
-            // Apply fuzzy matching
+            // Aplicar fuzzy matching
             var extractedSlots = new List<MatchedSlotDto>();
             var unmatchedSlots = new List<string>();
             var slotsByNumber = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
 
-            // First pass: deduplicate OCR entries, keep highest quantity per slot number
+            // Primera pasada: deduplicar entradas OCR, mantener la mayor cantidad por número de slot
             foreach (var slot in ocrResult.Slots)
             {
                 var normalizedKey = slot.SlotNumber.Trim();
                 var quantity = slot.Quantity;
 
-                // Cap quantity at 100
+                // Limitar cantidad a 100
                 if (quantity > 100)
                 {
                     quantity = 100;
@@ -121,7 +121,7 @@ namespace VendingManager.Infrastructure.Services
                 }
             }
 
-            // Second pass: fuzzy match each OCR slot against machine slots
+            // Segunda pasada: fuzzy match de cada slot OCR contra slots de la máquina
             foreach (var ocrSlot in slotsByNumber)
             {
                 var ocrSlotNumber = ocrSlot.Key;
@@ -166,17 +166,17 @@ namespace VendingManager.Infrastructure.Services
         }
 
         /// <summary>
-        /// Fuzzy match an OCR slot number against available machine slots.
-        /// Numeric slots use Levenshtein distance ≤ 2; alphanumeric slots use exact match.
+        /// Fuzzy match de un número de slot OCR contra los slots disponibles de la máquina.
+        /// Slots numéricos usan distancia Levenshtein ≤ 2; slots alfanuméricos usan coincidencia exacta.
         /// </summary>
         private (string slot, float confidence)? FuzzyMatchSlot(string ocrSlot, List<string> machineSlots)
         {
-            // Check if OCR slot is alphanumeric (contains letters)
+            // Verificar si el slot OCR es alfanumérico (contiene letras)
             bool isAlphanumeric = ocrSlot.Any(char.IsLetter);
 
             if (isAlphanumeric)
             {
-                // Exact match for alphanumeric slots (e.g., "A1", "B2")
+                // Coincidencia exacta para slots alfanuméricos (ej: "A1", "B2")
                 var exactMatch = machineSlots.FirstOrDefault(ms =>
                     string.Equals(ms, ocrSlot, StringComparison.OrdinalIgnoreCase));
 
@@ -187,7 +187,7 @@ namespace VendingManager.Infrastructure.Services
                 return null;
             }
 
-            // Numeric slot — apply Levenshtein tolerance (distance ≤ 2)
+            // Slot numérico — aplicar tolerancia Levenshtein (distancia ≤ 2)
             string? bestMatch = null;
             int bestDistance = int.MaxValue;
 
@@ -204,11 +204,11 @@ namespace VendingManager.Infrastructure.Services
 
             if (bestMatch != null)
             {
-                // Confidence: 1 - (distance / max length)
+                // Confianza: 1 - (distancia / longitud máxima)
                 var maxLen = Math.Max(ocrSlot.Length, bestMatch.Length);
                 var confidence = 1.0f - ((float)bestDistance / maxLen);
 
-                // Threshold: confidence >= 0.6
+                // Umbral: confianza >= 0.6
                 if (confidence >= 0.6f)
                 {
                     return (bestMatch, confidence);
@@ -219,7 +219,7 @@ namespace VendingManager.Infrastructure.Services
         }
 
         /// <summary>
-        /// Compute Levenshtein distance between two strings.
+        /// Calcula la distancia de Levenshtein entre dos strings.
         /// </summary>
         private static int LevenshteinDistance(string s1, string s2)
         {
