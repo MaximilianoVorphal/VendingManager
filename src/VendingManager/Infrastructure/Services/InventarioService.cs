@@ -71,7 +71,7 @@ namespace VendingManager.Infrastructure.Services
             }
         }
 
-        public async Task AjustarStockAsync(int productoId, int nuevoStock)
+        public Task AjustarStockAsync(int productoId, int nuevoStock)
         {
             throw new InvalidOperationException("El ajuste manual de stock no está permitido. Utilice el Módulo de Compras para ingresos y Mermas (desde Caja) para salidas/ajustes.");
         }
