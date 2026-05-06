@@ -1,5 +1,9 @@
 version: '3.8'
 
+# Este archivo usa .env para variables de entorno de Docker (docker-compose interpolation ${VAR}).
+# El archivo .env se mantiene para la orquestación de contenedores Docker.
+# Para desarrollo local con 'dotnet run', usar dotnet user-secrets (ver Program.cs).
+
 volumes:
   mssql_data_dev:
   scraper_data_dev:
