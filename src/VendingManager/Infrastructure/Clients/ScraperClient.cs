@@ -54,7 +54,7 @@ namespace VendingManager.Infrastructure.Clients
                 end_date = endDate.ToString("yyyy-MM-dd")
             };
 
-            _httpClient.Timeout = TimeSpan.FromMinutes(5); // Puede tomar más tiempo
+            _httpClient.Timeout = TimeSpan.FromMinutes(10); // Puede tomar 5+ min por la generación del Excel
 
             var response = await _httpClient.PostAsJsonAsync($"{scraperUrl}/download-alt", requestData);
 
