@@ -1,3 +1,0 @@
-vendingmanager-webapp-1
-vendingmanager-scraper-1
-vendingmanager-db-1
