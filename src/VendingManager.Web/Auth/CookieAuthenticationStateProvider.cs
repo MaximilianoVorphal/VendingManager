@@ -9,7 +9,6 @@ public class CookieAuthenticationStateProvider : AuthenticationStateProvider
 {
     private readonly HttpClient _httpClient;
     private readonly PersistentComponentState _state;
-    private bool _isInitialized = false;
     private Task<AuthenticationState>? _authenticationStateTask;
 
     public CookieAuthenticationStateProvider(HttpClient httpClient, PersistentComponentState state)
