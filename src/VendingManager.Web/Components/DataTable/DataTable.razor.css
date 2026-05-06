@@ -1,0 +1,5 @@
+/* DataTable.razor — CSS Isolation */
+/* Los estilos de tabla se heredan de Bootstrap 5 */
+.datatable-responsive {
+    overflow-x: auto;
+}

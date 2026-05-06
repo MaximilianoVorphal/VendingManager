@@ -1,0 +1,8 @@
+/* IndustrialAlert.razor — CSS Isolation */
+.alert-dismissible {
+    padding-right: 3rem;
+}
+
+.alert-dismissible .btn-close {
+    /* Estilos para el botón de cerrar si se necesitan */
+}
