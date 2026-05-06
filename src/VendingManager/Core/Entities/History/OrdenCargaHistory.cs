@@ -5,7 +5,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace VendingManager.Core.Entities;
 
 /// <summary>
-/// History entity for OrdenCarga. Mirrors columns plus audit fields.
+/// Entidad history para OrdenCarga. Refleja las columnas más los campos de auditoría.
 /// </summary>
 public class OrdenCargaHistory
 {
