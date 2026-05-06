@@ -70,7 +70,7 @@ namespace VendingManager.Web.Controllers
             {
                 using (var stream = file.OpenReadStream())
                 {
-                    // Service handles path logic. We can pass null for webRootPath if service has it injected.
+                    // El servicio maneja la lógica de rutas. Podemos pasar null para webRootPath si el servicio lo tiene inyectado.
                     string path = await cajaService.UploadComprobanteAsync(stream, file.FileName, null, category);
                     await auditService.RegistrarAccionAsync(User.Identity?.Name ?? "Desconocido", "Subir Comprobante", $"Comprobante subido: {file.FileName} (Categoría: {category ?? "General"})");
                     return Ok(new { Path = path });
@@ -90,7 +90,7 @@ namespace VendingManager.Web.Controllers
                 int targetMonth = month ?? DateTime.Now.Month;
                 int targetYear = year ?? DateTime.Now.Year;
 
-                // This endpoint corresponds to "ExportarCajaAsync" (Resumen + Movimientos + Ventas)
+                // Este endpoint corresponde a "ExportarCajaAsync" (Resumen + Movimientos + Ventas)
                 var (content, fileName) = await cajaService.ExportarCajaAsync(targetMonth, targetYear);
                 return File(content, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
             }
