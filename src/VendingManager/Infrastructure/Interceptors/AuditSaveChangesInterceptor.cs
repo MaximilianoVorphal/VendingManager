@@ -56,7 +56,7 @@ public class AuditSaveChangesInterceptor : SaveChangesInterceptor
 
         var context = eventData.Context;
 
-        // Capture all tracked Added/Modified/Deleted entities
+        // Capturar todas las entidades rastreadas Added/Modified/Deleted
         var entries = context.ChangeTracker.Entries().ToList();
 
         foreach (var entry in entries)
@@ -70,7 +70,7 @@ public class AuditSaveChangesInterceptor : SaveChangesInterceptor
                 context.Set<Auditoria>().Add(auditoria);
             }
 
-            // Write history record if entity type is in the history map
+            // Escribir registro history si el tipo de entidad está en el mapa history
             var historyRecord = CreateHistoryRecord(entry, context, _httpContextAccessor);
             if (historyRecord is not null)
             {
@@ -80,7 +80,7 @@ public class AuditSaveChangesInterceptor : SaveChangesInterceptor
                     var historyType = Type.GetType($"VendingManager.Core.Entities.{historyTypeFullName}");
                     if (historyType is not null)
                     {
-                        // Use context.Add for the dynamic entity - works with object parameter
+                        // Usar context.Add para la entidad dinámica — funciona con parámetro object
                         context.Add(historyRecord);
                     }
                 }
@@ -107,7 +107,7 @@ public class AuditSaveChangesInterceptor : SaveChangesInterceptor
         if (action is null)
             return null;
 
-        // Capture BeforeJson and AfterJson based on state
+        // Capturar BeforeJson y AfterJson basados en el estado
         string? beforeJson = null;
         string? afterJson = null;
 
@@ -121,13 +121,13 @@ public class AuditSaveChangesInterceptor : SaveChangesInterceptor
             beforeJson = SerializeToJson(entry.OriginalValues);
         }
 
-        // Resolve Usuario: try IHttpContextAccessor, fallback to "system"
+        // Resolver Usuario: intentar IHttpContextAccessor, fallback a "system"
         var usuario = ResolveUsuario(context, httpContextAccessor);
 
-        // Capture entity primary key
+        // Capturar clave primaria de la entidad
         var entityId = CaptureEntityId(entry);
 
-        // Build a summary Detalle string
+        // Construir string de Detalle resumido
         var detalle = $"{entityType} #{entityId} {action}";
 
         return new Auditoria
@@ -175,7 +175,7 @@ public class AuditSaveChangesInterceptor : SaveChangesInterceptor
         var usuario = ResolveUsuario(context, httpContextAccessor);
         var entityId = CaptureEntityId(entry);
 
-        // Build a dynamic history record using the history type's constructor
+        // Construir un registro history dinámico usando el constructor del tipo history
         var historyTypeName = HistoryTypeMap[entityType];
         var historyType = Type.GetType($"VendingManager.Core.Entities.{historyTypeName}");
         if (historyType is null)
@@ -185,7 +185,7 @@ public class AuditSaveChangesInterceptor : SaveChangesInterceptor
         if (historyRecord is null)
             return null;
 
-        // Set audit properties via reflection
+        // Establecer propiedades de auditoría vía reflexión
         var historyTypeProps = historyType.GetProperties();
         foreach (var prop in historyTypeProps)
         {
@@ -214,7 +214,7 @@ public class AuditSaveChangesInterceptor : SaveChangesInterceptor
             foreach (var property in propertyValues.Properties)
             {
                 var value = propertyValues[property];
-                // Skip complex types that are not simple scalars
+                // Omitir tipos complejos que no son escalares simples
                 if (value is not string and not ValueType and not null)
                     continue;
                 dictionary[property.Name] = value;
@@ -229,7 +229,7 @@ public class AuditSaveChangesInterceptor : SaveChangesInterceptor
 
     private static int? CaptureEntityId(EntityEntry entry)
     {
-        // Find the primary key via FindPrimaryKey
+        // Encontrar la clave primaria vía FindPrimaryKey
         var primaryKey = entry.Metadata.FindPrimaryKey();
         if (primaryKey is null)
             return null;
@@ -238,12 +238,12 @@ public class AuditSaveChangesInterceptor : SaveChangesInterceptor
         if (keyProperty is null)
             return null;
 
-        // Get the current value of the primary key
+        // Obtener el valor actual de la clave primaria
         var idValue = entry.Property(keyProperty.Name).CurrentValue;
         if (idValue is int intId)
             return intId;
 
-        // Try to parse as other integer types
+        // Intentar parsear como otros tipos enteros
         if (idValue is long longId)
             return (int)longId;
 
@@ -252,7 +252,7 @@ public class AuditSaveChangesInterceptor : SaveChangesInterceptor
 
     private static string ResolveUsuario(DbContext context, IHttpContextAccessor? httpContextAccessor)
     {
-        // Try injected HttpContextAccessor first
+        // Intentar HttpContextAccessor inyectado primero
         if (httpContextAccessor?.HttpContext?.User?.Identity?.Name is { } username
             && !string.IsNullOrEmpty(username))
         {
