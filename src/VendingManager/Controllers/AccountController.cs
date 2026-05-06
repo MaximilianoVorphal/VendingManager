@@ -22,7 +22,7 @@ namespace VendingManager.Controllers
 
             if (user == null || !BCrypt.Net.BCrypt.Verify(loginDto.Password, user.PasswordHash))
             {
-                // Delay to prevent timing attacks (optional but good practice)
+                // Retraso para prevenir ataques de timing (opcional pero buena práctica)
                 await Task.Delay(new Random().Next(100, 300));
                 return Unauthorized("Credenciales inválidas");
             }
