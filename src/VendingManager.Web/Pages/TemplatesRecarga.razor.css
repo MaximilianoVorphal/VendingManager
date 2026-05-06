@@ -92,6 +92,12 @@
     }
 }
 
+/* Date input: ensure full date (DD/MM/YYYY) is visible on desktop Chrome */
+.date-input {
+    min-width: 140px;
+    flex-shrink: 0;
+}
+
 /* Time input: prevent Chrome spinner from being clipped in flex container */
 .time-input {
     min-width: 110px;
