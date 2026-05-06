@@ -11,7 +11,7 @@ namespace VendingManager.Infrastructure.Services
 {
     public class OrdenCargaExcelService : IOrdenCargaExcelService
     {
-        public async Task<byte[]> ExportarListaCarga(List<StockCriticoDto> items)
+        public Task<byte[]> ExportarListaCarga(List<StockCriticoDto> items)
         {
             try
             {
@@ -104,7 +104,7 @@ namespace VendingManager.Infrastructure.Services
                     using (var stream = new MemoryStream())
                     {
                         workbook.SaveAs(stream);
-                        return stream.ToArray();
+                        return Task.FromResult(stream.ToArray());
                     }
                 }
             }
