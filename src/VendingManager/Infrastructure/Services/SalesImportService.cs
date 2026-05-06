@@ -423,7 +423,7 @@ namespace VendingManager.Infrastructure.Services
 
             if (sumaActual == meta) return actual; // Found
             if (sumaActual > meta) return null;    // Exceeded
-            if (index >= pool.Count) return null;  // Out of bounds
+            if (index >= pool.Count) return null;  // Límite excedido
 
             var nuevoIntento = new List<Venta>(actual) { pool[index] };
             var resultado = BuscarRecursivo(pool, meta, nuevoIntento, index + 1);
