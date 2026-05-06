@@ -46,7 +46,7 @@ namespace VendingManager.Infrastructure.Services
                     SlotId = s.Id,
                     Maquina = s.Maquina.Nombre,
                     NumeroSlot = s.NumeroSlot,
-                    Producto = s.Producto.Nombre,
+                    Producto = s.Producto != null ? s.Producto.Nombre : "Sin producto",
                     ProductoId = s.ProductoId ?? 0,
                     StockActual = s.StockActual,
                     CapacidadMaxima = s.CapacidadMaxima
