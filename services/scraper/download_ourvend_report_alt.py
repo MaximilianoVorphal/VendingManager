@@ -139,11 +139,26 @@ async def run_async(machine_id, start_date, end_date):
             await page.wait_for_timeout(2000)
             await screenshot(page, f"{timestamp}_03_navegacion.png")
 
-            # ── 5. BUSCAR IFRAME ──
-            log("🔍 [5/11] Buscando iframe del reporte...")
-            target_frame = await buscar_iframe(page, "#MiGroup")
+            # ── 5. BUSCAR IFRAME DEL REPORTE (no el Home) ──
+            log("🔍 [5/11] Buscando iframe del reporte (OutReport/Index)...")
+            target_frame = None
+            for attempt in range(30):
+                for frame in page.frames:
+                    try:
+                        url = frame.url
+                        # SALTAR el iframe del Home (YSHome/Index)
+                        if "YSHome" in url:
+                            continue
+                        if await frame.locator("#MiGroup").count() > 0:
+                            target_frame = frame
+                            break
+                    except:
+                        continue
+                if target_frame:
+                    break
+                await asyncio.sleep(1)
+
             if not target_frame:
-                # Debug: listar frames disponibles
                 log(f"    ❌ No encontrado. Frames disponibles:")
                 for i, f in enumerate(page.frames):
                     try:
@@ -151,27 +166,39 @@ async def run_async(machine_id, start_date, end_date):
                         log(f"       [{i}] {url}")
                     except:
                         log(f"       [{i}] <error>")
-                raise Exception("No se encontró iframe con #MiGroup")
+                raise Exception("No se encontró iframe del reporte (OutReport/Index)")
 
             log(f"    ✅ Iframe encontrado: {target_frame.url[:80]}")
 
-            # ── 6. GRUPO (sin máquina) ──
+            # ── 6. GRUPO (sin máquina) - USAR JS porque Bootstrap Select oculta el <select> ──
             log("⚙️ [6/11] Seleccionando grupo (sin filtrar por máquina)...")
-            try:
-                await target_frame.select_option("#MiGroup", value=MACHINE_GROUP_VALUE)
-                log("    ✅ Grupo: UNIDAD PREDETERMINADA")
-            except Exception as e:
-                log(f"    ❌ Error seleccionando grupo: {e}")
-                # Intentar con texto
-                await target_frame.select_option("#MiGroup", label="UNIDAD PREDETERMINADA")
-                log("    ✅ Grupo seleccionado por label")
+            result = await target_frame.evaluate(f"""
+                (() => {{
+                    var sel = document.getElementById('MiGroup');
+                    if (!sel) return 'MiGroup no encontrado';
+                    sel.value = '{MACHINE_GROUP_VALUE}';
+                    sel.dispatchEvent(new Event('change'));
+                    return 'OK: ' + sel.options[sel.selectedIndex].text;
+                }})()
+            """)
+            log(f"    Resultado: {result}")
 
             await asyncio.sleep(3)
 
-            # Verificar MachineID
+            # Verificar MachineID (JS porque Bootstrap Select oculta el <select>)
             try:
-                opts = await target_frame.locator("#MachineID option").all()
-                log(f"    Máquinas disponibles: {len(opts) - 1}")
+                machine_info = await target_frame.evaluate("""
+                    (() => {
+                        var sel = document.getElementById('MachineID');
+                        if (!sel) return 'MachineID no encontrado';
+                        var opts = [];
+                        for (var i = 0; i < sel.options.length; i++) {
+                            opts.push(sel.options[i].text);
+                        }
+                        return JSON.stringify({count: sel.options.length - 1, names: opts.slice(1, 6)});
+                    })()
+                """)
+                log(f"    Máquinas disponibles: {machine_info}")
             except Exception as e:
                 log(f"    ⚠️ No se pudo leer MachineID: {e}")
 
