@@ -7,53 +7,73 @@
 
 <PageTitle>Informe de Compras</PageTitle>
 
-    <div class="industrial-wrapper container-fluid px-4 mt-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1>Informe de Compras Sugeridas</h1>
-        <div class="d-flex flex-wrap gap-3 align-items-center">
-            
-            <div class="input-group" style="max-width: 350px;">
-                <span class="input-group-text bg-dark text-white fw-bold border-dark">
-                    <i class="bi bi-vending-machine me-2"></i> MÁQUINA
-                </span>
-                <select class="form-select border-dark shadow-sm" @bind="MaquinaActualId" @bind:after="LoadData">
-                    <option value="0">:: CONSOLIDADO GLOBAL ::</option>
-                    @foreach (var m in Maquinas)
-                    {
-                        <option value="@m.Id">@m.Nombre</option>
-                    }
-                </select>
-            </div>
+<div class="industrial-wrapper container-fluid px-4 mt-4">
 
-            <div class="form-check form-switch">
-                <input class="form-check-input" type="checkbox" id="filterInMachine" @bind="showOnlyInMachine" />
-                <label class="form-check-label" for="filterInMachine">Solo en Máquinas</label>
+    <!-- HEADER INDUSTRIAL -->
+    <div class="row align-items-center mb-4 report-header">
+        <div class="col-12 d-flex justify-content-between align-items-center flex-wrap gap-3">
+            <div>
+                <h2 class="m-0 fw-bold text-uppercase" style="letter-spacing: -1px;">
+                    <i class="bi bi-box-seam me-2"></i>INFORME DE COMPRAS SUGERIDAS
+                </h2>
+                <small class="text-muted fw-bold report-subtitle">ANÁLISIS DE REPOSICIÓN POR PRODUCTO</small>
             </div>
-
-            <div class="d-flex align-items-center gap-2">
-                <label class="text-nowrap">Días de análisis:</label>
-                <input type="number" class="form-control" style="width: 80px;" @bind="days" min="1" max="365" />
-            </div>
-
-            <button class="btn btn-primary" @onclick="LoadData">Calcular</button>
-            <button class="btn btn-success" @onclick="DownloadExcel">
-                 <i class="bi bi-file-earmark-excel"></i> Exportar Excel
-            </button>
         </div>
+    </div>
+
+    <!-- CONTROLES DE FILTRO -->
+    <div class="d-flex flex-wrap gap-3 align-items-center mb-4 report-filters rounded-0 p-3">
+        <div class="input-group" style="max-width: 350px;">
+            <span class="input-group-text bg-dark text-white fw-bold border-dark">
+                <i class="bi bi-vending-machine me-2"></i> MÁQUINA
+            </span>
+            <select class="form-select border-dark shadow-sm" @bind="MaquinaActualId" @bind:after="LoadData">
+                <option value="0">:: CONSOLIDADO GLOBAL ::</option>
+                @foreach (var m in Maquinas)
+                {
+                    <option value="@m.Id">@m.Nombre</option>
+                }
+            </select>
+        </div>
+
+        <div class="form-check form-switch">
+            <input class="form-check-input border-dark" type="checkbox" id="filterInMachine" @bind="showOnlyInMachine" />
+            <label class="form-check-label fw-bold" for="filterInMachine">Solo en Máquinas</label>
+        </div>
+
+        <div class="d-flex align-items-center gap-2">
+            <label class="text-nowrap fw-bold text-uppercase small">DÍAS ANÁLISIS:</label>
+            <input type="number" class="form-control border-dark shadow-sm" style="width: 80px;" @bind="days" min="1" max="365" />
+        </div>
+
+        <button class="btn btn-dark rounded-0 fw-bold shadow-sm" @onclick="LoadData">
+            <i class="bi bi-calculator me-1"></i> CALCULAR
+        </button>
+        <button class="btn btn-success rounded-0 fw-bold border-dark shadow-sm" @onclick="DownloadExcel">
+            <i class="bi bi-file-earmark-excel"></i> EXPORTAR EXCEL
+        </button>
     </div>
 
     @if (suggestions == null)
     {
-        <p><em>Cargando...</em></p>
+        <!-- SPINNER INDUSTRIAL DE CARGA -->
+        <div class="text-center py-5 loading-container">
+            <div class="spinner-grow text-dark loading-spinner" role="status"></div>
+            <p class="mt-2 fw-bold text-uppercase loading-text" style="letter-spacing: 2px;">Cargando...</p>
+        </div>
     }
     else if (!FilteredSuggestions.Any())
     {
-        <div class="alert alert-info">No hay sugerencias de compra para el periodo seleccionado (o filtro aplicado).</div>
+        <!-- ESTADO VACÍO -->
+        <div class="text-center py-5 border border-dark border-2 bg-light empty-state">
+            <i class="bi bi-inbox fs-1 text-muted empty-state-icon"></i>
+            <p class="mt-2 fw-bold text-uppercase empty-state-text">No hay sugerencias de compra para el período seleccionado (o filtro aplicado).</p>
+        </div>
     }
     else
     {
         <div class="table-responsive">
-            <table class="table table-striped table-hover align-middle">
+            <table class="table table-striped table-hover align-middle result-table border-2 border-dark rounded-0">
                 <thead class="table-dark">
                     <tr>
                         <th class="text-center">En Máq.</th>
@@ -67,15 +87,15 @@
                 <tbody>
                     @foreach (var item in FilteredSuggestions)
                     {
-                        <tr class="@(item.CantidadSugerida > 0 ? "table-warning" : "")">
+                        <tr class="@(item.CantidadSugerida > 0 ? "row-warning" : "")">
                             <td class="text-center">
                                 @if (item.EnMaquina)
                                 {
-                                    <span class="badge bg-success">Sí</span>
+                                    <span class="badge badge-success-custom rounded-0">Sí</span>
                                 }
                                 else
                                 {
-                                    <span class="badge bg-secondary">No</span>
+                                    <span class="badge badge-secondary-custom rounded-0">No</span>
                                 }
                             </td>
                             <td>
@@ -138,7 +158,6 @@
         catch (Exception ex)
         {
             Console.WriteLine($"Error loading purchase suggestions: {ex.Message}");
-            // Handle error appropriately
         }
     }
 
@@ -155,12 +174,12 @@
                     await JS.InvokeVoidAsync("alert", "El archivo generado está vacío.");
                     return;
                 }
-                
-                var fileName = MaquinaActualId > 0 
-                    ? $"Sugerencia_Compra_M{MaquinaActualId}_{DateTime.Now:ddMMyy}.xlsx" 
+
+                var fileName = MaquinaActualId > 0
+                    ? $"Sugerencia_Compra_M{MaquinaActualId}_{DateTime.Now:ddMMyy}.xlsx"
                     : $"Sugerencia_Compra_{DateTime.Now:ddMMyy}.xlsx";
-                
-                try 
+
+                try
                 {
                     await JS.InvokeVoidAsync("descargarArchivo", fileContent, fileName);
                 }
