@@ -30,10 +30,6 @@
                             <i class="bi bi-camera"></i> ESCANEAR (IA)
                             <InputFile OnChange="HandleImageUpload" accept="image/*" style="display: none;" />
                         </label>
-                        <label class="btn btn-sm btn-outline-warning rounded-0 fw-bold mb-0">
-                            <i class="bi bi-paperclip"></i> ADJUNTAR FACTURA
-                            <InputFile id="factura-input" OnChange="HandleFacturaUpload" accept=".jpg,.jpeg,.png,.pdf" style="display: none;" />
-                        </label>
                     </div>
                 </div>
                 <div class="card-body bg-light">
@@ -441,16 +437,36 @@
         var file = e.File;
         if (file == null) return;
 
+        const long maxSize = 10 * 1024 * 1024; // max 10MB
+        if (file.Size > maxSize)
+        {
+            MensajeError = "La imagen supera los 10MB.";
+            return;
+        }
+
         ProcesandoOCR = true;
 
         try
         {
-            using var content = new MultipartFormDataContent();
-            var stream = file.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024); // max 10MB
-            using var streamContent = new StreamContent(stream);
-            streamContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(file.ContentType);
+            // 1. Leer el archivo a memoria primero
+            byte[] fileBytes;
+            using (var stream = file.OpenReadStream(maxSize))
+            using (var memoryStream = new MemoryStream())
+            {
+                await stream.CopyToAsync(memoryStream);
+                fileBytes = memoryStream.ToArray();
+            }
 
-            content.Add(streamContent, "file", file.Name);
+            // 2. Guardar como factura adjunta automáticamente
+            FacturaFile = file;
+            FacturaPreviewData = fileBytes;
+            FacturaPreviewUrl = $"data:{file.ContentType};base64,{Convert.ToBase64String(fileBytes)}";
+
+            // 3. Enviar a OCR con los bytes en memoria
+            using var content = new MultipartFormDataContent();
+            var byteContent = new ByteArrayContent(fileBytes);
+            byteContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(file.ContentType);
+            content.Add(byteContent, "file", file.Name);
 
             var response = await Http.PostAsync("api/compras/upload-factura", content);
 
@@ -507,42 +523,6 @@
         finally
         {
             ProcesandoOCR = false;
-        }
-    }
-
-    private async Task HandleFacturaUpload(InputFileChangeEventArgs e)
-    {
-        var file = e.File;
-        if (file == null) return;
-
-        const long maxSize = 5 * 1024 * 1024; // 5MB
-        if (file.Size > maxSize)
-        {
-            MensajeError = "El archivo excede el límite de 5MB.";
-            return;
-        }
-
-        FacturaFile = file;
-
-        // Read file bytes for preview AND upload (avoids opening stream twice)
-        await LoadFacturaPreviewData(file);
-        StateHasChanged();
-    }
-
-    private async Task LoadFacturaPreviewData(IBrowserFile file)
-    {
-        try
-        {
-            using var stream = file.OpenReadStream(maxAllowedSize: 5 * 1024 * 1024);
-            using var memoryStream = new MemoryStream();
-            await stream.CopyToAsync(memoryStream);
-            FacturaPreviewData = memoryStream.ToArray();
-            FacturaPreviewUrl = $"data:{file.ContentType};base64,{Convert.ToBase64String(FacturaPreviewData)}";
-            StateHasChanged();
-        }
-        catch (Exception ex)
-        {
-            MensajeError = "Error cargando vista previa: " + ex.Message;
         }
     }
 
