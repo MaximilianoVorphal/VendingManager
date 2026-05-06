@@ -7,21 +7,11 @@ namespace VendingManager.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class ProductosController : ControllerBase
+    public class ProductosController(IInventarioService inventarioService, IAuditService auditService) : ControllerBase
     {
-        private readonly IInventarioService _inventarioService;
-        private readonly IAuditService _auditService;
-
-        public ProductosController(IInventarioService inventarioService, IAuditService auditService)
-        {
-            _inventarioService = inventarioService;
-            _auditService = auditService;
-        }
-
-        [HttpGet]
         public async Task<ActionResult<IEnumerable<Producto>>> GetProductos()
         {
-            return Ok(await _inventarioService.GetProductosAsync());
+            return Ok(await inventarioService.GetProductosAsync());
         }
 
         [HttpPost("importar-catalogo")]
@@ -34,8 +24,8 @@ namespace VendingManager.Controllers
             {
                 using (var stream = file.OpenReadStream())
                 {
-                    string resultado = await _inventarioService.ImportarCatalogoAsync(stream, file.FileName);
-                    await _auditService.RegistrarAccionAsync(User.Identity?.Name ?? "Desconocido", "Importar Catálogo (Productos)", $"Catálogo importado: {file.FileName}");
+                    string resultado = await inventarioService.ImportarCatalogoAsync(stream, file.FileName);
+                    await auditService.RegistrarAccionAsync(User.Identity?.Name ?? "Desconocido", "Importar Catálogo (Productos)", $"Catálogo importado: {file.FileName}");
                     return Ok(new { message = resultado });
                 }
             }
@@ -50,7 +40,7 @@ namespace VendingManager.Controllers
         {
             try
             {
-                var archivo = await _inventarioService.ExportarCatalogoAsync();
+                var archivo = await inventarioService.ExportarCatalogoAsync();
                 var nombreArchivo = $"Catalogo_Productos_{DateTime.Now:yyyyMMdd_HHmm}.xlsx";
                 return File(archivo, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", nombreArchivo);
             }
@@ -65,13 +55,13 @@ namespace VendingManager.Controllers
         {
             try
             {
-                var producto = await _inventarioService.GetProductoAsync(dto.ProductoId);
+                var producto = await inventarioService.GetProductoAsync(dto.ProductoId);
                 if (producto == null) return NotFound("Producto no encontrado");
                 int stockAnterior = producto.StockBodega;
-                await _inventarioService.AjustarStockAsync(dto.ProductoId, dto.NuevoStock);
+                await inventarioService.AjustarStockAsync(dto.ProductoId, dto.NuevoStock);
                 string tipoMov = dto.NuevoStock > stockAnterior ? "Ingreso" : "Salida";
                 int diferencia = Math.Abs(dto.NuevoStock - stockAnterior);
-                await _auditService.RegistrarAccionAsync(User.Identity?.Name ?? "Desconocido", $"{tipoMov} Stock", $"{producto.Nombre}: {stockAnterior} → {dto.NuevoStock} ({tipoMov} de {diferencia} uds)");
+                await auditService.RegistrarAccionAsync(User.Identity?.Name ?? "Desconocido", $"{tipoMov} Stock", $"{producto.Nombre}: {stockAnterior} → {dto.NuevoStock} ({tipoMov} de {diferencia} uds)");
                 return Ok(new { message = "Stock actualizado", nuevoStock = dto.NuevoStock });
             }
             catch (Exception ex)
@@ -84,7 +74,7 @@ namespace VendingManager.Controllers
         [HttpGet("{id}")]
         public async Task<ActionResult<Producto>> GetProducto(int id)
         {
-            var producto = await _inventarioService.GetProductoAsync(id);
+            var producto = await inventarioService.GetProductoAsync(id);
             if (producto == null) return NotFound();
             return producto;
         }
@@ -92,15 +82,15 @@ namespace VendingManager.Controllers
         [HttpGet("{id}/historial-costos")]
         public async Task<ActionResult<IEnumerable<HistorialCostoViewDto>>> GetHistorialCostos(int id)
         {
-            var historial = await _inventarioService.GetHistorialCostosAsync(id);
+            var historial = await inventarioService.GetHistorialCostosAsync(id);
             return Ok(historial);
         }
 
         [HttpPost]
         public async Task<ActionResult<Producto>> PostProducto(Producto producto)
         {
-            var created = await _inventarioService.CreateProductoAsync(producto);
-            await _auditService.RegistrarAccionAsync(User.Identity?.Name ?? "Desconocido", "Crear Producto", $"Producto creado: {created.Nombre} (ID: {created.Id}). Costo: ${created.CostoPromedio:N0}, Stock: {created.StockBodega}");
+            var created = await inventarioService.CreateProductoAsync(producto);
+            await auditService.RegistrarAccionAsync(User.Identity?.Name ?? "Desconocido", "Crear Producto", $"Producto creado: {created.Nombre} (ID: {created.Id}). Costo: ${created.CostoPromedio:N0}, Stock: {created.StockBodega}");
             return CreatedAtAction("GetProducto", new { id = created.Id }, created);
         }
 
@@ -110,7 +100,7 @@ namespace VendingManager.Controllers
             if (id != producto.Id) return BadRequest();
             try
             {
-                var anterior = await _inventarioService.GetProductoAsync(id);
+                var anterior = await inventarioService.GetProductoAsync(id);
                 var cambios = new List<string>();
                 if (anterior != null)
                 {
@@ -119,15 +109,15 @@ namespace VendingManager.Controllers
                     if (anterior.Categoria != producto.Categoria) cambios.Add($"Cat: {anterior.Categoria} → {producto.Categoria}");
                     if (anterior.Proveedor != producto.Proveedor) cambios.Add($"Prov: {anterior.Proveedor} → {producto.Proveedor}");
                 }
-                await _inventarioService.UpdateProductoAsync(id, producto, recalculateFrom, recalculateTo);
+                await inventarioService.UpdateProductoAsync(id, producto, recalculateFrom, recalculateTo);
                 string detalle = cambios.Count > 0 ? string.Join(", ", cambios) : "Sin cambios detectados";
                 if (recalculateFrom.HasValue) detalle += $" [Recálculo desde {recalculateFrom.Value:dd/MM/yyyy}]";
-                await _auditService.RegistrarAccionAsync(User.Identity?.Name ?? "Desconocido", "Actualizar Producto", $"{producto.Nombre} (ID: {id}): {detalle}");
+                await auditService.RegistrarAccionAsync(User.Identity?.Name ?? "Desconocido", "Actualizar Producto", $"{producto.Nombre} (ID: {id}): {detalle}");
                 return NoContent();
             }
             catch (Exception)
             {
-                if (await _inventarioService.GetProductoAsync(id) == null) return NotFound();
+                if (await inventarioService.GetProductoAsync(id) == null) return NotFound();
                 throw;
             }
         }
@@ -135,10 +125,10 @@ namespace VendingManager.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteProducto(int id)
         {
-            var producto = await _inventarioService.GetProductoAsync(id);
+            var producto = await inventarioService.GetProductoAsync(id);
             if (producto == null) return NotFound();
-            await _inventarioService.DeleteProductoAsync(id);
-            await _auditService.RegistrarAccionAsync(User.Identity?.Name ?? "Desconocido", "Eliminar Producto", $"Producto eliminado: {producto.Nombre} (ID: {id})");
+            await inventarioService.DeleteProductoAsync(id);
+            await auditService.RegistrarAccionAsync(User.Identity?.Name ?? "Desconocido", "Eliminar Producto", $"Producto eliminado: {producto.Nombre} (ID: {id})");
             return NoContent();
         }
     }

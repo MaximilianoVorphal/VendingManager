@@ -12,21 +12,12 @@ namespace VendingManager.Controllers
     [Route("api/[controller]")]
     [ApiController]
     [Authorize(Roles = Roles.Admin)] // Solo administradores pueden ver esto
-    public class AuditoriaController : ControllerBase
+    public class AuditoriaController(ApplicationDbContext context, ILogger<AuditoriaController> logger) : ControllerBase
     {
-        private readonly ApplicationDbContext _context;
-        private readonly ILogger<AuditoriaController> _logger;
-
-        public AuditoriaController(ApplicationDbContext context, ILogger<AuditoriaController> logger)
-        {
-            _context = context;
-            _logger = logger;
-        }
-
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Auditoria>>> GetAuditoria([FromQuery] string? usuario = null, [FromQuery] string? accion = null)
         {
-            var query = _context.Auditoria.AsQueryable();
+            var query = context.Auditoria.AsQueryable();
 
             if (!string.IsNullOrEmpty(usuario))
             {
@@ -81,7 +72,7 @@ namespace VendingManager.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "GetHistory failed. ExceptionType: {ExceptionType}, Message: {Message}",
+                logger.LogError(ex, "GetHistory failed. ExceptionType: {ExceptionType}, Message: {Message}",
                     ex.GetType().FullName, ex.Message);
                 throw; // Let ProblemDetails middleware handle it
             }
@@ -93,11 +84,11 @@ namespace VendingManager.Controllers
             List<THistory> records;
             try
             {
-                records = await _context.Set<THistory>().Take(100).ToListAsync();
+                records = await context.Set<THistory>().Take(100).ToListAsync();
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to query history table {EntityType}. Exception: {ExceptionType} — {Message}",
+                logger.LogError(ex, "Failed to query history table {EntityType}. Exception: {ExceptionType} — {Message}",
                     entityName, ex.GetType().FullName, ex.Message);
                 return new List<HistoryListItemDto>(); // Return empty, don't crash the whole page
             }
@@ -201,7 +192,7 @@ namespace VendingManager.Controllers
 
         private async Task<THistory?> FindHistory<THistory>(int historyId) where THistory : class
         {
-            return await _context.Set<THistory>().FindAsync(historyId) as THistory;
+            return await context.Set<THistory>().FindAsync(historyId) as THistory;
         }
 
         private async Task<IActionResult> RollbackEntity<TEntity, THistory>(int entityId, string beforeJson, object historyRecord, JsonSerializerOptions jsonOptions)
@@ -217,7 +208,7 @@ namespace VendingManager.Controllers
                     Status = StatusCodes.Status400BadRequest
                 });
 
-            var current = await _context.Set<TEntity>().FindAsync(entityId);
+            var current = await context.Set<TEntity>().FindAsync(entityId);
             if (current == null)
                 return NotFound(new ProblemDetails
                 {
@@ -235,7 +226,7 @@ namespace VendingManager.Controllers
                 prop.SetValue(current, value);
             }
 
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
 
             return Ok(new RollbackResponseDto(
                 EntityId: entityId,
