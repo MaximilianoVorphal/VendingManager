@@ -1,0 +1,4 @@
+/* LoadingSpinner.razor — CSS Isolation */
+.loading-spinner-container p {
+    color: #444;
+}
