@@ -70,9 +70,7 @@ namespace VendingManager.Infrastructure.Services
                     ms.Position = 0;
                     string stats = await _salesImportService.ImportarVentasMaquina(ms, result.FileName, fechaLimite, targetMachineId);
                     return $"Sincronización Exitosa. {stats}";
-                }
-
-                return "Sincronización Exitosa. Archivo procesado en memoria.";
+            }
             }
             catch (Exception ex)
             {

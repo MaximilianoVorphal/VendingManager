@@ -34,7 +34,7 @@ namespace VendingManager.Web.Auth
 
                 if (name != null)
                 {
-                    _state.PersistAsJson("UserInfo", new UserInfo { Name = name, Role = role });
+                    _state.PersistAsJson("UserInfo", new UserInfo { Name = name, Role = role ?? "User" });
                 }
             }
         }
