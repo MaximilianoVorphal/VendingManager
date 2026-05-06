@@ -92,6 +92,12 @@
     }
 }
 
+/* Time input: prevent Chrome spinner from being clipped in flex container */
+.time-input {
+    min-width: 110px;
+    flex-shrink: 0;
+}
+
 .estado-vacio {
     background-color: #f8f9fa;
 }
