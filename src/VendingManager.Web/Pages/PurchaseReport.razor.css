@@ -1,0 +1,177 @@
+/* PurchaseReport.razor — Estilos específicos de la página (CSS Isolation de Blazor) */
+
+/* === CONTAINER PRINCIPAL === */
+.industrial-wrapper .report-filters {
+    background-color: #f8f9fa;
+    border: 2px solid #222;
+    border-radius: 0;
+}
+
+/* === HEADER INDUSTRIAL === */
+.industrial-wrapper .report-header {
+    border-bottom: 3px solid #222;
+}
+
+.industrial-wrapper .report-header .report-title {
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: -1px;
+    color: #222;
+}
+
+.industrial-wrapper .report-header .report-subtitle {
+    color: #6c757d;
+    font-weight: bold;
+}
+
+/* === SPINNER DE CARGA INDUSTRIAL === */
+.industrial-wrapper .loading-container {
+    border: 2px solid #222;
+    background-color: #f8f9fa;
+}
+
+.industrial-wrapper .loading-spinner {
+    color: #222;
+}
+
+.industrial-wrapper .loading-text {
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: #222;
+}
+
+/* === ESTADO VACÍO === */
+.industrial-wrapper .empty-state {
+    border: 2px solid #222;
+    background-color: #f8f9fa;
+}
+
+.industrial-wrapper .empty-state .empty-state-icon {
+    color: #6c757d;
+}
+
+.industrial-wrapper .empty-state .empty-state-text {
+    font-weight: bold;
+    text-transform: uppercase;
+    color: #6c757d;
+}
+
+/* === TABLA DE RESULTADOS === */
+.industrial-wrapper .result-table {
+    border: 2px solid #222;
+}
+
+.industrial-wrapper .result-table thead.table-dark {
+    background-color: #222;
+    color: white;
+}
+
+.industrial-wrapper .result-table thead.table-dark th {
+    border-bottom: 3px solid #444;
+    font-weight: bold;
+    text-transform: uppercase;
+    font-size: 0.85rem;
+}
+
+.industrial-wrapper .result-table tbody tr {
+    border-bottom: 1px solid #dee2e6;
+}
+
+.industrial-wrapper .result-table tbody tr:hover {
+    background-color: #f8f9fa;
+}
+
+.industrial-wrapper .result-table tbody tr.row-warning {
+    background-color: #fff3cd;
+}
+
+/* === BADGES DE STATUS === */
+.industrial-wrapper .badge-success-custom {
+    background-color: #198754;
+    color: white;
+    font-weight: bold;
+}
+
+.industrial-wrapper .badge-secondary-custom {
+    background-color: #6c757d;
+    color: white;
+    font-weight: bold;
+}
+
+/* === BREAKPOINTS RESPONSIVE === */
+
+/* Notebooks 14" — reorganizar controles de filtro */
+@media (max-width: 1200px) {
+    .industrial-wrapper .report-filters {
+        padding: 0.75rem;
+    }
+
+    .industrial-wrapper .report-filters .input-group {
+        max-width: 250px;
+    }
+
+    .industrial-wrapper .result-table {
+        font-size: 0.85rem;
+    }
+
+    .industrial-wrapper .result-table thead.table-dark th {
+        font-size: 0.75rem;
+        padding: 0.4rem;
+    }
+
+    .industrial-wrapper .result-table tbody tr td {
+        padding: 0.4rem;
+    }
+
+    .industrial-wrapper h2 {
+        font-size: 1.2rem;
+    }
+}
+
+/* Tablets y móviles — scroll horizontal de tabla */
+@media (max-width: 768px) {
+    .industrial-wrapper .report-header {
+        flex-direction: column;
+        align-items: flex-start !important;
+        gap: 0.5rem;
+    }
+
+    .industrial-wrapper .report-filters {
+        padding: 0.5rem;
+    }
+
+    .industrial-wrapper .report-filters .d-flex {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .industrial-wrapper .report-filters .input-group {
+        max-width: 100%;
+        width: 100%;
+    }
+
+    .industrial-wrapper .report-filters .form-check {
+        flex-direction: row;
+        align-items: center;
+    }
+
+    .industrial-wrapper .result-table {
+        font-size: 0.75rem;
+    }
+
+    .industrial-wrapper .result-table thead.table-dark th {
+        font-size: 0.65rem;
+        padding: 0.3rem;
+        white-space: nowrap;
+    }
+
+    .industrial-wrapper .result-table tbody tr td {
+        padding: 0.3rem;
+    }
+
+    .industrial-wrapper .badge-success-custom,
+    .industrial-wrapper .badge-secondary-custom {
+        font-size: 0.65rem;
+    }
+}
