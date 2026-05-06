@@ -5,25 +5,13 @@ namespace VendingManager.Web.Controllers
     [Route("api/[controller]")]
     [ApiController]
     [Microsoft.AspNetCore.Authorization.Authorize]
-    public class CajaController : ControllerBase
+    public class CajaController(ICajaService cajaService, Core.Interfaces.IInventarioService inventarioService, Core.Interfaces.IAuditService auditService) : ControllerBase
     {
-        private readonly ICajaService _cajaService;
-        private readonly Core.Interfaces.IInventarioService _inventarioService;
-        private readonly Core.Interfaces.IAuditService _auditService;
-
-        public CajaController(ICajaService cajaService, Core.Interfaces.IInventarioService inventarioService, Core.Interfaces.IAuditService auditService)
-        {
-            _cajaService = cajaService;
-            _inventarioService = inventarioService;
-            _auditService = auditService;
-        }
-
-        [HttpGet("resumen")]
         public async Task<ActionResult<CajaResumenDto>> GetResumen([FromQuery] int? month, [FromQuery] int? year)
         {
             int targetMonth = month ?? DateTime.Now.Month;
             int targetYear = year ?? DateTime.Now.Year;
-            return await _cajaService.GetResumenAsync(targetMonth, targetYear);
+            return await cajaService.GetResumenAsync(targetMonth, targetYear);
         }
 
         [HttpGet("movimientos")]
@@ -31,7 +19,7 @@ namespace VendingManager.Web.Controllers
         {
             int targetMonth = month ?? DateTime.Now.Month;
             int targetYear = year ?? DateTime.Now.Year;
-            var movimientos = await _cajaService.GetMovimientosAsync(targetMonth, targetYear);
+            var movimientos = await cajaService.GetMovimientosAsync(targetMonth, targetYear);
             
             return movimientos.Select(m => new VendingManager.Shared.DTOs.MovimientoCajaDto
             {
@@ -54,7 +42,7 @@ namespace VendingManager.Web.Controllers
         public async Task<ActionResult<IEnumerable<dynamic>>> GetProductosSimple()
         {
             // Retornamos lista simple para el select
-            var productos = await _inventarioService.GetProductosAsync();
+            var productos = await inventarioService.GetProductosAsync();
             return Ok(productos.Select(p => new { p.Id, p.Nombre, p.StockBodega }));
         }
 
@@ -63,8 +51,8 @@ namespace VendingManager.Web.Controllers
         {
             try
             {
-                await _cajaService.RegistrarMovimientoAsync(mov);
-                await _auditService.RegistrarAccionAsync(User.Identity?.Name ?? "Desconocido", "Registrar Movimiento Caja", $"Movimiento: {mov.Tipo}, Monto: {mov.Monto}, Detalle: {mov.Descripcion}");
+                await cajaService.RegistrarMovimientoAsync(mov);
+                await auditService.RegistrarAccionAsync(User.Identity?.Name ?? "Desconocido", "Registrar Movimiento Caja", $"Movimiento: {mov.Tipo}, Monto: {mov.Monto}, Detalle: {mov.Descripcion}");
                 return Ok("Movimiento registrado.");
             }
             catch (ArgumentException ex) { return BadRequest(ex.Message); }
@@ -83,8 +71,8 @@ namespace VendingManager.Web.Controllers
                 using (var stream = file.OpenReadStream())
                 {
                     // Service handles path logic. We can pass null for webRootPath if service has it injected.
-                    string path = await _cajaService.UploadComprobanteAsync(stream, file.FileName, null, category);
-                    await _auditService.RegistrarAccionAsync(User.Identity?.Name ?? "Desconocido", "Subir Comprobante", $"Comprobante subido: {file.FileName} (Categoría: {category ?? "General"})");
+                    string path = await cajaService.UploadComprobanteAsync(stream, file.FileName, null, category);
+                    await auditService.RegistrarAccionAsync(User.Identity?.Name ?? "Desconocido", "Subir Comprobante", $"Comprobante subido: {file.FileName} (Categoría: {category ?? "General"})");
                     return Ok(new { Path = path });
                 }
             }
@@ -103,7 +91,7 @@ namespace VendingManager.Web.Controllers
                 int targetYear = year ?? DateTime.Now.Year;
 
                 // This endpoint corresponds to "ExportarCajaAsync" (Resumen + Movimientos + Ventas)
-                var (content, fileName) = await _cajaService.ExportarCajaAsync(targetMonth, targetYear);
+                var (content, fileName) = await cajaService.ExportarCajaAsync(targetMonth, targetYear);
                 return File(content, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
             }
             catch (Exception ex)
@@ -114,7 +102,7 @@ namespace VendingManager.Web.Controllers
         [HttpGet("valorizacion")]
         public async Task<ActionResult<VendingManager.Shared.DTOs.ValorizacionStockDto>> GetValorizacionStock()
         {
-            return await _cajaService.GetValorizacionStockAsync();
+            return await cajaService.GetValorizacionStockAsync();
         }
     }
 }

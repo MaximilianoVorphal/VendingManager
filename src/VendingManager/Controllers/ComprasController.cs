@@ -9,23 +9,13 @@ namespace VendingManager.Controllers;
 [Authorize]
 [ApiController]
 [Route("api/[controller]")]
-public class ComprasController : ControllerBase
+public class ComprasController(ICompraService compraService, IFacturaOcrService facturaOcrService) : ControllerBase
 {
-    private readonly ICompraService _compraService;
-    private readonly IFacturaOcrService _facturaOcrService;
-
-    public ComprasController(ICompraService compraService, IFacturaOcrService facturaOcrService)
-    {
-        _compraService = compraService;
-        _facturaOcrService = facturaOcrService;
-    }
-
-    [HttpGet]
     public async Task<ActionResult<IEnumerable<CompraDto>>> GetCompras([FromQuery] int? limit = null)
     {
         try 
         {
-            var compras = await _compraService.GetComprasAsync(limit);
+            var compras = await compraService.GetComprasAsync(limit);
             
             var dto = compras.Select(c => new CompraDto
             {
@@ -62,7 +52,7 @@ public class ComprasController : ControllerBase
     [HttpGet("{id}")]
     public async Task<ActionResult<CompraDto>> GetCompra(int id)
     {
-        var c = await _compraService.GetCompraByIdAsync(id);
+        var c = await compraService.GetCompraByIdAsync(id);
         if (c == null) return NotFound();
 
         var dto = new CompraDto
@@ -122,7 +112,7 @@ public class ComprasController : ControllerBase
         // Recalcular monto total de la factura
         nuevaCompra.MontoTotal = nuevaCompra.Detalles.Sum(d => d.Subtotal);
 
-        var guardada = await _compraService.RegistrarCompraAsync(nuevaCompra);
+        var guardada = await compraService.RegistrarCompraAsync(nuevaCompra);
         
         return CreatedAtAction(nameof(GetCompra), new { id = guardada.Id }, new { id = guardada.Id });
     }
@@ -130,7 +120,7 @@ public class ComprasController : ControllerBase
     [HttpPost("{id}/pagar")]
     public async Task<IActionResult> MarcarPagada(int id)
     {
-        await _compraService.MarcarComoPagada(id);
+        await compraService.MarcarComoPagada(id);
         return NoContent();
     }
 
@@ -139,7 +129,7 @@ public class ComprasController : ControllerBase
     {
         try
         {
-            await _compraService.ActualizarCompraAsync(id, request);
+            await compraService.ActualizarCompraAsync(id, request);
             return NoContent();
         }
         catch (Exception ex)
@@ -153,7 +143,7 @@ public class ComprasController : ControllerBase
     {
         try
         {
-            await _compraService.EliminarCompraAsync(id);
+            await compraService.EliminarCompraAsync(id);
             return NoContent();
         }
         catch (Exception ex)
@@ -170,7 +160,7 @@ public class ComprasController : ControllerBase
             if (file == null || file.Length == 0)
                 return BadRequest("No se proporcionó ningún archivo válido.");
 
-            var resultado = await _facturaOcrService.ExtractInvoiceDataAsync(file);
+            var resultado = await facturaOcrService.ExtractInvoiceDataAsync(file);
             return Ok(resultado);
         }
         catch (Exception ex)
@@ -188,7 +178,7 @@ public class ComprasController : ControllerBase
             if (file == null || file.Length == 0)
                 return BadRequest("No se proporcionó ningún archivo.");
 
-            var path = await _compraService.SaveFacturaImagenAsync(id, file);
+            var path = await compraService.SaveFacturaImagenAsync(id, file);
             return Ok(new { Path = path });
         }
         catch (ArgumentException ex)
@@ -216,13 +206,13 @@ public class ComprasController : ControllerBase
     [HttpGet("{id}/factura")]
     public async Task<IActionResult> GetFacturaImagen(int id)
     {
-        var compra = await _compraService.GetCompraByIdAsync(id);
+        var compra = await compraService.GetCompraByIdAsync(id);
         if (compra == null) return NotFound();
 
         if (string.IsNullOrEmpty(compra.FacturaImagenPath))
             return NotFound("Esta compra no tiene imagen de factura.");
 
-        var filePath = _compraService.ResolveFacturaPhysicalPath(compra.FacturaImagenPath);
+        var filePath = compraService.ResolveFacturaPhysicalPath(compra.FacturaImagenPath);
         if (!System.IO.File.Exists(filePath))
             return NotFound("Archivo de imagen no encontrado en disco.");
 

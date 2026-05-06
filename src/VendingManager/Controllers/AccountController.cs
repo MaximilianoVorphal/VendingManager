@@ -12,22 +12,12 @@ namespace VendingManager.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class AccountController : ControllerBase
+    public class AccountController(ApplicationDbContext context, IAuditService auditService) : ControllerBase
     {
-        private readonly ApplicationDbContext _context;
-        private readonly IAuditService _auditService;
-
-        public AccountController(ApplicationDbContext context, IAuditService auditService)
-        {
-            _context = context;
-            _auditService = auditService;
-        }
-
-        [EnableRateLimiting("LoginPolicy")]
         [HttpPost("login")]
         public async Task<ActionResult<string>> Login(LoginDto loginDto)
         {
-            var user = await _context.Users
+            var user = await context.Users
                 .FirstOrDefaultAsync(u => u.Username == loginDto.Username);
 
             if (user == null || !BCrypt.Net.BCrypt.Verify(loginDto.Password, user.PasswordHash))
@@ -56,7 +46,7 @@ namespace VendingManager.Controllers
                 new ClaimsPrincipal(claimsIdentity),
                 authProperties);
 
-            await _auditService.RegistrarAccionAsync(user.Username, "Login", "Inicio de sesión exitoso");
+            await auditService.RegistrarAccionAsync(user.Username, "Login", "Inicio de sesión exitoso");
 
             return Ok("Login exitoso");
         }
