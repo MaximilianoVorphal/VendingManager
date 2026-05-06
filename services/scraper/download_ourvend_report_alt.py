@@ -282,8 +282,8 @@ async def run_async(machine_id, start_date, end_date):
             await target_frame.get_by_text("ExcelSchedule download").click()
             await reserve_list_modal.wait_for(state="visible", timeout=30000)
 
-            max_wait = 60
-            poll_interval = 3
+            max_wait = 300  # 5 minutos (Ourvend tarda ~5 min en generar)
+            poll_interval = 5
             waited = 0
             count_after = count_before
 
@@ -316,7 +316,7 @@ async def run_async(machine_id, start_date, end_date):
             await download_link.wait_for(state="visible", timeout=30000)
 
             print("--> Iniciando descarga...")
-            async with page.expect_download(timeout=120000) as download_info:
+            async with page.expect_download(timeout=360000) as download_info:  # 6 min timeout
                 await download_link.click()
 
             download = await download_info.value
