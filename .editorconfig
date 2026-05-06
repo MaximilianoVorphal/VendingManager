@@ -1,0 +1,53 @@
+# Configuración de estilo de código C#
+# Prioridad más alta — las reglas específicas prevalecen sobre las genéricas
+
+# ---- Estilos de código C# ----
+[*.cs]
+
+# Niveles de gravedad del analizador (treat warnings as errors)
+dotnet_diagnostic.CS.severity = error
+dotnet_diagnostic.NU.severity = error
+
+# ---- Estilos de formato ----
+indent_style = space
+indent_size = 4
+end_of_line = lf
+charset = utf-8
+trim_trailing_whitespace = true
+insert_final_newline = true
+
+# ---- Convenciones de nomenclatura ----
+dotnet_naming_rule.interface_should_be_begins_with_i.severity = suggestion
+dotnet_naming_rule.interface_should_be_begins_with_i.symbols = interface
+dotnet_naming_rule.interface_should_be_begins_with_i.style = begins_with_i
+
+dotnet_naming_symbols.interface.applicable_kinds = interface
+dotnet_naming_symbols.interface.applicable_accessibilities = public, internal
+
+dotnet_naming_style.begins_with_i.required_prefix = I
+dotnet_naming_style.begins_with_i.capitalization = pascal_case
+
+# ---- Configuración de nullabilidad ----
+dotnet_style_coalesce_expression = true
+dotnet_style_null_propagation = true
+dotnet_style_prefer_is_null_check_over_ref_equality_method = true
+dotnet_style_prefer_conditional_expression_over_assignment = true
+dotnet_style_prefer_conditional_expression_over_return = true
+
+# ---- Expresiones de consulta LINQ ----
+dotnet_style_qualify_for_anonymous_methods = false
+dotnet_style_qualify_for_extension_methods = false
+
+# ---- Modificadores de acceso ----
+dotnet_style_require_accessibility_modifiers = always
+dotnet_style_accessibility_modifiers_keywords_order = public, protected, internal, private
+
+# ---- Parámetros sin usar (nivel de sugerencia, no error para permitir patrones de diseño) ----
+dotnet_diagnostic.CS0414.severity = suggestion
+dotnet_diagnostic.CS0169.severity = suggestion
+
+# ---- Archivos de proyecto ----
+[*.csproj]
+# Tratar advertencias del analizador como errores (excepto NU1510 que viene de dependencias transitivas)
+dotnet_analyzer_diagnostic.severity = error
+dotnet_diagnostic.NU1510.severity = none
