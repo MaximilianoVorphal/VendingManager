@@ -1,0 +1,8 @@
+/* EmptyState.razor — CSS Isolation */
+.empty-state-container {
+    background-color: #f8f9fa;
+}
+
+.empty-state-container i {
+    opacity: 0.6;
+}
