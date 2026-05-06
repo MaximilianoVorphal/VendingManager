@@ -12,21 +12,11 @@ namespace VendingManager.Controllers
     [Route("api/[controller]")]
     [ApiController]
     [Authorize(Roles = Roles.Admin)]
-    public class UsersController : ControllerBase
+    public class UsersController(ApplicationDbContext context, IAuditService auditService) : ControllerBase
     {
-        private readonly ApplicationDbContext _context;
-        private readonly IAuditService _auditService;
-
-        public UsersController(ApplicationDbContext context, IAuditService auditService)
-        {
-            _context = context;
-            _auditService = auditService;
-        }
-
-        [HttpGet]
         public async Task<ActionResult<IEnumerable<UserDto>>> GetUsers()
         {
-            return await _context.Users
+            return await context.Users
                 .Select(u => new UserDto
                 {
                     Id = u.Id,
@@ -39,7 +29,7 @@ namespace VendingManager.Controllers
         [HttpPost]
         public async Task<ActionResult<UserDto>> CreateUser(CreateUserDto createUserDto)
         {
-            if (await _context.Users.AnyAsync(u => u.Username == createUserDto.Username))
+            if (await context.Users.AnyAsync(u => u.Username == createUserDto.Username))
             {
                 return BadRequest("El nombre de usuario ya existe.");
             }
@@ -56,10 +46,10 @@ namespace VendingManager.Controllers
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword(createUserDto.Password)
             };
 
-            _context.Users.Add(user);
-            await _context.SaveChangesAsync();
+            context.Users.Add(user);
+            await context.SaveChangesAsync();
 
-            await _auditService.RegistrarAccionAsync(User.Identity?.Name ?? "Admin", "Crear Usuario", $"Usuario creado: {user.Username} ({user.Role})");
+            await auditService.RegistrarAccionAsync(User.Identity?.Name ?? "Admin", "Crear Usuario", $"Usuario creado: {user.Username} ({user.Role})");
 
             return CreatedAtAction(nameof(GetUsers), new { id = user.Id }, new UserDto
             {
@@ -77,7 +67,7 @@ namespace VendingManager.Controllers
                 return BadRequest("Rol inválido.");
             }
 
-            var user = await _context.Users.FindAsync(id);
+            var user = await context.Users.FindAsync(id);
             if (user == null)
             {
                 return NotFound();
@@ -96,8 +86,8 @@ namespace VendingManager.Controllers
 
             try
             {
-                await _context.SaveChangesAsync();
-                await _auditService.RegistrarAccionAsync(User.Identity?.Name ?? "Admin", "Actualizar Usuario", $"Usuario: {user.Username}. {details}");
+                await context.SaveChangesAsync();
+                await auditService.RegistrarAccionAsync(User.Identity?.Name ?? "Admin", "Actualizar Usuario", $"Usuario: {user.Username}. {details}");
             }
             catch (DbUpdateConcurrencyException)
             {
@@ -111,7 +101,7 @@ namespace VendingManager.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteUser(int id)
         {
-            var user = await _context.Users.FindAsync(id);
+            var user = await context.Users.FindAsync(id);
             if (user == null)
             {
                 return NotFound();
@@ -122,17 +112,17 @@ namespace VendingManager.Controllers
                 return BadRequest("No puedes eliminar tu propio usuario.");
             }
 
-            _context.Users.Remove(user);
-            await _context.SaveChangesAsync();
+            context.Users.Remove(user);
+            await context.SaveChangesAsync();
 
-            await _auditService.RegistrarAccionAsync(User.Identity?.Name ?? "Admin", "Eliminar Usuario", $"Usuario eliminado: {user.Username}");
+            await auditService.RegistrarAccionAsync(User.Identity?.Name ?? "Admin", "Eliminar Usuario", $"Usuario eliminado: {user.Username}");
 
             return NoContent();
         }
 
         private bool UserExists(int id)
         {
-            return _context.Users.Any(e => e.Id == id);
+            return context.Users.Any(e => e.Id == id);
         }
     }
 }

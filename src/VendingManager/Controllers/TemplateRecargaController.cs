@@ -6,22 +6,14 @@ namespace VendingManager.Controllers;
 
 [Route("api/[controller]")]
 [ApiController]
-public class TemplateRecargaController : ControllerBase
+public class TemplateRecargaController(ITemplateRecargaService service) : ControllerBase
 {
-    private readonly ITemplateRecargaService _service;
-
-    public TemplateRecargaController(ITemplateRecargaService service)
-    {
-        _service = service;
-    }
-
-    /// <summary>
     /// Obtener todos los templates de recarga
     /// </summary>
     [HttpGet]
     public async Task<ActionResult<List<TemplateRecargaDto>>> GetAll()
     {
-        var result = await _service.GetAllAsync();
+        var result = await service.GetAllAsync();
         return Ok(result);
     }
 
@@ -31,7 +23,7 @@ public class TemplateRecargaController : ControllerBase
     [HttpGet("{id}")]
     public async Task<ActionResult<TemplateRecargaDto>> GetById(int id)
     {
-        var result = await _service.GetByIdAsync(id);
+        var result = await service.GetByIdAsync(id);
         if (result == null)
             return NotFound($"Template con ID {id} no encontrado");
         return Ok(result);
@@ -49,7 +41,7 @@ public class TemplateRecargaController : ControllerBase
         if (!dto.Periodos.Any())
             return BadRequest("Debe incluir al menos un período");
 
-        var result = await _service.CreateAsync(dto);
+        var result = await service.CreateAsync(dto);
         return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
     }
 
@@ -61,7 +53,7 @@ public class TemplateRecargaController : ControllerBase
     {
         try
         {
-            var result = await _service.UpdateAsync(id, dto);
+            var result = await service.UpdateAsync(id, dto);
             return Ok(result);
         }
         catch (InvalidOperationException ex)
@@ -76,7 +68,7 @@ public class TemplateRecargaController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(int id)
     {
-        await _service.DeleteAsync(id);
+        await service.DeleteAsync(id);
         return NoContent();
     }
 
@@ -88,11 +80,11 @@ public class TemplateRecargaController : ControllerBase
         int id,
         [FromQuery] double umbralHoras = 24)
     {
-        var template = await _service.GetByIdAsync(id);
+        var template = await service.GetByIdAsync(id);
         if (template == null)
             return NotFound($"Template con ID {id} no encontrado");
 
-        var result = await _service.AnalyzarPorTemplateAsync(id, umbralHoras);
+        var result = await service.AnalyzarPorTemplateAsync(id, umbralHoras);
         return Ok(result);
     }
 
@@ -102,7 +94,7 @@ public class TemplateRecargaController : ControllerBase
     [HttpGet("maquina/{maquinaId}/slots")]
     public async Task<ActionResult<List<SnapshotSlotDto>>> GetSlotsForMaquina(int maquinaId)
     {
-        var slots = await _service.GetSlotsForMaquinaAsync(maquinaId);
+        var slots = await service.GetSlotsForMaquinaAsync(maquinaId);
         return Ok(slots);
     }
 
@@ -112,11 +104,11 @@ public class TemplateRecargaController : ControllerBase
     [HttpPost("{id}/sincronizar-ventas")]
     public async Task<ActionResult<object>> SincronizarVentas(int id, [FromQuery] bool actualizarCostos = false)
     {
-        var template = await _service.GetByIdAsync(id);
+        var template = await service.GetByIdAsync(id);
         if (template == null)
             return NotFound($"Template con ID {id} no encontrado");
 
-        var amountUpdated = await _service.SyncVentasWithTemplateAsync(id, actualizarCostos);
+        var amountUpdated = await service.SyncVentasWithTemplateAsync(id, actualizarCostos);
         
         return Ok(new { 
             message = "Ventas sincronizadas exitosamente",
@@ -139,7 +131,7 @@ public class TemplateRecargaController : ControllerBase
 
         try
         {
-            var result = await _service.SyncSlotProductoAsync(templateId, periodoId, numeroSlot, request.ProductoId);
+            var result = await service.SyncSlotProductoAsync(templateId, periodoId, numeroSlot, request.ProductoId);
             return Ok(result);
         }
         catch (InvalidOperationException ex)

@@ -10,26 +10,18 @@ namespace VendingManager.Web.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class InformesController : ControllerBase
+    public class InformesController(IInformesService informesService) : ControllerBase
     {
-        private readonly IInformesService _informesService;
-
-        public InformesController(IInformesService informesService)
-        {
-            _informesService = informesService;
-        }
-
-        [HttpGet]
         public async Task<IActionResult> Get()
         {
-            var informes = await _informesService.ObtenerTodosSinContenidoAsync();
+            var informes = await informesService.ObtenerTodosSinContenidoAsync();
             return Ok(informes);
         }
 
         [HttpGet("{id}")]
         public async Task<IActionResult> Download(int id)
         {
-            var informe = await _informesService.ObtenerPorIdAsync(id);
+            var informe = await informesService.ObtenerPorIdAsync(id);
             if (informe == null)
             {
                 return NotFound();
@@ -58,7 +50,7 @@ namespace VendingManager.Web.Controllers
                     FechaSubida = DateTime.Now
                 };
 
-                await _informesService.SubirInformeAsync(informe);
+                await informesService.SubirInformeAsync(informe);
             }
 
             return Ok();
@@ -67,7 +59,7 @@ namespace VendingManager.Web.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(int id)
         {
-            await _informesService.EliminarInformeAsync(id);
+            await informesService.EliminarInformeAsync(id);
             return Ok();
         }
     }

@@ -6,28 +6,16 @@ namespace VendingManager.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class OrdenCargaController : ControllerBase
+    public class OrdenCargaController(
+        IOrdenCargaService service,
+        IOrdenCargaExcelService ordenCargaExcelService,
+        IRecargaOcrService recargaOcrService) : ControllerBase
     {
-        private readonly IOrdenCargaService _service;
-        private readonly IOrdenCargaExcelService _ordenCargaExcelService;
-        private readonly IRecargaOcrService _recargaOcrService;
-
-        public OrdenCargaController(
-            IOrdenCargaService service,
-            IOrdenCargaExcelService excelService,
-            IRecargaOcrService recargaOcrService)
-        {
-            _service = service;
-            _ordenCargaExcelService = excelService;
-            _recargaOcrService = recargaOcrService;
-        }
-
-        [HttpPost]
         public async Task<ActionResult<OrdenCargaDto>> CrearOrden(CrearOrdenDto dto)
         {
             try
             {
-                var orden = await _service.CrearOrdenAsync(dto);
+                var orden = await service.CrearOrdenAsync(dto);
                 return Ok(orden);
             }
             catch (Exception ex)
@@ -41,7 +29,7 @@ namespace VendingManager.Controllers
         {
             try
             {
-                await _service.FinalizarOrdenAsync(dto);
+                await service.FinalizarOrdenAsync(dto);
                 return Ok(new { message = "Orden finalizada y stock retornado correctamente." });
             }
             catch (Exception ex)
@@ -55,7 +43,7 @@ namespace VendingManager.Controllers
         {
             try 
             {
-                var success = await _service.ActualizarNombreOrdenAsync(id, nombre);
+                var success = await service.ActualizarNombreOrdenAsync(id, nombre);
                 if (!success) return NotFound();
                 return Ok();
             }
@@ -70,7 +58,7 @@ namespace VendingManager.Controllers
         {
             try
             {
-                var success = await _service.ActualizarOrdenAsync(id, dto);
+                var success = await service.ActualizarOrdenAsync(id, dto);
                 if (!success) return NotFound();
                 return Ok();
             }
@@ -83,13 +71,13 @@ namespace VendingManager.Controllers
         [HttpGet("historial")]
         public async Task<ActionResult<List<OrdenCargaDto>>> GetOrdenes([FromQuery] int maquinaId = 0)
         {
-            return await _service.GetOrdenesAsync(maquinaId);
+            return await service.GetOrdenesAsync(maquinaId);
         }
 
         [HttpGet("{id}")]
         public async Task<ActionResult<OrdenCargaDto>> GetOrden(int id)
         {
-            var orden = await _service.GetOrdenByIdAsync(id);
+            var orden = await service.GetOrdenByIdAsync(id);
             if (orden == null) return NotFound();
             return orden;
         }
@@ -97,7 +85,7 @@ namespace VendingManager.Controllers
         [HttpGet("sugerencia")]
         public async Task<ActionResult<List<StockCriticoDto>>> GetSugerencia([FromQuery] int maquinaId)
         {
-            return await _service.GetSugerenciaCargaAsync(maquinaId);
+            return await service.GetSugerenciaCargaAsync(maquinaId);
         }
 
         [HttpGet("exportar-sugerencia")]
@@ -105,8 +93,8 @@ namespace VendingManager.Controllers
         {
             try
             {
-                var sugerencias = await _service.GetSugerenciaCargaAsync(maquinaId);
-                var content = await _ordenCargaExcelService.ExportarListaCarga(sugerencias);
+                var sugerencias = await service.GetSugerenciaCargaAsync(maquinaId);
+                var content = await ordenCargaExcelService.ExportarListaCarga(sugerencias);
                 
                 string fileName = $"Carga_{DateTime.Now:yyyyMMdd_HHmm}.xlsx";
                 return File(content, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
@@ -122,8 +110,8 @@ namespace VendingManager.Controllers
         {
             try
             {
-                var sugerencias = await _service.GetSugerenciaGlobalAsync();
-                var content = await _ordenCargaExcelService.ExportarListaCarga(sugerencias);
+                var sugerencias = await service.GetSugerenciaGlobalAsync();
+                var content = await ordenCargaExcelService.ExportarListaCarga(sugerencias);
                 
                 string fileName = $"Carga_GLOBAL_{DateTime.Now:yyyyMMdd_HHmm}.xlsx";
                 return File(content, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
@@ -164,7 +152,7 @@ namespace VendingManager.Controllers
 
             try
             {
-                var result = await _recargaOcrService.ExtractRecargaDataAsync(file, maquinaId);
+                var result = await recargaOcrService.ExtractRecargaDataAsync(file, maquinaId);
                 return Ok(result);
             }
             catch (Exception ex)

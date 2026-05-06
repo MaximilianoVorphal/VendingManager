@@ -8,24 +8,14 @@ namespace VendingManager.Controllers;
 [Route("api/[controller]")]
 [ApiController]
 [Authorize]
-public class GastoRecurrenteController : ControllerBase
+public class GastoRecurrenteController(IGastoRecurrenteService service, IAuditService auditService) : ControllerBase
 {
-    private readonly IGastoRecurrenteService _service;
-    private readonly IAuditService _auditService;
-
-    public GastoRecurrenteController(IGastoRecurrenteService service, IAuditService auditService)
-    {
-        _service = service;
-        _auditService = auditService;
-    }
-
-    /// <summary>
     /// Obtiene todos los gastos recurrentes (activos e inactivos).
     /// </summary>
     [HttpGet]
     public async Task<ActionResult<List<GastoRecurrente>>> GetTodos()
     {
-        return await _service.GetTodosAsync();
+        return await service.GetTodosAsync();
     }
 
     /// <summary>
@@ -35,8 +25,8 @@ public class GastoRecurrenteController : ControllerBase
     [Authorize(Roles = "Admin")]
     public async Task<ActionResult<GastoRecurrente>> Crear([FromBody] GastoRecurrente gasto)
     {
-        var resultado = await _service.CrearAsync(gasto);
-        await _auditService.RegistrarAccionAsync(
+        var resultado = await service.CrearAsync(gasto);
+        await auditService.RegistrarAccionAsync(
             User.Identity?.Name ?? "Desconocido",
             "Crear Gasto Recurrente",
             $"Gasto: {gasto.Descripcion}, Monto: ${gasto.MontoEstimado:N0}, Categoría: {gasto.Categoria}");
@@ -52,8 +42,8 @@ public class GastoRecurrenteController : ControllerBase
     {
         try
         {
-            await _service.ActualizarAsync(id, gasto);
-            await _auditService.RegistrarAccionAsync(
+            await service.ActualizarAsync(id, gasto);
+            await auditService.RegistrarAccionAsync(
                 User.Identity?.Name ?? "Desconocido",
                 "Actualizar Gasto Recurrente",
                 $"ID: {id}, Nuevo Monto: ${gasto.MontoEstimado:N0}");
@@ -71,8 +61,8 @@ public class GastoRecurrenteController : ControllerBase
     {
         try
         {
-            await _service.DesactivarAsync(id);
-            await _auditService.RegistrarAccionAsync(
+            await service.DesactivarAsync(id);
+            await auditService.RegistrarAccionAsync(
                 User.Identity?.Name ?? "Desconocido",
                 "Desactivar Gasto Recurrente",
                 $"ID: {id}");
@@ -89,7 +79,7 @@ public class GastoRecurrenteController : ControllerBase
     {
         int m = month ?? DateTime.Now.Month;
         int y = year ?? DateTime.Now.Year;
-        return await _service.GetPendientesDelMesAsync(m, y);
+        return await service.GetPendientesDelMesAsync(m, y);
     }
 
     /// <summary>
@@ -104,8 +94,8 @@ public class GastoRecurrenteController : ControllerBase
             int m = request.Month ?? DateTime.Now.Month;
             int y = request.Year ?? DateTime.Now.Year;
 
-            await _service.AplicarGastoAsync(request.GastoRecurrenteId, m, y, request.MontoReal);
-            await _auditService.RegistrarAccionAsync(
+            await service.AplicarGastoAsync(request.GastoRecurrenteId, m, y, request.MontoReal);
+            await auditService.RegistrarAccionAsync(
                 User.Identity?.Name ?? "Desconocido",
                 "Aplicar Gasto Recurrente",
                 $"GastoRecurrenteId: {request.GastoRecurrenteId}, Mes: {m}/{y}, MontoReal: ${request.MontoReal?.ToString("N0") ?? "estimado"}");
@@ -124,7 +114,7 @@ public class GastoRecurrenteController : ControllerBase
         int m = request.Month ?? DateTime.Now.Month;
         int y = request.Year ?? DateTime.Now.Year;
 
-        var pendientes = await _service.GetPendientesDelMesAsync(m, y);
+        var pendientes = await service.GetPendientesDelMesAsync(m, y);
         int aplicados = 0;
         var errores = new List<string>();
 
@@ -136,7 +126,7 @@ public class GastoRecurrenteController : ControllerBase
                 decimal? montoReal = request.MontosPersonalizados?
                     .FirstOrDefault(mp => mp.GastoRecurrenteId == p.GastoRecurrenteId)?.MontoReal;
 
-                await _service.AplicarGastoAsync(p.GastoRecurrenteId, m, y, montoReal);
+                await service.AplicarGastoAsync(p.GastoRecurrenteId, m, y, montoReal);
                 aplicados++;
             }
             catch (Exception ex)
@@ -148,7 +138,7 @@ public class GastoRecurrenteController : ControllerBase
         string resultado = $"Aplicados: {aplicados}/{pendientes.Count}";
         if (errores.Any()) resultado += $". Errores: {string.Join("; ", errores)}";
 
-        await _auditService.RegistrarAccionAsync(
+        await auditService.RegistrarAccionAsync(
             User.Identity?.Name ?? "Desconocido",
             "Aplicar Todos Gastos Recurrentes",
             $"Mes: {m}/{y}, {resultado}");
