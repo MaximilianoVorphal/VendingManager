@@ -22,9 +22,14 @@
                 </h2>
                 <small class="text-muted fw-bold">DEFINE PERÍODOS ESPECÍFICOS POR MÁQUINA PARA ANÁLISIS</small>
             </div>
-            <button class="btn btn-success rounded-0 fw-bold border-dark" @onclick="AbrirModalCrear">
-                <i class="bi bi-plus-lg me-1"></i> NUEVO TEMPLATE
-            </button>
+            <div class="d-flex gap-2">
+                <button class="btn btn-warning rounded-0 fw-bold border-dark" @onclick="MostrarPendientes" title="Slots pendientes de configurar">
+                    <i class="bi bi-exclamation-circle me-1"></i> PENDIENTES
+                </button>
+                <button class="btn btn-success rounded-0 fw-bold border-dark" @onclick="AbrirModalCrear">
+                    <i class="bi bi-plus-lg me-1"></i> NUEVO TEMPLATE
+                </button>
+            </div>
         </div>
     </div>
 
@@ -394,7 +399,7 @@
                                                 <div class="mt-2">
                                                     <select class="form-select form-select-sm border-dark shadow-none fw-bold text-center @GetEstadoSlotCssClass(slot.Estado)"
                                                         style="height: 2rem; font-size: 0.7rem;"
-                                                        @bind="slot.Estado">
+                                                        @bind="slot.Estado" @bind:after="() => OnSlotEstadoChanged(slot)">
                                                         <option value="@EstadoSlot.Vacio">Vacío</option>
                                                         <option value="@EstadoSlot.Pendiente">Pendiente</option>
                                                         <option value="@EstadoSlot.Lleno">Lleno</option>
@@ -509,6 +514,72 @@
                             CERRAR
                         </button>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- MODAL SLOTS PENDIENTES -->
+@if (MostrarModalPendientes)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content border-2 border-dark rounded-0">
+                <div class="modal-header bg-warning text-dark rounded-0 border-bottom border-dark">
+                    <h5 class="modal-title fw-bold text-uppercase">
+                        <i class="bi bi-exclamation-circle-fill me-2"></i> SLOTS PENDIENTES DE CONFIGURAR
+                    </h5>
+                    <button type="button" class="btn-close" @onclick="CerrarModalPendientes"></button>
+                </div>
+                <div class="modal-body">
+                    @if (SlotsPendientes == null || !SlotsPendientes.Any())
+                    {
+                        <div class="text-center py-4">
+                            <i class="bi bi-check-circle-fill fs-1 text-success"></i>
+                            <p class="fw-bold mt-2">No hay slots pendientes</p>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-sm table-borderless m-0">
+                                <thead class="text-uppercase small text-muted border-bottom border-dark">
+                                    <tr>
+                                        <th class="fw-bold">Template</th>
+                                        <th class="fw-bold">Máquina</th>
+                                        <th class="fw-bold text-center">Slot</th>
+                                        <th class="fw-bold text-center">Estado</th>
+                                        <th class="fw-bold text-center">Acción</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var pend in SlotsPendientes)
+                                    {
+                                        <tr class="border-bottom border-light">
+                                            <td class="fw-bold">@pend.TemplateNombre</td>
+                                            <td>@pend.MaquinaNombre</td>
+                                            <td class="text-center font-monospace fw-bold">@pend.NumeroSlot</td>
+                                            <td class="text-center">
+                                                <span class="badge bg-warning text-dark rounded-0">Pendiente</span>
+                                            </td>
+                                            <td class="text-center">
+                                                <button class="btn btn-sm btn-dark rounded-0 fw-bold"
+                                                    @onclick="() => IrAPendiente(pend)">
+                                                    <i class="bi bi-pencil me-1"></i> CONFIGURAR
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer border-top border-dark">
+                    <button type="button" class="btn btn-secondary rounded-0" @onclick="CerrarModalPendientes">
+                        CERRAR
+                    </button>
                 </div>
             </div>
         </div>
@@ -837,6 +908,10 @@
     private string MensajeError = "";
     private string MensajeExito = "";
 
+    // Pendientes
+    private bool MostrarModalPendientes = false;
+    private List<PendingSlotInfo> SlotsPendientes = new();
+
     // Sincronización
     private bool MostrarModalSincronizar = false;
     private int TemplateIdSincronizar = 0;
@@ -920,6 +995,7 @@
         };
         PeriodosActuales = template.Periodos.Select(p => new PeriodoFormModel
         {
+            Id = p.Id,
             MaquinaId = p.MaquinaId,
             FechaInicio = p.FechaInicio,
             FechaFin = p.FechaFin,
@@ -1059,6 +1135,15 @@
         EstadoSlot.Lleno => "estado-lleno",
         _ => ""
     };
+
+    private void OnSlotEstadoChanged(SnapshotSlotFormModel slot)
+    {
+        if (slot.Estado is EstadoSlot.Vacio or EstadoSlot.Pendiente)
+        {
+            slot.ProductoId = null;
+            slot.CantidadInicial = 0;
+        }
+    }
 
     private async Task CargarSlotsParaPeriodo(int periodoIndex)
     {
@@ -1200,6 +1285,64 @@
         {
             MensajeError = "Error al eliminar: " + ex.Message;
         }
+    }
+
+    private void MostrarPendientes()
+    {
+        SlotsPendientes = new List<PendingSlotInfo>();
+        if (Templates == null) return;
+
+        foreach (var t in Templates)
+        {
+            foreach (var p in t.Periodos)
+            {
+                foreach (var s in p.SnapshotSlots.Where(s => s.Estado == EstadoSlot.Pendiente))
+                {
+                    SlotsPendientes.Add(new PendingSlotInfo
+                    {
+                        TemplateId = t.Id,
+                        TemplateNombre = t.Nombre,
+                        PeriodoId = p.Id,
+                        MaquinaId = p.MaquinaId,
+                        MaquinaNombre = p.MaquinaNombre,
+                        NumeroSlot = s.NumeroSlot
+                    });
+                }
+            }
+        }
+
+        MostrarModalPendientes = true;
+    }
+
+    private void CerrarModalPendientes()
+    {
+        MostrarModalPendientes = false;
+    }
+
+    private async Task IrAPendiente(PendingSlotInfo info)
+    {
+        MostrarModalPendientes = false;
+
+        var template = Templates?.FirstOrDefault(t => t.Id == info.TemplateId);
+        if (template == null) return;
+
+        // Abrir edición del template
+        AbrirModalEditar(template);
+        StateHasChanged();
+
+        // Buscar el índice del período que tiene el slot pendiente
+        var periodoIndex = PeriodosActuales.FindIndex(p => p.Id == info.PeriodoId);
+        if (periodoIndex < 0) return;
+
+        // Cargar slots del período
+        await CargarSlotsParaPeriodo(periodoIndex);
+
+        // Abrir el editor visual
+        if (periodoIndex < PeriodosActuales.Count)
+        {
+            AbrirEdicionVisual(PeriodosActuales[periodoIndex]);
+        }
+        StateHasChanged();
     }
 
     private void AnalizarTemplate(int id)
@@ -1357,6 +1500,16 @@
         public int CantidadInicial { get; set; }
         public int CapacidadSlot { get; set; }
         public EstadoSlot Estado { get; set; } = EstadoSlot.Vacio;
+    }
+
+    public class PendingSlotInfo
+    {
+        public int TemplateId { get; set; }
+        public string TemplateNombre { get; set; } = "";
+        public int PeriodoId { get; set; }
+        public int MaquinaId { get; set; }
+        public string MaquinaNombre { get; set; } = "";
+        public string NumeroSlot { get; set; } = "";
     }
 
     }
