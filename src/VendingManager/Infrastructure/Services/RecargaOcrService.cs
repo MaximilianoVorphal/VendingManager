@@ -152,6 +152,87 @@ namespace VendingManager.Infrastructure.Services
                 }
             }
 
+            // Tercera pasada: offset matching para slots numéricos no matcheados
+            // Ej: OCR detecta "1" pero la máquina tiene "101" (extensiones con offset)
+            if (unmatchedSlots.Count > 0)
+            {
+                var numericUnmatched = unmatchedSlots
+                    .Select(s => (original: s, num: int.TryParse(s, out var n) ? n : (int?)null))
+                    .Where(x => x.num.HasValue)
+                    .Select(x => (x.original, num: x.num!.Value))
+                    .ToList();
+
+                var machineNums = machineSlotNumbers
+                    .Select(s => (original: s, num: int.TryParse(s, out var n) ? n : (int?)null))
+                    .Where(x => x.num.HasValue)
+                    .Select(x => (x.original, num: x.num!.Value))
+                    .ToList();
+
+                if (numericUnmatched.Count > 0 && machineNums.Count > 0)
+                {
+                    // Inferir offset: probar cada OCR contra cada máquina,
+                    // buscar un offset consistente que funcione para varios
+                    var offsetsTried = new HashSet<int>();
+                    int? bestOffset = null;
+                    int bestOffsetCount = 0;
+
+                    foreach (var ocr in numericUnmatched)
+                    {
+                        foreach (var machine in machineNums)
+                        {
+                            var offset = machine.num - ocr.num;
+                            if (offset <= 0 || offset % 10 != 0) continue;
+                            if (!offsetsTried.Add(offset)) continue;
+
+                            // Contar cuántos unmatched matchean con este offset
+                            var matchCount = numericUnmatched.Count(u =>
+                                machineNums.Any(m => m.num == u.num + offset));
+
+                            if (matchCount > bestOffsetCount)
+                            {
+                                bestOffsetCount = matchCount;
+                                bestOffset = offset;
+                            }
+                        }
+                    }
+
+                    // Aplicar offset si encontramos uno consistente (al menos 2 matches)
+                    if (bestOffset.HasValue && bestOffsetCount >= 1)
+                    {
+                        var newlyMatched = new List<string>();
+
+                        foreach (var ocr in numericUnmatched)
+                        {
+                            var targetNum = ocr.num + bestOffset.Value;
+                            var machineMatch = machineNums.FirstOrDefault(m => m.num == targetNum);
+
+                            if (machineMatch.original != null)
+                            {
+                                extractedSlots.Add(new MatchedSlotDto
+                                {
+                                    SlotNumber = ocr.original,
+                                    MatchedSlot = machineMatch.original,
+                                    Quantity = slotsByNumber[ocr.original],
+                                    Confidence = 0.7f
+                                });
+
+                                newlyMatched.Add(ocr.original);
+
+                                _logger.LogInformation(
+                                    "[RecargaOCR] Offset-matched OCR slot '{OcrSlot}' -> machine slot '{MatchedSlot}' (offset=+{Offset}) for maquinaId={MaquinaId}",
+                                    ocr.original, machineMatch.original, bestOffset.Value, maquinaId);
+                            }
+                        }
+
+                        // Quitar los matcheados de unmatchedSlots
+                        foreach (var matched in newlyMatched)
+                        {
+                            unmatchedSlots.Remove(matched);
+                        }
+                    }
+                }
+            }
+
             _logger.LogInformation(
                 "[RecargaOCR] Completed for maquinaId={MaquinaId}. Extracted: {ExtractedCount}, Unmatched: {UnmatchedCount}",
                 maquinaId, extractedSlots.Count, unmatchedSlots.Count);
