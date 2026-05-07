@@ -55,9 +55,19 @@
             @foreach (var template in Templates)
             {
                 <div class="col-12 col-md-6 col-lg-4">
-                    <div class="card border-2 border-dark rounded-0 shadow-sm h-100">
+                    @{
+                        var cardClass = "card border-2 border-dark rounded-0 shadow-sm h-100";
+                        if (template.CantidadSlotsPendientes > 0) cardClass += " template-card-warning";
+                    }
+                    <div class="@cardClass">
                         <div class="card-header bg-dark text-white rounded-0 d-flex justify-content-between align-items-center">
-                            <span class="fw-bold text-uppercase">@template.Nombre</span>
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="fw-bold text-uppercase">@template.Nombre</span>
+                                @if (template.CantidadSlotsPendientes > 0)
+                                {
+                                    <span class="badge bg-warning text-dark rounded-0">⚠ @template.CantidadSlotsPendientes pendiente(s)</span>
+                                }
+                            </div>
                             <div>
                                 <button class="btn btn-sm btn-outline-light rounded-0 me-1"
                             @onclick="() => AbrirModalEditar(template)" title="Editar">
@@ -1263,6 +1273,9 @@
         public int CantidadMaquinas => Periodos.Count;
         public DateTime? FechaInicioMin => Periodos.Any() ? Periodos.Min(p => p.FechaInicio) : null;
         public DateTime? FechaFinMax => Periodos.Any() ? Periodos.Max(p => p.FechaFin) : null;
+        public int CantidadSlotsPendientes => Periodos
+            .SelectMany(p => p.SnapshotSlots)
+            .Count(s => s.Estado == EstadoSlot.Pendiente);
     }
 
     public class PeriodoRecargaDto
