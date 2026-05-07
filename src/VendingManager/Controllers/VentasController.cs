@@ -164,9 +164,13 @@ namespace VendingManager.Controllers
         }
         
         [HttpGet("analisis-productos")]
-        public async Task<ActionResult<List<AnalisisProductoDto>>> GetAnalisisProductos([FromQuery] DateTime inicio, [FromQuery] DateTime fin, [FromQuery] int maquinaId = 0)
+        public async Task<ActionResult<List<AnalisisProductoDto>>> GetAnalisisProductos(
+            [FromQuery] DateTime inicio,
+            [FromQuery] DateTime fin,
+            [FromQuery] int maquinaId = 0,
+            [FromQuery] bool includePendientes = false)
         {
-            return await salesAnalyticsService.GetAnalisisProductosAsync(inicio, fin, maquinaId);
+            return await salesAnalyticsService.GetAnalisisProductosAsync(inicio, fin, maquinaId, includePendientes);
         }
 
         [HttpGet("stockout-analysis")]

@@ -257,9 +257,9 @@ namespace VendingManager.Infrastructure.Services
             return (bytes, name);
         }
 
-        public async Task<List<AnalisisProductoDto>> GetAnalisisProductosAsync(DateTime inicio, DateTime fin, int maquinaId)
+        public async Task<List<AnalisisProductoDto>> GetAnalisisProductosAsync(DateTime inicio, DateTime fin, int maquinaId, bool includePendientes = false)
         {
-            var key = $"SalesAnalyticsService:GetAnalisisProductosAsync:{inicio:yyyyMMdd}-{fin:yyyyMMdd}-M{maquinaId}";
+            var key = $"SalesAnalyticsService:GetAnalisisProductosAsync:{inicio:yyyyMMdd}-{fin:yyyyMMdd}-M{maquinaId}-P{(includePendientes ? 1 : 0)}";
 
             var result = await _cache.GetOrCreateAsync(key, async (entry) =>
             {
@@ -287,6 +287,18 @@ namespace VendingManager.Infrastructure.Services
                                             TotalVentas = g.Sum(x => x.PrecioVenta),
                                             TotalCosto = g.Sum(x => x.CostoVenta > 0 ? x.CostoVenta : (x.Producto != null ? x.Producto.CostoPromedio : 0))
                                         });
+
+                // Pendientes / Desconocidos: ventas sin producto asignado
+                int pendientesCount = 0;
+                decimal pendientesVentas = 0;
+                decimal pendientesCostos = 0;
+                if (includePendientes)
+                {
+                    var pendientes = sales.Where(s => !s.ProductoId.HasValue).ToList();
+                    pendientesCount = pendientes.Count;
+                    pendientesVentas = pendientes.Sum(x => x.PrecioVenta);
+                    pendientesCostos = pendientes.Sum(x => x.CostoVenta);
+                }
 
                 var resultInner = new List<AnalisisProductoDto>();
 
@@ -342,6 +354,23 @@ namespace VendingManager.Infrastructure.Services
                     }
 
                     resultInner.Add(dto);
+                }
+
+                // Agregar entrada de Pendientes / Desconocidos al final si hay
+                if (includePendientes && pendientesCount > 0)
+                {
+                    resultInner.Add(new AnalisisProductoDto
+                    {
+                        ProductoId = 0,
+                        Nombre = "Pendientes / Desconocidos",
+                        Codigo = "",
+                        Categoria = "Pendiente",
+                        CantidadVendida = pendientesCount,
+                        TotalVentas = pendientesVentas,
+                        TotalGanancia = pendientesVentas - pendientesCostos,
+                        RotacionDiaria = (decimal)(pendientesCount / daysInPeriod),
+                        Clasificacion = "Pendiente"
+                    });
                 }
 
                 return resultInner.OrderByDescending(x => x.CantidadVendida).ToList();
