@@ -93,13 +93,13 @@ namespace VendingManager.Infrastructure.Services
             var unmatchedSlots = new List<string>();
             var slotsByNumber = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
 
-            // Primera pasada: deduplicar entradas OCR, mantener la mayor cantidad por número de slot
+            // Primera pasada: deduplicar entradas OCR, la ÚLTIMA escrita siempre gana
             foreach (var slot in ocrResult.Slots)
             {
                 var normalizedKey = slot.SlotNumber.Trim();
                 var quantity = slot.Quantity;
 
-                // Limitar cantidad a 100
+                // Limitar cantidad a 100 (cualquier cosa mayor a 100 probablemente es error OCR)
                 if (quantity > 100)
                 {
                     quantity = 100;
@@ -108,17 +108,8 @@ namespace VendingManager.Infrastructure.Services
                         slot.SlotNumber, maquinaId);
                 }
 
-                if (slotsByNumber.TryGetValue(normalizedKey, out var existingQty))
-                {
-                    if (quantity > existingQty)
-                    {
-                        slotsByNumber[normalizedKey] = quantity;
-                    }
-                }
-                else
-                {
-                    slotsByNumber[normalizedKey] = quantity;
-                }
+                // Siempre sobrescribe: la última aparición es la que vale
+                slotsByNumber[normalizedKey] = quantity;
             }
 
             // Segunda pasada: fuzzy match de cada slot OCR contra slots de la máquina
