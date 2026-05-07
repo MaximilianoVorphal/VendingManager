@@ -12,9 +12,9 @@ def _get_client() -> genai.Client:
     return genai.Client(api_key=api_key)
 
 
-_MODEL = "gemini-3.1-flash-lite"
+_MODEL = "gemini-3-flash-preview"
 _THINKING_CONFIG = types.GenerateContentConfig(
-    thinking_config=types.ThinkingConfig(thinking_level="MINIMAL"),
+    thinking_config=types.ThinkingConfig(thinking_level="HIGH"),
 )
 
 
