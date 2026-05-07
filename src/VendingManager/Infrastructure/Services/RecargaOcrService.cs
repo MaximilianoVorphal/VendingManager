@@ -153,7 +153,8 @@ namespace VendingManager.Infrastructure.Services
             }
 
             // Tercera pasada: offset matching para slots numéricos no matcheados
-            // Ej: OCR detecta "1" pero la máquina tiene "101" (extensiones con offset)
+            // Si la máquina tiene slots 101,103,105 y OCR detecta 1,3,5,
+            // calculamos offset = min(máquina) - min(OCR) y lo aplicamos.
             if (unmatchedSlots.Count > 0)
             {
                 var numericUnmatched = unmatchedSlots
@@ -170,40 +171,18 @@ namespace VendingManager.Infrastructure.Services
 
                 if (numericUnmatched.Count > 0 && machineNums.Count > 0)
                 {
-                    // Inferir offset: probar cada OCR contra cada máquina,
-                    // buscar un offset consistente que funcione para varios
-                    var offsetsTried = new HashSet<int>();
-                    int? bestOffset = null;
-                    int bestOffsetCount = 0;
+                    var minOcr = numericUnmatched.Min(u => u.num);
+                    var minMachine = machineNums.Min(m => m.num);
+                    var offset = minMachine - minOcr;
 
-                    foreach (var ocr in numericUnmatched)
-                    {
-                        foreach (var machine in machineNums)
-                        {
-                            var offset = machine.num - ocr.num;
-                            if (offset <= 0 || offset % 10 != 0) continue;
-                            if (!offsetsTried.Add(offset)) continue;
-
-                            // Contar cuántos unmatched matchean con este offset
-                            var matchCount = numericUnmatched.Count(u =>
-                                machineNums.Any(m => m.num == u.num + offset));
-
-                            if (matchCount > bestOffsetCount)
-                            {
-                                bestOffsetCount = matchCount;
-                                bestOffset = offset;
-                            }
-                        }
-                    }
-
-                    // Aplicar offset si encontramos uno consistente (al menos 2 matches)
-                    if (bestOffset.HasValue && bestOffsetCount >= 1)
+                    // Solo aplicar si offset es positivo y parece razonable
+                    if (offset > 0 && offset <= 1000)
                     {
                         var newlyMatched = new List<string>();
 
                         foreach (var ocr in numericUnmatched)
                         {
-                            var targetNum = ocr.num + bestOffset.Value;
+                            var targetNum = ocr.num + offset;
                             var machineMatch = machineNums.FirstOrDefault(m => m.num == targetNum);
 
                             if (machineMatch.original != null)
@@ -220,11 +199,10 @@ namespace VendingManager.Infrastructure.Services
 
                                 _logger.LogInformation(
                                     "[RecargaOCR] Offset-matched OCR slot '{OcrSlot}' -> machine slot '{MatchedSlot}' (offset=+{Offset}) for maquinaId={MaquinaId}",
-                                    ocr.original, machineMatch.original, bestOffset.Value, maquinaId);
+                                    ocr.original, machineMatch.original, offset, maquinaId);
                             }
                         }
 
-                        // Quitar los matcheados de unmatchedSlots
                         foreach (var matched in newlyMatched)
                         {
                             unmatchedSlots.Remove(matched);
