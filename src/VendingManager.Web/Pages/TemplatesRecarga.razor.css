@@ -116,3 +116,8 @@
 .estado-lleno {
     background-color: #d1e7dd;
 }
+
+/* Warning border for template cards with pending slots */
+.template-card-warning {
+    border-left: 4px solid #ffc107;
+}

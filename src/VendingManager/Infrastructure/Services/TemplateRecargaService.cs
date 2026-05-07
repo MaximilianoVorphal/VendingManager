@@ -63,7 +63,8 @@ public class TemplateRecargaService : ITemplateRecargaService
                     NumeroSlot = s.NumeroSlot,
                     ProductoId = s.ProductoId,
                     CantidadInicial = s.CantidadInicial,
-                    CapacidadSlot = s.CapacidadSlot
+                    CapacidadSlot = s.CapacidadSlot,
+                    Estado = s.Estado
                 }).ToList()
             }).ToList()
         };
@@ -117,7 +118,8 @@ public class TemplateRecargaService : ITemplateRecargaService
                 NumeroSlot = s.NumeroSlot,
                 ProductoId = s.ProductoId,
                 CantidadInicial = s.CantidadInicial,
-                CapacidadSlot = s.CapacidadSlot
+                CapacidadSlot = s.CapacidadSlot,
+                Estado = s.Estado
             }).ToList()
         }).ToList();
 
@@ -170,7 +172,8 @@ public class TemplateRecargaService : ITemplateRecargaService
                 ProductoId = c.ProductoId,
                 ProductoNombre = c.Producto != null ? c.Producto.Nombre : "",
                 CantidadInicial = c.StockActual,
-                CapacidadSlot = c.CapacidadMaxima
+                CapacidadSlot = c.CapacidadMaxima,
+                Estado = c.ProductoId == null ? EstadoSlot.Pendiente : EstadoSlot.Lleno
             })
             .ToListAsync();
     }
@@ -369,6 +372,30 @@ public class TemplateRecargaService : ITemplateRecargaService
             });
         }
 
+        // Pendientes grouping: aggregate revenue from null-product sales
+        var ventasPendientes = ventas.Where(v => v.ProductoId == null).ToList();
+        if (ventasPendientes.Any())
+        {
+            var precioVentaTotal = ventasPendientes.Sum(v => v.PrecioVenta);
+            result.Add(new StockoutAnalysisDto
+            {
+                MaquinaId = maquinaId,
+                MaquinaNombre = maquinaNombre,
+                ProductoId = 0,
+                ProductoNombre = "Pendientes",
+                NumeroSlot = "",
+                PosibleQuiebre = false,
+                HorasSinStock = 0,
+                StockInicial = 0,
+                CantidadVendida = ventasPendientes.Count,
+                DineroPerdidoEstimado = precioVentaTotal,
+                GananciaPerdidaEstimada = 0,
+                FinReporte = fin,
+                UltimaActividadMaquina = ultimaActividadMaquina,
+                FechasVentas = new List<DateTime>()
+            });
+        }
+
         return result;
     }
 
@@ -506,7 +533,14 @@ public class TemplateRecargaService : ITemplateRecargaService
             }
         }
 
-        if (count > 0) await _context.SaveChangesAsync();
+        if (count > 0)
+        {
+            var slot = await _context.SnapshotSlots
+                .FirstOrDefaultAsync(s => s.PeriodoRecargaId == periodo.Id && s.NumeroSlot == numeroSlot);
+            if (slot != null)
+                slot.Estado = EstadoSlot.Lleno;
+            await _context.SaveChangesAsync();
+        }
 
         return new SyncSlotProductoResultDto
         {

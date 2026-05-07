@@ -16,6 +16,9 @@ public class TemplateRecargaDto
     public int CantidadMaquinas => Periodos.Count;
     public DateTime? FechaInicioMin => Periodos.Any() ? Periodos.Min(p => p.FechaInicio) : null;
     public DateTime? FechaFinMax => Periodos.Any() ? Periodos.Max(p => p.FechaFin) : null;
+    public int CantidadSlotsPendientes => Periodos
+        .SelectMany(p => p.SnapshotSlots)
+        .Count(s => s.Estado == EstadoSlot.Pendiente);
 }
 
 /// <summary>
