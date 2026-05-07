@@ -774,6 +774,13 @@
                 {
                     slot.CantidadInicial = matched.Quantity;
                     SlotsResaltados.Add(slot.NumeroSlot);
+
+                    // Si la cantidad es 0, el slot no se recargó → Vacío automático
+                    if (matched.Quantity == 0)
+                    {
+                        slot.ProductoId = null;
+                        slot.Estado = EstadoSlot.Vacio;
+                    }
                 }
             }
 
