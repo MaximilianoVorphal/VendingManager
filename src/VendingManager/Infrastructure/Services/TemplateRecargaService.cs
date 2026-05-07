@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using VendingManager.Shared.DTOs;
 using VendingManager.Core.Entities;
 using VendingManager.Core.Interfaces;
@@ -13,10 +14,12 @@ namespace VendingManager.Infrastructure.Services;
 public class TemplateRecargaService : ITemplateRecargaService
 {
     private readonly ApplicationDbContext _context;
+    private readonly ILogger<TemplateRecargaService> _logger;
 
-    public TemplateRecargaService(ApplicationDbContext context)
+    public TemplateRecargaService(ApplicationDbContext context, ILogger<TemplateRecargaService> logger)
     {
         _context = context;
+        _logger = logger;
     }
 
     public async Task<List<TemplateRecargaDto>> GetAllAsync()
@@ -102,9 +105,15 @@ public class TemplateRecargaService : ITemplateRecargaService
             .SelectMany(p => p.SnapshotSlots.Select(s => new
             {
                 Key = (p.MaquinaId, s.NumeroSlot),
-                Value = (s.ProductoId, s.Estado)
+                Value = (productoId: s.ProductoId, estado: s.Estado)
             }))
             .ToDictionary(x => x.Key, x => x.Value);
+
+        _logger.LogInformation(
+            "[UpdateAsync] Template {TemplateId}: pre-save snapshot tiene {Count} slots. " +
+            "Slots: {@Slots}",
+            id, preSaveSnapshot.Count,
+            preSaveSnapshot.Select(kv => new { kv.Key, productoId = kv.Value.productoId, estado = kv.Value.estado }).ToList());
 
         // Actualizar propiedades básicas
         template.Nombre = dto.Nombre;
@@ -593,7 +602,15 @@ public class TemplateRecargaService : ITemplateRecargaService
 
                 // Only sync if ProductoId actually differs from pre-save
                 var snapshotKey = (periodo.MaquinaId, slot.NumeroSlot);
-                preSaveSnapshot.TryGetValue(snapshotKey, out var snapshotValue);
+                var foundInSnapshot = preSaveSnapshot.TryGetValue(snapshotKey, out var snapshotValue);
+
+                _logger.LogInformation(
+                    "[SyncTemplateToVentas] Slot {NumeroSlot} Maquina {MaquinaId}: " +
+                    "incomingProductoId={Incoming}, snapshotEncontrado={Found}, snapshotProductoId={Snapshot}, " +
+                    "cambiado={Changed}",
+                    slot.NumeroSlot, periodo.MaquinaId, slot.ProductoId,
+                    foundInSnapshot, snapshotValue.productoId,
+                    foundInSnapshot && snapshotValue.productoId != slot.ProductoId);
 
                 if (!slot.ProductoId.HasValue || slot.ProductoId == 0)
                     continue;
@@ -603,6 +620,11 @@ public class TemplateRecargaService : ITemplateRecargaService
                     continue;
 
                 var ventasSlot = ventasDelPeriodo.Where(v => v.NumeroSlot == slot.NumeroSlot).ToList();
+                _logger.LogInformation(
+                    "[SyncTemplateToVentas] Slot {NumeroSlot}: {Count} ventas encontradas para sincronizar. " +
+                    "Ventas: {@VentasProductoIds}",
+                    slot.NumeroSlot, ventasSlot.Count,
+                    ventasSlot.Select(v => new { v.Id, v.ProductoId, v.CostoVenta }).ToList());
 
                 foreach (var venta in ventasSlot)
                 {
@@ -628,6 +650,15 @@ public class TemplateRecargaService : ITemplateRecargaService
         if (ventasActualizadas > 0)
         {
             await _context.SaveChangesAsync();
+            _logger.LogInformation(
+                "[SyncTemplateToVentas] Template {TemplateId}: {Count} ventas actualizadas.",
+                templateId, ventasActualizadas);
+        }
+        else
+        {
+            _logger.LogInformation(
+                "[SyncTemplateToVentas] Template {TemplateId}: ninguna venta requirió actualización.",
+                templateId);
         }
     }
 
