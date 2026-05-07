@@ -39,14 +39,24 @@
                      <label class="fw-bold small text-uppercase mb-1">HASTA:</label>
                      <input type="date" @bind="FechaFin" class="form-control border-dark rounded-0 fw-bold" />
                  </div>
-                 <div class="col-12 col-md-3">
-                     <button class="btn btn-dark w-100 rounded-0 fw-bold py-2" @onclick="CargarDatos" disabled="@Cargando">
-                         @(Cargando ? "PROCESANDO..." : "ANALIZAR")
-                     </button>
-                 </div>
-             </div>
-        </div>
-    </div>
+                  <div class="col-12 col-md-3">
+                      <button class="btn btn-dark w-100 rounded-0 fw-bold py-2" @onclick="CargarDatos" disabled="@Cargando">
+                          @(Cargando ? "PROCESANDO..." : "ANALIZAR")
+                      </button>
+                  </div>
+              </div>
+              <div class="row mt-2 align-items-center">
+                  <div class="col-12">
+                      <div class="form-check">
+                          <input class="form-check-input border-dark" type="checkbox" id="incluirPendientes" @bind="IncludePendientes" />
+                          <label class="form-check-label fw-bold small text-uppercase" for="incluirPendientes">
+                              <i class="bi bi-question-circle me-1"></i> Incluir Pendientes / Desconocidos (ventas sin producto asignado)
+                          </label>
+                      </div>
+                  </div>
+              </div>
+         </div>
+     </div>
 
     @if (!string.IsNullOrEmpty(MensajeError))
     {
@@ -122,6 +132,7 @@
     private DateTime FechaInicio = DateTime.Today.AddDays(-30);
     private DateTime FechaFin = DateTime.Today;
     private int MaquinaSeleccionada = 0;
+    private bool IncludePendientes = false;
 
     private List<MaquinaSimpleDto>? ListaMaquinas;
     private List<AnalisisProductoDto>? Productos;
@@ -154,7 +165,7 @@
         {
             string inicio = FechaInicio.ToString("yyyy-MM-dd");
             string fin = FechaFin.ToString("yyyy-MM-dd");
-            string url = $"api/Ventas/analisis-productos?inicio={inicio}&fin={fin}&maquinaId={MaquinaSeleccionada}";
+            string url = $"api/Ventas/analisis-productos?inicio={inicio}&fin={fin}&maquinaId={MaquinaSeleccionada}&includePendientes={IncludePendientes}";
 
             Productos = await Http.GetFromJsonAsync<List<AnalisisProductoDto>>(url);
             AplicarOrdenamiento();
