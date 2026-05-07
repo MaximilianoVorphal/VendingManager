@@ -88,7 +88,7 @@ namespace VendingManager.Infrastructure.Services
                 };
             }
 
-            // Aplicar fuzzy matching
+            // Matching pipeline: offset primero, fuzzy como fallback
             var extractedSlots = new List<MatchedSlotDto>();
             var unmatchedSlots = new List<string>();
             var slotsByNumber = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
@@ -112,10 +112,74 @@ namespace VendingManager.Infrastructure.Services
                 slotsByNumber[normalizedKey] = quantity;
             }
 
-            // Segunda pasada: fuzzy match de cada slot OCR contra slots de la máquina
+            // Precomputar listas numéricas para offset matching
+            var allOcrNums = slotsByNumber
+                .Select(kvp => (original: kvp.Key, num: int.TryParse(kvp.Key, out var n) ? n : (int?)null))
+                .Where(x => x.num.HasValue)
+                .Select(x => (x.original, num: x.num!.Value))
+                .ToList();
+
+            var machineNums = machineSlotNumbers
+                .Select(s => (original: s, num: int.TryParse(s, out var n) ? n : (int?)null))
+                .Where(x => x.num.HasValue)
+                .Select(x => (x.original, num: x.num!.Value))
+                .ToList();
+
+            var matchedByOffset = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            // Segunda pasada: offset matching (ANTES que fuzzy)
+            // Las máquinas extensión (slots 101-200) muestran 1-100 en la foto.
+            // Calculamos offset = min(máquina) - min(OCR) y lo aplicamos a TODOS
+            // los slots OCR numéricos. Esto evita que el fuzzy matching "robe"
+            // slots como "11" → "101" cuando deberían ir a "111".
+            if (allOcrNums.Count > 0 && machineNums.Count > 0)
+            {
+                var minOcr = allOcrNums.Min(u => u.num);
+                var minMachine = machineNums.Min(m => m.num);
+                var offset = minMachine - minOcr;
+
+                // Solo aplicar si offset es positivo y parece razonable
+                if (offset > 0 && offset <= 1000)
+                {
+                    _logger.LogInformation(
+                        "[RecargaOCR] Offset detected: minMachine={MinMachine}, minOcr={MinOcr}, offset=+{Offset} for maquinaId={MaquinaId}",
+                        minMachine, minOcr, offset, maquinaId);
+
+                    foreach (var ocr in allOcrNums)
+                    {
+                        var targetNum = ocr.num + offset;
+                        var machineMatch = machineNums.FirstOrDefault(m => m.num == targetNum);
+
+                        if (machineMatch.original != null)
+                        {
+                            extractedSlots.Add(new MatchedSlotDto
+                            {
+                                SlotNumber = ocr.original,
+                                MatchedSlot = machineMatch.original,
+                                Quantity = slotsByNumber[ocr.original],
+                                Confidence = 0.7f
+                            });
+
+                            matchedByOffset.Add(ocr.original);
+
+                            _logger.LogInformation(
+                                "[RecargaOCR] Offset-matched OCR slot '{OcrSlot}' -> machine slot '{MatchedSlot}' (offset=+{Offset}) for maquinaId={MaquinaId}",
+                                ocr.original, machineMatch.original, offset, maquinaId);
+                        }
+                    }
+                }
+            }
+
+            // Tercera pasada: fuzzy matching para slots NO matcheados por offset
+            // (incluye slots alfanuméricos y numéricos donde el offset no produjo match)
             foreach (var ocrSlot in slotsByNumber)
             {
                 var ocrSlotNumber = ocrSlot.Key;
+
+                // Saltar slots ya matcheados por offset
+                if (matchedByOffset.Contains(ocrSlotNumber))
+                    continue;
+
                 var quantity = ocrSlot.Value;
                 var match = FuzzyMatchSlot(ocrSlotNumber, machineSlotNumbers);
 
@@ -140,65 +204,6 @@ namespace VendingManager.Infrastructure.Services
                     _logger.LogWarning(
                         "[RecargaOCR] No match found for OCR slot '{OcrSlot}' on maquinaId={MaquinaId}",
                         ocrSlotNumber, maquinaId);
-                }
-            }
-
-            // Tercera pasada: offset matching para slots numéricos no matcheados
-            // Si la máquina tiene slots 101,103,105 y OCR detecta 1,3,5,
-            // calculamos offset = min(máquina) - min(OCR) y lo aplicamos.
-            if (unmatchedSlots.Count > 0)
-            {
-                var numericUnmatched = unmatchedSlots
-                    .Select(s => (original: s, num: int.TryParse(s, out var n) ? n : (int?)null))
-                    .Where(x => x.num.HasValue)
-                    .Select(x => (x.original, num: x.num!.Value))
-                    .ToList();
-
-                var machineNums = machineSlotNumbers
-                    .Select(s => (original: s, num: int.TryParse(s, out var n) ? n : (int?)null))
-                    .Where(x => x.num.HasValue)
-                    .Select(x => (x.original, num: x.num!.Value))
-                    .ToList();
-
-                if (numericUnmatched.Count > 0 && machineNums.Count > 0)
-                {
-                    var minOcr = numericUnmatched.Min(u => u.num);
-                    var minMachine = machineNums.Min(m => m.num);
-                    var offset = minMachine - minOcr;
-
-                    // Solo aplicar si offset es positivo y parece razonable
-                    if (offset > 0 && offset <= 1000)
-                    {
-                        var newlyMatched = new List<string>();
-
-                        foreach (var ocr in numericUnmatched)
-                        {
-                            var targetNum = ocr.num + offset;
-                            var machineMatch = machineNums.FirstOrDefault(m => m.num == targetNum);
-
-                            if (machineMatch.original != null)
-                            {
-                                extractedSlots.Add(new MatchedSlotDto
-                                {
-                                    SlotNumber = ocr.original,
-                                    MatchedSlot = machineMatch.original,
-                                    Quantity = slotsByNumber[ocr.original],
-                                    Confidence = 0.7f
-                                });
-
-                                newlyMatched.Add(ocr.original);
-
-                                _logger.LogInformation(
-                                    "[RecargaOCR] Offset-matched OCR slot '{OcrSlot}' -> machine slot '{MatchedSlot}' (offset=+{Offset}) for maquinaId={MaquinaId}",
-                                    ocr.original, machineMatch.original, offset, maquinaId);
-                            }
-                        }
-
-                        foreach (var matched in newlyMatched)
-                        {
-                            unmatchedSlots.Remove(matched);
-                        }
-                    }
                 }
             }
 
