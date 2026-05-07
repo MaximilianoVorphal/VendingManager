@@ -352,9 +352,7 @@
                                                 <div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom border-secondary">
                                                     <div class="d-flex align-items-center">
                                                         <span class="text-muted fw-bold me-1" style="font-size:0.7rem;">SLOT</span>
-                                                        <input type="text" class="form-control form-control-sm border-dark text-center font-monospace fw-bold p-0" 
-                                                            style="width: 35px; height: 22px; font-size: 0.85rem;" 
-                                                            @bind="slot.NumeroSlot" />
+                                                        <span class="font-monospace fw-bold" style="font-size: 0.9rem;">@slot.NumeroSlot</span>
                                                     </div>
                                                     <button class="btn btn-sm text-danger p-0 m-0 lh-1" @onclick="() => PeriodoEnEdicionVisual.SnapshotSlots.Remove(slot)" title="Eliminar Slot">
                                                         <i class="bi bi-x-circle-fill fs-5"></i>
@@ -390,8 +388,7 @@
                                                     </div>
                                                     <div class="d-flex flex-column w-50 ps-1">
                                                         <span class="text-muted" style="font-size:0.6rem; font-weight: 800;">CAPAC.</span>
-                                                        <input type="number" class="form-control form-control-sm text-center border-secondary p-0 text-muted bg-light"
-                                                            style="height: 22px; font-size:0.85rem;" min="0" max="100" @bind="slot.CapacidadSlot" title="Capacidad Máxima Slot" />
+                                                        <span class="fw-bold text-dark text-center d-block border bg-light" style="height: 22px; font-size: 0.9rem; line-height: 22px;">5</span>
                                                     </div>
                                                 </div>
                                                 <div class="mt-2">
@@ -932,7 +929,7 @@
                 ProductoId = s.ProductoId,
                 ProductoNombre = s.ProductoNombre,
                 CantidadInicial = s.CantidadInicial,
-                CapacidadSlot = s.CapacidadSlot,
+                CapacidadSlot = 5,
                 Estado = s.Estado
             }).ToList()
         }).ToList();
@@ -1081,6 +1078,10 @@
             if (slots != null)
             {
                 periodo.SnapshotSlots = slots;
+                foreach (var slot in periodo.SnapshotSlots)
+                {
+                    slot.CapacidadSlot = 5;
+                }
                 MensajeExito = $"Se cargaron {slots.Count} slots para la máquina";
             }
         }
@@ -1129,14 +1130,22 @@
                 FechaInicio = p.FechaInicio,
                 FechaFin = p.FechaFin,
                 SnapshotSlots = p.SnapshotSlots
-            .Where(s => (s.ProductoId.HasValue && s.ProductoId > 0) || s.Estado == EstadoSlot.Pendiente)
-            .Select(s => new CreateSnapshotSlotDto
+            .Select(s =>
             {
-                NumeroSlot = s.NumeroSlot,
-                ProductoId = s.ProductoId,
-                CantidadInicial = s.CantidadInicial,
-                CapacidadSlot = s.CapacidadSlot,
-                Estado = s.Estado
+                // Vacío o Pendiente → limpiar producto y cantidad
+                if (s.Estado is EstadoSlot.Vacio or EstadoSlot.Pendiente)
+                {
+                    s.ProductoId = null;
+                    s.CantidadInicial = 0;
+                }
+                return new CreateSnapshotSlotDto
+                {
+                    NumeroSlot = s.NumeroSlot,
+                    ProductoId = s.ProductoId,
+                    CantidadInicial = s.CantidadInicial,
+                    CapacidadSlot = 5,
+                    Estado = s.Estado
+                };
             }).ToList()
             }).ToList()
             };
