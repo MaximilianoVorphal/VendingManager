@@ -84,16 +84,17 @@ números de slot y cantidades escritas a mano.
 
 Por cada item reconocido, extrae:
 - slot_number: el número de slot escrito (ej: "10", "A1", "23")
-- quantity: la cantidad como número entero positivo
+- quantity: la cantidad como número entero (0 es válido, significa que el slot no se recargó)
 
 Devuelve ÚNICAMENTE un JSON válido con esta estructura exacta, sin texto adicional:
-{"slots": [{"slot_number": "10", "quantity": 5}, {"slot_number": "12", "quantity": 3}]}
+{"slots": [{"slot_number": "10", "quantity": 5}, {"slot_number": "12", "quantity": 0}]}
 
 Reglas:
 - Ignora nombres de productos — solo interesa el slot y la cantidad
 - Si un slot tiene varias cantidades, usa la ÚLTIMA escrita
 - Devuelve slot_number como texto plano (ej: "10", "A1")
 - Devuelve quantity como entero (ej: 5, no "cinco")
+- INCLUÍ slots con cantidad 0 — son válidos, significa que ese slot no se recargó
 - Si no hay texto legible, devuelve {"slots": []}
 """
     text = _call_gemini(prompt, image_path)
