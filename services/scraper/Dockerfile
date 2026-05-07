@@ -5,7 +5,7 @@ WORKDIR /app
 
 # Instalar dependencias de Python explícitamente y actualizar pip
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir playwright fastapi uvicorn google-generativeai python-multipart pillow
+    pip install --no-cache-dir playwright fastapi uvicorn google-genai python-multipart pillow
 
 # Asegurar instalación de navegadores (aunque la imagen base los traiga, esto repara links rotos)
 RUN playwright install chromium
