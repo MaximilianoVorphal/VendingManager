@@ -53,6 +53,7 @@ namespace VendingManager.Infrastructure.Services
             await context.SaveChangesAsync();
         }
 
+        [Obsolete("RecalcularCostosHistoricosAsync is deprecated. Use ProductoCosto-based sync instead.", error: false)]
         public async Task RecalcularCostosHistoricosAsync()
         {
             var slots = await context.ConfiguracionSlots
