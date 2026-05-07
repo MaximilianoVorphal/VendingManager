@@ -653,6 +653,26 @@ public class TemplateRecargaService : ITemplateRecargaService
             _logger.LogInformation(
                 "[SyncTemplateToVentas] Template {TemplateId}: {Count} ventas actualizadas.",
                 templateId, ventasActualizadas);
+
+            // Post-save verification: re-read from DB to confirm persistence
+            var ventasVerificacion = await _context.Ventas
+                .AsNoTracking()
+                .Where(v => template.Periodos.Any(p =>
+                    v.MaquinaId == p.MaquinaId &&
+                    v.FechaLocal >= p.FechaInicio &&
+                    v.FechaLocal <= p.FechaFin))
+                .Where(v => v.ProductoId != null)
+                .OrderBy(v => v.Id)
+                .ToListAsync();
+
+            _logger.LogInformation(
+                "[SyncTemplateToVentas] VERIFICACION post-save: {Count} ventas en DB. " +
+                "Muestra (primeras 5): {@Muestra}",
+                ventasVerificacion.Count,
+                ventasVerificacion.Take(5).Select(v => new
+                {
+                    v.Id, v.ProductoId, v.CostoVenta, v.PrecioVenta, v.NumeroSlot
+                }).ToList());
         }
         else
         {
