@@ -125,6 +125,40 @@ public class TemplateRecargaService : ITemplateRecargaService
 
         await _context.SaveChangesAsync();
 
+        // Sincronizar slots Vacíos/Pendientes con ventas históricas
+        // Si un slot quedó sin producto, limpiamos el ProductoId en las ventas del período
+        foreach (var periodo in template.Periodos)
+        {
+            var slotsSinProducto = periodo.SnapshotSlots
+                .Where(s => s.Estado is EstadoSlot.Vacio or EstadoSlot.Pendiente)
+                .ToList();
+
+            if (!slotsSinProducto.Any()) continue;
+
+            var ventasPeriodo = await _context.Ventas
+                .Where(v => v.MaquinaId == periodo.MaquinaId
+                         && v.FechaLocal >= periodo.FechaInicio
+                         && v.FechaLocal <= periodo.FechaFin)
+                .ToListAsync();
+
+            foreach (var slot in slotsSinProducto)
+            {
+                foreach (var venta in ventasPeriodo.Where(v => v.NumeroSlot == slot.NumeroSlot))
+                {
+                    if (venta.ProductoId.HasValue)
+                    {
+                        venta.ProductoId = null;
+                    }
+                }
+            }
+        }
+
+        if (template.Periodos.SelectMany(p => p.SnapshotSlots)
+            .Any(s => s.Estado is EstadoSlot.Vacio or EstadoSlot.Pendiente))
+        {
+            await _context.SaveChangesAsync();
+        }
+
         // Recargar con navegación
         await _context.Entry(template)
             .Collection(t => t.Periodos)
