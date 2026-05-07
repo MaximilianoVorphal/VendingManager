@@ -80,7 +80,30 @@ public class CompraService : ICompraService
         _context.Compras.Add(compra);
         await _context.SaveChangesAsync(); // Genera compra.Id
 
-        // 3. Registrar Movimiento en Caja automáticamente si la compra fue pagada
+        // 3. Insertar ProductoCosto rows para cada detalle
+        foreach (var detalle in compra.Detalles.Where(d => d.ProductoId.HasValue))
+        {
+            // Cerrar filas abiertas anteriores para este producto
+            var productoId = detalle.ProductoId!.Value;
+            var openRows = await _context.ProductoCostos
+                .Where(pc => pc.ProductoId == productoId && pc.FechaHasta == null)
+                .ToListAsync();
+            foreach (var row in openRows)
+            {
+                row.FechaHasta = compra.FechaCompra;
+            }
+
+            _context.ProductoCostos.Add(new ProductoCosto
+            {
+                ProductoId = productoId,
+                Costo = detalle.CostoUnitario,
+                FechaDesde = compra.FechaCompra,
+                FechaHasta = null
+            });
+        }
+        await _context.SaveChangesAsync();
+
+        // 4. Registrar Movimiento en Caja automáticamente si la compra fue pagada
         if (compra.Estado == "PAGADA" && compra.PagadaCaja)
         {
             var movimiento = new MovimientoCaja
@@ -157,7 +180,7 @@ public class CompraService : ICompraService
                 Subtotal = d.Cantidad * d.CostoUnitario
             }).ToList();
 
-            // 4. Aplicar el impacto nuevo
+            // 4. Aplicar el impacto nuevo y registrar ProductoCosto
             foreach (var detalle in compra.Detalles)
             {
                 if (detalle.ProductoId.HasValue)
@@ -175,10 +198,38 @@ public class CompraService : ICompraService
                     }
                 }
             }
+
+            // Insertar ProductoCosto rows: cerrar filas abiertas y crear nuevas
+            var productoCostosToInsert = compra.Detalles
+                .Where(d => d.ProductoId.HasValue)
+                .Select(d => new { d.ProductoId, d.CostoUnitario })
+                .Distinct()
+                .ToList();
+
+            foreach (var item in productoCostosToInsert)
+            {
+                var productoId = item.ProductoId!.Value;
+                var openRows = await _context.ProductoCostos
+                    .Where(pc => pc.ProductoId == productoId && pc.FechaHasta == null)
+                    .ToListAsync();
+                foreach (var row in openRows)
+                    row.FechaHasta = compra.FechaCompra;
+            }
+
+            foreach (var item in productoCostosToInsert)
+            {
+                _context.ProductoCostos.Add(new ProductoCosto
+                {
+                    ProductoId = item.ProductoId!.Value,
+                    Costo = item.CostoUnitario,
+                    FechaDesde = compra.FechaCompra,
+                    FechaHasta = null
+                });
+            }
             
             compra.MontoTotal = compra.Detalles.Sum(d => d.Subtotal);
 
-            // 5. Sincronizar Movimiento de Caja
+            // 6. Sincronizar Movimiento de Caja
             var movimiento = await _context.MovimientosCaja.FirstOrDefaultAsync(m => m.CompraId == id);
             if (compra.Estado == "PAGADA" && compra.PagadaCaja)
             {

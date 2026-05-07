@@ -32,6 +32,7 @@ namespace VendingManager.Infrastructure.Data
         public DbSet<GastoRecurrenteHistory> GastosRecurrentesHistory { get; set; } = null!;
         public DbSet<OrdenCargaHistory> OrdenesCargaHistory { get; set; } = null!;
         public DbSet<UserHistory> UsersHistory { get; set; } = null!;
+        public DbSet<ProductoCosto> ProductoCostos { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -51,6 +52,23 @@ namespace VendingManager.Infrastructure.Data
 
             modelBuilder.Entity<DetalleOrdenCarga>()
                 .Property(d => d.CostoUnitario).HasColumnType("decimal(18,2)");
+
+            modelBuilder.Entity<ProductoCosto>(e =>
+            {
+                e.ToTable("ProductoCostos");
+                e.HasKey(p => p.Id);
+                e.Property(p => p.Costo).HasColumnType("decimal(18,2)");
+                e.Property(p => p.FechaDesde).HasColumnType("datetime2");
+                e.Property(p => p.FechaHasta).HasColumnType("datetime2");
+
+                e.HasIndex(p => new { p.ProductoId, p.FechaDesde })
+                    .IncludeProperties(p => p.FechaHasta);
+
+                e.HasOne(p => p.Producto)
+                    .WithMany()
+                    .HasForeignKey(p => p.ProductoId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
         }
     }
 }
