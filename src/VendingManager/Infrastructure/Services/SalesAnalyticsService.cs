@@ -110,9 +110,12 @@ namespace VendingManager.Infrastructure.Services
 
                         foreach (var p in periodos)
                         {
-                            var maquinaEq = Expression.Equal(Expression.Property(parameter, nameof(Venta.MaquinaId)), Expression.Constant(p.MaquinaId));
-                            var fechaGte = Expression.GreaterThanOrEqual(Expression.Property(parameter, nameof(Venta.FechaLocal)), Expression.Constant(p.FechaInicio));
-                            var fechaLte = Expression.LessThanOrEqual(Expression.Property(parameter, nameof(Venta.FechaLocal)), Expression.Constant(p.FechaFin));
+                            var maquinaId = p.MaquinaId;
+                            var fechaInicio = p.FechaInicio;
+                            var fechaFin = p.FechaFin;
+                            var maquinaEq = Expression.Equal(Expression.Property(parameter, nameof(Venta.MaquinaId)), Expression.Constant(maquinaId));
+                            var fechaGte = Expression.GreaterThanOrEqual(Expression.Property(parameter, nameof(Venta.FechaLocal)), Expression.Constant(fechaInicio));
+                            var fechaLte = Expression.LessThanOrEqual(Expression.Property(parameter, nameof(Venta.FechaLocal)), Expression.Constant(fechaFin));
 
                             var range = Expression.AndAlso(maquinaEq, Expression.AndAlso(fechaGte, fechaLte));
                             body = body == null ? range : Expression.OrElse(body, range);
