@@ -541,6 +541,12 @@ public class TemplateRecargaService : ITemplateRecargaService
             if (venta.ProductoId != productoId)
             {
                 venta.ProductoId = productoId;
+                // Recalculate CostoVenta from historical cost at sale date
+                var costoHistorico = await _context.ProductoCostos
+                    .GetCostoAtAsync(productoId, venta.FechaLocal);
+                decimal costoALaFecha = costoHistorico?.Costo ?? 0;
+                if (venta.CostoVenta != costoALaFecha)
+                    venta.CostoVenta = costoALaFecha;
                 count++;
             }
         }
