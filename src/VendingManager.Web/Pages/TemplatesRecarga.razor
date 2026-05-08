@@ -367,7 +367,7 @@
                                                 <div class="mb-2 flex-grow-1 d-flex align-items-center position-relative">
                                                     <select class="form-select form-select-sm border-dark shadow-none fw-bold text-start product-select"
                                                         style="height: 100%; white-space: normal; cursor: pointer; padding: 2px;"
-                                                        @bind="slot.ProductoId" @bind:after="() => OnSlotProductoChanged(slot, PeriodoEnEdicionVisual!.Id)">
+                                                        @bind="slot.ProductoId">
                                                         <option value="">-- SELECCIONAR --</option>
                                                         @if (ListaProductos != null)
                                                         {
