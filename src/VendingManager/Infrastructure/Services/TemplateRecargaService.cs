@@ -548,6 +548,11 @@ public class TemplateRecargaService : ITemplateRecargaService
             ventas.Count,
             ventas.Select(v => v.Id).ToList());
 
+        // Cargar el producto para fallback de CostoPromedio si no hay ProductoCosto histórico
+        var producto = await _context.Productos
+            .AsNoTracking()
+            .FirstOrDefaultAsync(p => p.Id == productoId);
+
         int count = 0;
         foreach (var venta in ventas)
         {
@@ -564,16 +569,20 @@ public class TemplateRecargaService : ITemplateRecargaService
                 // Recalculate CostoVenta from historical cost at sale date
                 var costoHistorico = await _context.ProductoCostos
                     .GetCostoAtAsync(productoId, venta.FechaLocal);
-                decimal costoALaFecha = costoHistorico?.Costo ?? 0;
+                decimal costoALaFecha = costoHistorico?.Costo
+                    ?? producto?.CostoPromedio
+                    ?? costoAnterior; // Si no hay ni histórico ni CostoPromedio, mantener el costo existente
                 if (venta.CostoVenta != costoALaFecha)
                     venta.CostoVenta = costoALaFecha;
 
                 _logger.LogInformation(
                     "[SyncSlotProducto] Venta={VentaId}: Producto {Antes}→{Ahora}, " +
-                    "Fecha={FechaLocal}, CostoHistoricoDB={CostoHistorico}, " +
+                    "Fecha={FechaLocal}, CostoHistoricoDB={CostoHistoricoDB}, " +
+                    "CostoPromedioProducto={CostoPromedio}, " +
                     "CostoVenta {CostoAntes}→{CostoAhora}",
                     venta.Id, productoIdAnterior, productoId,
                     venta.FechaLocal, costoHistorico?.Costo,
+                    producto?.CostoPromedio,
                     costoAnterior, venta.CostoVenta);
                 count++;
             }
