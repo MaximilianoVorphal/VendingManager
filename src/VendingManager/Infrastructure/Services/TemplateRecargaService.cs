@@ -529,24 +529,52 @@ public class TemplateRecargaService : ITemplateRecargaService
             .FirstOrDefaultAsync(p => p.Id == periodoId && p.TemplateRecargaId == templateId)
             ?? throw new InvalidOperationException($"Período {periodoId} no encontrado para el template {templateId}");
 
+        _logger.LogInformation(
+            "[SyncSlotProducto] INICIO — Template={TemplateId}, Periodo={PeriodoId}, " +
+            "Maquina={MaquinaId}, Slot={NumeroSlot}, ProductoNuevo={ProductoId}, " +
+            "Rango=[{Inicio} → {Fin}]",
+            templateId, periodoId, periodo.MaquinaId, numeroSlot, productoId,
+            periodo.FechaInicio, periodo.FechaFin);
+
         var ventas = await _context.Ventas
             .Where(v => v.MaquinaId == periodo.MaquinaId)
             .Where(v => v.NumeroSlot == numeroSlot)
             .Where(v => v.FechaLocal >= periodo.FechaInicio && v.FechaLocal <= periodo.FechaFin)
+            .AsNoTracking()
             .ToListAsync();
+
+        _logger.LogInformation(
+            "[SyncSlotProducto] Ventas encontradas={Count}. IDs={Ids}",
+            ventas.Count,
+            ventas.Select(v => v.Id).ToList());
 
         int count = 0;
         foreach (var venta in ventas)
         {
+            // Attach para que EF Core trackee esta venta
+            _context.Ventas.Attach(venta);
+
             if (venta.ProductoId != productoId)
             {
+                var productoIdAnterior = venta.ProductoId;
+                var costoAnterior = venta.CostoVenta;
+
                 venta.ProductoId = productoId;
+
                 // Recalculate CostoVenta from historical cost at sale date
                 var costoHistorico = await _context.ProductoCostos
                     .GetCostoAtAsync(productoId, venta.FechaLocal);
                 decimal costoALaFecha = costoHistorico?.Costo ?? 0;
                 if (venta.CostoVenta != costoALaFecha)
                     venta.CostoVenta = costoALaFecha;
+
+                _logger.LogInformation(
+                    "[SyncSlotProducto] Venta={VentaId}: Producto {Antes}→{Ahora}, " +
+                    "Fecha={FechaLocal}, CostoHistoricoDB={CostoHistorico}, " +
+                    "CostoVenta {CostoAntes}→{CostoAhora}",
+                    venta.Id, productoIdAnterior, productoId,
+                    venta.FechaLocal, costoHistorico?.Costo,
+                    costoAnterior, venta.CostoVenta);
                 count++;
             }
         }
@@ -556,8 +584,35 @@ public class TemplateRecargaService : ITemplateRecargaService
             var slot = await _context.SnapshotSlots
                 .FirstOrDefaultAsync(s => s.PeriodoRecargaId == periodo.Id && s.NumeroSlot == numeroSlot);
             if (slot != null)
+            {
+                _logger.LogInformation(
+                    "[SyncSlotProducto] SnapshotSlot={SlotId}: ProductoId {Antes}→{Ahora}, Estado {EstadoAntes}→Lleno",
+                    slot.Id, slot.ProductoId, productoId, slot.Estado);
+                slot.ProductoId = productoId;
                 slot.Estado = EstadoSlot.Lleno;
+            }
             await _context.SaveChangesAsync();
+            
+            // Verify persistence
+            var ventaVerificacion = await _context.Ventas
+                .AsNoTracking()
+                .Where(v => v.MaquinaId == periodo.MaquinaId
+                         && v.NumeroSlot == numeroSlot
+                         && v.FechaLocal >= periodo.FechaInicio
+                         && v.FechaLocal <= periodo.FechaFin)
+                .ToListAsync();
+            _logger.LogInformation(
+                "[SyncSlotProducto] VERIFICACION post-save: {Count} ventas en DB para slot {Slot}. " +
+                "Muestra: {@Muestra}",
+                ventaVerificacion.Count, numeroSlot,
+                ventaVerificacion.Select(v => new { v.Id, v.ProductoId, v.CostoVenta, v.FechaLocal }).ToList());
+        }
+        else
+        {
+            _logger.LogWarning(
+                "[SyncSlotProducto] SIN CAMBIOS — {Count} ventas encontradas pero " +
+                "ninguna requirió actualización (todas ya tienen ProductoId={ProductoId})",
+                ventas.Count, productoId);
         }
 
         return new SyncSlotProductoResultDto
