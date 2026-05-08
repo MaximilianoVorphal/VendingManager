@@ -86,121 +86,133 @@ namespace VendingManager.Infrastructure.Services
 
         public async Task<ReporteDto> GetReporteRangoAsync(DateTime inicio, DateTime fin, int maquinaId, bool includePhantom = false, int? templateId = null)
         {
-            var key = $"SalesAnalyticsService:GetReporteRangoAsync:{inicio:yyyyMMdd}-{fin:yyyyMMdd}-M{maquinaId}-Phantom{includePhantom}-T{templateId}";
+            // Template-based reports should NOT be cached — data changes frequently during editing
+            // and users expect to see changes immediately after SyncSlotProducto.
+            if (templateId.HasValue && templateId.Value > 0)
+            {
+                return await BuildReporteAsync(inicio, fin, maquinaId, includePhantom, templateId.Value);
+            }
+
+            // Non-template reports can be cached (5 days)
+            var key = $"SalesAnalyticsService:GetReporteRangoAsync:{inicio:yyyyMMdd}-{fin:yyyyMMdd}-M{maquinaId}-Phantom{includePhantom}";
 
             var result = await _cache.GetOrCreateAsync(key, async (entry) =>
             {
                 entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromDays(5);
+                return await BuildReporteAsync(inicio, fin, maquinaId, includePhantom, null);
+            });
 
-                var query = _context.Ventas
-                    .Include(v => v.Maquina)
-                    .Include(v => v.Producto)
-                    .AsQueryable();
+            return result!;
+        }
 
-                if (templateId.HasValue && templateId.Value > 0)
+        private async Task<ReporteDto> BuildReporteAsync(DateTime inicio, DateTime fin, int maquinaId, bool includePhantom, int? templateId)
+        {
+            var query = _context.Ventas
+                .Include(v => v.Maquina)
+                .Include(v => v.Producto)
+                .AsQueryable();
+
+            if (templateId.HasValue && templateId.Value > 0)
+            {
+                var periodos = await _context.PeriodosRecarga
+                    .Where(p => p.TemplateRecargaId == templateId)
+                    .ToListAsync();
+
+                if (periodos.Any())
                 {
-                    var periodos = await _context.PeriodosRecarga
-                        .Where(p => p.TemplateRecargaId == templateId)
-                        .ToListAsync();
+                    var parameter = Expression.Parameter(typeof(Venta), "v");
+                    Expression? body = null;
 
-                    if (periodos.Any())
+                    foreach (var p in periodos)
                     {
-                        var parameter = Expression.Parameter(typeof(Venta), "v");
-                        Expression? body = null;
+                        var maquinaIdP = p.MaquinaId;
+                        var fechaInicio = p.FechaInicio;
+                        var fechaFin = p.FechaFin;
+                        var maquinaEq = Expression.Equal(Expression.Property(parameter, nameof(Venta.MaquinaId)), Expression.Constant(maquinaIdP));
+                        var fechaGte = Expression.GreaterThanOrEqual(Expression.Property(parameter, nameof(Venta.FechaLocal)), Expression.Constant(fechaInicio));
+                        var fechaLte = Expression.LessThanOrEqual(Expression.Property(parameter, nameof(Venta.FechaLocal)), Expression.Constant(fechaFin));
 
-                        foreach (var p in periodos)
-                        {
-                            var maquinaId = p.MaquinaId;
-                            var fechaInicio = p.FechaInicio;
-                            var fechaFin = p.FechaFin;
-                            var maquinaEq = Expression.Equal(Expression.Property(parameter, nameof(Venta.MaquinaId)), Expression.Constant(maquinaId));
-                            var fechaGte = Expression.GreaterThanOrEqual(Expression.Property(parameter, nameof(Venta.FechaLocal)), Expression.Constant(fechaInicio));
-                            var fechaLte = Expression.LessThanOrEqual(Expression.Property(parameter, nameof(Venta.FechaLocal)), Expression.Constant(fechaFin));
-
-                            var range = Expression.AndAlso(maquinaEq, Expression.AndAlso(fechaGte, fechaLte));
-                            body = body == null ? range : Expression.OrElse(body, range);
-                        }
-
-                        if (body != null)
-                        {
-                            var lambda = Expression.Lambda<Func<Venta, bool>>(body, parameter);
-                            query = query.Where(lambda);
-                        }
+                        var range = Expression.AndAlso(maquinaEq, Expression.AndAlso(fechaGte, fechaLte));
+                        body = body == null ? range : Expression.OrElse(body, range);
                     }
-                    else
+
+                    if (body != null)
                     {
-                        query = query.Where(v => false);
+                        var lambda = Expression.Lambda<Func<Venta, bool>>(body, parameter);
+                        query = query.Where(lambda);
                     }
                 }
                 else
                 {
-                    DateTime finAjustado = fin.Date.AddDays(1).AddTicks(-1);
-                    DateTime inicioAjustado = inicio.Date;
-                    query = query.Where(v => v.FechaLocal >= inicioAjustado && v.FechaLocal <= finAjustado);
+                    query = query.Where(v => false);
                 }
+            }
+            else
+            {
+                DateTime finAjustado = fin.Date.AddDays(1).AddTicks(-1);
+                DateTime inicioAjustado = inicio.Date;
+                query = query.Where(v => v.FechaLocal >= inicioAjustado && v.FechaLocal <= finAjustado);
+            }
 
-                if (maquinaId > 0)
+            if (maquinaId > 0)
+            {
+                query = query.Where(v => v.MaquinaId == maquinaId);
+            }
+
+            var listaVentas = await query
+                .OrderByDescending(v => v.FechaLocal)
+                .ToListAsync();
+
+            var reporte = new ReporteDto
+            {
+                TotalVentas = listaVentas.Count,
+                MontoTotal = listaVentas.Sum(v => v.PrecioVenta),
+                MontoPagado = listaVentas.Where(v => v.Pagado).Sum(v => v.PrecioVenta),
+                MontoPendiente = listaVentas.Where(v => !v.Pagado).Sum(v => v.PrecioVenta),
+                MontoPhantom = listaVentas.Where(v => v.IdOrdenMaquina == "TB-EXTRA" || v.IdOrdenMaquina == "TB-SIN-VENTA").Sum(v => v.PrecioVenta),
+                Detalle = new List<DetalleVentaDto>(),
+                Fantasmas = new List<DetalleVentaDto>()
+            };
+
+            reporte.TotalVentas -= listaVentas.Count(v => v.IdOrdenMaquina == "TB-EXTRA" || v.IdOrdenMaquina == "TB-SIN-VENTA");
+            reporte.MontoTotal -= reporte.MontoPhantom;
+            reporte.MontoPagado -= reporte.MontoPhantom;
+
+            foreach (var v in listaVentas)
+            {
+                bool esFantasma = (v.IdOrdenMaquina == "TB-EXTRA" || v.IdOrdenMaquina == "TB-SIN-VENTA");
+
+                decimal costo = v.CostoVenta;
+                if (costo == 0 && v.Producto != null) costo = v.Producto.CostoPromedio;
+
+                decimal ganancia = v.PrecioVenta - costo;
+
+                var detalleDto = new DetalleVentaDto
                 {
-                    query = query.Where(v => v.MaquinaId == maquinaId);
-                }
-
-                var listaVentas = await query
-                    .OrderByDescending(v => v.FechaLocal)
-                    .ToListAsync();
-
-                var reporte = new ReporteDto
-                {
-                    TotalVentas = listaVentas.Count,
-                    MontoTotal = listaVentas.Sum(v => v.PrecioVenta),
-                    MontoPagado = listaVentas.Where(v => v.Pagado).Sum(v => v.PrecioVenta),
-                    MontoPendiente = listaVentas.Where(v => !v.Pagado).Sum(v => v.PrecioVenta),
-                    MontoPhantom = listaVentas.Where(v => v.IdOrdenMaquina == "TB-EXTRA" || v.IdOrdenMaquina == "TB-SIN-VENTA").Sum(v => v.PrecioVenta),
-                    Detalle = new List<DetalleVentaDto>(),
-                    Fantasmas = new List<DetalleVentaDto>()
+                    FechaRaw = v.FechaLocal,
+                    Maquina = v.Maquina?.Nombre ?? "Desconocida",
+                    Slot = v.NumeroSlot,
+                    Producto = v.Producto?.Nombre ?? "---",
+                    Monto = v.PrecioVenta,
+                    CostoUnitario = costo,
+                    Ganancia = ganancia,
+                    Estado = v.Pagado ? "Pagado" : "Pendiente"
                 };
 
-                reporte.TotalVentas -= listaVentas.Count(v => v.IdOrdenMaquina == "TB-EXTRA" || v.IdOrdenMaquina == "TB-SIN-VENTA");
-                reporte.MontoTotal -= reporte.MontoPhantom;
-                reporte.MontoPagado -= reporte.MontoPhantom;
-
-                foreach (var v in listaVentas)
+                if (esFantasma)
                 {
-                    bool esFantasma = (v.IdOrdenMaquina == "TB-EXTRA" || v.IdOrdenMaquina == "TB-SIN-VENTA");
-
-                    decimal costo = v.CostoVenta;
-                    if (costo == 0 && v.Producto != null) costo = v.Producto.CostoPromedio;
-
-                    decimal ganancia = v.PrecioVenta - costo;
-
-                    var detalleDto = new DetalleVentaDto
-                    {
-                        FechaRaw = v.FechaLocal,
-                        Maquina = v.Maquina?.Nombre ?? "Desconocida",
-                        Slot = v.NumeroSlot,
-                        Producto = v.Producto?.Nombre ?? "---",
-                        Monto = v.PrecioVenta,
-                        CostoUnitario = costo,
-                        Ganancia = ganancia,
-                        Estado = v.Pagado ? "Pagado" : "Pendiente"
-                    };
-
-                    if (esFantasma)
-                    {
-                        reporte.Fantasmas.Add(detalleDto);
-                    }
-
-                    if (!esFantasma || includePhantom)
-                    {
-                        reporte.Detalle.Add(detalleDto);
-                    }
+                    reporte.Fantasmas.Add(detalleDto);
                 }
 
-                reporte.GananciaTotal = reporte.Detalle.Sum(d => d.Ganancia);
+                if (!esFantasma || includePhantom)
+                {
+                    reporte.Detalle.Add(detalleDto);
+                }
+            }
 
-                return reporte;
-            });
+            reporte.GananciaTotal = reporte.Detalle.Sum(d => d.Ganancia);
 
-            return result!;
+            return reporte;
         }
 
         public async Task<InformeFinancieroDto> GetInformeFinancieroAsync(DateTime inicio, DateTime fin, int maquinaId)
