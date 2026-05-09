@@ -11,7 +11,6 @@ RUN pip install --no-cache-dir --upgrade pip && \
 RUN playwright install chromium
 
 # Copiar los scripts al contenedor
-COPY download_ourvend_report.py .
 COPY download_ourvend_report_alt.py .
 COPY scraper_api.py .
 COPY gemini_ocr.py .
