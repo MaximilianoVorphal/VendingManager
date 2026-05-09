@@ -20,4 +20,12 @@ public class AnalisisProductoDto
     // Averages (Calculated)
     public decimal PrecioPromedio => CantidadVendida > 0 ? TotalVentas / CantidadVendida : 0;
     public decimal MargenPromedio => TotalVentas > 0 ? (TotalGanancia / TotalVentas) * 100 : 0;
+
+    // ABC Classification (REQ-2)
+    public string? ClasificacionABC { get; set; }
+    public decimal? PorcentajeAcumulado { get; set; }
+
+    // Trends MoM/WoW (REQ-3)
+    public string? Tendencia { get; set; }       // "▲", "▼", "→", "—"
+    public decimal? CambioPorcentual { get; set; }
 }

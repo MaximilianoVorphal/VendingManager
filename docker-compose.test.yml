@@ -1,0 +1,53 @@
+# Entorno de prueba aislado para testing de cambios sin afectar dev ni prod.
+# Usa el mismo .env compartido.
+
+volumes:
+  mssql_data_test:
+  scraper_data_test:
+
+
+services:
+  webapp-test:
+    image: vendingmanager-test
+    build:
+      context: ./src
+      dockerfile: Dockerfile
+    ports:
+      - "8082:8080"
+    environment:
+      - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__DefaultConnection=Server=db-test;Database=VendingDB_Test;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True;
+      - ASPNETCORE_ENVIRONMENT=Development
+      - TZ=America/Santiago
+      - ScraperServiceUrl=http://scraper-test:8000
+      - VendingConfig__FacturaUploadPath=/var/uploads/vendingmanager-test
+    volumes:
+      - ~/vendingmanager-uploads-test:/var/uploads/vendingmanager-test
+    depends_on:
+      - db-test
+      - scraper-test
+
+  db-test:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      - ACCEPT_EULA=Y
+      - MSSQL_SA_PASSWORD=${MSSQL_SA_PASSWORD}
+      - TZ=America/Santiago
+    volumes:
+      - mssql_data_test:/var/opt/mssql
+    ports:
+      - "1435:1433"
+
+  scraper-test:
+    build:
+      context: ./services/scraper
+      dockerfile: Dockerfile
+    volumes:
+      - scraper_data_test:/app/downloads
+    ports:
+      - "8002:8000"
+    environment:
+      - TZ=America/Santiago
+      - OURVEND_USER=${OURVEND_USER}
+      - OURVEND_PASS=${OURVEND_PASS}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}

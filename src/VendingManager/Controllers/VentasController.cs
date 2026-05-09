@@ -194,6 +194,15 @@ namespace VendingManager.Controllers
             var result = await salesAnalyticsService.GetVentasDiariasAsync(productoId, maquinaId, inicio, fin);
             return Ok(result);
         }
+
+        [HttpGet("categoria-analisis")]
+        public async Task<ActionResult<List<CategoriaAnalisisDto>>> GetCategoriaAnalisis(
+            [FromQuery] DateTime inicio,
+            [FromQuery] DateTime fin,
+            [FromQuery] int maquinaId = 0)
+        {
+            return await salesAnalyticsService.GetCategoriaAnalisisAsync(inicio, fin, maquinaId);
+        }
         
         [HttpGet("purchase-suggestion")]
         public async Task<IActionResult> GetPurchaseSuggestion([FromQuery] int days = 30, [FromQuery] int maquinaId = 0)
