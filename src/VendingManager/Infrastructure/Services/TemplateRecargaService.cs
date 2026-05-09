@@ -725,15 +725,21 @@ public class TemplateRecargaService : ITemplateRecargaService
                 templateId, ventasActualizadas);
 
             // Post-save verification: re-read from DB to confirm persistence
-            var ventasVerificacion = await _context.Ventas
-                .AsNoTracking()
-                .Where(v => template.Periodos.Any(p =>
-                    v.MaquinaId == p.MaquinaId &&
-                    v.FechaLocal >= p.FechaInicio &&
-                    v.FechaLocal <= p.FechaFin))
-                .Where(v => v.ProductoId != null)
-                .OrderBy(v => v.Id)
-                .ToListAsync();
+            // Query each period separately — a single .Any() across multiple
+            // in-memory PeriodoRecarga entities cannot be translated by EF Core.
+            var ventasVerificacion = new List<Venta>();
+            foreach (var periodo in template.Periodos)
+            {
+                var ventasPeriodo = await _context.Ventas
+                    .AsNoTracking()
+                    .Where(v => v.MaquinaId == periodo.MaquinaId &&
+                                v.FechaLocal >= periodo.FechaInicio &&
+                                v.FechaLocal <= periodo.FechaFin &&
+                                v.ProductoId != null)
+                    .ToListAsync();
+                ventasVerificacion.AddRange(ventasPeriodo);
+            }
+            ventasVerificacion = ventasVerificacion.OrderBy(v => v.Id).ToList();
 
             _logger.LogInformation(
                 "[SyncTemplateToVentas] VERIFICACION post-save: {Count} ventas en DB. " +
