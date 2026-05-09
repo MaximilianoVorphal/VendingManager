@@ -178,7 +178,17 @@ async def run_async(machine_id, start_date, end_date):
                     if (!sel) return 'MiGroup no encontrado';
                     sel.value = '{MACHINE_GROUP_VALUE}';
                     sel.dispatchEvent(new Event('change'));
-                    return 'OK: ' + sel.options[sel.selectedIndex].text;
+                    if (sel.value !== '{MACHINE_GROUP_VALUE}') {{
+                        // El UUID no existe en los options — listar los disponibles
+                        var opts = [];
+                        for (var i = 0; i < sel.options.length; i++) {{
+                            opts.push(sel.options[i].value + '=' + sel.options[i].text);
+                        }}
+                        return 'UUID NO ENCONTRADO. Options disponibles: ' + JSON.stringify(opts.slice(0, 20));
+                    }}
+                    var idx = sel.selectedIndex;
+                    var text = idx >= 0 ? sel.options[idx].text : '(sin texto)';
+                    return 'OK: ' + text;
                 }})()
             """)
             log(f"    Resultado: {result}")
