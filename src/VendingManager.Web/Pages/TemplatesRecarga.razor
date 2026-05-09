@@ -218,10 +218,11 @@
                                                            @onchange="(ChangeEventArgs e) => OnFechaDateChanged(index, true, e)" />
                                                     <input type="text"
                                                            class="form-control border-dark rounded-0 time-input font-monospace"
-                                                           value="@periodo.FechaInicio.ToString("HH:mm")"
+                                                           value="@periodo.HoraInicioText"
                                                            placeholder="HH:mm"
                                                            maxlength="5"
-                                                           @onchange="(ChangeEventArgs e) => OnFechaTimeTextChanged(index, true, e)" />
+                                                           @oninput="(ChangeEventArgs e) => OnHoraInput(index, true, e)"
+                                                           @onchange="(ChangeEventArgs e) => OnHoraBlur(index, true, e)" />
                                               </div>
                                           </div>
                                           <div class="col-md-3 col-12">
@@ -233,10 +234,11 @@
                                                            @onchange="(ChangeEventArgs e) => OnFechaDateChanged(index, false, e)" />
                                                     <input type="text"
                                                            class="form-control border-dark rounded-0 time-input font-monospace"
-                                                           value="@periodo.FechaFin.ToString("HH:mm")"
+                                                           value="@periodo.HoraFinText"
                                                            placeholder="HH:mm"
                                                            maxlength="5"
-                                                           @onchange="(ChangeEventArgs e) => OnFechaTimeTextChanged(index, false, e)" />
+                                                           @oninput="(ChangeEventArgs e) => OnHoraInput(index, false, e)"
+                                                           @onchange="(ChangeEventArgs e) => OnHoraBlur(index, false, e)" />
                                               </div>
                                           </div>
                                          <div class="col-md-2 col-12">
@@ -1020,6 +1022,9 @@
                 Estado = s.Estado
             }).ToList()
         }).ToList();
+
+        foreach (var periodo in PeriodosActuales)
+            periodo.SyncDisplayFromDateTime();
         MostrarModal = true;
     }
 
@@ -1031,11 +1036,13 @@
     private void AgregarPeriodo()
     {
         var now = DateTime.Now;
-        PeriodosActuales.Add(new PeriodoFormModel
+        var p = new PeriodoFormModel
         {
             FechaInicio = DateTime.SpecifyKind(now.Date.AddHours(8), DateTimeKind.Unspecified),
             FechaFin = DateTime.SpecifyKind(now.Date.AddDays(7).AddHours(18), DateTimeKind.Unspecified)
-        });
+        };
+        p.SyncDisplayFromDateTime();
+        PeriodosActuales.Add(p);
     }
 
     private void EliminarPeriodo(int index)
@@ -1051,15 +1058,32 @@
         var dateVal = e.Value?.ToString();
         if (string.IsNullOrEmpty(dateVal) || index < 0 || index >= PeriodosActuales.Count) return;
         var p = PeriodosActuales[index];
-        var current = esInicio ? p.FechaInicio : p.FechaFin;
+
+        // Intentar leer la hora del display text (puede estar editándose)
+        var displayText = esInicio ? p.HoraInicioText : p.HoraFinText;
+        int hora = 0, minuto = 0;
+        bool horaFromDisplay = !string.IsNullOrWhiteSpace(displayText)
+                               && int.TryParse(displayText.Replace(":", "").PadRight(4, '0')[..2], out int h)
+                               && h is >= 0 and <= 23
+                               && int.TryParse(displayText.Replace(":", "").PadRight(4, '0')[2..4], out int m)
+                               && m is >= 0 and <= 59;
+
+        if (!horaFromDisplay)
+        {
+            // Fallback: usar la hora del DateTime actual
+            var current = esInicio ? p.FechaInicio : p.FechaFin;
+            hora = current.Hour;
+            minuto = current.Minute;
+        }
 
         if (DateOnly.TryParse(dateVal, System.Globalization.CultureInfo.InvariantCulture,
                 System.Globalization.DateTimeStyles.None, out var dateOnly))
         {
             var d = new DateTime(dateOnly.Year, dateOnly.Month, dateOnly.Day,
-                                  current.Hour, current.Minute, 0, DateTimeKind.Unspecified);
+                                  hora, minuto, 0, DateTimeKind.Unspecified);
             if (esInicio) p.FechaInicio = d;
             else p.FechaFin = d;
+            p.SyncDisplayFromDateTime();
         }
         else
         {
@@ -1067,118 +1091,51 @@
         }
     }
 
-    private void OnFechaTimeTextChanged(int index, bool esInicio, ChangeEventArgs e)
+    private void OnHoraInput(int index, bool esInicio, ChangeEventArgs e)
     {
-        var input = e.Value?.ToString()?.Trim();
-        if (string.IsNullOrEmpty(input) || index < 0 || index >= PeriodosActuales.Count) return;
+        if (index < 0 || index >= PeriodosActuales.Count) return;
+        var raw = e.Value?.ToString() ?? "";
+        var formatted = FormatearHoraMask(raw);
         var p = PeriodosActuales[index];
-        var current = esInicio ? p.FechaInicio : p.FechaFin;
+        if (esInicio) p.HoraInicioText = formatted;
+        else p.HoraFinText = formatted;
+    }
 
-        if (TryParseHora24(input, out int hora, out int minuto))
+    private void OnHoraBlur(int index, bool esInicio, ChangeEventArgs e)
+    {
+        if (index < 0 || index >= PeriodosActuales.Count) return;
+        var p = PeriodosActuales[index];
+        // Al perder foco, consolidar el display text al DateTime
+        if (esInicio)
         {
-            var d = new DateTime(current.Year, current.Month, current.Day,
-                                  hora, minuto, 0, DateTimeKind.Unspecified);
-            if (esInicio) p.FechaInicio = d;
-            else p.FechaFin = d;
+            p.HoraInicioText = FormatearHoraMask(p.HoraInicioText);
+            p.SyncDateTimeFromDisplay(true);
         }
         else
         {
-            Logger.LogWarning("OnFechaTimeTextChanged: no se pudo interpretar hora '{Input}'", input);
+            p.HoraFinText = FormatearHoraMask(p.HoraFinText);
+            p.SyncDateTimeFromDisplay(false);
         }
+        StateHasChanged();
     }
 
     /// <summary>
-    /// Parsea entrada de hora en formato 24h con flexibilidad:
-    ///   "13"    → 13:00    "1"     → 01:00
-    ///   "1330"  → 13:30    "930"   → 09:30
-    ///   "13:30" → 13:30    "9:30"  → 09:30
-    ///   "130"   → 13:00    "25"    → rechazado
+    /// Aplica máscara HH:mm en vivo: filtra no-dígitos, inserta ":" después del 2do dígito.
+    ///   "1" → "1"       "13" → "13:"     "133" → "13:3"    "1330" → "13:30"
     /// </summary>
-    private static bool TryParseHora24(string input, out int hora, out int minuto)
+    private static string FormatearHoraMask(string input)
     {
-        hora = 0; minuto = 0;
-        if (string.IsNullOrWhiteSpace(input)) return false;
+        if (string.IsNullOrEmpty(input)) return "";
+        var digits = new string(input.Where(char.IsDigit).ToArray());
+        if (digits.Length == 0) return "";
 
-        // Quitar ":" si viene con separador
-        input = input.Replace(":", "").Trim();
-
-        return input.Length switch
+        return digits.Length switch
         {
-            1 => TryParse1or2(input, out hora),                          // "1" → 01:00
-            2 => TryParse2or4(input, out hora, out minuto),              // "13" → 13:00, "25" → fail
-            3 => TryParse3(input, out hora, out minuto),                 // "130" → 13:00, "930" → 09:30
-            4 => TryParse2or4(input, out hora, out minuto),              // "1330" → 13:30
-            _ => false
+            1 => digits,
+            2 => digits + ":",
+            >= 3 => digits[..2] + ":" + digits[2..],
+            _ => digits
         };
-    }
-
-    private static bool TryParse1or2(string input, out int hora)
-    {
-        hora = 0;
-        if (!int.TryParse(input, out int val)) return false;
-        if (val is >= 0 and <= 23)
-        {
-            hora = val;
-            return true;
-        }
-        return false;
-    }
-
-    private static bool TryParse2or4(string input, out int hora, out int minuto)
-    {
-        hora = 0; minuto = 0;
-        if (!int.TryParse(input, out int val)) return false;
-
-        if (input.Length == 2)
-        {
-            if (val is >= 0 and <= 23) { hora = val; return true; }
-            return false;
-        }
-
-        // 4 dígitos: primeras 2 = hora, últimas 2 = minuto
-        int h = val / 100;
-        int m = val % 100;
-        if (h is >= 0 and <= 23 && m is >= 0 and <= 59)
-        {
-            hora = h; minuto = m;
-            return true;
-        }
-        return false;
-    }
-
-    private static bool TryParse3(string input, out int hora, out int minuto)
-    {
-        hora = 0; minuto = 0;
-        if (!int.TryParse(input, out int val)) return false;
-
-        // "130" → 13:00? o "130" → 1:30? 
-        // Heurística: si los primeros 2 dígitos son hora válida, usar eso como hora
-        int h = val / 10;   // primeros 2 dígitos
-        int m = val % 10;   // último dígito
-
-        if (h is >= 0 and <= 23)
-        {
-            // "930" → h=93, no funciona. Probar otra heurística.
-            // "130" → h=13, m=0 → 13:00 ✓
-            // "930" → h=93 ✗ → probar h=primer dígito, m=últimos 2
-            if (h <= 23)
-            {
-                hora = h;
-                minuto = m * 10; // "130" → 13:00, "135" → 13:50
-                if (minuto <= 59) return true;
-            }
-        }
-
-        // Fallback: 1er dígito = hora, últimos 2 = minuto
-        h = val / 100;
-        m = val % 100;
-        if (h is >= 0 and <= 23 && m is >= 0 and <= 59)
-        {
-            hora = h; minuto = m;
-            return true;
-        }
-
-        return false;
     }
 
     private void ActualizarNombreProducto(SnapshotSlotFormModel slot)
@@ -1575,6 +1532,45 @@
         public DateTime FechaInicio { get; set; }
         public DateTime FechaFin { get; set; }
         public List<SnapshotSlotFormModel> SnapshotSlots { get; set; } = new();
+
+        // Display strings para masking en vivo del input de hora
+        public string HoraInicioText { get; set; } = "";
+        public string HoraFinText { get; set; } = "";
+
+        public void SyncDisplayFromDateTime()
+        {
+            HoraInicioText = FechaInicio.ToString("HH:mm");
+            HoraFinText = FechaFin.ToString("HH:mm");
+        }
+
+        public void SyncDateTimeFromDisplay(bool esInicio)
+        {
+            if (TryParseHora24Internal(esInicio ? HoraInicioText : HoraFinText, out int h, out int m))
+            {
+                var dt = new DateTime(
+                    (esInicio ? FechaInicio : FechaFin).Year,
+                    (esInicio ? FechaInicio : FechaFin).Month,
+                    (esInicio ? FechaInicio : FechaFin).Day,
+                    h, m, 0, DateTimeKind.Unspecified);
+                if (esInicio) FechaInicio = dt; else FechaFin = dt;
+            }
+        }
+
+        private static bool TryParseHora24Internal(string input, out int hora, out int minuto)
+        {
+            hora = 0; minuto = 0;
+            if (string.IsNullOrWhiteSpace(input)) return false;
+            var cleaned = input.Replace(":", "").Trim();
+            if (cleaned.Length is 1 or 2 && int.TryParse(cleaned, out int v) && v is >= 0 and <= 23)
+            { hora = v; return true; }
+            if (cleaned.Length is 3 or 4 && int.TryParse(cleaned, out int v2))
+            {
+                int h = cleaned.Length == 3 ? v2 / 10 : v2 / 100;
+                int m = cleaned.Length == 3 ? (v2 % 10) * 10 : v2 % 100;
+                if (h is >= 0 and <= 23 && m is >= 0 and <= 59) { hora = h; minuto = m; return true; }
+            }
+            return false;
+        }
     }
 
     public class SnapshotSlotFormModel
