@@ -85,10 +85,9 @@
                  <table class="table table-hover table-bordered border-dark m-0 table-sm align-middle">
                      <thead class="bg-secondary text-white text-uppercase small sticky-top">
                          <tr>
-                             <th role="button" @onclick='() => OrdenarPor("Nombre")'>PRODUCTO @RenderIcono("Nombre")</th>
-                             <th role="button" @onclick='() => OrdenarPor("Clasificacion")'>ESTRATEGIA @RenderIcono("Clasificacion")</th>
-                              <th>ABC</th>
-                              <th>TENDENCIA</th>
+                              <th role="button" @onclick='() => OrdenarPor("Nombre")'>PRODUCTO @RenderIcono("Nombre")</th>
+                               <th>ABC <span title="Clasificación Pareto: A = productos que generan el 80% del revenue. B = siguiente 15%. C = resto." style="cursor:help;">ⓘ</span></th>
+                               <th>TENDENCIA <span title="Comparación vs período anterior de igual duración. ▲ subió, ▼ bajó, → igual, — sin datos previos." style="cursor:help;">ⓘ</span></th>
                               @* Removed Rotacion/Dia *@
                              <th role="button" class="text-center" @onclick='() => OrdenarPor("Cantidad")'>TOTAL UNID. @RenderIcono("Cantidad")</th>
                              <th role="button" class="text-end" @onclick='() => OrdenarPor("Ventas")'>INGRESOS @RenderIcono("Ventas")</th>
@@ -100,11 +99,8 @@
                          @foreach(var p in Productos)
                          {
                              <tr class="@(p.CantidadVendida == 0 ? "bg-light text-muted" : "")">
-                                 <td class="fw-bold text-uppercase" data-label="PRODUCTO">@p.Nombre</td>
-                                  <td class="text-center" data-label="ESTRATEGIA">
-                                      <span class="badge rounded-pill @(p.ColorClasificacion)" style="font-size: 0.8em;">@p.Clasificacion.ToUpper()</span>
-                                  </td>
-                                  <td class="text-center" data-label="ABC">
+                                  <td class="fw-bold text-uppercase" data-label="PRODUCTO">@p.Nombre</td>
+                                   <td class="text-center" data-label="ABC">
                                       @if (!string.IsNullOrEmpty(p.ClasificacionABC))
                                       {
                                           var abcClass = p.ClasificacionABC == "A" ? "bg-success"
@@ -283,11 +279,6 @@
         {
             case "Nombre":
                 Productos = Ascendente ? Productos.OrderBy(x => x.Nombre).ToList() : Productos.OrderByDescending(x => x.Nombre).ToList();
-                break;
-            case "Clasificacion":
-                // Custom sort for Clasificacion (Estrella > Joya > Normal > Cacho)
-                int Rank(string c) => c switch { "Estrella" => 4, "Joya" => 3, "Normal" => 2, "Cacho" => 1, _ => 0 };
-                Productos = Ascendente ? Productos.OrderBy(x => Rank(x.Clasificacion)).ToList() : Productos.OrderByDescending(x => Rank(x.Clasificacion)).ToList();
                 break;
             case "Rotacion":
                 Productos = Ascendente ? Productos.OrderBy(x => x.RotacionDiaria).ToList() : Productos.OrderByDescending(x => x.RotacionDiaria).ToList();
