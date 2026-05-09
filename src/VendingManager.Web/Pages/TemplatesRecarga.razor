@@ -1026,10 +1026,11 @@
 
     private void AgregarPeriodo()
     {
+        var now = DateTime.Now;
         PeriodosActuales.Add(new PeriodoFormModel
         {
-            FechaInicio = DateTime.Today.AddHours(8),
-            FechaFin = DateTime.Today.AddDays(7).AddHours(18)
+            FechaInicio = DateTime.SpecifyKind(now.Date.AddHours(8), DateTimeKind.Unspecified),
+            FechaFin = DateTime.SpecifyKind(now.Date.AddDays(7).AddHours(18), DateTimeKind.Unspecified)
         });
     }
 
@@ -1046,16 +1047,17 @@
         var dateVal = e.Value?.ToString();
         if (string.IsNullOrEmpty(dateVal) || index < 0 || index >= PeriodosActuales.Count) return;
         var p = PeriodosActuales[index];
-        var timePart = esInicio ? p.FechaInicio.ToString("HH:mm") : p.FechaFin.ToString("HH:mm");
-        if (DateTime.TryParseExact(
-                $"{dateVal} {timePart}",
-                "yyyy-MM-dd HH:mm",
-                System.Globalization.CultureInfo.InvariantCulture,
-                System.Globalization.DateTimeStyles.None,
-                out var d))
+        var current = esInicio ? p.FechaInicio : p.FechaFin;
+        var timePart = current.ToString("HH:mm");
+        if (TryParseDateTime($"{dateVal} {timePart}", out var d))
         {
+            d = DateTime.SpecifyKind(d, DateTimeKind.Unspecified);
             if (esInicio) p.FechaInicio = d;
             else p.FechaFin = d;
+        }
+        else
+        {
+            Logger.LogWarning("OnFechaDateChanged: no se pudo parsear fecha '{DateVal}' con hora '{TimePart}'", dateVal, timePart);
         }
     }
 
@@ -1064,17 +1066,37 @@
         var timeVal = e.Value?.ToString();
         if (string.IsNullOrEmpty(timeVal) || index < 0 || index >= PeriodosActuales.Count) return;
         var p = PeriodosActuales[index];
-        var datePart = esInicio ? p.FechaInicio.ToString("yyyy-MM-dd") : p.FechaFin.ToString("yyyy-MM-dd");
-        if (DateTime.TryParseExact(
-                $"{datePart} {timeVal}",
-                "yyyy-MM-dd HH:mm",
-                System.Globalization.CultureInfo.InvariantCulture,
-                System.Globalization.DateTimeStyles.None,
-                out var d))
+        var current = esInicio ? p.FechaInicio : p.FechaFin;
+        var datePart = current.ToString("yyyy-MM-dd");
+        if (TryParseDateTime($"{datePart} {timeVal}", out var d))
         {
+            d = DateTime.SpecifyKind(d, DateTimeKind.Unspecified);
             if (esInicio) p.FechaInicio = d;
             else p.FechaFin = d;
         }
+        else
+        {
+            Logger.LogWarning("OnFechaTimeChanged: no se pudo parsear hora '{TimeVal}' para fecha '{DatePart}'", timeVal, datePart);
+        }
+    }
+
+    /// <summary>
+    /// Intenta parsear fecha+hora con múltiples formatos para cubrir variaciones del navegador.
+    /// Soporta HH:mm (step=60, default) y HH:mm:ss (step<60 o ingreso manual con segundos).
+    /// </summary>
+    private static bool TryParseDateTime(string input, out DateTime result)
+    {
+        if (DateTime.TryParseExact(input, "yyyy-MM-dd HH:mm",
+                System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.None, out result))
+            return true;
+
+        if (DateTime.TryParseExact(input, "yyyy-MM-dd HH:mm:ss",
+                System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.None, out result))
+            return true;
+
+        return false;
     }
 
     private void ActualizarNombreProducto(SnapshotSlotFormModel slot)
