@@ -633,6 +633,44 @@ public class TemplateRecargaService : ITemplateRecargaService
         };
     }
 
+    public async Task SaveFotoGuiaAsync(int templateId, byte[] data, string contentType)
+    {
+        var template = await _context.TemplatesRecarga.FindAsync(templateId)
+            ?? throw new KeyNotFoundException($"Template con ID {templateId} no encontrado");
+
+        template.FotoGuia = data;
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task<(byte[]? Data, string? ContentType)> GetFotoGuiaAsync(int templateId)
+    {
+        var template = await _context.TemplatesRecarga
+            .AsNoTracking()
+            .FirstOrDefaultAsync(t => t.Id == templateId)
+            ?? throw new KeyNotFoundException($"Template con ID {templateId} no encontrado");
+
+        return (template.FotoGuia, null);
+    }
+
+    public async Task SaveFotoOcrAsync(int templateId, byte[] data, string contentType)
+    {
+        var template = await _context.TemplatesRecarga.FindAsync(templateId)
+            ?? throw new KeyNotFoundException($"Template con ID {templateId} no encontrado");
+
+        template.FotoOcr = data;
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task<(byte[]? Data, string? ContentType)> GetFotoOcrAsync(int templateId)
+    {
+        var template = await _context.TemplatesRecarga
+            .AsNoTracking()
+            .FirstOrDefaultAsync(t => t.Id == templateId)
+            ?? throw new KeyNotFoundException($"Template con ID {templateId} no encontrado");
+
+        return (template.FotoOcr, null);
+    }
+
     /// <summary>
     /// Auto-syncs product changes to matching Venta records after template save.
     /// Only updates records where ProductoId differs from the pre-save snapshot.
@@ -766,6 +804,8 @@ public class TemplateRecargaService : ITemplateRecargaService
             Nombre = t.Nombre,
             Descripcion = t.Descripcion,
             FechaCreacion = t.FechaCreacion,
+            TieneFotoGuia = t.FotoGuia != null,
+            TieneFotoOcr = t.FotoOcr != null,
             Periodos = t.Periodos.Select(p => new PeriodoRecargaDto
             {
                 Id = p.Id,
