@@ -209,32 +209,36 @@
                                                      }
                                                  </select>
                                              </div>
-                                         <div class="col-md-3 col-12">
-                                             <label class="small fw-bold">DESDE:</label>
-                                             <div class="input-group input-group-sm">
-                                                   <input type="date"
-                                                          class="form-control border-dark rounded-0 date-input"
-                                                          value="@periodo.FechaInicio.ToString("yyyy-MM-dd")"
-                                                          @onchange="(ChangeEventArgs e) => OnFechaDateChanged(index, true, e)" />
-                                                   <input type="time"
-                                                          class="form-control border-dark rounded-0 time-input"
-                                                          value="@periodo.FechaInicio.ToString("HH:mm")"
-                                                          @onchange="(ChangeEventArgs e) => OnFechaTimeChanged(index, true, e)" />
-                                             </div>
-                                         </div>
-                                         <div class="col-md-3 col-12">
-                                             <label class="small fw-bold">HASTA:</label>
-                                             <div class="input-group input-group-sm">
-                                                   <input type="date"
-                                                          class="form-control border-dark rounded-0 date-input"
-                                                          value="@periodo.FechaFin.ToString("yyyy-MM-dd")"
-                                                          @onchange="(ChangeEventArgs e) => OnFechaDateChanged(index, false, e)" />
-                                                   <input type="time"
-                                                          class="form-control border-dark rounded-0 time-input"
-                                                          value="@periodo.FechaFin.ToString("HH:mm")"
-                                                          @onchange="(ChangeEventArgs e) => OnFechaTimeChanged(index, false, e)" />
-                                             </div>
-                                         </div>
+                                          <div class="col-md-3 col-12">
+                                              <label class="small fw-bold">DESDE:</label>
+                                              <div class="input-group input-group-sm">
+                                                    <input type="date"
+                                                           class="form-control border-dark rounded-0 date-input"
+                                                           value="@periodo.FechaInicio.ToString("yyyy-MM-dd")"
+                                                           @onchange="(ChangeEventArgs e) => OnFechaDateChanged(index, true, e)" />
+                                                    <input type="text"
+                                                           class="form-control border-dark rounded-0 time-input font-monospace"
+                                                           value="@periodo.FechaInicio.ToString("HH:mm")"
+                                                           placeholder="HH:mm"
+                                                           maxlength="5"
+                                                           @onchange="(ChangeEventArgs e) => OnFechaTimeTextChanged(index, true, e)" />
+                                              </div>
+                                          </div>
+                                          <div class="col-md-3 col-12">
+                                              <label class="small fw-bold">HASTA:</label>
+                                              <div class="input-group input-group-sm">
+                                                    <input type="date"
+                                                           class="form-control border-dark rounded-0 date-input"
+                                                           value="@periodo.FechaFin.ToString("yyyy-MM-dd")"
+                                                           @onchange="(ChangeEventArgs e) => OnFechaDateChanged(index, false, e)" />
+                                                    <input type="text"
+                                                           class="form-control border-dark rounded-0 time-input font-monospace"
+                                                           value="@periodo.FechaFin.ToString("HH:mm")"
+                                                           placeholder="HH:mm"
+                                                           maxlength="5"
+                                                           @onchange="(ChangeEventArgs e) => OnFechaTimeTextChanged(index, false, e)" />
+                                              </div>
+                                          </div>
                                          <div class="col-md-2 col-12">
                                              <div class="d-flex gap-1">
                                                  <button class="btn btn-sm btn-outline-primary rounded-0 flex-fill"
@@ -1061,40 +1065,116 @@
         }
     }
 
-    private void OnFechaTimeChanged(int index, bool esInicio, ChangeEventArgs e)
+    private void OnFechaTimeTextChanged(int index, bool esInicio, ChangeEventArgs e)
     {
-        var timeVal = e.Value?.ToString();
-        if (string.IsNullOrEmpty(timeVal) || index < 0 || index >= PeriodosActuales.Count) return;
+        var input = e.Value?.ToString()?.Trim();
+        if (string.IsNullOrEmpty(input) || index < 0 || index >= PeriodosActuales.Count) return;
         var p = PeriodosActuales[index];
         var current = esInicio ? p.FechaInicio : p.FechaFin;
-        var datePart = current.ToString("yyyy-MM-dd");
-        if (TryParseDateTime($"{datePart} {timeVal}", out var d))
+
+        if (TryParseHora24(input, out int hora, out int minuto))
         {
-            d = DateTime.SpecifyKind(d, DateTimeKind.Unspecified);
+            var d = new DateTime(current.Year, current.Month, current.Day,
+                                  hora, minuto, 0, DateTimeKind.Unspecified);
             if (esInicio) p.FechaInicio = d;
             else p.FechaFin = d;
         }
         else
         {
-            Logger.LogWarning("OnFechaTimeChanged: no se pudo parsear hora '{TimeVal}' para fecha '{DatePart}'", timeVal, datePart);
+            Logger.LogWarning("OnFechaTimeTextChanged: no se pudo interpretar hora '{Input}'", input);
         }
     }
 
     /// <summary>
-    /// Intenta parsear fecha+hora con múltiples formatos para cubrir variaciones del navegador.
-    /// Soporta HH:mm (step=60, default) y HH:mm:ss (step<60 o ingreso manual con segundos).
+    /// Parsea entrada de hora en formato 24h con flexibilidad:
+    ///   "13"    → 13:00    "1"     → 01:00
+    ///   "1330"  → 13:30    "930"   → 09:30
+    ///   "13:30" → 13:30    "9:30"  → 09:30
+    ///   "130"   → 13:00    "25"    → rechazado
     /// </summary>
-    private static bool TryParseDateTime(string input, out DateTime result)
+    private static bool TryParseHora24(string input, out int hora, out int minuto)
     {
-        if (DateTime.TryParseExact(input, "yyyy-MM-dd HH:mm",
-                System.Globalization.CultureInfo.InvariantCulture,
-                System.Globalization.DateTimeStyles.None, out result))
-            return true;
+        hora = 0; minuto = 0;
+        if (string.IsNullOrWhiteSpace(input)) return false;
 
-        if (DateTime.TryParseExact(input, "yyyy-MM-dd HH:mm:ss",
-                System.Globalization.CultureInfo.InvariantCulture,
-                System.Globalization.DateTimeStyles.None, out result))
+        // Quitar ":" si viene con separador
+        input = input.Replace(":", "").Trim();
+
+        return input.Length switch
+        {
+            1 => TryParse1or2(input, out hora),                          // "1" → 01:00
+            2 => TryParse2or4(input, out hora, out minuto),              // "13" → 13:00, "25" → fail
+            3 => TryParse3(input, out hora, out minuto),                 // "130" → 13:00, "930" → 09:30
+            4 => TryParse2or4(input, out hora, out minuto),              // "1330" → 13:30
+            _ => false
+        };
+    }
+
+    private static bool TryParse1or2(string input, out int hora)
+    {
+        hora = 0;
+        if (!int.TryParse(input, out int val)) return false;
+        if (val is >= 0 and <= 23)
+        {
+            hora = val;
             return true;
+        }
+        return false;
+    }
+
+    private static bool TryParse2or4(string input, out int hora, out int minuto)
+    {
+        hora = 0; minuto = 0;
+        if (!int.TryParse(input, out int val)) return false;
+
+        if (input.Length == 2)
+        {
+            if (val is >= 0 and <= 23) { hora = val; return true; }
+            return false;
+        }
+
+        // 4 dígitos: primeras 2 = hora, últimas 2 = minuto
+        int h = val / 100;
+        int m = val % 100;
+        if (h is >= 0 and <= 23 && m is >= 0 and <= 59)
+        {
+            hora = h; minuto = m;
+            return true;
+        }
+        return false;
+    }
+
+    private static bool TryParse3(string input, out int hora, out int minuto)
+    {
+        hora = 0; minuto = 0;
+        if (!int.TryParse(input, out int val)) return false;
+
+        // "130" → 13:00? o "130" → 1:30? 
+        // Heurística: si los primeros 2 dígitos son hora válida, usar eso como hora
+        int h = val / 10;   // primeros 2 dígitos
+        int m = val % 10;   // último dígito
+
+        if (h is >= 0 and <= 23)
+        {
+            // "930" → h=93, no funciona. Probar otra heurística.
+            // "130" → h=13, m=0 → 13:00 ✓
+            // "930" → h=93 ✗ → probar h=primer dígito, m=últimos 2
+            if (h <= 23)
+            {
+                hora = h;
+                minuto = m * 10; // "130" → 13:00, "135" → 13:50
+                if (minuto <= 59) return true;
+            }
+        }
+
+        // Fallback: 1er dígito = hora, últimos 2 = minuto
+        h = val / 100;
+        m = val % 100;
+        if (h is >= 0 and <= 23 && m is >= 0 and <= 59)
+        {
+            hora = h; minuto = m;
+            return true;
+        }
 
         return false;
     }
