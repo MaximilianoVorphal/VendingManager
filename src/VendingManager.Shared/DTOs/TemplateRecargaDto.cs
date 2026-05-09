@@ -2,14 +2,25 @@ namespace VendingManager.Shared.DTOs;
 using VendingManager.Shared.Enums;
 
 /// <summary>
-/// DTO para mostrar un template de recarga con sus períodos
-/// </summary>
+    /// DTO para mostrar un template de recarga con sus períodos
+    /// </summary>
 public class TemplateRecargaDto
 {
     public int Id { get; set; }
     public string Nombre { get; set; } = string.Empty;
     public string? Descripcion { get; set; }
     public DateTime FechaCreacion { get; set; }
+
+    /// <summary>
+    /// Indica si este template tiene una foto guía persisted
+    /// </summary>
+    public bool TieneFotoGuia { get; set; }
+
+    /// <summary>
+    /// Indica si este template tiene una foto OCR persisted
+    /// </summary>
+    public bool TieneFotoOcr { get; set; }
+
     public List<PeriodoRecargaDto> Periodos { get; set; } = new();
 
     // Helpers para UI
