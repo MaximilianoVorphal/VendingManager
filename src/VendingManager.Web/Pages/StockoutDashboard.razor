@@ -308,14 +308,21 @@
                                                                 var slotSize = ShowDetailView ? "60px" : "95px";
                                                                 var fontSize = ShowDetailView ? "0.6rem" : "0.8rem";
                                                                 
-                                                                <div class="slot-card border @(isEmpty ? "border-danger bg-danger text-white" : "border-dark bg-white text-dark")" 
-                                                                     style="width: @slotSize; height: @slotSize; font-size: @fontSize; position: relative;"
-                                                                     title="@item.ProductoNombre">
-                                                                    
-                                                                    <div class="d-flex justify-content-between px-1" style="font-size: 0.9em;">
-                                                                        <span class="fw-bold">@item.NumeroSlot</span>
-                                                                        <span>@stockAtTime</span>
-                                                                    </div>
+                                                                 <div class="slot-card border @(isEmpty ? "border-danger bg-danger text-white" : "border-dark bg-white text-dark")"
+                                                                      style="width: @slotSize; height: @slotSize; font-size: @fontSize; position: relative;"
+                                                                      title="@item.ProductoNombre">
+
+                                                                     <div class="d-flex justify-content-between px-1" style="font-size: 0.9em;">
+                                                                         <span class="fw-bold">@item.NumeroSlot</span>
+                                                                         <span>@stockAtTime</span>
+                                                                     </div>
+                                                                     @if (item.FillPct >= 0)
+                                                                     {
+                                                                         var fillColor = item.FillPct > 50 ? "var(--bs-success)"
+                                                                             : item.FillPct > 20 ? "var(--bs-warning)"
+                                                                             : "var(--bs-danger)";
+                                                                         <div class="px-1" style="font-size: 0.8em; color: @fillColor;">@($"{item.FillPct}%")</div>
+                                                                     }
                                                                     
                                                                     <div class="px-1 text-truncate fw-bold" style="height: 50%; line-height: 1.1; white-space: normal; display: -webkit-box; -webkit-line-clamp: @(ShowDetailView ? 2 : 3); -webkit-box-orient: vertical;">
                                                                         @item.ProductoNombre
@@ -402,9 +409,17 @@
                 <div
             class="card-header bg-dark text-white rounded-0 fw-bold border-bottom border-dark text-uppercase d-flex justify-content-between align-items-center">
                     <span><i class="bi bi-table me-2"></i>Dashboard de Alertas</span>
-                    <div class="form-check form-switch mb-0">
-                        <input class="form-check-input" type="checkbox" @bind="SoloConQuiebre" id="chkSoloQuiebre">
-                        <label class="form-check-label small" for="chkSoloQuiebre">Solo Quiebres</label>
+                    <div class="d-flex gap-3 align-items-center">
+                        <div class="form-check mb-0">
+                            <input class="form-check-input" type="checkbox" id="chkDeadSlots" @bind="soloDeadSlots" />
+                            <label class="form-check-label small" for="chkDeadSlots">
+                                Solo Dead Slots <span class="badge bg-secondary">SIN VENTAS</span>
+                            </label>
+                        </div>
+                        <div class="form-check form-switch mb-0">
+                            <input class="form-check-input" type="checkbox" @bind="SoloConQuiebre" id="chkSoloQuiebre">
+                            <label class="form-check-label small" for="chkSoloQuiebre">Solo Quiebres</label>
+                        </div>
                     </div>
                 </div>
                 <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
@@ -427,6 +442,7 @@
                                 <th role="button" class="text-end" @onclick='() => OrdenarPor("DineroPerdido")'>$ PERDIDO
                                 @RenderIcono("DineroPerdido")</th>
                                 <th class="text-center">ESTADO</th>
+                                <th>ETA STOCKOUT</th>
                             </tr>
                         </thead>
                         <tbody class="bg-white">
@@ -471,7 +487,24 @@
                                             $@item.GananciaPerdidaEstimada.ToString("N0")
                                         </td>
                                         <td class="text-center">
-                                            <span class="badge @item.ColorAlerta">@item.NivelAlerta</span>
+                                            @if (item.EsDeadSlot)
+                                            {
+                                                <span class="badge bg-secondary">SIN VENTAS</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge @item.ColorAlerta">@item.NivelAlerta</span>
+                                            }
+                                        </td>
+                                        <td class="text-center">
+                                            @if (item.DiasHastaStockout.HasValue)
+                                            {
+                                                <span>~@item.DiasHastaStockout.Value.ToString("F1") días</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">—</span>
+                                            }
                                         </td>
                                     </tr>
                         }

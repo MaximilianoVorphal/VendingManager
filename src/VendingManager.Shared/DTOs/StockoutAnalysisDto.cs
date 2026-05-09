@@ -51,8 +51,20 @@ public class StockoutAnalysisDto
     /// <summary>Stock inicial según snapshot del template (0 si no hay snapshot)</summary>
     public int StockInicial { get; set; }
 
+    /// <summary>Stock actual/remanente del slot</summary>
+    public int StockActual { get; set; }
+
     /// <summary>Cantidad total vendida en el periodo</summary>
     public int CantidadVendida { get; set; }
+
+    /// <summary>Fill % (0-100, -1 si no aplica)</summary>
+    public int FillPct { get; set; } = -1;
+
+    /// <summary>Días estimados hasta stockout (null si no aplica)</summary>
+    public decimal? DiasHastaStockout { get; set; }
+
+    /// <summary>True si el slot no tuvo ventas en el período</summary>
+    public bool EsDeadSlot { get; set; }
 
     /// <summary>Horas entre primera y última venta del producto</summary>
     public double HorasActivas { get; set; }

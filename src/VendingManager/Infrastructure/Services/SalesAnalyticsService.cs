@@ -1,11 +1,13 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Options;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
+using VendingManager.Core.Configuration;
 using VendingManager.Core.Entities;
 using VendingManager.Core.Interfaces;
 using VendingManager.Infrastructure.Data;
@@ -18,12 +20,18 @@ namespace VendingManager.Infrastructure.Services
         private readonly ApplicationDbContext _context;
         private readonly IExcelExportService _excelExportService;
         private readonly IMemoryCache _cache;
+        private readonly AnalyticsThresholds _thresholds;
 
-        public SalesAnalyticsService(ApplicationDbContext context, IExcelExportService excelExportService, IMemoryCache cache)
+        public SalesAnalyticsService(
+            ApplicationDbContext context,
+            IExcelExportService excelExportService,
+            IMemoryCache cache,
+            IOptions<AnalyticsThresholds> thresholds)
         {
             _context = context;
             _excelExportService = excelExportService;
             _cache = cache;
+            _thresholds = thresholds.Value;
         }
 
         public async Task<DashboardStats> GetDashboardStatsAsync(int maquinaId)
@@ -93,16 +101,9 @@ namespace VendingManager.Infrastructure.Services
                 return await BuildReporteAsync(inicio, fin, maquinaId, includePhantom, templateId.Value);
             }
 
-            // Non-template reports can be cached (5 days)
-            var key = $"SalesAnalyticsService:GetReporteRangoAsync:{inicio:yyyyMMdd}-{fin:yyyyMMdd}-M{maquinaId}-Phantom{includePhantom}";
-
-            var result = await _cache.GetOrCreateAsync(key, async (entry) =>
-            {
-                entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromDays(5);
-                return await BuildReporteAsync(inicio, fin, maquinaId, includePhantom, null);
-            });
-
-            return result!;
+            // No cache — analytics deben reflejar datos frescos siempre.
+            // Si la query es lenta, se optimiza la query, no se esconde con cache.
+            return await BuildReporteAsync(inicio, fin, maquinaId, includePhantom, null);
         }
 
         private async Task<ReporteDto> BuildReporteAsync(DateTime inicio, DateTime fin, int maquinaId, bool includePhantom, int? templateId)
@@ -274,124 +275,197 @@ namespace VendingManager.Infrastructure.Services
 
         public async Task<List<AnalisisProductoDto>> GetAnalisisProductosAsync(DateTime inicio, DateTime fin, int maquinaId, bool includePendientes = false)
         {
-            var key = $"SalesAnalyticsService:GetAnalisisProductosAsync:{inicio:yyyyMMdd}-{fin:yyyyMMdd}-M{maquinaId}-P{(includePendientes ? 1 : 0)}";
+            // No cache — analytics deben reflejar datos frescos siempre.
+            DateTime finAjustado = fin.Date.AddDays(1).AddTicks(-1);
+            DateTime inicioAjustado = inicio.Date;
 
-            var result = await _cache.GetOrCreateAsync(key, async (entry) =>
+            var allProducts = await _context.Productos.ToListAsync();
+
+            // T8: Batch fetch ProductoCosto for the period to avoid N+1
+            var costoRecords = await _context.ProductoCostos
+                .Where(pc => pc.FechaDesde <= finAjustado && (pc.FechaHasta == null || pc.FechaHasta > inicioAjustado))
+                .AsNoTracking()
+                .ToListAsync();
+
+            // Build lookup: productoId -> sorted dictionary (FechaDesde DESC) -> costo
+            var costoLookup = costoRecords
+                .GroupBy(pc => pc.ProductoId)
+                .ToDictionary(
+                    g => g.Key,
+                    g => g.OrderByDescending(pc => pc.FechaDesde)
+                          .ToDictionary(pc => pc.FechaDesde.Date, pc => pc.Costo)
+                );
+
+            var query = _context.Ventas.Where(v => v.FechaLocal >= inicioAjustado && v.FechaLocal <= finAjustado);
+            if (maquinaId > 0)
             {
-                entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromDays(5);
+                query = query.Where(v => v.MaquinaId == maquinaId);
+            }
 
-                DateTime finAjustado = fin.Date.AddDays(1).AddTicks(-1);
-                DateTime inicioAjustado = inicio.Date;
+            // T8: Include FechaLocal for historical cost lookup
+            var sales = await query.Select(v => new { v.ProductoId, v.PrecioVenta, v.CostoVenta, v.Producto, v.FechaLocal }).ToListAsync();
 
-                var allProducts = await _context.Productos.ToListAsync();
-
-                var query = _context.Ventas.Where(v => v.FechaLocal >= inicioAjustado && v.FechaLocal <= finAjustado);
-                if (maquinaId > 0)
+            // T8: Pre-calculate cost per sale using historical batch lookup
+            var saleCosts = new List<(int productoId, decimal precio, decimal costo)>();
+            foreach (var s in sales)
+            {
+                if (!s.ProductoId.HasValue) continue;
+                decimal costo = s.CostoVenta;
+                if (costo <= 0)
                 {
-                    query = query.Where(v => v.MaquinaId == maquinaId);
-                }
-
-                var sales = await query.Select(v => new { v.ProductoId, v.PrecioVenta, v.CostoVenta, v.Producto }).ToListAsync();
-
-                var salesGrouped = sales
-                                        .Where(s => s.ProductoId.HasValue)
-                                        .GroupBy(s => s.ProductoId!.Value)
-                                        .ToDictionary(g => g.Key, g => new
-                                        {
-                                            Count = g.Count(),
-                                            TotalVentas = g.Sum(x => x.PrecioVenta),
-                                            TotalCosto = g.Sum(x => x.CostoVenta > 0 ? x.CostoVenta : (x.Producto != null ? x.Producto.CostoPromedio : 0))
-                                        });
-
-                // Pendientes / Desconocidos: ventas sin producto asignado
-                int pendientesCount = 0;
-                decimal pendientesVentas = 0;
-                decimal pendientesCostos = 0;
-                if (includePendientes)
-                {
-                    var pendientes = sales.Where(s => !s.ProductoId.HasValue).ToList();
-                    pendientesCount = pendientes.Count;
-                    pendientesVentas = pendientes.Sum(x => x.PrecioVenta);
-                    pendientesCostos = pendientes.Sum(x => x.CostoVenta);
-                }
-
-                var resultInner = new List<AnalisisProductoDto>();
-
-                double daysInPeriod = (finAjustado - inicioAjustado).TotalDays;
-                if (daysInPeriod < 1) daysInPeriod = 1;
-
-                foreach (var p in allProducts)
-                {
-                    var dto = new AnalisisProductoDto
+                    if (costoLookup.TryGetValue(s.ProductoId.Value, out var productCostos))
                     {
-                        ProductoId = p.Id,
-                        Nombre = p.Nombre,
-                        Codigo = !string.IsNullOrEmpty(p.SKU) ? p.SKU : p.CodigoBarras ?? "",
-                        Categoria = p.Categoria ?? "General"
-                    };
-
-                    if (salesGrouped.TryGetValue(p.Id, out var stats))
-                    {
-                        dto.CantidadVendida = stats.Count;
-                        dto.TotalVentas = stats.TotalVentas;
-                        var totalCosto = stats.TotalCosto;
-                        dto.TotalGanancia = dto.TotalVentas - totalCosto;
+                        var fechaVenta = s.FechaLocal.Date;
+                        // Find most recent cost whose FechaDesde <= sale date
+                        var match = productCostos
+                            .Where(kv => kv.Key <= fechaVenta)
+                            .OrderByDescending(kv => kv.Key)
+                            .FirstOrDefault();
+                        if (match.Key != default)
+                            costo = match.Value;
                     }
+                }
+                if (costo <= 0 && s.Producto != null)
+                    costo = s.Producto.CostoPromedio;
+                saleCosts.Add((s.ProductoId.Value, s.PrecioVenta, costo));
+            }
+
+            // Group using pre-calculated costs
+            var salesGrouped = saleCosts
+                .GroupBy(s => s.productoId)
+                .ToDictionary(g => g.Key, g => new
+                {
+                    Count = g.Count(),
+                    TotalVentas = g.Sum(x => x.precio),
+                    TotalCosto = g.Sum(x => x.costo)
+                });
+
+            // Pendientes / Desconocidos: ventas sin producto asignado
+            int pendientesCount = 0;
+            decimal pendientesVentas = 0;
+            decimal pendientesCostos = 0;
+            if (includePendientes)
+            {
+                var pendientes = sales.Where(s => !s.ProductoId.HasValue).ToList();
+                pendientesCount = pendientes.Count;
+                pendientesVentas = pendientes.Sum(x => x.PrecioVenta);
+                pendientesCostos = pendientes.Sum(x => x.CostoVenta);
+            }
+
+            var resultInner = new List<AnalisisProductoDto>();
+
+            double daysInPeriod = (finAjustado - inicioAjustado).TotalDays;
+            if (daysInPeriod < 1) daysInPeriod = 1;
+
+            foreach (var p in allProducts)
+            {
+                var dto = new AnalisisProductoDto
+                {
+                    ProductoId = p.Id,
+                    Nombre = p.Nombre,
+                    Codigo = !string.IsNullOrEmpty(p.SKU) ? p.SKU : p.CodigoBarras ?? "",
+                    Categoria = p.Categoria ?? "General"
+                };
+
+                if (salesGrouped.TryGetValue(p.Id, out var stats))
+                {
+                    dto.CantidadVendida = stats.Count;
+                    dto.TotalVentas = stats.TotalVentas;
+                    var totalCosto = stats.TotalCosto;
+                    dto.TotalGanancia = dto.TotalVentas - totalCosto;
+                }
+                else
+                {
+                    dto.CantidadVendida = 0;
+                    dto.TotalVentas = 0;
+                    dto.TotalGanancia = 0;
+                }
+
+                dto.RotacionDiaria = (decimal)(dto.CantidadVendida / daysInPeriod);
+
+                decimal margenPct = dto.TotalVentas > 0 ? (dto.TotalGanancia / dto.TotalVentas) * 100 : 0;
+
+                if (dto.RotacionDiaria >= _thresholds.RotacionAlta)
+                {
+                    dto.Clasificacion = "Estrella";
+                }
+                else if (dto.RotacionDiaria < _thresholds.RotacionMedia)
+                {
+                    if (margenPct >= _thresholds.MargenAlto)
+                        dto.Clasificacion = "Joya";
                     else
-                    {
-                        dto.CantidadVendida = 0;
-                        dto.TotalVentas = 0;
-                        dto.TotalGanancia = 0;
-                    }
-
-                    dto.RotacionDiaria = (decimal)(dto.CantidadVendida / daysInPeriod);
-
-                    decimal TH_Rotacion_Alta = 1.0m;
-                    decimal TH_Rotacion_Media = 0.2m;
-                    decimal TH_Margen_Alto = 50.0m;
-
-                    decimal margenPct = dto.TotalVentas > 0 ? (dto.TotalGanancia / dto.TotalVentas) * 100 : 0;
-
-                    if (dto.RotacionDiaria >= TH_Rotacion_Alta)
-                    {
-                        dto.Clasificacion = "Estrella";
-                    }
-                    else if (dto.RotacionDiaria < TH_Rotacion_Media)
-                    {
-                        if (margenPct >= TH_Margen_Alto)
-                            dto.Clasificacion = "Joya";
-                        else
-                            dto.Clasificacion = "Cacho";
-                    }
-                    else
-                    {
-                        dto.Clasificacion = "Normal";
-                    }
-
-                    resultInner.Add(dto);
+                        dto.Clasificacion = "Cacho";
                 }
-
-                // Agregar entrada de Pendientes / Desconocidos al final si hay
-                if (includePendientes && pendientesCount > 0)
+                else
                 {
-                    resultInner.Add(new AnalisisProductoDto
-                    {
-                        ProductoId = 0,
-                        Nombre = "Pendientes / Desconocidos",
-                        Codigo = "",
-                        Categoria = "Pendiente",
-                        CantidadVendida = pendientesCount,
-                        TotalVentas = pendientesVentas,
-                        TotalGanancia = pendientesVentas - pendientesCostos,
-                        RotacionDiaria = (decimal)(pendientesCount / daysInPeriod),
-                        Clasificacion = "Pendiente"
-                    });
+                    dto.Clasificacion = "Normal";
                 }
 
-                return resultInner.OrderByDescending(x => x.CantidadVendida).ToList();
-            });
+                resultInner.Add(dto);
+            }
 
-            return result!;
+            // Agregar entrada de Pendientes / Desconocidos al final si hay
+            if (includePendientes && pendientesCount > 0)
+            {
+                resultInner.Add(new AnalisisProductoDto
+                {
+                    ProductoId = 0,
+                    Nombre = "Pendientes / Desconocidos",
+                    Codigo = "",
+                    Categoria = "Pendiente",
+                    CantidadVendida = pendientesCount,
+                    TotalVentas = pendientesVentas,
+                    TotalGanancia = pendientesVentas - pendientesCostos,
+                    RotacionDiaria = (decimal)(pendientesCount / daysInPeriod),
+                    Clasificacion = "Pendiente"
+                });
+            }
+
+            // T9: Clasificación ABC — post-aggregation in-memory
+            var abcProducts = resultInner.Where(p => p.ProductoId > 0).OrderByDescending(p => p.TotalVentas).ToList();
+            decimal totalVentas = abcProducts.Sum(p => p.TotalVentas);
+            decimal cumulative = 0;
+            foreach (var p in abcProducts)
+            {
+                cumulative += p.TotalVentas;
+                p.PorcentajeAcumulado = totalVentas > 0
+                    ? Math.Round((cumulative / totalVentas) * 100, 1)
+                    : 0;
+                p.ClasificacionABC = p.PorcentajeAcumulado switch
+                {
+                    <= 80m => "A",
+                    <= 95m => "B",
+                    _ => "C"
+                };
+            }
+
+            // T10: Tendencias MoM/WoW — query previous period
+            var duration = finAjustado - inicioAjustado;
+            var prevInicio = inicioAjustado.AddDays(-duration.TotalDays);
+            var prevFin = inicioAjustado.AddTicks(-1);
+
+            var prevSales = await _context.Ventas
+                .Where(v => v.FechaLocal >= prevInicio && v.FechaLocal <= prevFin)
+                .Where(v => maquinaId == 0 || v.MaquinaId == maquinaId)
+                .Where(v => v.ProductoId != null)
+                .GroupBy(v => v.ProductoId!.Value)
+                .Select(g => new { ProductoId = g.Key, TotalVentas = g.Sum(x => x.PrecioVenta) })
+                .ToDictionaryAsync(x => x.ProductoId, x => x.TotalVentas);
+
+            foreach (var dto in resultInner.Where(p => p.ProductoId > 0))
+            {
+                if (prevSales.TryGetValue(dto.ProductoId, out var prev) && prev > 0)
+                {
+                    dto.CambioPorcentual = Math.Round((dto.TotalVentas - prev) / prev * 100, 1);
+                    dto.Tendencia = dto.CambioPorcentual > 0 ? "▲" : dto.CambioPorcentual < 0 ? "▼" : "→";
+                }
+                else
+                {
+                    dto.Tendencia = "—";
+                }
+            }
+
+            return resultInner.OrderByDescending(x => x.CantidadVendida).ToList();
         }
 
         public async Task<List<StockoutAnalysisDto>> GetStockoutAnalysisAsync(
@@ -426,6 +500,40 @@ namespace VendingManager.Infrastructure.Services
                 .Where(v => v.ProductoId.HasValue && v.ProductoId > 0)
                 .GroupBy(v => new { v.MaquinaId, v.ProductoId })
                 .ToList();
+
+            // T12: Detectar Dead Slots — slots configurados sin ventas en el período
+            var slotsConfigurados = await _context.ConfiguracionSlots
+                .Where(s => maquinaId == 0 || s.MaquinaId == maquinaId)
+                .Where(s => s.ProductoId != null && s.ProductoId > 0)
+                .Select(s => new { s.MaquinaId, s.NumeroSlot, s.ProductoId, s.StockActual, s.StockMinimo })
+                .ToListAsync();
+
+            var slotsConVentas = ventas
+                .Where(v => v.NumeroSlot != null)
+                .Select(v => v.NumeroSlot!)
+                .ToHashSet();
+
+            // Diccionario NumeroSlot → StockActual para Fill% y predicción (REQ-5/REQ-6)
+            var slotStockLookup = slotsConfigurados
+                .GroupBy(s => s.NumeroSlot)
+                .ToDictionary(g => g.Key, g => g.First().StockActual);
+
+            // T13: Para Fill% necesitamos el StockInicial — batch-fetch del snapshot de slot más reciente
+            // SnapshotSlot → PeriodoRecarga → MaquinaId (navegación de relación)
+            var slotSnapshotLookup = await _context.SnapshotSlots
+                .Include(ss => ss.PeriodoRecarga)
+                .Where(ss => maquinaId == 0 || ss.PeriodoRecarga.MaquinaId == maquinaId)
+                .Where(ss => ss.PeriodoRecarga.FechaInicio <= finAjustado)
+                .GroupBy(ss => new { ss.PeriodoRecarga.MaquinaId, ss.NumeroSlot })
+                .Select(g => g.OrderByDescending(ss => ss.PeriodoRecarga.FechaInicio).FirstOrDefault())
+                .Where(ss => ss != null)
+                .ToListAsync()
+                .ContinueWith(t => t.Result
+                    .Where(ss => ss != null)
+                    .ToDictionary(
+                        ss => (ss!.PeriodoRecarga.MaquinaId, ss!.NumeroSlot),
+                        ss => ss!.CantidadInicial
+                    ));
 
             var result = new List<StockoutAnalysisDto>();
 
@@ -470,7 +578,16 @@ namespace VendingManager.Infrastructure.Services
                 var producto = ventasGrupo.First().Producto;
                 var slots = ventasGrupo.Select(v => v.NumeroSlot).Distinct().ToList();
 
-                result.Add(new StockoutAnalysisDto
+                // T13: Determinar StockInicial desde snapshot
+                var stockInicial = 0;
+                if (slots.Count == 1)
+                {
+                    var key = (maquinaId_, slots[0]!);
+                    if (slotSnapshotLookup.TryGetValue(key, out var snapStock))
+                        stockInicial = snapStock;
+                }
+
+                var dto = new StockoutAnalysisDto
                 {
                     MaquinaId = maquinaId_,
                     MaquinaNombre = maquina?.Nombre ?? "Desconocida",
@@ -487,6 +604,8 @@ namespace VendingManager.Infrastructure.Services
                     HorasSinStock = horasSinStock,
 
                     CantidadVendida = cantidad,
+                    StockInicial = stockInicial,
+                    StockActual = slotStockLookup.GetValueOrDefault(slots.FirstOrDefault() ?? "", 0),
                     HorasActivas = horasActivas,
                     VelocidadPorHora = Math.Round(velocidadPorHora, 4),
 
@@ -494,6 +613,46 @@ namespace VendingManager.Infrastructure.Services
                     GananciaPromedio = Math.Round(gananciaPromedio, 0),
                     DineroPerdidoEstimado = Math.Round(dineroPerdido, 0),
                     GananciaPerdidaEstimada = Math.Round(gananciaPerdida, 0)
+                };
+
+                // T13: Fill % y Predicción Stockout
+                dto.FillPct = dto.StockInicial > 0
+                    ? (int)Math.Round((double)dto.StockActual / dto.StockInicial * 100)
+                    : -1;
+
+                if (dto.StockInicial > 0 && dto.VelocidadDiaria > 0)
+                {
+                    dto.DiasHastaStockout = Math.Round((decimal)dto.StockActual / (decimal)dto.VelocidadDiaria, 1);
+                }
+
+                result.Add(dto);
+            }
+
+            // T12: Agregar Dead Slots — slots configurados que no tuvieron ventas en el período
+            var productoIdsConVentas = grupos.Select(g => g.Key.ProductoId!.Value).ToHashSet();
+            foreach (var slot in slotsConfigurados.Where(s => !slotsConVentas.Contains(s.NumeroSlot)))
+            {
+                // Obtener nombre del producto desde el contexto si existe
+                string productoNombre = "Desconocido";
+                if (slot.ProductoId > 0)
+                {
+                    var prodEntity = await _context.Productos.FindAsync(slot.ProductoId);
+                    productoNombre = prodEntity?.Nombre ?? "Desconocido";
+                }
+
+                result.Add(new StockoutAnalysisDto
+                {
+                    MaquinaId = maquinaId > 0 ? maquinaId : slot.MaquinaId,
+                    MaquinaNombre = "",
+                    ProductoId = slot.ProductoId,
+                    ProductoNombre = productoNombre,
+                    NumeroSlot = slot.NumeroSlot,
+
+                    EsDeadSlot = true,
+                    StockActual = slot.StockActual,
+                    PosibleQuiebre = slot.StockActual <= slot.StockMinimo,
+                    FinReporte = finAjustado,
+                    UltimaActividadMaquina = finAjustado
                 });
             }
 
@@ -502,6 +661,82 @@ namespace VendingManager.Infrastructure.Services
                 .ThenByDescending(x => x.PosibleQuiebre)
                 .ThenByDescending(x => x.HorasSinStock)
                 .ToList();
+        }
+
+        // T11: Agregación por categoría
+        public async Task<List<CategoriaAnalisisDto>> GetCategoriaAnalisisAsync(DateTime inicio, DateTime fin, int maquinaId)
+        {
+            DateTime finAjustado = fin.Date.AddDays(1).AddTicks(-1);
+            DateTime inicioAjustado = inicio.Date;
+
+            // Batch fetch ProductoCosto for accurate profit (same pattern as REQ-1)
+            var costoRecords = await _context.ProductoCostos
+                .Where(pc => pc.FechaDesde <= finAjustado && (pc.FechaHasta == null || pc.FechaHasta > inicioAjustado))
+                .AsNoTracking()
+                .ToListAsync();
+
+            var costoLookup = costoRecords
+                .GroupBy(pc => pc.ProductoId)
+                .ToDictionary(
+                    g => g.Key,
+                    g => g.OrderByDescending(pc => pc.FechaDesde)
+                          .ToDictionary(pc => pc.FechaDesde.Date, pc => pc.Costo)
+                );
+
+            var query = _context.Ventas
+                .Include(v => v.Producto)
+                .Where(v => v.FechaLocal >= inicioAjustado && v.FechaLocal <= finAjustado)
+                .Where(v => v.ProductoId != null && v.ProductoId > 0);
+
+            if (maquinaId > 0)
+                query = query.Where(v => v.MaquinaId == maquinaId);
+
+            var sales = await query.ToListAsync();
+
+            var categoryData = new Dictionary<string, (decimal totalVentas, decimal totalCosto, int cantidad)>();
+
+            foreach (var v in sales)
+            {
+                var categoria = v.Producto?.Categoria ?? "Sin Categoría";
+                var precio = v.PrecioVenta;
+
+                decimal costo = v.CostoVenta;
+                if (costo <= 0)
+                {
+                    if (costoLookup.TryGetValue(v.ProductoId ?? 0, out var productCostos))
+                    {
+                        var fechaVenta = v.FechaLocal.Date;
+                        var match = productCostos
+                            .Where(kv => kv.Key <= fechaVenta)
+                            .OrderByDescending(kv => kv.Key)
+                            .FirstOrDefault();
+                        if (match.Key != default)
+                            costo = match.Value;
+                    }
+                }
+                if (costo <= 0 && v.Producto != null)
+                    costo = v.Producto.CostoPromedio;
+
+                if (categoryData.TryGetValue(categoria, out var existing))
+                    categoryData[categoria] = (existing.totalVentas + precio, existing.totalCosto + costo, existing.cantidad + 1);
+                else
+                    categoryData[categoria] = (precio, costo, 1);
+            }
+
+            decimal totalGeneral = categoryData.Values.Sum(v => v.totalVentas);
+
+            var result = categoryData.Select(kv => new CategoriaAnalisisDto
+            {
+                Nombre = kv.Key,
+                TotalVentas = kv.Value.totalVentas,
+                TotalGanancia = kv.Value.totalVentas - kv.Value.totalCosto,
+                CantidadVendida = kv.Value.cantidad,
+                PorcentajeDelTotal = totalGeneral > 0
+                    ? Math.Round((kv.Value.totalVentas / totalGeneral) * 100, 1)
+                    : 0
+            }).OrderByDescending(c => c.TotalVentas).ToList();
+
+            return result;
         }
 
         public async Task<List<VentaDiariaDto>> GetVentasDiariasAsync(int productoId, int maquinaId, DateTime inicio, DateTime fin)
