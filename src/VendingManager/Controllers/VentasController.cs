@@ -152,16 +152,6 @@ namespace VendingManager.Controllers
             await auditService.RegistrarAccionAsync(User.Identity?.Name ?? "Desconocido", "Sincronizar Portal", $"Sincronización manual máquina {maquinaId}. Fecha límite: {(fechaLimite?.ToString("dd/MM/yyyy HH:mm") ?? "Sin límite")}. Resultado: {resultado}");
             return Ok(resultado);
         }
-
-        [HttpPost("sync-portal-alt")]
-        public async Task<IActionResult> SincronizarPortalAlt([FromQuery] DateTime? fechaLimite = null)
-        {
-            var resultado = await syncService.SincronizarDesdePortalAlt(0, fechaLimite);
-            if (resultado.StartsWith("Error")) return BadRequest(resultado);
-            await auditService.RegistrarAccionAsync(User.Identity?.Name ?? "Desconocido", "Sincronizar Portal ALT",
-                $"Sincronización ALT (inglés, todas las máquinas). Fecha límite: {(fechaLimite?.ToString("dd/MM/yyyy HH:mm") ?? "Sin límite")}. Resultado: {resultado}");
-            return Ok(resultado);
-        }
         
         [HttpGet("analisis-productos")]
         public async Task<ActionResult<List<AnalisisProductoDto>>> GetAnalisisProductos(
