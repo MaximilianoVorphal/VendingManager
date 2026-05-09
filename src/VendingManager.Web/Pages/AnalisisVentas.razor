@@ -3,6 +3,8 @@
 @inject Microsoft.Extensions.Logging.ILogger<AnalisisVentas> Logger
 @inject NavigationManager NavManager
 @using Microsoft.AspNetCore.WebUtilities
+@using System.Globalization
+@using VendingManager.Shared.DTOs
 
     <div class="industrial-wrapper container-fluid px-4 mt-4">
     
@@ -84,8 +86,10 @@
                      <thead class="bg-secondary text-white text-uppercase small sticky-top">
                          <tr>
                              <th role="button" @onclick='() => OrdenarPor("Nombre")'>PRODUCTO @RenderIcono("Nombre")</th>
-                            <th role="button" @onclick='() => OrdenarPor("Clasificacion")'>ESTRATEGIA @RenderIcono("Clasificacion")</th>
-                             @* Removed Rotacion/Dia *@
+                             <th role="button" @onclick='() => OrdenarPor("Clasificacion")'>ESTRATEGIA @RenderIcono("Clasificacion")</th>
+                              <th>ABC</th>
+                              <th>TENDENCIA</th>
+                              @* Removed Rotacion/Dia *@
                              <th role="button" class="text-center" @onclick='() => OrdenarPor("Cantidad")'>TOTAL UNID. @RenderIcono("Cantidad")</th>
                              <th role="button" class="text-end" @onclick='() => OrdenarPor("Ventas")'>INGRESOS @RenderIcono("Ventas")</th>
                              <th role="button" class="text-end" @onclick='() => OrdenarPor("Ganancia")'>GANANCIA @RenderIcono("Ganancia")</th>
@@ -97,9 +101,40 @@
                          {
                              <tr class="@(p.CantidadVendida == 0 ? "bg-light text-muted" : "")">
                                  <td class="fw-bold text-uppercase" data-label="PRODUCTO">@p.Nombre</td>
-                                 <td class="text-center" data-label="ESTRATEGIA">
-                                     <span class="badge rounded-pill @(p.ColorClasificacion)" style="font-size: 0.8em;">@p.Clasificacion.ToUpper()</span>
-                                 </td>
+                                  <td class="text-center" data-label="ESTRATEGIA">
+                                      <span class="badge rounded-pill @(p.ColorClasificacion)" style="font-size: 0.8em;">@p.Clasificacion.ToUpper()</span>
+                                  </td>
+                                  <td class="text-center" data-label="ABC">
+                                      @if (!string.IsNullOrEmpty(p.ClasificacionABC))
+                                      {
+                                          var abcClass = p.ClasificacionABC == "A" ? "bg-success"
+                                              : p.ClasificacionABC == "B" ? "bg-warning text-dark"
+                                              : "bg-danger";
+                                          <span class="badge @abcClass">@p.ClasificacionABC</span>
+                                          @if (p.PorcentajeAcumulado.HasValue)
+                                          {
+                                              <small class="text-muted ms-1">@p.PorcentajeAcumulado.Value.ToString("F1")%</small>
+                                          }
+                                      }
+                                  </td>
+                                  <td class="text-center" data-label="TENDENCIA">
+                                      @if (p.Tendencia == "▲")
+                                      {
+                                          <span class="text-success fw-bold">▲ @p.CambioPorcentual?.ToString("+0.0;-0.0")%</span>
+                                      }
+                                      else if (p.Tendencia == "▼")
+                                      {
+                                          <span class="text-danger fw-bold">▼ @p.CambioPorcentual?.ToString("+0.0;-0.0")%</span>
+                                      }
+                                      else if (p.Tendencia == "→")
+                                      {
+                                          <span class="text-muted">→ @p.CambioPorcentual?.ToString("F1")%</span>
+                                      }
+                                      else
+                                      {
+                                          <span class="text-muted">—</span>
+                                      }
+                                  </td>
                                  @* Removed Rotacion Cell *@
                                  <td class="text-center font-monospace @(p.CantidadVendida == 0 ? "text-danger fw-bold" : "fw-bold")" style="font-size: 1.1em;" data-label="TOTAL UNID.">
                                      @p.CantidadVendida
@@ -124,6 +159,50 @@
         </div>
     }
 
+    <div class="mb-3">
+        <button class="btn btn-outline-primary btn-sm" @onclick="ToggleCategorias">
+            @(mostrarCategorias ? "Ocultar" : "Mostrar") Análisis por Categoría
+        </button>
+    </div>
+
+    @if (mostrarCategorias && categorias != null && categorias.Any())
+    {
+        <div class="card mb-4">
+            <div class="card-body">
+                <table class="table table-sm table-hover">
+                    <thead>
+                        <tr>
+                            <th>Categoría</th>
+                            <th class="text-end">Unidades</th>
+                            <th class="text-end">Ingresos</th>
+                            <th class="text-end">Ganancia</th>
+                            <th>% del Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var cat in categorias)
+                        {
+                            <tr>
+                                <td>@cat.Nombre</td>
+                                <td class="text-end">@cat.CantidadVendida</td>
+                                <td class="text-end">@cat.TotalVentas.ToString("C")</td>
+                                <td class="text-end">@cat.TotalGanancia.ToString("C")</td>
+                                <td>
+                                    <div class="progress" style="height: 20px;">
+                                        <div class="progress-bar" role="progressbar"
+                                             style="width: @cat.PorcentajeDelTotal.ToString("F1", CultureInfo.InvariantCulture)%">
+                                            @cat.PorcentajeDelTotal.ToString("F1")%
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+
 </div>
 
 @code {
@@ -136,6 +215,8 @@
 
     private List<MaquinaSimpleDto>? ListaMaquinas;
     private List<AnalisisProductoDto>? Productos;
+    private bool mostrarCategorias = false;
+    private List<CategoriaAnalisisDto>? categorias;
 
     // Sorting
     private string ColumnaOrden = "Cantidad";
@@ -232,6 +313,18 @@
         return Ascendente ? "▲" : "▼";
     }
 
+    async Task ToggleCategorias()
+    {
+        mostrarCategorias = !mostrarCategorias;
+        if (mostrarCategorias && categorias == null)
+        {
+            string inicio = FechaInicio.ToString("yyyy-MM-dd");
+            string fin = FechaFin.ToString("yyyy-MM-dd");
+            categorias = await Http.GetFromJsonAsync<List<CategoriaAnalisisDto>>(
+                $"api/Ventas/categoria-analisis?inicio={inicio}&fin={fin}&maquinaId={MaquinaSeleccionada}");
+        }
+    }
+
     // DTOs Locales
     public class MaquinaSimpleDto
     {
@@ -248,13 +341,19 @@
         public int CantidadVendida { get; set; }
         public decimal TotalVentas { get; set; }
         public decimal TotalGanancia { get; set; }
-        
+
         public decimal RotacionDiaria { get; set; }
         public string Clasificacion { get; set; } = "Normal";
 
         public decimal PrecioPromedio => CantidadVendida > 0 ? TotalVentas / CantidadVendida : 0;
         public decimal MargenPromedio => TotalVentas > 0 ? (TotalGanancia / TotalVentas) * 100 : 0;
-        
+
+        // ABC + Tendencias
+        public string? ClasificacionABC { get; set; }
+        public decimal? PorcentajeAcumulado { get; set; }
+        public string? Tendencia { get; set; }
+        public decimal? CambioPorcentual { get; set; }
+
         // Helper UI Color
         public string ColorClasificacion => Clasificacion switch
         {

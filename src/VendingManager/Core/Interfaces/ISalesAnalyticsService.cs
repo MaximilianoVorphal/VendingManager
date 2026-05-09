@@ -14,5 +14,6 @@ namespace VendingManager.Core.Interfaces
         Task<List<AnalisisProductoDto>> GetAnalisisProductosAsync(DateTime inicio, DateTime fin, int maquinaId, bool includePendientes = false);
         Task<List<StockoutAnalysisDto>> GetStockoutAnalysisAsync(DateTime inicio, DateTime fin, int maquinaId, double umbralHorasSilencio = 24);
         Task<List<VentaDiariaDto>> GetVentasDiariasAsync(int productoId, int maquinaId, DateTime inicio, DateTime fin);
+        Task<List<CategoriaAnalisisDto>> GetCategoriaAnalisisAsync(DateTime inicio, DateTime fin, int maquinaId);
     }
 }

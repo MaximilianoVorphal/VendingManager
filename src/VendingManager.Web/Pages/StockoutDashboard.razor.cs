@@ -23,6 +23,7 @@ namespace VendingManager.Web.Pages
         private int MaquinaSeleccionada = 0;
         private double UmbralHoras = 24;
         private bool SoloConQuiebre = true;
+        private bool soloDeadSlots = false;
 
         // Templates
         private int TemplateSeleccionado = 0;
@@ -42,8 +43,11 @@ namespace VendingManager.Web.Pages
         private bool Ascendente = false;
 
         private List<StockoutAnalysisDto> DatosFiltrados =>
-        Datos == null ? new() :
-        SoloConQuiebre ? Datos.Where(d => d.PosibleQuiebre).ToList() : Datos;
+            Datos == null ? new() :
+            Datos.Where(d =>
+                (!SoloConQuiebre || d.PosibleQuiebre) &&
+                (!soloDeadSlots || d.EsDeadSlot)
+            ).ToList();
 
         protected override async Task OnInitializedAsync()
         {
@@ -455,7 +459,11 @@ namespace VendingManager.Web.Pages
             public double DiasSinStock => HorasSinStock / 24.0;
 
             public int StockInicial { get; set; }
+            public int StockActual { get; set; }
             public int CantidadVendida { get; set; }
+            public int FillPct { get; set; } = -1;
+            public decimal? DiasHastaStockout { get; set; }
+            public bool EsDeadSlot { get; set; }
             public double HorasActivas { get; set; }
             public decimal VelocidadPorHora { get; set; }
             public decimal VelocidadDiaria => VelocidadPorHora * 24;
