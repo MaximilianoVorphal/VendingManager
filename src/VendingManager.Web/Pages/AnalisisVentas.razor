@@ -77,17 +77,34 @@
     else if (Productos != null)
     {
         <div class="card border-2 border-dark rounded-0 shadow-sm mb-4">
-             <div class="card-header bg-dark text-white rounded-0 fw-bold border-bottom border-dark text-uppercase d-flex justify-content-between align-items-center">
-                 <span><i class="bi bi-list-stars me-2"></i>Ranking de Productos</span>
-                 <span class="badge bg-white text-dark border border-white">@Productos.Count items</span>
-             </div>
+              <div class="card-header bg-dark text-white rounded-0 fw-bold border-bottom border-dark text-uppercase d-flex justify-content-between align-items-center">
+                  <span><i class="bi bi-list-stars me-2"></i>Ranking de Productos</span>
+                  <span class="badge bg-white text-dark border border-white">@Productos.Count items</span>
+              </div>
+              <div class="bg-light border-bottom border-dark px-3 py-2 small">
+                  <div class="row g-2">
+                      <div class="col-md-6">
+                          <strong>ABC</strong> — Clasificación Pareto (regla 80/20):
+                          <span class="badge bg-success ms-1">A</span> = generan el 80% del revenue acumulado &nbsp;
+                          <span class="badge bg-warning text-dark">B</span> = siguiente 15% &nbsp;
+                          <span class="badge bg-danger">C</span> = resto.
+                      </div>
+                      <div class="col-md-6">
+                          <strong>TENDENCIA</strong> — vs período anterior de igual duración:
+                          <span class="text-success fw-bold">▲ +X%</span> = mejoró &nbsp;
+                          <span class="text-danger fw-bold">▼ -X%</span> = empeoró &nbsp;
+                          <span class="text-muted">→</span> = igual &nbsp;
+                          <span class="text-muted">—</span> = sin datos previos.
+                      </div>
+                  </div>
+              </div>
              <div class="table-responsive industrial-stack-table" style="max-height: 600px; overflow-y: auto;">
                  <table class="table table-hover table-bordered border-dark m-0 table-sm align-middle">
                      <thead class="bg-secondary text-white text-uppercase small sticky-top">
                          <tr>
                               <th role="button" @onclick='() => OrdenarPor("Nombre")'>PRODUCTO @RenderIcono("Nombre")</th>
-                               <th>ABC <span title="Clasificación Pareto: A = productos que generan el 80% del revenue. B = siguiente 15%. C = resto." style="cursor:help;">ⓘ</span></th>
-                               <th>TENDENCIA <span title="Comparación vs período anterior de igual duración. ▲ subió, ▼ bajó, → igual, — sin datos previos." style="cursor:help;">ⓘ</span></th>
+                               <th>ABC</th>
+                               <th>TENDENCIA</th>
                               @* Removed Rotacion/Dia *@
                              <th role="button" class="text-center" @onclick='() => OrdenarPor("Cantidad")'>TOTAL UNID. @RenderIcono("Cantidad")</th>
                              <th role="button" class="text-end" @onclick='() => OrdenarPor("Ventas")'>INGRESOS @RenderIcono("Ventas")</th>
