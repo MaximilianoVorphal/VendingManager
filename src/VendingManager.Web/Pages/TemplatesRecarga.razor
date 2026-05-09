@@ -1052,16 +1052,18 @@
         if (string.IsNullOrEmpty(dateVal) || index < 0 || index >= PeriodosActuales.Count) return;
         var p = PeriodosActuales[index];
         var current = esInicio ? p.FechaInicio : p.FechaFin;
-        var timePart = current.ToString("HH:mm");
-        if (TryParseDateTime($"{dateVal} {timePart}", out var d))
+
+        if (DateOnly.TryParse(dateVal, System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.None, out var dateOnly))
         {
-            d = DateTime.SpecifyKind(d, DateTimeKind.Unspecified);
+            var d = new DateTime(dateOnly.Year, dateOnly.Month, dateOnly.Day,
+                                  current.Hour, current.Minute, 0, DateTimeKind.Unspecified);
             if (esInicio) p.FechaInicio = d;
             else p.FechaFin = d;
         }
         else
         {
-            Logger.LogWarning("OnFechaDateChanged: no se pudo parsear fecha '{DateVal}' con hora '{TimePart}'", dateVal, timePart);
+            Logger.LogWarning("OnFechaDateChanged: no se pudo parsear fecha '{DateVal}'", dateVal);
         }
     }
 
