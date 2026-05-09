@@ -24,6 +24,14 @@
       "sessions": 1,
       "memories": 15,
       "prompts": 16
+    },
+    {
+      "id": "a53b8939",
+      "created_by": "carolina",
+      "created_at": "2026-05-09T00:57:34Z",
+      "sessions": 18,
+      "memories": 89,
+      "prompts": 114
     }
   ]
 }

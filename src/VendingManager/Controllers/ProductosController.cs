@@ -115,10 +115,11 @@ namespace VendingManager.Controllers
                 await auditService.RegistrarAccionAsync(User.Identity?.Name ?? "Desconocido", "Actualizar Producto", $"{producto.Nombre} (ID: {id}): {detalle}");
                 return NoContent();
             }
-            catch (Exception)
+            catch (Exception ex)
             {
                 if (await inventarioService.GetProductoAsync(id) == null) return NotFound();
-                throw;
+                Console.WriteLine($"🔥 ERROR en PUT /api/productos/{id}: {ex}");
+                return StatusCode(500, $"Error interno al actualizar producto: {ex.Message}");
             }
         }
 
