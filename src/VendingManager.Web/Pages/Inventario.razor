@@ -556,7 +556,10 @@
             }
             else
             {
-                Mensaje = "❌ Error al guardar cambios en el servidor.";
+                var errorBody = await response.Content.ReadAsStringAsync();
+                Mensaje = string.IsNullOrWhiteSpace(errorBody)
+                    ? $"❌ Error al guardar cambios (HTTP {(int)response.StatusCode})."
+                    : $"❌ Error del servidor: {errorBody}";
                 AlertClass = "alert-danger";
             }
         }
