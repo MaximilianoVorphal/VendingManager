@@ -520,20 +520,19 @@ namespace VendingManager.Infrastructure.Services
 
             // T13: Para Fill% necesitamos el StockInicial — batch-fetch del snapshot de slot más reciente
             // SnapshotSlot → PeriodoRecarga → MaquinaId (navegación de relación)
-            var slotSnapshotLookup = await _context.SnapshotSlots
+            var snapshotSlots = await _context.SnapshotSlots
                 .Include(ss => ss.PeriodoRecarga)
                 .Where(ss => maquinaId == 0 || ss.PeriodoRecarga.MaquinaId == maquinaId)
                 .Where(ss => ss.PeriodoRecarga.FechaInicio <= finAjustado)
+                .ToListAsync();
+
+            var slotSnapshotLookup = snapshotSlots
                 .GroupBy(ss => new { ss.PeriodoRecarga.MaquinaId, ss.NumeroSlot })
-                .Select(g => g.OrderByDescending(ss => ss.PeriodoRecarga.FechaInicio).FirstOrDefault())
-                .Where(ss => ss != null)
-                .ToListAsync()
-                .ContinueWith(t => t.Result
-                    .Where(ss => ss != null)
-                    .ToDictionary(
-                        ss => (ss!.PeriodoRecarga.MaquinaId, ss!.NumeroSlot),
-                        ss => ss!.CantidadInicial
-                    ));
+                .Select(g => g.OrderByDescending(ss => ss.PeriodoRecarga.FechaInicio).First())
+                .ToDictionary(
+                    ss => (ss.PeriodoRecarga.MaquinaId, ss.NumeroSlot),
+                    ss => ss.CantidadInicial
+                );
 
             var result = new List<StockoutAnalysisDto>();
 
