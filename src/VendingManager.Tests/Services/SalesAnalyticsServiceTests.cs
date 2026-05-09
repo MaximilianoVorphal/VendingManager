@@ -3,7 +3,9 @@ namespace VendingManager.Tests.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Options;
 using Moq;
+using VendingManager.Core.Configuration;
 using VendingManager.Core.Entities;
 using VendingManager.Core.Interfaces;
 using VendingManager.Infrastructure.Services;
@@ -14,6 +16,7 @@ public class SalesAnalyticsServiceTests : IDisposable
     private readonly ApplicationDbContext _context;
     private readonly Mock<IExcelExportService> _mockExcelExport;
     private readonly IMemoryCache _cache;
+    private readonly IOptions<AnalyticsThresholds> _thresholds;
     private readonly SalesAnalyticsService _analyticsService;
 
     public SalesAnalyticsServiceTests()
@@ -21,7 +24,8 @@ public class SalesAnalyticsServiceTests : IDisposable
         _context = TestDataHelpers.CreateInMemoryContext($"AnalyticsTestDb_{Guid.NewGuid()}");
         _mockExcelExport = new Mock<IExcelExportService>();
         _cache = new MemoryCache(new MemoryCacheOptions());
-        _analyticsService = new SalesAnalyticsService(_context, _mockExcelExport.Object, _cache);
+        _thresholds = Options.Create(AnalyticsThresholds.Default);
+        _analyticsService = new SalesAnalyticsService(_context, _mockExcelExport.Object, _cache, _thresholds);
     }
 
     public void Dispose()
