@@ -145,7 +145,7 @@
 <!-- MODAL CREAR/EDITAR -->
 @if (MostrarModal)
 {
-    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5); z-index: 1110;">
         <div class="modal-dialog modal-xl modal-dialog-centered">
             <div class="modal-content border-2 border-dark rounded-0">
                 <div class="modal-header bg-dark text-white rounded-0 border-bottom border-dark">
@@ -479,7 +479,9 @@
 <!-- MODAL FOTO GUÍA (Photo 2 — reference only, never sent to backend) -->
 @if (MostrarFotoGuia && !string.IsNullOrEmpty(FotoGuiaUrl))
 {
-    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.9); z-index: 1070;" @onkeydown="OnFotoGuiaKeydown">
+    <div @ref="fotoGuiaModalRef" tabindex="-1"
+         class="modal fade show d-block" style="background-color: rgba(0,0,0,0.9); z-index: 1070; outline: none;"
+         @onkeydown="OnFotoGuiaKeydown">
         <div class="modal-dialog modal-xl modal-dialog-centered">
             <div class="modal-content border-3 border-dark rounded-0 bg-dark">
                 <div class="modal-header bg-dark text-white rounded-0 border-bottom border-dark">
@@ -845,9 +847,21 @@
         if (!string.IsNullOrEmpty(FotoGuiaUrl))
         {
             MostrarFotoGuia = true;
-            StateHasChanged();
         }
     }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (MostrarFotoGuia)
+        {
+            // Focus the modal wrapper so @onkeydown captures ESC immediately
+            // without the user having to click anything first.
+            try { await fotoGuiaModalRef.FocusAsync(); } catch { /* best effort */ }
+        }
+    }
+
+    // ElementReference for the foto guía modal wrapper — needed for FocusAsync
+    private ElementReference fotoGuiaModalRef;
 
     private void CerrarFotoGuiaModal()
     {
