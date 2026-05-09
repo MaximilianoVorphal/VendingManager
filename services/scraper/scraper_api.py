@@ -1,6 +1,5 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-import download_ourvend_report
 import download_ourvend_report_alt
 import os
 import uvicorn
@@ -19,36 +18,8 @@ import gemini_ocr
 
 @app.post("/download")
 async def download_report(req: DownloadRequest, background_tasks: BackgroundTasks):
-    try:
-        print(f"Recibida solicitud para máquina {req.machine_id} [{req.start_date} - {req.end_date}]")
-        
-        # Ejecutar el script (ahora retorna el path)
-        file_path = await download_ourvend_report.run_async(req.machine_id, req.start_date, req.end_date)
-        
-        if not file_path or not os.path.exists(file_path):
-             raise HTTPException(status_code=500, detail="No se pudo descargar el archivo")
-
-        # Programar borrado
-        def cleanup():
-            try:
-                os.remove(file_path)
-            except: pass
-
-        background_tasks.add_task(cleanup)
-
-        # Retornar Archivo
-        filename = os.path.basename(file_path)
-        return FileResponse(file_path, media_type='application/vnd.ms-excel', filename=filename)
-
-    except Exception as e:
-        print(f"Error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.post("/download-alt")
-async def download_report_alt(req: DownloadRequest, background_tasks: BackgroundTasks):
     """
-    Versión alternativa del scraper:
+    Scraper Ourvend:
     - Idioma inglés
     - Solo selecciona grupo (todas las máquinas)
     - Orden correcto: Query → Export → Export all data → ExcelSchedule download

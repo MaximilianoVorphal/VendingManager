@@ -24,7 +24,6 @@ namespace VendingManager.Web.Pages
         private bool MostrarModalFantasmas = false; // Nuevo Modal
         private bool MostrarFantasmas = false; // Checkbox Filtro (para tabla principal)
         private bool Sincronizando = false;
-        private bool SincronizandoAlt = false;
         private bool MostrarModalSync = false;
         private DateTime FechaLimiteSync = DateTime.Now;
         private bool MostrarModalFiltroProductos = false;
@@ -435,37 +434,6 @@ namespace VendingManager.Web.Pages
                 StateHasChanged();
             }
         }
-
-        private async Task SincronizarPortalAlt()
-        {
-            try
-            {
-                SincronizandoAlt = true;
-                MensajeError = "";
-
-                var response = await Http.PostAsync("api/Ventas/sync-portal-alt", null);
-                if (response.IsSuccessStatusCode)
-                {
-                    var msg = await response.Content.ReadAsStringAsync();
-                    await JS.InvokeVoidAsync("alert", "Sincronización ALT Completada: " + msg);
-                    await CargarReporte();
-                }
-                else
-                {
-                    MensajeError = "Error ALT: " + await response.Content.ReadAsStringAsync();
-                }
-            }
-            catch (Exception ex)
-            {
-                MensajeError = "Error crítico ALT: " + ex.Message;
-            }
-            finally
-            {
-                SincronizandoAlt = false;
-                StateHasChanged();
-            }
-        }
-
         // --- CLASES DTO LOCALES (Espejo del Backend) ---
         public class MaquinaSimpleDto
         {

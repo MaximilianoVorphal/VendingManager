@@ -18,34 +18,6 @@ namespace VendingManager.Infrastructure.Clients
         public async Task<(Stream FileStream, string FileName)> DownloadReportAsync(string machineId, DateTime startDate, DateTime endDate)
         {
             var scraperUrl = _configuration["ScraperServiceUrl"] ?? "http://scraper:8000";
-            
-            var requestData = new
-            {
-                machine_id = machineId,
-                start_date = startDate.ToString("yyyy-MM-dd"),
-                end_date = endDate.ToString("yyyy-MM-dd")
-            };
-
-            // Aumentar Timeout para Playwright
-            _httpClient.Timeout = TimeSpan.FromMinutes(3);
-
-            var response = await _httpClient.PostAsJsonAsync($"{scraperUrl}/download", requestData);
-
-            if (!response.IsSuccessStatusCode)
-            {
-                throw new HttpRequestException($"Error llamando al Scraper: {response.StatusCode}");
-            }
-
-            var stream = await response.Content.ReadAsStreamAsync();
-            var fileName = response.Content.Headers.ContentDisposition?.FileName?.Trim('"') 
-                           ?? $"Report_{machineId}_{DateTime.Now:yyyyMMdd}.xls";
-
-            return (stream, fileName);
-        }
-
-        public async Task<(Stream FileStream, string FileName)> DownloadReportAltAsync(string machineId, DateTime startDate, DateTime endDate)
-        {
-            var scraperUrl = _configuration["ScraperServiceUrl"] ?? "http://scraper:8000";
 
             var requestData = new
             {
@@ -56,7 +28,7 @@ namespace VendingManager.Infrastructure.Clients
 
             _httpClient.Timeout = TimeSpan.FromMinutes(12); // Polling 6min + descarga, margen de seguridad
 
-            var response = await _httpClient.PostAsJsonAsync($"{scraperUrl}/download-alt", requestData);
+            var response = await _httpClient.PostAsJsonAsync($"{scraperUrl}/download", requestData);
 
             if (!response.IsSuccessStatusCode)
             {
