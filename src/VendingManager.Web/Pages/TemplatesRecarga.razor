@@ -68,6 +68,12 @@
                         <div class="card-header bg-dark text-white rounded-0 d-flex justify-content-between align-items-center">
                             <div class="d-flex align-items-center gap-2">
                                 <span class="fw-bold text-uppercase">@template.Nombre</span>
+                                @if (template.TieneFotoGuia || template.TieneFotoOcr)
+                                {
+                                    <span class="badge bg-secondary rounded-0" title="Tiene fotos asociadas">
+                                        <i class="bi bi-camera-fill"></i>
+                                    </span>
+                                }
                                 @if (template.CantidadSlotsPendientes > 0)
                                 {
                                     <span class="badge bg-warning text-dark rounded-0">⚠ @template.CantidadSlotsPendientes pendiente(s)</span>
@@ -454,11 +460,25 @@
                         
                         <InputFile OnChange="HandleOcrPhotoUpload" accept="image/*" class="d-none" id="ocrRecargaFileInput" disabled="@ProcesandoOcr" />
                         <button class="btn btn-success rounded-0 fw-bold border-dark shadow-sm px-3" @onclick="TriggerOcrUpload" disabled="@ProcesandoOcr" title="Fotos legibles tardan ~5s. Asegurate de que los números de slot y cantidades sean claramente visibles. Formatos: JPG, PNG, HEIC. Máx 10MB.">
-                            <i class="bi bi-camera-fill me-2"></i>SUBIR FOTO RECARGA
+                            @if (_fotoOcrLoading)
+                            {
+                                <span class="spinner-border spinner-border-sm me-2"></span>
+                            }
+                            else
+                            {
+                                <i class="bi bi-camera-fill me-2"></i>
+                            }SUBIR FOTO RECARGA
                         </button>
                         <InputFile OnChange="HandleFotoGuiaUpload" accept="image/*" class="d-none" id="fotoGuiaFileInput" />
                         <button class="btn btn-outline-secondary rounded-0 fw-bold px-3" @onclick="TriggerFotoGuiaUpload" title="Cargar foto de referencia (productos)">
-                            <i class="bi bi-image me-1"></i>FOTO GUÍA
+                            @if (_fotoGuiaLoading)
+                            {
+                                <span class="spinner-border spinner-border-sm me-2"></span>
+                            }
+                            else
+                            {
+                                <i class="bi bi-image me-1"></i>
+                            }FOTO GUÍA
                         </button>
                         @if (!string.IsNullOrEmpty(FotoGuiaUrl))
                         {
@@ -655,6 +675,17 @@
     private double _fotoGuiaLastMouseY = 0;
     private Dictionary<string, CancellationTokenSource> _syncCtors = new();
 
+    // OCR photo state (persisted to backend on successful OCR)
+    private byte[]? _fotoOcrData;
+    private string? _fotoOcrUrl;
+
+    // Loading state for photos
+    private bool _fotoGuiaLoading = false;
+    private bool _fotoOcrLoading = false;
+
+    // Tracks the template being edited for photo upload targets
+    private int _currentTemplateId = 0;
+
     // CSS transform string — must use InvariantCulture or comma-decimal cultures break CSS syntax
     private string FotoGuiaTransform =>
         $"scale({_fotoGuiaZoom.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)}) translate({_fotoGuiaPanX.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)}px, {_fotoGuiaPanY.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)}px)";
@@ -687,8 +718,78 @@
         }
         PeriodoEnEdicionVisual = null;
         RevokeFotoGuiaUrl();
+        // Revoke OCR photo blob URL if present
+        if (!string.IsNullOrEmpty(_fotoOcrUrl))
+        {
+            _fotoOcrUrl = null;
+        }
+        _currentTemplateId = 0;
         // Restaurar navbar al salir del editor
         Layout?.ExpandNavbar();
+    }
+
+    /// <summary>
+    /// Loads both foto-guia and foto-ocr for a template in parallel.
+    /// Non-critical: failures show inline messages but do not block the UI.
+    /// </summary>
+    private async Task LoadFotosForTemplate(int id)
+    {
+        _fotoGuiaLoading = true;
+        _fotoOcrLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            // Parallel GET requests to both photo endpoints
+            var fotoGuiaTask = Http.GetAsync($"api/TemplateRecarga/{id}/foto-guia");
+            var fotoOcrTask = Http.GetAsync($"api/TemplateRecarga/{id}/foto-ocr");
+
+            await Task.WhenAll(fotoGuiaTask, fotoOcrTask);
+
+            var guiaResp = await fotoGuiaTask;
+            if (guiaResp.IsSuccessStatusCode)
+            {
+                var bytes = await guiaResp.Content.ReadAsByteArrayAsync();
+                FotoGuiaData = bytes;
+                FotoGuiaUrl = $"data:image/jpeg;base64,{Convert.ToBase64String(bytes)}";
+            }
+            // On failure for foto-guia, show inline message but continue
+            else if (guiaResp.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                // No photo stored — not an error, just leave current state
+            }
+            else
+            {
+                MensajeErrorOcr = "No se pudo cargar la foto guía.";
+            }
+
+            var ocrResp = await fotoOcrTask;
+            if (ocrResp.IsSuccessStatusCode)
+            {
+                var bytes = await ocrResp.Content.ReadAsByteArrayAsync();
+                _fotoOcrData = bytes;
+                _fotoOcrUrl = $"data:image/jpeg;base64,{Convert.ToBase64String(bytes)}";
+            }
+            else if (ocrResp.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                // No OCR photo stored — not an error
+            }
+            else
+            {
+                MensajeErrorOcr = "No se pudo cargar la foto OCR.";
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Error loading photos for template {Id}", id);
+            MensajeErrorOcr = "Error al cargar fotos del template.";
+        }
+        finally
+        {
+            _fotoGuiaLoading = false;
+            _fotoOcrLoading = false;
+            StateHasChanged();
+        }
     }
 
     private async Task TriggerOcrUpload()
@@ -802,6 +903,35 @@
                 .Where(s => !matchedSlotNumbers.Contains(s.SlotNumber))
                 .ToList();
 
+            // Persist OCR photo to backend (non-critical: failure does not block slot population)
+            if (_currentTemplateId > 0)
+            {
+                try
+                {
+                    memoryStream.Position = 0;
+                    var persistContent = new MultipartFormDataContent();
+                    var persistBytes = new ByteArrayContent(memoryStream.ToArray());
+                    persistBytes.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(file.ContentType);
+                    persistContent.Add(persistBytes, "file", file.Name);
+
+                    var persistResp = await Http.PutAsync(
+                        $"api/TemplateRecarga/{_currentTemplateId}/foto-ocr",
+                        persistContent);
+
+                    if (!persistResp.IsSuccessStatusCode)
+                    {
+                        Logger.LogWarning("OCR photo persist failed with {Status} for template {Id}",
+                            persistResp.StatusCode, _currentTemplateId);
+                        // Non-critical — do not interrupt the user experience
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogWarning(ex, "Error persisting OCR photo for template {Id}", _currentTemplateId);
+                    // Non-critical failure — slot population continues
+                }
+            }
+
             // Brief green flash for matched slots — clean up after 1.5s
             _ = Task.Run(async () =>
             {
@@ -840,6 +970,32 @@
         var url = $"data:{file.ContentType};base64,{Convert.ToBase64String(FotoGuiaData)}";
         FotoGuiaUrl = url;
         StateHasChanged();
+
+        // Immediate persist to backend if we have a template ID
+        if (_currentTemplateId > 0)
+        {
+            try
+            {
+                var content = new MultipartFormDataContent();
+                var byteContent = new ByteArrayContent(FotoGuiaData);
+                byteContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(file.ContentType);
+                content.Add(byteContent, "file", file.Name);
+
+                var resp = await Http.PutAsync(
+                    $"api/TemplateRecarga/{_currentTemplateId}/foto-guia",
+                    content);
+
+                if (!resp.IsSuccessStatusCode)
+                {
+                    MensajeErrorOcr = "No se pudo guardar la foto guía en el servidor. La foto está en memoria pero se perderá al cerrar.";
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Error persisting foto guia for template {Id}", _currentTemplateId);
+                MensajeErrorOcr = "No se pudo guardar la foto guía en el servidor.";
+            }
+        }
     }
 
     private void MostrarFotoGuiaModal()
@@ -1006,6 +1162,7 @@
     {
         EsEdicion = false;
         TemplateIdEdicion = 0;
+        _currentTemplateId = 0;
         TemplateActual = new TemplateFormModel();
         PeriodosActuales = new List<PeriodoFormModel>();
         MostrarModal = true;
@@ -1015,6 +1172,7 @@
     {
         EsEdicion = true;
         TemplateIdEdicion = template.Id;
+        _currentTemplateId = template.Id;
         TemplateActual = new TemplateFormModel
         {
             Nombre = template.Nombre,
@@ -1040,6 +1198,12 @@
         foreach (var periodo in PeriodosActuales)
             periodo.SyncDisplayFromDateTime();
         MostrarModal = true;
+
+        // Load persisted photos for this template (non-blocking)
+        if (template.Id > 0)
+        {
+            _ = LoadFotosForTemplate(template.Id);
+        }
     }
 
     private void CerrarModal()
@@ -1510,6 +1674,8 @@
         public int CantidadSlotsPendientes => Periodos
             .SelectMany(p => p.SnapshotSlots)
             .Count(s => s.Estado == EstadoSlot.Pendiente);
+        public bool TieneFotoGuia { get; set; }
+        public bool TieneFotoOcr { get; set; }
     }
 
     public class PeriodoRecargaDto
