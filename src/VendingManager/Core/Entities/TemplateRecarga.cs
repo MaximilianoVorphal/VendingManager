@@ -25,6 +25,18 @@ public class TemplateRecarga
     /// Lista de períodos, uno por cada máquina incluida en esta recarga
     /// </summary>
     public List<PeriodoRecarga> Periodos { get; set; } = new();
+
+    /// <summary>
+    /// Foto guía — imagen de referencia de la estantería.
+    /// Almacenada como varbinary(max), hasta 10 MB.
+    /// </summary>
+    public byte[]? FotoGuia { get; set; }
+
+    /// <summary>
+    /// Foto OCR — imagen capturada durante el proceso de recarga.
+    /// Almacenada como varbinary(max), hasta 5 MB.
+    /// </summary>
+    public byte[]? FotoOcr { get; set; }
 }
 
 /// <summary>
