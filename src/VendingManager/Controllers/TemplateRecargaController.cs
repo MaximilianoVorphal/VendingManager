@@ -139,4 +139,108 @@ public class TemplateRecargaController(ITemplateRecargaService service) : Contro
             return NotFound(ex.Message);
         }
     }
+
+    private static readonly string[] AllowedImageTypes = { "image/jpeg", "image/png", "image/gif", "image/webp" };
+
+    /// <summary>
+    /// Subir o reemplazar la foto guía de un template
+    /// </summary>
+    [HttpPut("{id}/foto-guia")]
+    [RequestSizeLimit(10 * 1024 * 1024)]
+    public async Task<IActionResult> UploadFotoGuia(int id, IFormFile file)
+    {
+        if (file == null || file.Length == 0)
+            return BadRequest(new { error = "Archivo requerido", code = "FILE_MISSING" });
+
+        if (file.Length > 10 * 1024 * 1024)
+            return StatusCode(413, new { error = "La foto guía excede 10 MB", code = "FOTO_TOO_LARGE" });
+
+        var contentType = file.ContentType.ToLowerInvariant();
+        if (!AllowedImageTypes.Contains(contentType))
+            return StatusCode(415, new { error = "Formato no soportado. Usá JPG, PNG, GIF o WebP.", code = "FOTO_INVALID_TYPE" });
+
+        using var ms = new MemoryStream();
+        await file.CopyToAsync(ms);
+
+        try
+        {
+            await service.SaveFotoGuiaAsync(id, ms.ToArray(), contentType);
+            return Ok(new { message = "Foto guía guardada", sizeBytes = ms.Length });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { error = ex.Message, code = "TEMPLATE_NOT_FOUND" });
+        }
+    }
+
+    /// <summary>
+    /// Obtener la foto guía de un template
+    /// </summary>
+    [HttpGet("{id}/foto-guia")]
+    public async Task<IActionResult> GetFotoGuia(int id)
+    {
+        try
+        {
+            var (data, _) = await service.GetFotoGuiaAsync(id);
+            if (data == null)
+                return NotFound(new { error = "No hay foto guía guardada", code = "FOTO_NOT_FOUND" });
+
+            return File(data, "image/jpeg");
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { error = ex.Message, code = "TEMPLATE_NOT_FOUND" });
+        }
+    }
+
+    /// <summary>
+    /// Subir o reemplazar la foto OCR de un template
+    /// </summary>
+    [HttpPut("{id}/foto-ocr")]
+    [RequestSizeLimit(5 * 1024 * 1024)]
+    public async Task<IActionResult> UploadFotoOcr(int id, IFormFile file)
+    {
+        if (file == null || file.Length == 0)
+            return BadRequest(new { error = "Archivo requerido", code = "FILE_MISSING" });
+
+        if (file.Length > 5 * 1024 * 1024)
+            return StatusCode(413, new { error = "La foto OCR excede 5 MB", code = "FOTO_TOO_LARGE" });
+
+        var contentType = file.ContentType.ToLowerInvariant();
+        if (!AllowedImageTypes.Contains(contentType))
+            return StatusCode(415, new { error = "Formato no soportado. Usá JPG, PNG, GIF o WebP.", code = "FOTO_INVALID_TYPE" });
+
+        using var ms = new MemoryStream();
+        await file.CopyToAsync(ms);
+
+        try
+        {
+            await service.SaveFotoOcrAsync(id, ms.ToArray(), contentType);
+            return Ok(new { message = "Foto OCR guardada", sizeBytes = ms.Length });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { error = ex.Message, code = "TEMPLATE_NOT_FOUND" });
+        }
+    }
+
+    /// <summary>
+    /// Obtener la foto OCR de un template
+    /// </summary>
+    [HttpGet("{id}/foto-ocr")]
+    public async Task<IActionResult> GetFotoOcr(int id)
+    {
+        try
+        {
+            var (data, _) = await service.GetFotoOcrAsync(id);
+            if (data == null)
+                return NotFound(new { error = "No hay foto OCR guardada", code = "FOTO_NOT_FOUND" });
+
+            return File(data, "image/jpeg");
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { error = ex.Message, code = "TEMPLATE_NOT_FOUND" });
+        }
+    }
 }
