@@ -940,6 +940,6 @@ public async Task<int> SyncVentasWithTemplateAsync(int templateId, bool actualiz
             .OrderBy(p2 => p2.FechaRecarga)
             .FirstOrDefault();
 
-        return nextPeriodo?.FechaRecarga ?? new DateTime(2099, 12, 31, 23, 59, 59, 999999);
+        return nextPeriodo?.FechaRecarga ?? new DateTime(2099, 12, 31, 23, 59, 59, 999);
     }
 }
