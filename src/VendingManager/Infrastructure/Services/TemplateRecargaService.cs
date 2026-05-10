@@ -254,7 +254,7 @@ public class TemplateRecargaService : ITemplateRecargaService
             .Select(p => (DateTime?)p.FechaRecarga)
             .FirstOrDefaultAsync();
 
-        return nextRecarga ?? new DateTime(2099, 12, 31, 23, 59, 59, 999999);
+        return nextRecarga ?? new DateTime(2099, 12, 31, 23, 59, 59, 999);
     }
 
     /// <summary>
@@ -277,7 +277,7 @@ public class TemplateRecargaService : ITemplateRecargaService
         {
             var endDate = i < sorted.Count - 1
                 ? sorted[i + 1].FechaRecarga
-                : new DateTime(2099, 12, 31, 23, 59, 59, 999999);
+                : new DateTime(2099, 12, 31, 23, 59, 59, 999);
             endDates[sorted[i].Id] = endDate;
         }
 
