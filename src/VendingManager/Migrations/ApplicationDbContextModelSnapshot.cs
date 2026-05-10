@@ -759,10 +759,7 @@ namespace VendingManager.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<DateTime>("FechaFin")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime>("FechaInicio")
+                    b.Property<DateTime>("FechaRecarga")
                         .HasColumnType("datetime2");
 
                     b.Property<byte[]>("FotoGuia")
