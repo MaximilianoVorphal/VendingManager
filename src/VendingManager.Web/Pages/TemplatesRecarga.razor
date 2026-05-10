@@ -309,7 +309,7 @@
 @if (PeriodoEnEdicionVisual != null)
 {
     var maq = ListaMaquinas?.FirstOrDefault(m => m.Id == PeriodoEnEdicionVisual.MaquinaId)?.Nombre ?? "MÁQUINA";
-    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.85); z-index: 1060;">
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.85); z-index: 1120;">
         <div class="modal-dialog modal-xl modal-dialog-scrollable">
             <div class="modal-content border-3 border-dark rounded-0">
                 <div class="modal-header bg-dark text-white rounded-0 border-bottom border-dark">
@@ -500,7 +500,7 @@
 @if (MostrarFotoGuia && !string.IsNullOrEmpty(FotoGuiaUrl))
 {
     <div @ref="fotoGuiaModalRef" tabindex="-1"
-         class="modal fade show d-block" style="background-color: rgba(0,0,0,0.9); z-index: 1070; outline: none;"
+         class="modal fade show d-block" style="background-color: rgba(0,0,0,0.9); z-index: 1130; outline: none;"
          @onkeydown="OnFotoGuiaKeydown">
         <div class="modal-dialog modal-xl modal-dialog-centered">
             <div class="modal-content border-3 border-dark rounded-0 bg-dark">
