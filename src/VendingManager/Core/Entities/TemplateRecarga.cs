@@ -43,14 +43,15 @@ public class PeriodoRecarga
     public Maquina Maquina { get; set; } = null!;
 
     /// <summary>
-    /// Fecha y hora de inicio del período (cuando se cargó la máquina)
+    /// Single anchor date — the recharge timestamp for this machine.
+    /// End date is derived: next period's FechaRecarga (or 2099-12-31 sentinel).
+    /// Note: FechaFin is a SQL Server PERSISTED computed column, NOT a stored field.
     /// </summary>
-    public DateTime FechaInicio { get; set; }
+    public DateTime FechaRecarga { get; set; }
 
-    /// <summary>
-    /// Fecha y hora de fin del período (fin del ciclo de análisis)
-    /// </summary>
-    public DateTime FechaFin { get; set; }
+    // NOTE: FechaFin is REMOVED from the C# entity — it is a SQL PERSISTED computed column.
+    // EF Core will NOT map it (no property), SQL Server derives it on write.
+    // Reads via raw SQL or helper methods for the computed value.
 
     /// <summary>
     /// Snapshot del inventario de slots al momento de la recarga

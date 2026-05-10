@@ -92,7 +92,7 @@
                             <div class="mb-3">
                                 <small class="text-muted">
                                     <i class="bi bi-calendar me-1"></i>
-                                    @template.FechaInicioMin?.ToString("dd/MM/yyyy") -
+                                    @template.FechaRecargaMin?.ToString("dd/MM/yyyy") -
                                     @template.FechaFinMax?.ToString("dd/MM/yyyy")
                                 </small>
                             </div>
@@ -107,7 +107,7 @@
                                     <div class="d-flex justify-content-between align-items-center border-bottom py-1 small">
                                         <span class="fw-bold">@periodo.MaquinaNombre</span>
                                         <span class="font-monospace text-muted">
-                                            @periodo.FechaInicio.ToString("dd/MM HH:mm") → @periodo.FechaFin.ToString("dd/MM HH:mm")
+                                            @periodo.FechaRecarga.ToString("dd/MM HH:mm")
                                         </span>
                                     </div>
                                 }
@@ -209,38 +209,22 @@
                                                      }
                                                  </select>
                                              </div>
-                                          <div class="col-md-3 col-12">
-                                              <label class="small fw-bold">DESDE:</label>
-                                              <div class="input-group input-group-sm">
-                                                    <input type="date"
-                                                           class="form-control border-dark rounded-0 date-input"
-                                                           value="@periodo.FechaInicio.ToString("yyyy-MM-dd")"
-                                                           @onchange="(ChangeEventArgs e) => OnFechaDateChanged(index, true, e)" />
-                                                    <input type="text"
-                                                           class="form-control border-dark rounded-0 time-input font-monospace"
-                                                           value="@periodo.HoraInicioText"
-                                                           placeholder="HH:mm"
-                                                           maxlength="5"
-                                                           @oninput="(ChangeEventArgs e) => OnHoraInput(index, true, e)"
-                                                           @onchange="(ChangeEventArgs e) => OnHoraBlur(index, true, e)" />
-                                              </div>
-                                          </div>
-                                          <div class="col-md-3 col-12">
-                                              <label class="small fw-bold">HASTA:</label>
-                                              <div class="input-group input-group-sm">
-                                                    <input type="date"
-                                                           class="form-control border-dark rounded-0 date-input"
-                                                           value="@periodo.FechaFin.ToString("yyyy-MM-dd")"
-                                                           @onchange="(ChangeEventArgs e) => OnFechaDateChanged(index, false, e)" />
-                                                    <input type="text"
-                                                           class="form-control border-dark rounded-0 time-input font-monospace"
-                                                           value="@periodo.HoraFinText"
-                                                           placeholder="HH:mm"
-                                                           maxlength="5"
-                                                           @oninput="(ChangeEventArgs e) => OnHoraInput(index, false, e)"
-                                                           @onchange="(ChangeEventArgs e) => OnHoraBlur(index, false, e)" />
-                                              </div>
-                                          </div>
+<div class="col-md-4 col-12">
+                                                 <label class="small fw-bold">FECHA RECARGA:</label>
+                                                 <div class="input-group input-group-sm">
+                                                       <input type="date"
+                                                              class="form-control border-dark rounded-0 date-input"
+                                                              value="@periodo.FechaRecargaText"
+                                                              @onchange="(ChangeEventArgs e) => OnFechaRecargaDateChanged(index, e)" />
+                                                       <input type="text"
+                                                              class="form-control border-dark rounded-0 time-input font-monospace"
+                                                              value="@periodo.HoraRecargaText"
+                                                              placeholder="HH:mm"
+                                                              maxlength="5"
+                                                              @oninput="(ChangeEventArgs e) => OnFechaRecargaTimeInput(index, e)"
+                                                              @onchange="(ChangeEventArgs e) => OnFechaRecargaTimeBlur(index, e)" />
+                                                 </div>
+                                             </div>
                                          <div class="col-md-2 col-12">
                                              <div class="d-flex gap-1">
                                                  <button class="btn btn-sm btn-outline-primary rounded-0 flex-fill"
@@ -1227,8 +1211,7 @@
         {
             Id = p.Id,
             MaquinaId = p.MaquinaId,
-            FechaInicio = p.FechaInicio,
-            FechaFin = p.FechaFin,
+            FechaRecarga = p.FechaRecarga,
             SnapshotSlots = p.SnapshotSlots.Select(s => new SnapshotSlotFormModel
             {
                 NumeroSlot = s.NumeroSlot,
@@ -1257,8 +1240,7 @@
         var now = DateTime.Now;
         var p = new PeriodoFormModel
         {
-            FechaInicio = DateTime.SpecifyKind(now.Date.AddHours(8), DateTimeKind.Unspecified),
-            FechaFin = DateTime.SpecifyKind(now.Date.AddDays(7).AddHours(18), DateTimeKind.Unspecified)
+            FechaRecarga = DateTime.SpecifyKind(now.Date.AddHours(8), DateTimeKind.Unspecified)
         };
         p.SyncDisplayFromDateTime();
         PeriodosActuales.Add(p);
@@ -1272,69 +1254,55 @@
         }
     }
 
-    private void OnFechaDateChanged(int index, bool esInicio, ChangeEventArgs e)
+    private void OnFechaRecargaDateChanged(int index, ChangeEventArgs e)
     {
         var dateVal = e.Value?.ToString();
         if (string.IsNullOrEmpty(dateVal) || index < 0 || index >= PeriodosActuales.Count) return;
         var p = PeriodosActuales[index];
 
         // Intentar leer la hora del display text (puede estar editándose)
-        var displayText = esInicio ? p.HoraInicioText : p.HoraFinText;
-        int hora = 0, minuto = 0;
-        bool horaFromDisplay = !string.IsNullOrWhiteSpace(displayText)
-                               && int.TryParse(displayText.Replace(":", "").PadRight(4, '0')[..2], out int h)
-                               && h is >= 0 and <= 23
-                               && int.TryParse(displayText.Replace(":", "").PadRight(4, '0')[2..4], out int m)
-                               && m is >= 0 and <= 59;
+        int hora = p.FechaRecarga.Hour;
+        int minuto = p.FechaRecarga.Minute;
 
-        if (!horaFromDisplay)
+        if (!string.IsNullOrWhiteSpace(p.HoraRecargaText))
         {
-            // Fallback: usar la hora del DateTime actual
-            var current = esInicio ? p.FechaInicio : p.FechaFin;
-            hora = current.Hour;
-            minuto = current.Minute;
+            var cleaned = p.HoraRecargaText.Replace(":", "").PadRight(4, '0');
+            if (cleaned.Length >= 4 &&
+                int.TryParse(cleaned[..2], out int h) && h is >= 0 and <= 23 &&
+                int.TryParse(cleaned[2..4], out int m) && m is >= 0 and <= 59)
+            {
+                hora = h;
+                minuto = m;
+            }
         }
 
         if (DateOnly.TryParse(dateVal, System.Globalization.CultureInfo.InvariantCulture,
                 System.Globalization.DateTimeStyles.None, out var dateOnly))
         {
-            var d = new DateTime(dateOnly.Year, dateOnly.Month, dateOnly.Day,
+            p.FechaRecarga = new DateTime(dateOnly.Year, dateOnly.Month, dateOnly.Day,
                                   hora, minuto, 0, DateTimeKind.Unspecified);
-            if (esInicio) p.FechaInicio = d;
-            else p.FechaFin = d;
             p.SyncDisplayFromDateTime();
         }
         else
         {
-            Logger.LogWarning("OnFechaDateChanged: no se pudo parsear fecha '{DateVal}'", dateVal);
+            Logger.LogWarning("OnFechaRecargaDateChanged: no se pudo parsear fecha '{DateVal}'", dateVal);
         }
     }
 
-    private void OnHoraInput(int index, bool esInicio, ChangeEventArgs e)
+    private void OnFechaRecargaTimeInput(int index, ChangeEventArgs e)
     {
         if (index < 0 || index >= PeriodosActuales.Count) return;
         var raw = e.Value?.ToString() ?? "";
         var formatted = FormatearHoraMask(raw);
-        var p = PeriodosActuales[index];
-        if (esInicio) p.HoraInicioText = formatted;
-        else p.HoraFinText = formatted;
+        PeriodosActuales[index].HoraRecargaText = formatted;
     }
 
-    private void OnHoraBlur(int index, bool esInicio, ChangeEventArgs e)
+    private void OnFechaRecargaTimeBlur(int index, ChangeEventArgs e)
     {
         if (index < 0 || index >= PeriodosActuales.Count) return;
         var p = PeriodosActuales[index];
-        // Al perder foco, consolidar el display text al DateTime
-        if (esInicio)
-        {
-            p.HoraInicioText = FormatearHoraMask(p.HoraInicioText);
-            p.SyncDateTimeFromDisplay(true);
-        }
-        else
-        {
-            p.HoraFinText = FormatearHoraMask(p.HoraFinText);
-            p.SyncDateTimeFromDisplay(false);
-        }
+        p.HoraRecargaText = FormatearHoraMask(p.HoraRecargaText);
+        p.SyncDateTimeFromRecarga();
         StateHasChanged();
     }
 
@@ -1499,8 +1467,7 @@
             .Select(p => new CreatePeriodoDto
             {
                 MaquinaId = p.MaquinaId,
-                FechaInicio = p.FechaInicio,
-                FechaFin = p.FechaFin,
+                FechaRecarga = p.FechaRecarga,
                 SnapshotSlots = p.SnapshotSlots
             .Select(s =>
             {
@@ -1715,7 +1682,7 @@
         public DateTime FechaCreacion { get; set; }
         public List<PeriodoRecargaDto> Periodos { get; set; } = new();
         public int CantidadMaquinas => Periodos.Count;
-        public DateTime? FechaInicioMin => Periodos.Any() ? Periodos.Min(p => p.FechaInicio) : null;
+        public DateTime? FechaRecargaMin => Periodos.Any() ? Periodos.Min(p => p.FechaRecarga) : null;
         public DateTime? FechaFinMax => Periodos.Any() ? Periodos.Max(p => p.FechaFin) : null;
         public int CantidadSlotsPendientes => Periodos
             .SelectMany(p => p.SnapshotSlots)
@@ -1730,7 +1697,7 @@
         public int TemplateRecargaId { get; set; }
         public int MaquinaId { get; set; }
         public string MaquinaNombre { get; set; } = string.Empty;
-        public DateTime FechaInicio { get; set; }
+        public DateTime FechaRecarga { get; set; }
         public DateTime FechaFin { get; set; }
         public List<SnapshotSlotDto> SnapshotSlots { get; set; } = new();
     }
@@ -1756,30 +1723,27 @@
     {
         public int Id { get; set; }
         public int MaquinaId { get; set; }
-        public DateTime FechaInicio { get; set; }
-        public DateTime FechaFin { get; set; }
+        public DateTime FechaRecarga { get; set; }
         public List<SnapshotSlotFormModel> SnapshotSlots { get; set; } = new();
 
         // Display strings para masking en vivo del input de hora
-        public string HoraInicioText { get; set; } = "";
-        public string HoraFinText { get; set; } = "";
+        public string FechaRecargaText => FechaRecarga.ToString("yyyy-MM-dd");
+        public string HoraRecargaText { get; set; } = "";
 
         public void SyncDisplayFromDateTime()
         {
-            HoraInicioText = FechaInicio.ToString("HH:mm");
-            HoraFinText = FechaFin.ToString("HH:mm");
+            HoraRecargaText = FechaRecarga.ToString("HH:mm");
         }
 
-        public void SyncDateTimeFromDisplay(bool esInicio)
+        public void SyncDateTimeFromRecarga()
         {
-            if (TryParseHora24Internal(esInicio ? HoraInicioText : HoraFinText, out int h, out int m))
+            if (TryParseHora24Internal(HoraRecargaText, out int h, out int m))
             {
-                var dt = new DateTime(
-                    (esInicio ? FechaInicio : FechaFin).Year,
-                    (esInicio ? FechaInicio : FechaFin).Month,
-                    (esInicio ? FechaInicio : FechaFin).Day,
+                FechaRecarga = new DateTime(
+                    FechaRecarga.Year,
+                    FechaRecarga.Month,
+                    FechaRecarga.Day,
                     h, m, 0, DateTimeKind.Unspecified);
-                if (esInicio) FechaInicio = dt; else FechaFin = dt;
             }
         }
 
@@ -1822,8 +1786,7 @@
     public class CreatePeriodoDto
     {
         public int MaquinaId { get; set; }
-        public DateTime FechaInicio { get; set; }
-        public DateTime FechaFin { get; set; }
+        public DateTime FechaRecarga { get; set; }
         public List<CreateSnapshotSlotDto> SnapshotSlots { get; set; } = new();
     }
 

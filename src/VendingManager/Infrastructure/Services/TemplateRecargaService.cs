@@ -35,7 +35,7 @@ public class TemplateRecargaService : ITemplateRecargaService
 
         return templates
             .Select(t => MapToDto(t))
-            .OrderByDescending(t => t.FechaInicioMin)
+            .OrderByDescending(t => t.FechaRecargaMin)
             .ToList();
     }
 
@@ -54,6 +54,12 @@ public class TemplateRecargaService : ITemplateRecargaService
 
     public async Task<TemplateRecargaDto> CreateAsync(CreateTemplateRecargaDto dto)
     {
+        // Validate chain for each period BEFORE creating
+        foreach (var p in dto.Periodos)
+        {
+            await ValidateFechaRecargaChainAsync(p.MaquinaId, p.FechaRecarga);
+        }
+
         var template = new TemplateRecarga
         {
             Nombre = dto.Nombre,
@@ -62,8 +68,7 @@ public class TemplateRecargaService : ITemplateRecargaService
             Periodos = dto.Periodos.Select(p => new PeriodoRecarga
             {
                 MaquinaId = p.MaquinaId,
-                FechaInicio = p.FechaInicio,
-                FechaFin = p.FechaFin,
+                FechaRecarga = p.FechaRecarga,
                 SnapshotSlots = p.SnapshotSlots.Select(s => new SnapshotSlot
                 {
                     NumeroSlot = s.NumeroSlot,
@@ -119,6 +124,12 @@ public class TemplateRecargaService : ITemplateRecargaService
         template.Nombre = dto.Nombre;
         template.Descripcion = dto.Descripcion;
 
+        // Validate chain for each period BEFORE updating
+        foreach (var p in dto.Periodos)
+        {
+            await ValidateFechaRecargaChainAsync(p.MaquinaId, p.FechaRecarga);
+        }
+
         // Eliminar snapshots de períodos anteriores
         foreach (var periodo in template.Periodos)
         {
@@ -132,8 +143,7 @@ public class TemplateRecargaService : ITemplateRecargaService
         {
             TemplateRecargaId = template.Id,
             MaquinaId = p.MaquinaId,
-            FechaInicio = p.FechaInicio,
-            FechaFin = p.FechaFin,
+            FechaRecarga = p.FechaRecarga,
             SnapshotSlots = p.SnapshotSlots.Select(s => new SnapshotSlot
             {
                 NumeroSlot = s.NumeroSlot,
@@ -156,10 +166,12 @@ public class TemplateRecargaService : ITemplateRecargaService
 
             if (!slotsSinProducto.Any()) continue;
 
+            var fechaFin = await GetEndDateForPeriodoAsync(periodo.MaquinaId, periodo.FechaRecarga);
+
             var ventasPeriodo = await _context.Ventas
                 .Where(v => v.MaquinaId == periodo.MaquinaId
-                         && v.FechaLocal >= periodo.FechaInicio
-                         && v.FechaLocal <= periodo.FechaFin)
+                         && v.FechaLocal >= periodo.FechaRecarga
+                         && v.FechaLocal <= fechaFin)
                 .ToListAsync();
 
             foreach (var slot in slotsSinProducto)
@@ -211,8 +223,67 @@ public class TemplateRecargaService : ITemplateRecargaService
     }
 
     /// <summary>
-    /// Obtiene la configuración actual de slots para una máquina (para crear snapshot)
+    /// Throws InvalidOperationException with 409-style message if FechaRecarga
+    /// would create a backward or duplicate chain for this machine.
+    /// Called before CreateAsync and UpdateAsync commit.
     /// </summary>
+    private async Task ValidateFechaRecargaChainAsync(int maquinaId, DateTime fechaRecarga, int? excludePeriodoId = null)
+    {
+        var maxExisting = await _context.PeriodosRecarga
+            .Where(p => p.MaquinaId == maquinaId
+                     && (excludePeriodoId == null || p.Id != excludePeriodoId.Value))
+            .MaxAsync(p => (DateTime?)p.FechaRecarga);
+
+        if (maxExisting.HasValue && fechaRecarga <= maxExisting.Value)
+        {
+            throw new InvalidOperationException(
+                $"La FechaRecarga {fechaRecarga:dd/MM/yyyy HH:mm} es anterior o igual a la última "
+              + $"recarga registrada ({maxExisting.Value:dd/MM/yyyy HH:mm}) para esta máquina. "
+              + $"Cada período debe tener una FechaRecarga posterior al anterior.");
+        }
+    }
+
+    /// <summary>
+    /// Returns the computed end date for a specific period using the chain logic.
+    /// </summary>
+    private async Task<DateTime> GetEndDateForPeriodoAsync(int maquinaId, DateTime fechaRecarga)
+    {
+        var nextRecarga = await _context.PeriodosRecarga
+            .Where(p => p.MaquinaId == maquinaId && p.FechaRecarga > fechaRecarga)
+            .OrderBy(p => p.FechaRecarga)
+            .Select(p => (DateTime?)p.FechaRecarga)
+            .FirstOrDefaultAsync();
+
+        return nextRecarga ?? new DateTime(2099, 12, 31, 23, 59, 59, 999999);
+    }
+
+    /// <summary>
+    /// Returns end dates for all periods of a machine, batch-fetched to avoid N+1.
+    /// Key: MaquinaId, Value: Dictionary of PeriodoId -> FechaFin.
+    /// </summary>
+    private async Task<Dictionary<int, DateTime>> GetEndDatesForMaquinaAsync(int maquinaId)
+    {
+        // Build a lookup: for each period of this machine, find the next FechaRecarga
+        var allPeriodos = await _context.PeriodosRecarga
+            .Where(p => p.MaquinaId == maquinaId)
+            .Select(p => new { p.Id, p.FechaRecarga })
+            .AsNoTracking()
+            .ToListAsync();
+
+        var sorted = allPeriodos.OrderBy(p => p.FechaRecarga).ToList();
+        var endDates = new Dictionary<int, DateTime>();
+
+        for (int i = 0; i < sorted.Count; i++)
+        {
+            var endDate = i < sorted.Count - 1
+                ? sorted[i + 1].FechaRecarga
+                : new DateTime(2099, 12, 31, 23, 59, 59, 999999);
+            endDates[sorted[i].Id] = endDate;
+        }
+
+        return endDates;
+    }
+
     public async Task<List<SnapshotSlotDto>> GetSlotsForMaquinaAsync(int maquinaId)
     {
         return await _context.ConfiguracionSlots
@@ -259,11 +330,14 @@ public class TemplateRecargaService : ITemplateRecargaService
                 .GroupBy(s => s.ProductoId!.Value)
                 .ToDictionary(g => g.Key, g => g.Sum(s => s.CantidadInicial));
 
+            // Get end date from chain helper
+            var fechaFin = await GetEndDateForPeriodoAsync(periodo.MaquinaId, periodo.FechaRecarga);
+
             var analisisMaquina = await AnalizarMaquinaEnPeriodo(
                 periodo.MaquinaId,
                 periodo.Maquina?.Nombre ?? "Desconocida",
-                periodo.FechaInicio,
-                periodo.FechaFin,
+                periodo.FechaRecarga,
+                fechaFin,
                 umbralHorasSilencio,
                 periodo.SnapshotSlots.ToList(), // Pasar la lista completa de slots
                 snapshotPorProducto);
@@ -452,12 +526,12 @@ public class TemplateRecargaService : ITemplateRecargaService
         return result;
     }
 
-    public async Task<int> SyncVentasWithTemplateAsync(int templateId, bool actualizarCostos)
+public async Task<int> SyncVentasWithTemplateAsync(int templateId, bool actualizarCostos)
     {
         var template = await _context.TemplatesRecarga
             .Include(t => t.Periodos)
-            .ThenInclude(p => p.SnapshotSlots)
-            .ThenInclude(s => s.Producto)
+                .ThenInclude(p => p.SnapshotSlots)
+                .ThenInclude(s => s.Producto)
             .FirstOrDefaultAsync(t => t.Id == templateId);
 
         if (template == null || !template.Periodos.Any())
@@ -467,10 +541,12 @@ public class TemplateRecargaService : ITemplateRecargaService
 
         foreach (var periodo in template.Periodos)
         {
+            var fechaFin = await GetEndDateForPeriodoAsync(periodo.MaquinaId, periodo.FechaRecarga);
+
             var ventasDelPeriodo = await _context.Ventas
                 .Where(v => v.MaquinaId == periodo.MaquinaId &&
-                            v.FechaLocal >= periodo.FechaInicio &&
-                            v.FechaLocal <= periodo.FechaFin)
+                            v.FechaLocal >= periodo.FechaRecarga &&
+                            v.FechaLocal <= fechaFin)
                 .ToListAsync();
 
             if (!ventasDelPeriodo.Any())
@@ -529,17 +605,19 @@ public class TemplateRecargaService : ITemplateRecargaService
             .FirstOrDefaultAsync(p => p.Id == periodoId && p.TemplateRecargaId == templateId)
             ?? throw new InvalidOperationException($"Período {periodoId} no encontrado para el template {templateId}");
 
+        var fechaFin = await GetEndDateForPeriodoAsync(periodo.MaquinaId, periodo.FechaRecarga);
+
         _logger.LogInformation(
             "[SyncSlotProducto] INICIO — Template={TemplateId}, Periodo={PeriodoId}, " +
             "Maquina={MaquinaId}, Slot={NumeroSlot}, ProductoNuevo={ProductoId}, " +
             "Rango=[{Inicio} → {Fin}]",
             templateId, periodoId, periodo.MaquinaId, numeroSlot, productoId,
-            periodo.FechaInicio, periodo.FechaFin);
+            periodo.FechaRecarga, fechaFin);
 
         var ventas = await _context.Ventas
             .Where(v => v.MaquinaId == periodo.MaquinaId)
             .Where(v => v.NumeroSlot == numeroSlot)
-            .Where(v => v.FechaLocal >= periodo.FechaInicio && v.FechaLocal <= periodo.FechaFin)
+            .Where(v => v.FechaLocal >= periodo.FechaRecarga && v.FechaLocal <= fechaFin)
             .AsNoTracking()
             .ToListAsync();
 
@@ -607,8 +685,8 @@ public class TemplateRecargaService : ITemplateRecargaService
                 .AsNoTracking()
                 .Where(v => v.MaquinaId == periodo.MaquinaId
                          && v.NumeroSlot == numeroSlot
-                         && v.FechaLocal >= periodo.FechaInicio
-                         && v.FechaLocal <= periodo.FechaFin)
+                         && v.FechaLocal >= periodo.FechaRecarga
+                         && v.FechaLocal <= fechaFin)
                 .ToListAsync();
             _logger.LogInformation(
                 "[SyncSlotProducto] VERIFICACION post-save: {Count} ventas en DB para slot {Slot}. " +
@@ -711,10 +789,12 @@ public class TemplateRecargaService : ITemplateRecargaService
 
         foreach (var periodo in template.Periodos)
         {
+            var fechaFin = await GetEndDateForPeriodoAsync(periodo.MaquinaId, periodo.FechaRecarga);
+
             var ventasDelPeriodo = await _context.Ventas
                 .Where(v => v.MaquinaId == periodo.MaquinaId &&
-                            v.FechaLocal >= periodo.FechaInicio &&
-                            v.FechaLocal <= periodo.FechaFin)
+                            v.FechaLocal >= periodo.FechaRecarga &&
+                            v.FechaLocal <= fechaFin)
                 .ToListAsync();
 
             if (!ventasDelPeriodo.Any())
@@ -786,11 +866,12 @@ public class TemplateRecargaService : ITemplateRecargaService
             var ventasVerificacion = new List<Venta>();
             foreach (var periodo in template.Periodos)
             {
+                var fechaFin = await GetEndDateForPeriodoAsync(periodo.MaquinaId, periodo.FechaRecarga);
                 var ventasPeriodo = await _context.Ventas
                     .AsNoTracking()
                     .Where(v => v.MaquinaId == periodo.MaquinaId &&
-                                v.FechaLocal >= periodo.FechaInicio &&
-                                v.FechaLocal <= periodo.FechaFin &&
+                                v.FechaLocal >= periodo.FechaRecarga &&
+                                v.FechaLocal <= fechaFin &&
                                 v.ProductoId != null)
                     .ToListAsync();
                 ventasVerificacion.AddRange(ventasPeriodo);
@@ -827,8 +908,10 @@ public class TemplateRecargaService : ITemplateRecargaService
                 Id = p.Id,
                 MaquinaId = p.MaquinaId,
                 MaquinaNombre = p.Maquina?.Nombre ?? "Desconocida",
-                FechaInicio = p.FechaInicio,
-                FechaFin = p.FechaFin,
+                FechaRecarga = p.FechaRecarga,
+                // FechaFin is computed — we use the next period's FechaRecarga or sentinel
+                // For in-memory mapping, derive from the template's periods
+                FechaFin = GetFechaFinFromTemplate(t, p),
                 TieneFotoGuia = p.FotoGuia != null,
                 TieneFotoOcr = p.FotoOcr != null,
                 SnapshotSlots = p.SnapshotSlots.Select(s => new SnapshotSlotDto
@@ -843,5 +926,20 @@ public class TemplateRecargaService : ITemplateRecargaService
                 }).ToList()
             }).ToList()
         };
+    }
+
+    /// <summary>
+    /// Derives the computed FechaFin for a period from the template's period chain.
+    /// This is used by MapToDto to populate the DTO's FechaFin property.
+    /// </summary>
+    private static DateTime GetFechaFinFromTemplate(TemplateRecarga t, PeriodoRecarga p)
+    {
+        // Find the next period for the same machine with a later FechaRecarga
+        var nextPeriodo = t.Periodos
+            .Where(p2 => p2.MaquinaId == p.MaquinaId && p2.FechaRecarga > p.FechaRecarga)
+            .OrderBy(p2 => p2.FechaRecarga)
+            .FirstOrDefault();
+
+        return nextPeriodo?.FechaRecarga ?? new DateTime(2099, 12, 31, 23, 59, 59, 999999);
     }
 }

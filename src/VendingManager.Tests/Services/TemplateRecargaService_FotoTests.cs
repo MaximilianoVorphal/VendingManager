@@ -41,8 +41,7 @@ public class TemplateRecargaService_FotoTests : IDisposable
             Id = periodoId,
             TemplateRecargaId = template.Id,
             MaquinaId = 1,
-            FechaInicio = DateTime.Now.AddDays(-1),
-            FechaFin = DateTime.Now.AddDays(1),
+            FechaRecarga = DateTime.Now.AddDays(-1),
             FotoGuia = fotoGuia,
             FotoOcr = fotoOcr
         };

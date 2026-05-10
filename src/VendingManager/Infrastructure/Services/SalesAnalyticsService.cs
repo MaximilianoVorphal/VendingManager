@@ -15,24 +15,38 @@ using VendingManager.Shared.DTOs;
 
 namespace VendingManager.Infrastructure.Services
 {
-    public class SalesAnalyticsService : ISalesAnalyticsService
-    {
-        private readonly ApplicationDbContext _context;
-        private readonly IExcelExportService _excelExportService;
-        private readonly IMemoryCache _cache;
-        private readonly AnalyticsThresholds _thresholds;
+public class SalesAnalyticsService : ISalesAnalyticsService
+{
+    private readonly ApplicationDbContext _context;
+    private readonly IExcelExportService _excelExportService;
+    private readonly IMemoryCache _cache;
+    private readonly AnalyticsThresholds _thresholds;
 
-        public SalesAnalyticsService(
-            ApplicationDbContext context,
-            IExcelExportService excelExportService,
-            IMemoryCache cache,
-            IOptions<AnalyticsThresholds> thresholds)
-        {
-            _context = context;
-            _excelExportService = excelExportService;
-            _cache = cache;
-            _thresholds = thresholds.Value;
-        }
+    public SalesAnalyticsService(
+        ApplicationDbContext context,
+        IExcelExportService excelExportService,
+        IMemoryCache cache,
+        IOptions<AnalyticsThresholds> thresholds)
+    {
+        _context = context;
+        _excelExportService = excelExportService;
+        _cache = cache;
+        _thresholds = thresholds.Value;
+    }
+
+    /// <summary>
+    /// Returns the computed end date for a period using the chain model.
+    /// </summary>
+    private async Task<DateTime> GetEndDateForPeriodoAsync(int maquinaId, DateTime fechaRecarga)
+    {
+        var nextRecarga = await _context.PeriodosRecarga
+            .Where(p => p.MaquinaId == maquinaId && p.FechaRecarga > fechaRecarga)
+            .OrderBy(p => p.FechaRecarga)
+            .Select(p => (DateTime?)p.FechaRecarga)
+            .FirstOrDefaultAsync();
+
+        return nextRecarga ?? new DateTime(2099, 12, 31, 23, 59, 59, 999999);
+    }
 
         public async Task<DashboardStats> GetDashboardStatsAsync(int maquinaId)
         {
@@ -127,10 +141,10 @@ namespace VendingManager.Infrastructure.Services
                     foreach (var p in periodos)
                     {
                         var maquinaIdP = p.MaquinaId;
-                        var fechaInicio = p.FechaInicio;
-                        var fechaFin = p.FechaFin;
+                        var fechaRecarga = p.FechaRecarga;
+                        var fechaFin = await GetEndDateForPeriodoAsync(maquinaIdP, fechaRecarga);
                         var maquinaEq = Expression.Equal(Expression.Property(parameter, nameof(Venta.MaquinaId)), Expression.Constant(maquinaIdP));
-                        var fechaGte = Expression.GreaterThanOrEqual(Expression.Property(parameter, nameof(Venta.FechaLocal)), Expression.Constant(fechaInicio));
+                        var fechaGte = Expression.GreaterThanOrEqual(Expression.Property(parameter, nameof(Venta.FechaLocal)), Expression.Constant(fechaRecarga));
                         var fechaLte = Expression.LessThanOrEqual(Expression.Property(parameter, nameof(Venta.FechaLocal)), Expression.Constant(fechaFin));
 
                         var range = Expression.AndAlso(maquinaEq, Expression.AndAlso(fechaGte, fechaLte));
@@ -523,12 +537,12 @@ namespace VendingManager.Infrastructure.Services
             var snapshotSlots = await _context.SnapshotSlots
                 .Include(ss => ss.PeriodoRecarga)
                 .Where(ss => maquinaId == 0 || ss.PeriodoRecarga.MaquinaId == maquinaId)
-                .Where(ss => ss.PeriodoRecarga.FechaInicio <= finAjustado)
+                .Where(ss => ss.PeriodoRecarga.FechaRecarga <= finAjustado)
                 .ToListAsync();
 
             var slotSnapshotLookup = snapshotSlots
                 .GroupBy(ss => new { ss.PeriodoRecarga.MaquinaId, ss.NumeroSlot })
-                .Select(g => g.OrderByDescending(ss => ss.PeriodoRecarga.FechaInicio).First())
+                .Select(g => g.OrderByDescending(ss => ss.PeriodoRecarga.FechaRecarga).First())
                 .ToDictionary(
                     ss => (ss.PeriodoRecarga.MaquinaId, ss.NumeroSlot),
                     ss => ss.CantidadInicial
