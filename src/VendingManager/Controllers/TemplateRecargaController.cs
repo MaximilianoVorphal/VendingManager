@@ -243,4 +243,38 @@ public class TemplateRecargaController(ITemplateRecargaService service) : Contro
             return NotFound(new { error = ex.Message, code = "TEMPLATE_NOT_FOUND" });
         }
     }
+
+    /// <summary>
+    /// Eliminar la foto guía de un template
+    /// </summary>
+    [HttpDelete("{id}/foto-guia")]
+    public async Task<IActionResult> DeleteFotoGuia(int id)
+    {
+        try
+        {
+            await service.DeleteFotoGuiaAsync(id);
+            return NoContent();
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { error = ex.Message, code = "TEMPLATE_NOT_FOUND" });
+        }
+    }
+
+    /// <summary>
+    /// Eliminar la foto OCR de un template
+    /// </summary>
+    [HttpDelete("{id}/foto-ocr")]
+    public async Task<IActionResult> DeleteFotoOcr(int id)
+    {
+        try
+        {
+            await service.DeleteFotoOcrAsync(id);
+            return NoContent();
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { error = ex.Message, code = "TEMPLATE_NOT_FOUND" });
+        }
+    }
 }

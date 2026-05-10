@@ -62,4 +62,14 @@ public interface ITemplateRecargaService
     /// Obtener foto OCR de un template
     /// </summary>
     Task<(byte[]? Data, string? ContentType)> GetFotoOcrAsync(int templateId);
+
+    /// <summary>
+    /// Eliminar la foto guía de un template
+    /// </summary>
+    Task DeleteFotoGuiaAsync(int templateId);
+
+    /// <summary>
+    /// Eliminar la foto OCR de un template
+    /// </summary>
+    Task DeleteFotoOcrAsync(int templateId);
 }
