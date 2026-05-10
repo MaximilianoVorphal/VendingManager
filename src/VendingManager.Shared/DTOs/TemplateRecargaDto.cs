@@ -44,6 +44,16 @@ public class PeriodoRecargaDto
     public DateTime FechaFin { get; set; }
 
     /// <summary>
+    /// Indica si este período tiene una foto guía persisted
+    /// </summary>
+    public bool TieneFotoGuia { get; set; }
+
+    /// <summary>
+    /// Indica si este período tiene una foto OCR persisted
+    /// </summary>
+    public bool TieneFotoOcr { get; set; }
+
+    /// <summary>
     /// Snapshot del inventario de slots al momento de la recarga
     /// </summary>
     public List<SnapshotSlotDto> SnapshotSlots { get; set; } = new();
