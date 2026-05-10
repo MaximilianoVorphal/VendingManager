@@ -11,16 +11,6 @@ public class TemplateRecargaDto
     public string? Descripcion { get; set; }
     public DateTime FechaCreacion { get; set; }
 
-    /// <summary>
-    /// Indica si este template tiene una foto guía persisted
-    /// </summary>
-    public bool TieneFotoGuia { get; set; }
-
-    /// <summary>
-    /// Indica si este template tiene una foto OCR persisted
-    /// </summary>
-    public bool TieneFotoOcr { get; set; }
-
     public List<PeriodoRecargaDto> Periodos { get; set; } = new();
 
     // Helpers para UI
