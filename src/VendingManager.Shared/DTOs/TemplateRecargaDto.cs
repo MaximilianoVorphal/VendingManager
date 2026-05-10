@@ -15,7 +15,7 @@ public class TemplateRecargaDto
 
     // Helpers para UI
     public int CantidadMaquinas => Periodos.Count;
-    public DateTime? FechaInicioMin => Periodos.Any() ? Periodos.Min(p => p.FechaInicio) : null;
+    public DateTime? FechaRecargaMin => Periodos.Any() ? Periodos.Min(p => p.FechaRecarga) : null;
     public DateTime? FechaFinMax => Periodos.Any() ? Periodos.Max(p => p.FechaFin) : null;
     public int CantidadSlotsPendientes => Periodos
         .SelectMany(p => p.SnapshotSlots)
@@ -30,7 +30,7 @@ public class PeriodoRecargaDto
     public int Id { get; set; }
     public int MaquinaId { get; set; }
     public string MaquinaNombre { get; set; } = string.Empty;
-    public DateTime FechaInicio { get; set; }
+    public DateTime FechaRecarga { get; set; }
     public DateTime FechaFin { get; set; }
 
     /// <summary>
@@ -49,7 +49,7 @@ public class PeriodoRecargaDto
     public List<SnapshotSlotDto> SnapshotSlots { get; set; } = new();
 
     // Helper para UI
-    public double DuracionHoras => (FechaFin - FechaInicio).TotalHours;
+    public double DuracionHoras => (FechaFin - FechaRecarga).TotalHours;
     public bool TieneSnapshot => SnapshotSlots.Any();
 }
 
@@ -69,8 +69,8 @@ public class CreateTemplateRecargaDto
 public class CreatePeriodoDto
 {
     public int MaquinaId { get; set; }
-    public DateTime FechaInicio { get; set; }
-    public DateTime FechaFin { get; set; }
+    // Single date field: replaces DESDE/HASTA pair
+    public DateTime FechaRecarga { get; set; }
 
     /// <summary>
     /// Snapshot del inventario de slots (opcional)
