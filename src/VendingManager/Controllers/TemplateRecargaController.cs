@@ -41,8 +41,15 @@ public class TemplateRecargaController(ITemplateRecargaService service) : Contro
         if (!dto.Periodos.Any())
             return BadRequest("Debe incluir al menos un período");
 
-        var result = await service.CreateAsync(dto);
-        return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
+        try
+        {
+            var result = await service.CreateAsync(dto);
+            return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("FechaRecarga"))
+        {
+            return Conflict(new { error = ex.Message, code = "CHAIN_CONFLICT" });
+        }
     }
 
     /// <summary>
@@ -55,6 +62,10 @@ public class TemplateRecargaController(ITemplateRecargaService service) : Contro
         {
             var result = await service.UpdateAsync(id, dto);
             return Ok(result);
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("FechaRecarga"))
+        {
+            return Conflict(new { error = ex.Message, code = "CHAIN_CONFLICT" });
         }
         catch (InvalidOperationException ex)
         {
