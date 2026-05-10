@@ -68,19 +68,13 @@
                         <div class="card-header bg-dark text-white rounded-0 d-flex justify-content-between align-items-center">
                             <div class="d-flex align-items-center gap-2">
                                 <span class="fw-bold text-uppercase">@template.Nombre</span>
-                                @if (template.TieneFotoGuia || template.TieneFotoOcr)
-                                {
-                                    <span class="badge bg-secondary rounded-0" title="Tiene fotos asociadas">
-                                        <i class="bi bi-camera-fill"></i>
-                                    </span>
-                                }
                                 @if (template.CantidadSlotsPendientes > 0)
                                 {
                                     <span class="badge bg-warning text-dark rounded-0">⚠ @template.CantidadSlotsPendientes pendiente(s)</span>
                                 }
                             </div>
-                            <div>
-                                <button class="btn btn-sm btn-outline-light rounded-0 me-1"
+                            <div class="d-flex gap-1">
+                                <button class="btn btn-sm btn-outline-light rounded-0"
                             @onclick="() => AbrirModalEditar(template)" title="Editar">
                                     <i class="bi bi-pencil"></i>
                                 </button>
@@ -127,7 +121,7 @@
 <button class="btn btn-warning w-100 rounded-0 fw-bold"
                                 @onclick="() => AbrirModalSincronizar(template.Id)"
                                 disabled="@_syncCtors.Any()">
-                                <i class="bi bi-arrow-repeat me-1"></i> APLICAR A VENTAS
+                                <i class="bi bi-arrow-repeat me-1"></i> SINCRONIZAR TODO
                             </button>
                         </div>
                     </div>
@@ -557,7 +551,7 @@
 <!-- MODAL SLOTS PENDIENTES -->
 @if (MostrarModalPendientes)
 {
-    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5); z-index: 1110;">
         <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content border-2 border-dark rounded-0">
                 <div class="modal-header bg-warning text-dark rounded-0 border-bottom border-dark">
@@ -623,7 +617,7 @@
 <!-- MODAL SINCRONIZAR VENTAS -->
 @if (MostrarModalSincronizar)
 {
-    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5); z-index: 1110;">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content border-2 border-dark rounded-0">
                 <div class="modal-header bg-warning text-dark rounded-0 border-bottom border-dark">
@@ -700,8 +694,9 @@
     private string FotoGuiaZoomDisplay =>
         _fotoGuiaZoom.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture);
 
-    private void AbrirEdicionVisual(PeriodoFormModel periodo)
+    private async Task AbrirEdicionVisual(PeriodoFormModel periodo)
     {
+        await JS.InvokeVoidAsync("modalScrollLock.lock");
         PeriodoEnEdicionVisual = periodo;
         // Reset OCR state when opening
         ProcesandoOcr = false;
@@ -716,8 +711,9 @@
         Layout?.CollapseNavbar();
     }
 
-    private void CerrarEdicionVisual()
+    private async Task CerrarEdicionVisual()
     {
+        await JS.InvokeVoidAsync("modalScrollLock.unlock");
         if (MostrarFotoGuia)
         {
             MostrarFotoGuia = false;
@@ -998,10 +994,11 @@
         }
     }
 
-    private void MostrarFotoGuiaModal()
+    private async Task MostrarFotoGuiaModal()
     {
         if (!string.IsNullOrEmpty(FotoGuiaUrl))
         {
+            await JS.InvokeVoidAsync("modalScrollLock.lock");
             MostrarFotoGuia = true;
         }
     }
@@ -1019,8 +1016,9 @@
     // ElementReference for the foto guía modal wrapper — needed for FocusAsync
     private ElementReference fotoGuiaModalRef;
 
-    private void CerrarFotoGuiaModal()
+    private async Task CerrarFotoGuiaModal()
     {
+        await JS.InvokeVoidAsync("modalScrollLock.unlock");
         MostrarFotoGuia = false;
         StateHasChanged();
     }
@@ -1055,10 +1053,10 @@
         StateHasChanged();
     }
 
-    private void OnFotoGuiaKeydown(KeyboardEventArgs e)
+    private async Task OnFotoGuiaKeydown(KeyboardEventArgs e)
     {
         if (e.Key == "Escape" && MostrarFotoGuia)
-            CerrarFotoGuiaModal();
+            await CerrarFotoGuiaModal();
     }
 
     private void RevokeFotoGuiaUrl()
@@ -1188,8 +1186,9 @@
         }
     }
 
-    private void AbrirModalCrear()
+    private async Task AbrirModalCrear()
     {
+        await JS.InvokeVoidAsync("modalScrollLock.lock");
         EsEdicion = false;
         TemplateIdEdicion = 0;
         _currentTemplateId = 0;
@@ -1198,8 +1197,9 @@
         MostrarModal = true;
     }
 
-    private void AbrirModalEditar(TemplateRecargaDto template)
+    private async Task AbrirModalEditar(TemplateRecargaDto template)
     {
+        await JS.InvokeVoidAsync("modalScrollLock.lock");
         EsEdicion = true;
         TemplateIdEdicion = template.Id;
         _currentTemplateId = template.Id;
@@ -1236,8 +1236,9 @@
         }
     }
 
-    private void CerrarModal()
+    private async Task CerrarModal()
     {
+        await JS.InvokeVoidAsync("modalScrollLock.unlock");
         MostrarModal = false;
     }
 
@@ -1563,7 +1564,7 @@
         }
     }
 
-    private void MostrarPendientes()
+    private async Task MostrarPendientes()
     {
         SlotsPendientes = new List<PendingSlotInfo>();
         if (Templates == null) return;
@@ -1587,23 +1588,25 @@
             }
         }
 
+        await JS.InvokeVoidAsync("modalScrollLock.lock");
         MostrarModalPendientes = true;
     }
 
-    private void CerrarModalPendientes()
+    private async Task CerrarModalPendientes()
     {
+        await JS.InvokeVoidAsync("modalScrollLock.unlock");
         MostrarModalPendientes = false;
     }
 
     private async Task IrAPendiente(PendingSlotInfo info)
     {
-        MostrarModalPendientes = false;
+        await CerrarModalPendientes();
 
         var template = Templates?.FirstOrDefault(t => t.Id == info.TemplateId);
         if (template == null) return;
 
         // Abrir edición del template
-        AbrirModalEditar(template);
+        await AbrirModalEditar(template);
         StateHasChanged();
 
         // Buscar el índice del período que tiene el slot pendiente
@@ -1616,7 +1619,7 @@
         // Abrir el editor visual
         if (periodoIndex < PeriodosActuales.Count)
         {
-            AbrirEdicionVisual(PeriodosActuales[periodoIndex]);
+            await AbrirEdicionVisual(PeriodosActuales[periodoIndex]);
         }
         StateHasChanged();
     }
@@ -1626,15 +1629,17 @@
         NavManager.NavigateTo($"/stockout-dashboard?templateId={id}");
     }
 
-    private void AbrirModalSincronizar(int id)
+    private async Task AbrirModalSincronizar(int id)
     {
+        await JS.InvokeVoidAsync("modalScrollLock.lock");
         TemplateIdSincronizar = id;
         ActualizarCostosSincronizacion = false; // default
         MostrarModalSincronizar = true;
     }
 
-    private void CerrarModalSincronizar()
+    private async Task CerrarModalSincronizar()
     {
+        await JS.InvokeVoidAsync("modalScrollLock.unlock");
         MostrarModalSincronizar = false;
     }
 
@@ -1667,6 +1672,7 @@
         {
             Sincronizando = false;
             MostrarModalSincronizar = false;
+            await JS.InvokeVoidAsync("modalScrollLock.unlock");
             StateHasChanged();
         }
     }
