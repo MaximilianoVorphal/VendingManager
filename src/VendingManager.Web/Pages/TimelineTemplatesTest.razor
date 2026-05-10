@@ -193,7 +193,7 @@
                 TemplateName = t.Nombre,
                 p.MaquinaId,
                 p.MaquinaNombre,
-                p.FechaInicio,
+                p.FechaRecarga,
                 p.FechaFin
             })).ToList();
 
@@ -202,7 +202,7 @@
             // 2. Definir boundaries globales. 
             // Buscamos el inicio más antiguo y le quitamos un par de días de pad.
             // El fin será HOY + 3 días para poder ver templates futuros si existen.
-            var minDate = allPeriodosPlana.Min(p => p.FechaInicio).Date;
+            var minDate = allPeriodosPlana.Min(p => p.FechaRecarga).Date;
             var maxTemplateDate = allPeriodosPlana.Max(p => p.FechaFin).Date;
             var possibleEnd = DateTime.Now.Date.AddDays(7); 
             
@@ -228,7 +228,7 @@
                 };
 
                 // Ordenar periodos cronologicamente
-                var periodosOrdenados = maquina.OrderBy(p => p.FechaInicio).ToList();
+                var periodosOrdenados = maquina.OrderBy(p => p.FechaRecarga).ToList();
                 
                 DateTime cursorTime = GlobalStart;
 
@@ -238,18 +238,18 @@
                     if (per.FechaFin < GlobalStart) continue; 
                     
                     // ¿Hay Hueco antes del Template?
-                    if (per.FechaInicio > cursorTime)
+                    if (per.FechaRecarga > cursorTime)
                     {
-                        var gapLength = (per.FechaInicio - cursorTime).TotalSeconds;
+                        var gapLength = (per.FechaRecarga - cursorTime).TotalSeconds;
                         // Evitar huecos milimétricos (menores a 1 hora)
                         if (gapLength > 3600) 
                         {
-                            row.Segments.Add(CrearSegmento(cursorTime, per.FechaInicio, true, "GAP"));
+                            row.Segments.Add(CrearSegmento(cursorTime, per.FechaRecarga, true, "GAP"));
                         }
                     }
 
                     // Cubrimos el Template (Sanitizando limites)
-                    var cStart = per.FechaInicio < GlobalStart ? GlobalStart : per.FechaInicio;
+                    var cStart = per.FechaRecarga < GlobalStart ? GlobalStart : per.FechaRecarga;
                     var cEnd = per.FechaFin > GlobalEnd ? GlobalEnd : per.FechaFin;
                     
                     row.Segments.Add(CrearSegmento(cStart, cEnd, false, per.TemplateName));
@@ -323,7 +323,7 @@
     {
         public int MaquinaId { get; set; }
         public string MaquinaNombre { get; set; } = string.Empty;
-        public DateTime FechaInicio { get; set; }
+        public DateTime FechaRecarga { get; set; }
         public DateTime FechaFin { get; set; }
     }
 
