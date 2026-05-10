@@ -160,22 +160,25 @@ namespace VendingManager.Web.Pages
                 NavManager.NavigateTo("api/OrdenCarga/exportar-consolidado", true);
         }
 
-        private void AbrirFinalizar(OrdenCargaDto orden)
+        private async Task AbrirFinalizar(OrdenCargaDto orden)
         {
+            await JS.InvokeVoidAsync("modalScrollLock.lock");
             OrdenSeleccionada = orden;
             EsModoLectura = false;
             MostrarModalFinalizar = true;
         }
 
-        private void AbrirDetalle(OrdenCargaDto orden)
+        private async Task AbrirDetalle(OrdenCargaDto orden)
         {
+            await JS.InvokeVoidAsync("modalScrollLock.lock");
             OrdenSeleccionada = orden;
             EsModoLectura = true;
             MostrarModalFinalizar = true;
         }
 
-        private void CerrarModal()
+        private async Task CerrarModal()
         {
+            await JS.InvokeVoidAsync("modalScrollLock.unlock");
             MostrarModalFinalizar = false;
             OrdenSeleccionada = null;
         }
@@ -187,8 +190,15 @@ namespace VendingManager.Web.Pages
         private DateTime FechaManual = DateTime.Now;
         private bool CargarSugerenciaManual = false;
 
-        private void AbrirModalManual()
+        private async Task CerrarModalManual()
         {
+            await JS.InvokeVoidAsync("modalScrollLock.unlock");
+            MostrarModalManual = false;
+        }
+
+        private async Task AbrirModalManual()
+        {
+            await JS.InvokeVoidAsync("modalScrollLock.lock");
             MaquinaManualId = MaquinaActualId > 0 ? MaquinaActualId : 0;
             NombreManual = ""; // Reset
             FechaManual = DateTime.Now;
@@ -367,7 +377,7 @@ namespace VendingManager.Web.Pages
                 {
                     Mensaje = "Orden finalizada. Stock retornado a bodega.";
                     AlertClass = "alert-success";
-                    CerrarModal();
+                    await CerrarModal();
                     await CargarDatos(); // Refresh
                 }
                  else

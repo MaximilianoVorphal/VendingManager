@@ -375,13 +375,35 @@
             SelectedSwapProductId = slot.ProductoId ?? 0;
             SelectedSwapPrice = slot.PrecioVenta; // Pre-fill with current price
             SelectedSwapQuantity = slot.CapacidadMaxima; // Default to max capacity or let user choose
+            JS.InvokeVoidAsync("modalScrollLock.lock");
             ShowSwapModal = true;
         }
     }
 
-    // --- SWAP LOGIC ---
-    private void CloseModal()
+    // --- HELPER ---
+    private string GetSlotStatusClass(ConfiguracionSlotDto slot, SlotActionDto? action)
     {
+        if (action != null)
+            return action.ActionType switch
+            {
+                "REFILL" => "slot-pending-refill",
+                "EMPTY" => "slot-pending-empty",
+                "SWAP" => "slot-pending-swap",
+                _ => ""
+            };
+        if (slot.StockActual <= 0 && slot.ProductoId == null)
+            return "slot-empty";
+        if (slot.StockActual <= 0 && slot.ProductoId != null)
+            return "slot-critical";
+        if (slot.CapacidadMaxima > 0 && (double)slot.StockActual / slot.CapacidadMaxima <= 0.25)
+            return "slot-low";
+        return "";
+    }
+
+    // --- SWAP LOGIC ---
+    private async Task CloseModal()
+    {
+        await JS.InvokeVoidAsync("modalScrollLock.unlock");
         ShowSwapModal = false;
         SlotForSwap = null;
     }
@@ -414,25 +436,9 @@
             });
         }
 
+        JS.InvokeVoidAsync("modalScrollLock.unlock");
         ShowSwapModal = false;
         SlotForSwap = null;
-    }
-
-
-    private string GetSlotStatusClass(ConfiguracionSlotDto s, SlotActionDto? action)
-    {
-        if (action != null)
-        {
-            if (action.ActionType == "REFILL") return "action-refill";
-            if (action.ActionType == "EMPTY") return "action-empty";
-            if (action.ActionType == "SWAP") return "action-swap";
-        }
-
-        if (s.Producto == null) return "bg-light opacity-50"; // Unassigned
-        if (s.StockActual <= 0) return "slot-empty slot-disabled";
-        if (s.StockActual <= 2) return "slot-empty"; // Critical visual same as empty-ish
-        if (s.StockActual >= s.CapacidadMaxima) return "slot-full";
-        return "slot-partial"; 
     }
 
     private async Task ConfirmarAcciones()

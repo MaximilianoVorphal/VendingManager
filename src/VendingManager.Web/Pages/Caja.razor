@@ -755,7 +755,7 @@
             <div class="modal-content rounded-0 border-2 border-dark shadow-lg">
                 <div class="modal-header bg-dark text-white rounded-0">
                     <h5 class="modal-title fw-bold text-uppercase"><i class="bi bi-gear me-2"></i>@(GastoEditando.Id > 0 ? "EDITAR" : "NUEVO") GASTO FIJO</h5>
-                    <button type="button" class="btn-close btn-close-white" @onclick="() => MostrarModalGastoFijo = false"></button>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CerrarModalGastoFijo"></button>
                 </div>
                 <div class="modal-body p-4 bg-light">
                     <div class="mb-3">
@@ -799,7 +799,7 @@
                     </div>
                 </div>
                 <div class="modal-footer bg-white border-top border-dark rounded-0">
-                    <button class="btn btn-outline-dark rounded-0" @onclick="() => MostrarModalGastoFijo = false">CANCELAR</button>
+                    <button class="btn btn-outline-dark rounded-0" @onclick="CerrarModalGastoFijo">CANCELAR</button>
                     <button class="btn btn-dark rounded-0 fw-bold" @onclick="GuardarGastoFijo">
                         <i class="bi bi-check-lg me-1"></i>GUARDAR
                     </button>
@@ -817,7 +817,7 @@
             <div class="modal-content rounded-0 border-2 border-warning shadow-lg">
                 <div class="modal-header bg-warning text-dark rounded-0">
                     <h5 class="modal-title fw-bold text-uppercase"><i class="bi bi-lightning-fill me-2"></i>APLICAR GASTOS FIJOS — @SelectedDate.ToString("MMMM yyyy").ToUpper()</h5>
-                    <button type="button" class="btn-close" @onclick="() => MostrarModalAplicarGastos = false"></button>
+                    <button type="button" class="btn-close" @onclick="CerrarModalAplicarGastos"></button>
                 </div>
                 <div class="modal-body p-0">
                     <div class="alert alert-info rounded-0 m-3 mb-0 small border-dark">
@@ -856,7 +856,7 @@
                 <div class="modal-footer bg-light border-top border-dark rounded-0 d-flex justify-content-between">
                     <small class="text-muted">Los montos en 0 usarán el valor estimado.</small>
                     <div class="d-flex gap-2">
-                        <button class="btn btn-outline-dark rounded-0" @onclick="() => MostrarModalAplicarGastos = false">CANCELAR</button>
+                        <button class="btn btn-outline-dark rounded-0" @onclick="CerrarModalAplicarGastos">CANCELAR</button>
                         <button class="btn btn-warning rounded-0 fw-bold text-dark" @onclick="AplicarTodosGastos" disabled="@AplicandoGastos">
                             @if (AplicandoGastos)
                             {
@@ -1225,15 +1225,29 @@
         try { ListaMaquinas = await Http.GetFromJsonAsync<List<MaquinaSimpleDto>>("api/Ventas/lista-maquinas") ?? new(); } catch {}
     }
 
-    private void AbrirModalNuevoGasto()
+    private async Task CerrarModalGastoFijo()
     {
+        await JS.InvokeVoidAsync("modalScrollLock.unlock");
+        MostrarModalGastoFijo = false;
+    }
+
+    private async Task CerrarModalAplicarGastos()
+    {
+        await JS.InvokeVoidAsync("modalScrollLock.unlock");
+        MostrarModalAplicarGastos = false;
+    }
+
+    private async Task AbrirModalNuevoGasto()
+    {
+        await JS.InvokeVoidAsync("modalScrollLock.lock");
         GastoEditando = new GastoRecurrenteDto { Categoria = "INTERNET" };
         GastoEditandoMaquinaId = 0;
         MostrarModalGastoFijo = true;
     }
 
-    private void EditarGasto(GastoRecurrenteDto gasto)
+    private async Task EditarGasto(GastoRecurrenteDto gasto)
     {
+        await JS.InvokeVoidAsync("modalScrollLock.lock");
         GastoEditando = new GastoRecurrenteDto
         {
             Id = gasto.Id,
@@ -1265,6 +1279,7 @@
             {
                 await Http.PostAsJsonAsync("api/GastoRecurrente", GastoEditando);
             }
+            await JS.InvokeVoidAsync("modalScrollLock.unlock");
             MostrarModalGastoFijo = false;
             await CargarGastosRecurrentes();
             await CargarGastosPendientes();
@@ -1283,8 +1298,9 @@
         catch { }
     }
 
-    private void MostrarModalAplicar()
+    private async Task MostrarModalAplicar()
     {
+        await JS.InvokeVoidAsync("modalScrollLock.lock");
         MontosReales = new Dictionary<int, decimal>();
         if (GastosPendientes != null)
         {
@@ -1311,6 +1327,7 @@
                     .ToList()
             };
             await Http.PostAsJsonAsync("api/GastoRecurrente/aplicar-todos", request);
+            await JS.InvokeVoidAsync("modalScrollLock.unlock");
             MostrarModalAplicarGastos = false;
             await CargarDatos();
         }

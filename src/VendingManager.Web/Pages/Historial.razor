@@ -5,6 +5,7 @@
 @using DiffPlex.DiffBuilder.Model
 @inject HttpClient Http
 @inject NavigationManager Navigation
+@inject IJSRuntime JS
 
 <PageTitle>HISTORIAL DE CAMBIOS</PageTitle>
 
@@ -308,14 +309,16 @@
             expandedItems.Add(id);
     }
 
-    private void ConfirmarRollback(HistoryListItemDto item)
+    private async Task ConfirmarRollback(HistoryListItemDto item)
     {
+        await JS.InvokeVoidAsync("modalScrollLock.lock");
         ItemParaRollback = item;
         ErrorRollback = null;
     }
 
-    private void CancelarRollback()
+    private async Task CancelarRollback()
     {
+        await JS.InvokeVoidAsync("modalScrollLock.unlock");
         ItemParaRollback = null;
         ErrorRollback = null;
     }
@@ -335,7 +338,7 @@
 
             if (response.IsSuccessStatusCode)
             {
-                CancelarRollback();
+                await CancelarRollback();
                 await CargarHistorial();
             }
             else
