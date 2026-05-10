@@ -688,10 +688,10 @@
 
     // === Defensive scroll lock helpers (guard against missing JS) ===
     private async Task LockScroll() {
-        try { await LockScroll(); } catch { }
+        try { await JS.InvokeVoidAsync("modalScrollLock.lock"); } catch { }
     }
     private async Task UnlockScroll() {
-        try { await UnlockScroll(); } catch { }
+        try { await JS.InvokeVoidAsync("modalScrollLock.unlock"); } catch { }
     }
 
     // CSS transform string — must use InvariantCulture or comma-decimal cultures break CSS syntax
