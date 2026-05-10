@@ -12,6 +12,8 @@ public class TemplateRecargaController_FotoTests
 {
     private readonly Mock<ITemplateRecargaService> _mockService;
     private readonly TemplateRecargaController _controller;
+    private const int TemplateId = 1;
+    private const int PeriodoId = 10;
 
     public TemplateRecargaController_FotoTests()
     {
@@ -49,10 +51,10 @@ public class TemplateRecargaController_FotoTests
 
         var file = CreateMockFormFile(new byte[] { 0xFF, 0xD8, 0xFF }, "image/jpeg", "test.jpg");
 
-        var result = await _controller.UploadFotoGuia(1, file);
+        var result = await _controller.UploadFotoGuia(TemplateId, PeriodoId, file);
 
         result.Should().BeOfType<OkObjectResult>();
-        _mockService.Verify(s => s.SaveFotoGuiaAsync(1, It.IsAny<byte[]>(), "image/jpeg"), Times.Once);
+        _mockService.Verify(s => s.SaveFotoGuiaAsync(PeriodoId, It.IsAny<byte[]>(), "image/jpeg"), Times.Once);
     }
 
     [Fact]
@@ -61,7 +63,7 @@ public class TemplateRecargaController_FotoTests
         // 11 MB file — exceeds 10 MB limit
         var file = CreateOversizedMockFormFile(11, "image/jpeg");
 
-        var result = await _controller.UploadFotoGuia(1, file);
+        var result = await _controller.UploadFotoGuia(TemplateId, PeriodoId, file);
 
         var statusCode = (result as ObjectResult)!.StatusCode;
         statusCode.Should().Be(413);
@@ -72,20 +74,20 @@ public class TemplateRecargaController_FotoTests
     {
         var file = CreateMockFormFile(new byte[] { 0x25, 0x50, 0x44, 0x46 }, "application/pdf", "test.pdf");
 
-        var result = await _controller.UploadFotoGuia(1, file);
+        var result = await _controller.UploadFotoGuia(TemplateId, PeriodoId, file);
 
         var statusCode = (result as ObjectResult)!.StatusCode;
         statusCode.Should().Be(415);
     }
 
     [Fact]
-    public async Task UploadFotoGuia_TemplateNotFound_Returns404()
+    public async Task UploadFotoGuia_PeriodoNotFound_Returns404()
     {
         var file = CreateMockFormFile(new byte[] { 0xFF, 0xD8, 0xFF }, "image/jpeg", "test.jpg");
         _mockService.Setup(s => s.SaveFotoGuiaAsync(It.IsAny<int>(), It.IsAny<byte[]>(), It.IsAny<string>()))
-            .ThrowsAsync(new KeyNotFoundException("Template no encontrado"));
+            .ThrowsAsync(new KeyNotFoundException("Período no encontrado"));
 
-        var result = await _controller.UploadFotoGuia(9999, file);
+        var result = await _controller.UploadFotoGuia(TemplateId, 9999, file);
 
         result.Should().BeOfType<NotFoundObjectResult>();
     }
@@ -96,10 +98,10 @@ public class TemplateRecargaController_FotoTests
     public async Task GetFotoGuia_PhotoExists_ReturnsFileResult()
     {
         var fotoBytes = new byte[] { 0xFF, 0xD8, 0xFF, 0xE0 };
-        _mockService.Setup(s => s.GetFotoGuiaAsync(1))
+        _mockService.Setup(s => s.GetFotoGuiaAsync(PeriodoId))
             .ReturnsAsync((fotoBytes, "image/jpeg"));
 
-        var result = await _controller.GetFotoGuia(1);
+        var result = await _controller.GetFotoGuia(TemplateId, PeriodoId);
 
         var fileResult = result.Should().BeOfType<FileContentResult>().Subject;
         fileResult.ContentType.Should().Be("image/jpeg");
@@ -109,21 +111,21 @@ public class TemplateRecargaController_FotoTests
     [Fact]
     public async Task GetFotoGuia_NullPhoto_Returns404()
     {
-        _mockService.Setup(s => s.GetFotoGuiaAsync(1))
+        _mockService.Setup(s => s.GetFotoGuiaAsync(PeriodoId))
             .ReturnsAsync(((byte[]?)null, (string?)null));
 
-        var result = await _controller.GetFotoGuia(1);
+        var result = await _controller.GetFotoGuia(TemplateId, PeriodoId);
 
         result.Should().BeOfType<NotFoundObjectResult>();
     }
 
     [Fact]
-    public async Task GetFotoGuia_TemplateNotFound_Returns404()
+    public async Task GetFotoGuia_PeriodoNotFound_Returns404()
     {
         _mockService.Setup(s => s.GetFotoGuiaAsync(9999))
-            .ThrowsAsync(new KeyNotFoundException("Template no encontrado"));
+            .ThrowsAsync(new KeyNotFoundException("Período no encontrado"));
 
-        var result = await _controller.GetFotoGuia(9999);
+        var result = await _controller.GetFotoGuia(TemplateId, 9999);
 
         result.Should().BeOfType<NotFoundObjectResult>();
     }
@@ -138,10 +140,10 @@ public class TemplateRecargaController_FotoTests
 
         var file = CreateMockFormFile(new byte[] { 0xFF, 0xD8, 0xFF }, "image/jpeg", "ocr.jpg");
 
-        var result = await _controller.UploadFotoOcr(1, file);
+        var result = await _controller.UploadFotoOcr(TemplateId, PeriodoId, file);
 
         result.Should().BeOfType<OkObjectResult>();
-        _mockService.Verify(s => s.SaveFotoOcrAsync(1, It.IsAny<byte[]>(), "image/jpeg"), Times.Once);
+        _mockService.Verify(s => s.SaveFotoOcrAsync(PeriodoId, It.IsAny<byte[]>(), "image/jpeg"), Times.Once);
     }
 
     [Fact]
@@ -150,7 +152,7 @@ public class TemplateRecargaController_FotoTests
         // 6 MB file — exceeds 5 MB limit
         var file = CreateOversizedMockFormFile(6, "image/jpeg");
 
-        var result = await _controller.UploadFotoOcr(1, file);
+        var result = await _controller.UploadFotoOcr(TemplateId, PeriodoId, file);
 
         var statusCode = (result as ObjectResult)!.StatusCode;
         statusCode.Should().Be(413);
@@ -164,7 +166,7 @@ public class TemplateRecargaController_FotoTests
             "image/svg+xml",
             "test.svg");
 
-        var result = await _controller.UploadFotoOcr(1, file);
+        var result = await _controller.UploadFotoOcr(TemplateId, PeriodoId, file);
 
         var statusCode = (result as ObjectResult)!.StatusCode;
         statusCode.Should().Be(415);
@@ -176,10 +178,10 @@ public class TemplateRecargaController_FotoTests
     public async Task GetFotoOcr_PhotoExists_ReturnsFileResult()
     {
         var fotoBytes = new byte[] { 0xFF, 0xD8, 0xFF, 0xE0 };
-        _mockService.Setup(s => s.GetFotoOcrAsync(1))
+        _mockService.Setup(s => s.GetFotoOcrAsync(PeriodoId))
             .ReturnsAsync((fotoBytes, "image/jpeg"));
 
-        var result = await _controller.GetFotoOcr(1);
+        var result = await _controller.GetFotoOcr(TemplateId, PeriodoId);
 
         var fileResult = result.Should().BeOfType<FileContentResult>().Subject;
         fileResult.ContentType.Should().Be("image/jpeg");
@@ -189,10 +191,10 @@ public class TemplateRecargaController_FotoTests
     [Fact]
     public async Task GetFotoOcr_NullPhoto_Returns404()
     {
-        _mockService.Setup(s => s.GetFotoOcrAsync(1))
+        _mockService.Setup(s => s.GetFotoOcrAsync(PeriodoId))
             .ReturnsAsync(((byte[]?)null, (string?)null));
 
-        var result = await _controller.GetFotoOcr(1);
+        var result = await _controller.GetFotoOcr(TemplateId, PeriodoId);
 
         result.Should().BeOfType<NotFoundObjectResult>();
     }
