@@ -26,19 +26,29 @@ public class TemplateRecargaService_FotoTests : IDisposable
         _context.Dispose();
     }
 
-    private async Task<TemplateRecarga> SeedTemplateWithFoto(int id, string nombre, byte[]? fotoGuia, byte[]? fotoOcr)
+    private async Task<PeriodoRecarga> SeedPeriodoWithFoto(int periodoId, string nombre, byte[]? fotoGuia, byte[]? fotoOcr)
     {
         var template = new TemplateRecarga
         {
-            Id = id,
-            Nombre = nombre,
-            FechaCreacion = DateTime.Now,
+            Id = 1,
+            Nombre = "Test Template",
+            FechaCreacion = DateTime.Now
+        };
+        _context.TemplatesRecarga.Add(template);
+
+        var periodo = new PeriodoRecarga
+        {
+            Id = periodoId,
+            TemplateRecargaId = template.Id,
+            MaquinaId = 1,
+            FechaInicio = DateTime.Now.AddDays(-1),
+            FechaFin = DateTime.Now.AddDays(1),
             FotoGuia = fotoGuia,
             FotoOcr = fotoOcr
         };
-        _context.TemplatesRecarga.Add(template);
+        _context.PeriodosRecarga.Add(periodo);
         await _context.SaveChangesAsync();
-        return template;
+        return periodo;
     }
 
     // ─── SaveFotoGuiaAsync ───────────────────────────────────────────────────
@@ -47,15 +57,15 @@ public class TemplateRecargaService_FotoTests : IDisposable
     public async Task SaveFotoGuiaAsync_HappyPath_StoresBytesAndReturns()
     {
         // Arrange
-        var template = await SeedTemplateWithFoto(1, "Test Template", null, null);
+        var periodo = await SeedPeriodoWithFoto(1, "Test Periodo", null, null);
         var fotoBytes = new byte[] { 0x89, 0x50, 0x4E, 0x47 }; // PNG magic bytes
         var contentType = "image/png";
 
         // Act
-        await _service.SaveFotoGuiaAsync(template.Id, fotoBytes, contentType);
+        await _service.SaveFotoGuiaAsync(periodo.Id, fotoBytes, contentType);
 
         // Assert
-        var updated = await _context.TemplatesRecarga.AsNoTracking().FirstAsync(t => t.Id == template.Id);
+        var updated = await _context.PeriodosRecarga.AsNoTracking().FirstAsync(p => p.Id == periodo.Id);
         updated.FotoGuia.Should().NotBeNull();
         updated.FotoGuia.Should().BeEquivalentTo(fotoBytes);
         // FotoOcr unchanged
@@ -67,19 +77,19 @@ public class TemplateRecargaService_FotoTests : IDisposable
     {
         // Arrange
         var originalBytes = new byte[] { 0xFF, 0xD8, 0xFF, 0xE0 }; // JPEG magic
-        var template = await SeedTemplateWithFoto(1, "Test Template", originalBytes, null);
+        var periodo = await SeedPeriodoWithFoto(1, "Test Periodo", originalBytes, null);
         var newBytes = new byte[] { 0x89, 0x50, 0x4E, 0x47 }; // PNG
 
         // Act
-        await _service.SaveFotoGuiaAsync(template.Id, newBytes, "image/png");
+        await _service.SaveFotoGuiaAsync(periodo.Id, newBytes, "image/png");
 
         // Assert
-        var updated = await _context.TemplatesRecarga.AsNoTracking().FirstAsync(t => t.Id == template.Id);
+        var updated = await _context.PeriodosRecarga.AsNoTracking().FirstAsync(p => p.Id == periodo.Id);
         updated.FotoGuia.Should().BeEquivalentTo(newBytes);
     }
 
     [Fact]
-    public async Task SaveFotoGuiaAsync_TemplateNotFound_ThrowsKeyNotFoundException()
+    public async Task SaveFotoGuiaAsync_PeriodoNotFound_ThrowsKeyNotFoundException()
     {
         // Arrange
         var fotoBytes = new byte[] { 0x89, 0x50, 0x4E, 0x47 };
@@ -97,10 +107,10 @@ public class TemplateRecargaService_FotoTests : IDisposable
     {
         // Arrange
         var storedBytes = new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A };
-        await SeedTemplateWithFoto(1, "Test Template", storedBytes, null);
+        var periodo = await SeedPeriodoWithFoto(1, "Test Periodo", storedBytes, null);
 
         // Act
-        var (data, contentType) = await _service.GetFotoGuiaAsync(1);
+        var (data, contentType) = await _service.GetFotoGuiaAsync(periodo.Id);
 
         // Assert
         data.Should().NotBeNull();
@@ -112,17 +122,17 @@ public class TemplateRecargaService_FotoTests : IDisposable
     public async Task GetFotoGuiaAsync_NeverUploaded_ReturnsNullData()
     {
         // Arrange
-        await SeedTemplateWithFoto(1, "Test Template", null, null);
+        var periodo = await SeedPeriodoWithFoto(1, "Test Periodo", null, null);
 
         // Act
-        var (data, contentType) = await _service.GetFotoGuiaAsync(1);
+        var (data, contentType) = await _service.GetFotoGuiaAsync(periodo.Id);
 
         // Assert
         data.Should().BeNull();
     }
 
     [Fact]
-    public async Task GetFotoGuiaAsync_TemplateNotFound_ThrowsKeyNotFoundException()
+    public async Task GetFotoGuiaAsync_PeriodoNotFound_ThrowsKeyNotFoundException()
     {
         // Act & Assert
         await Assert.ThrowsAsync<KeyNotFoundException>(
@@ -135,15 +145,15 @@ public class TemplateRecargaService_FotoTests : IDisposable
     public async Task SaveFotoOcrAsync_HappyPath_StoresBytesAndReturns()
     {
         // Arrange
-        var template = await SeedTemplateWithFoto(1, "Test Template", null, null);
+        var periodo = await SeedPeriodoWithFoto(1, "Test Periodo", null, null);
         var fotoBytes = new byte[] { 0x89, 0x50, 0x4E, 0x47 };
         var contentType = "image/png";
 
         // Act
-        await _service.SaveFotoOcrAsync(template.Id, fotoBytes, contentType);
+        await _service.SaveFotoOcrAsync(periodo.Id, fotoBytes, contentType);
 
         // Assert
-        var updated = await _context.TemplatesRecarga.AsNoTracking().FirstAsync(t => t.Id == template.Id);
+        var updated = await _context.PeriodosRecarga.AsNoTracking().FirstAsync(p => p.Id == periodo.Id);
         updated.FotoOcr.Should().NotBeNull();
         updated.FotoOcr.Should().BeEquivalentTo(fotoBytes);
         updated.FotoGuia.Should().BeNull();
@@ -154,19 +164,19 @@ public class TemplateRecargaService_FotoTests : IDisposable
     {
         // Arrange
         var originalBytes = new byte[] { 0xFF, 0xD8, 0xFF, 0xE0 };
-        var template = await SeedTemplateWithFoto(1, "Test Template", null, originalBytes);
+        var periodo = await SeedPeriodoWithFoto(1, "Test Periodo", null, originalBytes);
         var newBytes = new byte[] { 0x89, 0x50, 0x4E, 0x47 };
 
         // Act
-        await _service.SaveFotoOcrAsync(template.Id, newBytes, "image/png");
+        await _service.SaveFotoOcrAsync(periodo.Id, newBytes, "image/png");
 
         // Assert
-        var updated = await _context.TemplatesRecarga.AsNoTracking().FirstAsync(t => t.Id == template.Id);
+        var updated = await _context.PeriodosRecarga.AsNoTracking().FirstAsync(p => p.Id == periodo.Id);
         updated.FotoOcr.Should().BeEquivalentTo(newBytes);
     }
 
     [Fact]
-    public async Task SaveFotoOcrAsync_TemplateNotFound_ThrowsKeyNotFoundException()
+    public async Task SaveFotoOcrAsync_PeriodoNotFound_ThrowsKeyNotFoundException()
     {
         // Arrange
         var fotoBytes = new byte[] { 0x89, 0x50, 0x4E, 0x47 };
@@ -183,10 +193,10 @@ public class TemplateRecargaService_FotoTests : IDisposable
     {
         // Arrange
         var storedBytes = new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A };
-        await SeedTemplateWithFoto(1, "Test Template", null, storedBytes);
+        var periodo = await SeedPeriodoWithFoto(1, "Test Periodo", null, storedBytes);
 
         // Act
-        var (data, contentType) = await _service.GetFotoOcrAsync(1);
+        var (data, contentType) = await _service.GetFotoOcrAsync(periodo.Id);
 
         // Assert
         data.Should().NotBeNull();
@@ -198,17 +208,17 @@ public class TemplateRecargaService_FotoTests : IDisposable
     public async Task GetFotoOcrAsync_NeverUploaded_ReturnsNullData()
     {
         // Arrange
-        await SeedTemplateWithFoto(1, "Test Template", null, null);
+        var periodo = await SeedPeriodoWithFoto(1, "Test Periodo", null, null);
 
         // Act
-        var (data, contentType) = await _service.GetFotoOcrAsync(1);
+        var (data, contentType) = await _service.GetFotoOcrAsync(periodo.Id);
 
         // Assert
         data.Should().BeNull();
     }
 
     [Fact]
-    public async Task GetFotoOcrAsync_TemplateNotFound_ThrowsKeyNotFoundException()
+    public async Task GetFotoOcrAsync_PeriodoNotFound_ThrowsKeyNotFoundException()
     {
         // Act & Assert
         await Assert.ThrowsAsync<KeyNotFoundException>(
