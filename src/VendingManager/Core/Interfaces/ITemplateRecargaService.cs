@@ -44,32 +44,32 @@ public interface ITemplateRecargaService
     Task<SyncSlotProductoResultDto> SyncSlotProductoAsync(int templateId, int periodoId, string numeroSlot, int productoId);
 
     /// <summary>
-    /// Guardar foto guía para un template (upsert)
+    /// Guardar foto guía para un período (upsert)
     /// </summary>
-    Task SaveFotoGuiaAsync(int templateId, byte[] data, string contentType);
+    Task SaveFotoGuiaAsync(int periodoId, byte[] data, string contentType);
 
     /// <summary>
-    /// Obtener foto guía de un template
+    /// Obtener foto guía de un período
     /// </summary>
-    Task<(byte[]? Data, string? ContentType)> GetFotoGuiaAsync(int templateId);
+    Task<(byte[]? Data, string? ContentType)> GetFotoGuiaAsync(int periodoId);
 
     /// <summary>
-    /// Guardar foto OCR para un template (upsert)
+    /// Guardar foto OCR para un período (upsert)
     /// </summary>
-    Task SaveFotoOcrAsync(int templateId, byte[] data, string contentType);
+    Task SaveFotoOcrAsync(int periodoId, byte[] data, string contentType);
 
     /// <summary>
-    /// Obtener foto OCR de un template
+    /// Obtener foto OCR de un período
     /// </summary>
-    Task<(byte[]? Data, string? ContentType)> GetFotoOcrAsync(int templateId);
+    Task<(byte[]? Data, string? ContentType)> GetFotoOcrAsync(int periodoId);
 
     /// <summary>
-    /// Eliminar la foto guía de un template
+    /// Eliminar la foto guía de un período
     /// </summary>
-    Task DeleteFotoGuiaAsync(int templateId);
+    Task DeleteFotoGuiaAsync(int periodoId);
 
     /// <summary>
-    /// Eliminar la foto OCR de un template
+    /// Eliminar la foto OCR de un período
     /// </summary>
-    Task DeleteFotoOcrAsync(int templateId);
+    Task DeleteFotoOcrAsync(int periodoId);
 }
