@@ -633,59 +633,59 @@ public class TemplateRecargaService : ITemplateRecargaService
         };
     }
 
-    public async Task SaveFotoGuiaAsync(int templateId, byte[] data, string contentType)
+    public async Task SaveFotoGuiaAsync(int periodoId, byte[] data, string contentType)
     {
-        var template = await _context.TemplatesRecarga.FindAsync(templateId)
-            ?? throw new KeyNotFoundException($"Template con ID {templateId} no encontrado");
+        var periodo = await _context.PeriodosRecarga.FindAsync(periodoId)
+            ?? throw new KeyNotFoundException($"Período con ID {periodoId} no encontrado");
 
-        template.FotoGuia = data;
+        periodo.FotoGuia = data;
         await _context.SaveChangesAsync();
     }
 
-    public async Task<(byte[]? Data, string? ContentType)> GetFotoGuiaAsync(int templateId)
+    public async Task<(byte[]? Data, string? ContentType)> GetFotoGuiaAsync(int periodoId)
     {
-        var template = await _context.TemplatesRecarga
+        var periodo = await _context.PeriodosRecarga
             .AsNoTracking()
-            .FirstOrDefaultAsync(t => t.Id == templateId)
-            ?? throw new KeyNotFoundException($"Template con ID {templateId} no encontrado");
+            .FirstOrDefaultAsync(p => p.Id == periodoId)
+            ?? throw new KeyNotFoundException($"Período con ID {periodoId} no encontrado");
 
-        return (template.FotoGuia, null);
+        return (periodo.FotoGuia, null);
     }
 
-    public async Task SaveFotoOcrAsync(int templateId, byte[] data, string contentType)
+    public async Task SaveFotoOcrAsync(int periodoId, byte[] data, string contentType)
     {
-        var template = await _context.TemplatesRecarga.FindAsync(templateId)
-            ?? throw new KeyNotFoundException($"Template con ID {templateId} no encontrado");
+        var periodo = await _context.PeriodosRecarga.FindAsync(periodoId)
+            ?? throw new KeyNotFoundException($"Período con ID {periodoId} no encontrado");
 
-        template.FotoOcr = data;
+        periodo.FotoOcr = data;
         await _context.SaveChangesAsync();
     }
 
-    public async Task<(byte[]? Data, string? ContentType)> GetFotoOcrAsync(int templateId)
+    public async Task<(byte[]? Data, string? ContentType)> GetFotoOcrAsync(int periodoId)
     {
-        var template = await _context.TemplatesRecarga
+        var periodo = await _context.PeriodosRecarga
             .AsNoTracking()
-            .FirstOrDefaultAsync(t => t.Id == templateId)
-            ?? throw new KeyNotFoundException($"Template con ID {templateId} no encontrado");
+            .FirstOrDefaultAsync(p => p.Id == periodoId)
+            ?? throw new KeyNotFoundException($"Período con ID {periodoId} no encontrado");
 
-        return (template.FotoOcr, null);
+        return (periodo.FotoOcr, null);
     }
 
-    public async Task DeleteFotoGuiaAsync(int templateId)
+    public async Task DeleteFotoGuiaAsync(int periodoId)
     {
-        var template = await _context.TemplatesRecarga.FindAsync(templateId)
-            ?? throw new KeyNotFoundException($"Template con ID {templateId} no encontrado");
+        var periodo = await _context.PeriodosRecarga.FindAsync(periodoId)
+            ?? throw new KeyNotFoundException($"Período con ID {periodoId} no encontrado");
 
-        template.FotoGuia = null;
+        periodo.FotoGuia = null;
         await _context.SaveChangesAsync();
     }
 
-    public async Task DeleteFotoOcrAsync(int templateId)
+    public async Task DeleteFotoOcrAsync(int periodoId)
     {
-        var template = await _context.TemplatesRecarga.FindAsync(templateId)
-            ?? throw new KeyNotFoundException($"Template con ID {templateId} no encontrado");
+        var periodo = await _context.PeriodosRecarga.FindAsync(periodoId)
+            ?? throw new KeyNotFoundException($"Período con ID {periodoId} no encontrado");
 
-        template.FotoOcr = null;
+        periodo.FotoOcr = null;
         await _context.SaveChangesAsync();
     }
 
@@ -822,8 +822,6 @@ public class TemplateRecargaService : ITemplateRecargaService
             Nombre = t.Nombre,
             Descripcion = t.Descripcion,
             FechaCreacion = t.FechaCreacion,
-            TieneFotoGuia = t.FotoGuia != null,
-            TieneFotoOcr = t.FotoOcr != null,
             Periodos = t.Periodos.Select(p => new PeriodoRecargaDto
             {
                 Id = p.Id,
@@ -831,6 +829,8 @@ public class TemplateRecargaService : ITemplateRecargaService
                 MaquinaNombre = p.Maquina?.Nombre ?? "Desconocida",
                 FechaInicio = p.FechaInicio,
                 FechaFin = p.FechaFin,
+                TieneFotoGuia = p.FotoGuia != null,
+                TieneFotoOcr = p.FotoOcr != null,
                 SnapshotSlots = p.SnapshotSlots.Select(s => new SnapshotSlotDto
                 {
                     Id = s.Id,
