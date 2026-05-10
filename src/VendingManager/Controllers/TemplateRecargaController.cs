@@ -143,11 +143,11 @@ public class TemplateRecargaController(ITemplateRecargaService service) : Contro
     private static readonly string[] AllowedImageTypes = { "image/jpeg", "image/png", "image/gif", "image/webp" };
 
     /// <summary>
-    /// Subir o reemplazar la foto guía de un template
+    /// Subir o reemplazar la foto guía de un período
     /// </summary>
-    [HttpPut("{id}/foto-guia")]
+    [HttpPut("{templateId}/periodo/{periodoId}/foto-guia")]
     [RequestSizeLimit(10 * 1024 * 1024)]
-    public async Task<IActionResult> UploadFotoGuia(int id, IFormFile file)
+    public async Task<IActionResult> UploadFotoGuia(int templateId, int periodoId, IFormFile file)
     {
         if (file == null || file.Length == 0)
             return BadRequest(new { error = "Archivo requerido", code = "FILE_MISSING" });
@@ -164,24 +164,24 @@ public class TemplateRecargaController(ITemplateRecargaService service) : Contro
 
         try
         {
-            await service.SaveFotoGuiaAsync(id, ms.ToArray(), contentType);
+            await service.SaveFotoGuiaAsync(periodoId, ms.ToArray(), contentType);
             return Ok(new { message = "Foto guía guardada", sizeBytes = ms.Length });
         }
         catch (KeyNotFoundException ex)
         {
-            return NotFound(new { error = ex.Message, code = "TEMPLATE_NOT_FOUND" });
+            return NotFound(new { error = ex.Message, code = "PERIODO_NOT_FOUND" });
         }
     }
 
     /// <summary>
-    /// Obtener la foto guía de un template
+    /// Obtener la foto guía de un período
     /// </summary>
-    [HttpGet("{id}/foto-guia")]
-    public async Task<IActionResult> GetFotoGuia(int id)
+    [HttpGet("{templateId}/periodo/{periodoId}/foto-guia")]
+    public async Task<IActionResult> GetFotoGuia(int templateId, int periodoId)
     {
         try
         {
-            var (data, _) = await service.GetFotoGuiaAsync(id);
+            var (data, _) = await service.GetFotoGuiaAsync(periodoId);
             if (data == null)
                 return NotFound(new { error = "No hay foto guía guardada", code = "FOTO_NOT_FOUND" });
 
@@ -189,16 +189,33 @@ public class TemplateRecargaController(ITemplateRecargaService service) : Contro
         }
         catch (KeyNotFoundException ex)
         {
-            return NotFound(new { error = ex.Message, code = "TEMPLATE_NOT_FOUND" });
+            return NotFound(new { error = ex.Message, code = "PERIODO_NOT_FOUND" });
         }
     }
 
     /// <summary>
-    /// Subir o reemplazar la foto OCR de un template
+    /// Eliminar la foto guía de un período
     /// </summary>
-    [HttpPut("{id}/foto-ocr")]
+    [HttpDelete("{templateId}/periodo/{periodoId}/foto-guia")]
+    public async Task<IActionResult> DeleteFotoGuia(int templateId, int periodoId)
+    {
+        try
+        {
+            await service.DeleteFotoGuiaAsync(periodoId);
+            return NoContent();
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { error = ex.Message, code = "PERIODO_NOT_FOUND" });
+        }
+    }
+
+    /// <summary>
+    /// Subir o reemplazar la foto OCR de un período
+    /// </summary>
+    [HttpPut("{templateId}/periodo/{periodoId}/foto-ocr")]
     [RequestSizeLimit(5 * 1024 * 1024)]
-    public async Task<IActionResult> UploadFotoOcr(int id, IFormFile file)
+    public async Task<IActionResult> UploadFotoOcr(int templateId, int periodoId, IFormFile file)
     {
         if (file == null || file.Length == 0)
             return BadRequest(new { error = "Archivo requerido", code = "FILE_MISSING" });
@@ -215,24 +232,24 @@ public class TemplateRecargaController(ITemplateRecargaService service) : Contro
 
         try
         {
-            await service.SaveFotoOcrAsync(id, ms.ToArray(), contentType);
+            await service.SaveFotoOcrAsync(periodoId, ms.ToArray(), contentType);
             return Ok(new { message = "Foto OCR guardada", sizeBytes = ms.Length });
         }
         catch (KeyNotFoundException ex)
         {
-            return NotFound(new { error = ex.Message, code = "TEMPLATE_NOT_FOUND" });
+            return NotFound(new { error = ex.Message, code = "PERIODO_NOT_FOUND" });
         }
     }
 
     /// <summary>
-    /// Obtener la foto OCR de un template
+    /// Obtener la foto OCR de un período
     /// </summary>
-    [HttpGet("{id}/foto-ocr")]
-    public async Task<IActionResult> GetFotoOcr(int id)
+    [HttpGet("{templateId}/periodo/{periodoId}/foto-ocr")]
+    public async Task<IActionResult> GetFotoOcr(int templateId, int periodoId)
     {
         try
         {
-            var (data, _) = await service.GetFotoOcrAsync(id);
+            var (data, _) = await service.GetFotoOcrAsync(periodoId);
             if (data == null)
                 return NotFound(new { error = "No hay foto OCR guardada", code = "FOTO_NOT_FOUND" });
 
@@ -240,41 +257,24 @@ public class TemplateRecargaController(ITemplateRecargaService service) : Contro
         }
         catch (KeyNotFoundException ex)
         {
-            return NotFound(new { error = ex.Message, code = "TEMPLATE_NOT_FOUND" });
+            return NotFound(new { error = ex.Message, code = "PERIODO_NOT_FOUND" });
         }
     }
 
     /// <summary>
-    /// Eliminar la foto guía de un template
+    /// Eliminar la foto OCR de un período
     /// </summary>
-    [HttpDelete("{id}/foto-guia")]
-    public async Task<IActionResult> DeleteFotoGuia(int id)
+    [HttpDelete("{templateId}/periodo/{periodoId}/foto-ocr")]
+    public async Task<IActionResult> DeleteFotoOcr(int templateId, int periodoId)
     {
         try
         {
-            await service.DeleteFotoGuiaAsync(id);
+            await service.DeleteFotoOcrAsync(periodoId);
             return NoContent();
         }
         catch (KeyNotFoundException ex)
         {
-            return NotFound(new { error = ex.Message, code = "TEMPLATE_NOT_FOUND" });
-        }
-    }
-
-    /// <summary>
-    /// Eliminar la foto OCR de un template
-    /// </summary>
-    [HttpDelete("{id}/foto-ocr")]
-    public async Task<IActionResult> DeleteFotoOcr(int id)
-    {
-        try
-        {
-            await service.DeleteFotoOcrAsync(id);
-            return NoContent();
-        }
-        catch (KeyNotFoundException ex)
-        {
-            return NotFound(new { error = ex.Message, code = "TEMPLATE_NOT_FOUND" });
+            return NotFound(new { error = ex.Message, code = "PERIODO_NOT_FOUND" });
         }
     }
 }
