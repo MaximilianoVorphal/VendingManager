@@ -67,7 +67,7 @@
                     <div class="@cardClass">
                         <div class="card-header bg-dark text-white rounded-0 d-flex justify-content-between align-items-center">
                             <div class="d-flex align-items-center gap-2">
-                                <span class="fw-bold text-uppercase">@template.Nombre</span>
+                                <span class="fw-bold text-uppercase text-truncate d-block" style="max-width: 180px;">@template.Nombre</span>
                                 @if (template.CantidadSlotsPendientes > 0)
                                 {
                                     <span class="badge bg-warning text-dark rounded-0">⚠ @template.CantidadSlotsPendientes pendiente(s)</span>
@@ -113,12 +113,12 @@
                                 }
                             </div>
                         </div>
-                        <div class="card-footer bg-light border-top border-dark">
-                            <button class="btn btn-danger w-100 rounded-0 fw-bold mb-2"
-                        @onclick="() => AnalizarTemplate(template.Id)">
+<div class="card-footer bg-light border-top border-dark d-flex flex-column gap-2">
+                            <button class="btn btn-danger w-100 rounded-0 fw-bold"
+                                        @onclick="() => AnalizarTemplate(template.Id)">
                                 <i class="bi bi-graph-up me-1"></i> ANALIZAR STOCKOUT
                             </button>
-<button class="btn btn-warning w-100 rounded-0 fw-bold"
+                            <button class="btn btn-warning w-100 rounded-0 fw-bold"
                                 @onclick="() => AbrirModalSincronizar(template.Id)"
                                 disabled="@_syncCtors.Any()">
                                 <i class="bi bi-arrow-repeat me-1"></i> SINCRONIZAR TODO
@@ -686,6 +686,14 @@
     // Tracks the template being edited for photo upload targets
     private int _currentTemplateId = 0;
 
+    // === Defensive scroll lock helpers (guard against missing JS) ===
+    private async Task LockScroll() {
+        try { await LockScroll(); } catch { }
+    }
+    private async Task UnlockScroll() {
+        try { await UnlockScroll(); } catch { }
+    }
+
     // CSS transform string — must use InvariantCulture or comma-decimal cultures break CSS syntax
     private string FotoGuiaTransform =>
         $"scale({_fotoGuiaZoom.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)}) translate({_fotoGuiaPanX.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)}px, {_fotoGuiaPanY.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)}px)";
@@ -696,7 +704,7 @@
 
     private async Task AbrirEdicionVisual(PeriodoFormModel periodo)
     {
-        await JS.InvokeVoidAsync("modalScrollLock.lock");
+        await LockScroll();
         PeriodoEnEdicionVisual = periodo;
         // Reset OCR state when opening
         ProcesandoOcr = false;
@@ -706,6 +714,8 @@
         _fotoGuiaZoom = 1.0;
         _fotoGuiaPanX = 0;
         _fotoGuiaPanY = 0;
+        // Load photos for this specific periodo
+        _ = LoadFotosForPeriodo(periodo.Id);
         // Note: FotoGuiaData/FotoGuiaUrl intentionally preserved across opens for convenience
         // Colapsar navbar para ganar espacio vertical en pantallas chicas
         Layout?.CollapseNavbar();
@@ -713,7 +723,7 @@
 
     private async Task CerrarEdicionVisual()
     {
-        await JS.InvokeVoidAsync("modalScrollLock.unlock");
+        await UnlockScroll();
         if (MostrarFotoGuia)
         {
             MostrarFotoGuia = false;
@@ -725,20 +735,22 @@
     }
 
     /// <summary>
-    /// Loads both foto-guia and foto-ocr for a template in parallel.
+    /// Loads both foto-guia and foto-ocr for a specific periodo.
     /// Non-critical: failures show inline messages but do not block the UI.
     /// </summary>
-    private async Task LoadFotosForTemplate(int id)
+    private async Task LoadFotosForPeriodo(int periodoId)
     {
+        if (periodoId <= 0 || _currentTemplateId <= 0) return;
+
         _fotoGuiaLoading = true;
         _fotoOcrLoading = true;
         StateHasChanged();
 
         try
         {
-            // Parallel GET requests to both photo endpoints
-            var fotoGuiaTask = Http.GetAsync($"api/TemplateRecarga/{id}/foto-guia");
-            var fotoOcrTask = Http.GetAsync($"api/TemplateRecarga/{id}/foto-ocr");
+            // Parallel GET requests to both photo endpoints for the specific periodo
+            var fotoGuiaTask = Http.GetAsync($"api/TemplateRecarga/{_currentTemplateId}/periodo/{periodoId}/foto-guia");
+            var fotoOcrTask = Http.GetAsync($"api/TemplateRecarga/{_currentTemplateId}/periodo/{periodoId}/foto-ocr");
 
             await Task.WhenAll(fotoGuiaTask, fotoOcrTask);
 
@@ -749,10 +761,11 @@
                 FotoGuiaData = bytes;
                 FotoGuiaUrl = $"data:image/jpeg;base64,{Convert.ToBase64String(bytes)}";
             }
-            // On failure for foto-guia, show inline message but continue
             else if (guiaResp.StatusCode == System.Net.HttpStatusCode.NotFound)
             {
-                // No photo stored — not an error, just leave current state
+                // No photo stored — clear existing
+                RevokeFotoGuiaUrl();
+                FotoGuiaData = null;
             }
             else
             {
@@ -768,7 +781,9 @@
             }
             else if (ocrResp.StatusCode == System.Net.HttpStatusCode.NotFound)
             {
-                // No OCR photo stored — not an error
+                // No OCR photo stored
+                _fotoOcrData = null;
+                _fotoOcrUrl = null;
             }
             else
             {
@@ -777,8 +792,8 @@
         }
         catch (Exception ex)
         {
-            Logger.LogWarning(ex, "Error loading photos for template {Id}", id);
-            MensajeErrorOcr = "Error al cargar fotos del template.";
+            Logger.LogWarning(ex, "Error loading photos for periodo {PeriodoId}", periodoId);
+            MensajeErrorOcr = "Error al cargar fotos del período.";
         }
         finally
         {
@@ -900,7 +915,7 @@
                 .ToList();
 
             // Persist OCR photo to backend (non-critical: failure does not block slot population)
-            if (_currentTemplateId > 0)
+            if (PeriodoEnEdicionVisual?.Id > 0)
             {
                 try
                 {
@@ -911,19 +926,19 @@
                     persistContent.Add(persistBytes, "file", file.Name);
 
                     var persistResp = await Http.PutAsync(
-                        $"api/TemplateRecarga/{_currentTemplateId}/foto-ocr",
+                        $"api/TemplateRecarga/{_currentTemplateId}/periodo/{PeriodoEnEdicionVisual.Id}/foto-ocr",
                         persistContent);
 
                     if (!persistResp.IsSuccessStatusCode)
                     {
-                        Logger.LogWarning("OCR photo persist failed with {Status} for template {Id}",
-                            persistResp.StatusCode, _currentTemplateId);
+                        Logger.LogWarning("OCR photo persist failed with {Status} for periodo {PeriodoId}",
+                            persistResp.StatusCode, PeriodoEnEdicionVisual.Id);
                         // Non-critical — do not interrupt the user experience
                     }
                 }
                 catch (Exception ex)
                 {
-                    Logger.LogWarning(ex, "Error persisting OCR photo for template {Id}", _currentTemplateId);
+                    Logger.LogWarning(ex, "Error persisting OCR photo for periodo {PeriodoId}", PeriodoEnEdicionVisual.Id);
                     // Non-critical failure — slot population continues
                 }
             }
@@ -967,8 +982,8 @@
         FotoGuiaUrl = url;
         StateHasChanged();
 
-        // Immediate persist to backend if we have a template ID
-        if (_currentTemplateId > 0)
+        // Immediate persist to backend if we have a periodo ID
+        if (PeriodoEnEdicionVisual?.Id > 0)
         {
             try
             {
@@ -978,7 +993,7 @@
                 content.Add(byteContent, "file", file.Name);
 
                 var resp = await Http.PutAsync(
-                    $"api/TemplateRecarga/{_currentTemplateId}/foto-guia",
+                    $"api/TemplateRecarga/{_currentTemplateId}/periodo/{PeriodoEnEdicionVisual.Id}/foto-guia",
                     content);
 
                 if (!resp.IsSuccessStatusCode)
@@ -988,7 +1003,7 @@
             }
             catch (Exception ex)
             {
-                Logger.LogWarning(ex, "Error persisting foto guia for template {Id}", _currentTemplateId);
+                Logger.LogWarning(ex, "Error persisting foto guia for periodo {PeriodoId}", PeriodoEnEdicionVisual.Id);
                 MensajeErrorOcr = "No se pudo guardar la foto guía en el servidor.";
             }
         }
@@ -998,7 +1013,7 @@
     {
         if (!string.IsNullOrEmpty(FotoGuiaUrl))
         {
-            await JS.InvokeVoidAsync("modalScrollLock.lock");
+            await LockScroll();
             MostrarFotoGuia = true;
         }
     }
@@ -1018,7 +1033,7 @@
 
     private async Task CerrarFotoGuiaModal()
     {
-        await JS.InvokeVoidAsync("modalScrollLock.unlock");
+        await UnlockScroll();
         MostrarFotoGuia = false;
         StateHasChanged();
     }
@@ -1032,20 +1047,20 @@
         RevokeFotoGuiaUrl();
         FotoGuiaData = null;
 
-        // Delete from backend if we have a template
-        if (_currentTemplateId > 0)
+        // Delete from backend if we have a periodo
+        if (PeriodoEnEdicionVisual?.Id > 0)
         {
             try
             {
-                var response = await Http.DeleteAsync($"api/TemplateRecarga/{_currentTemplateId}/foto-guia");
+                var response = await Http.DeleteAsync($"api/TemplateRecarga/{_currentTemplateId}/periodo/{PeriodoEnEdicionVisual.Id}/foto-guia");
                 if (!response.IsSuccessStatusCode && response.StatusCode != System.Net.HttpStatusCode.NotFound)
                 {
-                    Logger.LogWarning("Failed to delete foto guía for template {Id}: {Status}", _currentTemplateId, response.StatusCode);
+                    Logger.LogWarning("Failed to delete foto guía for periodo {PeriodoId}: {Status}", PeriodoEnEdicionVisual.Id, response.StatusCode);
                 }
             }
             catch (Exception ex)
             {
-                Logger.LogWarning(ex, "Error deleting foto guía for template {Id}", _currentTemplateId);
+                Logger.LogWarning(ex, "Error deleting foto guía for periodo {PeriodoId}", PeriodoEnEdicionVisual.Id);
                 // Non-critical: local state already cleared
             }
         }
@@ -1188,7 +1203,7 @@
 
     private async Task AbrirModalCrear()
     {
-        await JS.InvokeVoidAsync("modalScrollLock.lock");
+        await LockScroll();
         EsEdicion = false;
         TemplateIdEdicion = 0;
         _currentTemplateId = 0;
@@ -1199,7 +1214,7 @@
 
     private async Task AbrirModalEditar(TemplateRecargaDto template)
     {
-        await JS.InvokeVoidAsync("modalScrollLock.lock");
+        await LockScroll();
         EsEdicion = true;
         TemplateIdEdicion = template.Id;
         _currentTemplateId = template.Id;
@@ -1228,17 +1243,12 @@
         foreach (var periodo in PeriodosActuales)
             periodo.SyncDisplayFromDateTime();
         MostrarModal = true;
-
-        // Load persisted photos for this template (non-blocking)
-        if (template.Id > 0)
-        {
-            _ = LoadFotosForTemplate(template.Id);
-        }
+        // Photos are loaded per-periodo when entering the visual editor via AbrirEdicionVisual
     }
 
     private async Task CerrarModal()
     {
-        await JS.InvokeVoidAsync("modalScrollLock.unlock");
+        await UnlockScroll();
         MostrarModal = false;
     }
 
@@ -1588,13 +1598,13 @@
             }
         }
 
-        await JS.InvokeVoidAsync("modalScrollLock.lock");
+        await LockScroll();
         MostrarModalPendientes = true;
     }
 
     private async Task CerrarModalPendientes()
     {
-        await JS.InvokeVoidAsync("modalScrollLock.unlock");
+        await UnlockScroll();
         MostrarModalPendientes = false;
     }
 
@@ -1631,7 +1641,7 @@
 
     private async Task AbrirModalSincronizar(int id)
     {
-        await JS.InvokeVoidAsync("modalScrollLock.lock");
+        await LockScroll();
         TemplateIdSincronizar = id;
         ActualizarCostosSincronizacion = false; // default
         MostrarModalSincronizar = true;
@@ -1639,7 +1649,7 @@
 
     private async Task CerrarModalSincronizar()
     {
-        await JS.InvokeVoidAsync("modalScrollLock.unlock");
+        await UnlockScroll();
         MostrarModalSincronizar = false;
     }
 
@@ -1672,7 +1682,7 @@
         {
             Sincronizando = false;
             MostrarModalSincronizar = false;
-            await JS.InvokeVoidAsync("modalScrollLock.unlock");
+            await UnlockScroll();
             StateHasChanged();
         }
     }
@@ -1717,6 +1727,7 @@
     public class PeriodoRecargaDto
     {
         public int Id { get; set; }
+        public int TemplateRecargaId { get; set; }
         public int MaquinaId { get; set; }
         public string MaquinaNombre { get; set; } = string.Empty;
         public DateTime FechaInicio { get; set; }
