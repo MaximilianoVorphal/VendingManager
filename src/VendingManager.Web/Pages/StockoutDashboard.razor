@@ -409,7 +409,7 @@
                 <div
             class="card-header bg-dark text-white rounded-0 fw-bold border-bottom border-dark text-uppercase d-flex justify-content-between align-items-center">
                     <span><i class="bi bi-table me-2"></i>Dashboard de Alertas</span>
-                    <div class="d-flex gap-3 align-items-center">
+                    <div class="d-flex gap-3 align-items-center flex-wrap">
                         <div class="form-check mb-0">
                             <input class="form-check-input" type="checkbox" id="chkDeadSlots" @bind="soloDeadSlots" />
                             <label class="form-check-label small" for="chkDeadSlots">
@@ -420,95 +420,154 @@
                             <input class="form-check-input" type="checkbox" @bind="SoloConQuiebre" id="chkSoloQuiebre">
                             <label class="form-check-label small" for="chkSoloQuiebre">Solo Quiebres</label>
                         </div>
+                        <div class="form-check form-switch mb-0">
+                            <input class="form-check-input" type="checkbox" @bind="verAgrupado" id="chkAgrupar">
+                            <label class="form-check-label small fw-bold" for="chkAgrupar">Agrupar por Producto</label>
+                        </div>
                     </div>
                 </div>
                 <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
                     <table class="table table-hover table-bordered border-dark m-0 table-sm align-middle">
-                        <thead class="bg-secondary text-white text-uppercase small sticky-top">
-                            <tr>
-                                <th role="button" @onclick='() => OrdenarPor("Maquina")'>MÁQUINA @RenderIcono("Maquina")</th>
-                                <th role="button" @onclick='() => OrdenarPor("Producto")'>PRODUCTO @RenderIcono("Producto")</th>
-                                <th class="text-center">SLOT</th>
-                                <th class="text-center">STOCK</th>
-                                <th class="text-center">VENDIDO</th>
-                                <th role="button" class="text-center" @onclick='() => OrdenarPor("PrimeraVenta")'>1ª VENTA
-                                @RenderIcono("PrimeraVenta")</th>
-                                <th role="button" class="text-center" @onclick='() => OrdenarPor("UltimaVenta")'>ÚLTIMA VENTA
-                                @RenderIcono("UltimaVenta")</th>
-                                <th role="button" class="text-center" @onclick='() => OrdenarPor("DiasAgotado")'>DÍAS AGOTADO
-                                @RenderIcono("DiasAgotado")</th>
-                                <th role="button" class="text-center" @onclick='() => OrdenarPor("Velocidad")'>VEL./DÍA
-                                @RenderIcono("Velocidad")</th>
-                                <th role="button" class="text-end" @onclick='() => OrdenarPor("DineroPerdido")'>$ PERDIDO
-                                @RenderIcono("DineroPerdido")</th>
-                                <th class="text-center">ESTADO</th>
-                                <th>ETA STOCKOUT</th>
-                            </tr>
-                        </thead>
-                        <tbody class="bg-white">
-                        @foreach (var item in DatosFiltrados)
+                        @if (verAgrupado)
                         {
-                            var rowClass = item.HorasSinStock > 48 ? "table-danger" :
-                            item.HorasSinStock > 24 ? "table-warning" : "";
-                                    <tr class="@rowClass">
-                                        <td class="fw-bold text-uppercase small">@item.MaquinaNombre</td>
-                                        <td class="fw-bold">@item.ProductoNombre</td>
-                                        <td class="text-center font-monospace small">@item.NumeroSlot</td>
-                                        <td class="text-center font-monospace @(item.StockInicial > 0 ? "fw-bold" : "text-muted")">
-                                    @(item.StockInicial > 0 ? item.StockInicial.ToString() : "-")
-                                        </td>
-                                        <td class="text-center font-monospace fw-bold @(item.StockInicial > 0 && item.CantidadVendida >= item.StockInicial ? "text-danger" : "")">
-                                    @item.CantidadVendida
-                                        </td>
-                                        <td class="text-center small">
-                                    @if (item.PrimeraVenta.HasValue)
-                                    {
-                                                    <span title="@item.PrimeraVenta.Value.ToString("dd/MM/yyyy HH:mm")">
-                                            @item.PrimeraVenta.Value.ToString("dd/MM HH:mm")
-                                                    </span>
-                                    }
-                                        </td>
-                                        <td class="text-center small">
-                                    @if (item.UltimaVenta.HasValue)
-                                    {
-                                                    <span title="@item.UltimaVenta.Value.ToString("dd/MM/yyyy HH:mm")">
-                                            @item.UltimaVenta.Value.ToString("dd/MM HH:mm")
-                                                    </span>
-                                    }
-                                        </td>
-                                        <td class="text-center font-monospace fw-bold">
-                                    @item.DiasSinStock.ToString("F1")
-                                        </td>
-                                        <td class="text-center font-monospace">
-                                    @item.VelocidadDiaria.ToString("F2")
-                                        </td>
-                                        <td
-                            class="text-end font-monospace fw-bold @(item.GananciaPerdidaEstimada > 0 ? "text-danger" : "")">
-                                            $@item.GananciaPerdidaEstimada.ToString("N0")
-                                        </td>
-                                        <td class="text-center">
-                                            @if (item.EsDeadSlot)
-                                            {
-                                                <span class="badge bg-secondary">SIN VENTAS</span>
-                                            }
-                                            else
-                                            {
+                            <thead class="bg-secondary text-white text-uppercase small sticky-top">
+                                <tr>
+                                    <th>MÁQUINAS</th>
+                                    <th>PRODUCTO</th>
+                                    <th class="text-center">SLOTS</th>
+                                    <th class="text-center">STOCK</th>
+                                    <th class="text-center">VENDIDO</th>
+                                    <th class="text-center">ÚLTIMA VENTA</th>
+                                    <th class="text-center">DÍAS AGOTADO</th>
+                                    <th class="text-center">VEL./DÍA</th>
+                                    <th class="text-end">$ PERDIDO</th>
+                                    <th class="text-center">ESTADO</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white">
+                            @foreach (var item in DatosAgrupados)
+                            {
+                                var rowClass = item.HorasSinStock > 48 ? "table-danger" :
+                                item.HorasSinStock > 24 ? "table-warning" : "";
+                                        <tr class="@rowClass">
+                                            <td class="small">@item.MaquinasResumen</td>
+                                            <td class="fw-bold">@item.ProductoNombre</td>
+                                            <td class="text-center font-monospace small">@item.CantidadTotalSlots</td>
+                                            <td class="text-center font-monospace fw-bold">@item.StockInicialTotal</td>
+                                            <td class="text-center font-monospace fw-bold @(item.StockInicialTotal > 0 && item.CantidadVendidaTotal >= item.StockInicialTotal ? "text-danger" : "")">
+                                        @item.CantidadVendidaTotal
+                                            </td>
+                                            <td class="text-center small">
+                                        @if (item.UltimaVenta.HasValue)
+                                        {
+                                                        <span title="@item.UltimaVenta.Value.ToString("dd/MM/yyyy HH:mm")">
+                                                @item.UltimaVenta.Value.ToString("dd/MM HH:mm")
+                                                        </span>
+                                        }
+                                            </td>
+                                            <td class="text-center font-monospace fw-bold">
+                                        @item.DiasSinStock.ToString("F1")
+                                            </td>
+                                            <td class="text-center font-monospace">
+                                        @item.VelocidadDiaria.ToString("F2")
+                                            </td>
+                                            <td class="text-end font-monospace fw-bold @(item.GananciaPerdidaEstimada > 0 ? "text-danger" : "")">
+                                                $@item.GananciaPerdidaEstimada.ToString("N0")
+                                            </td>
+                                            <td class="text-center">
                                                 <span class="badge @item.ColorAlerta">@item.NivelAlerta</span>
-                                            }
-                                        </td>
-                                        <td class="text-center">
-                                            @if (item.DiasHastaStockout.HasValue)
-                                            {
-                                                <span>~@item.DiasHastaStockout.Value.ToString("F1") días</span>
-                                            }
-                                            else
-                                            {
-                                                <span class="text-muted">—</span>
-                                            }
-                                        </td>
-                                    </tr>
+                                            </td>
+                                        </tr>
+                            }
+                            </tbody>
                         }
-                        </tbody>
+                        else
+                        {
+                            <thead class="bg-secondary text-white text-uppercase small sticky-top">
+                                <tr>
+                                    <th role="button" @onclick='() => OrdenarPor("Maquina")'>MÁQUINA @RenderIcono("Maquina")</th>
+                                    <th role="button" @onclick='() => OrdenarPor("Producto")'>PRODUCTO @RenderIcono("Producto")</th>
+                                    <th class="text-center">SLOT</th>
+                                    <th class="text-center">STOCK</th>
+                                    <th class="text-center">VENDIDO</th>
+                                    <th role="button" class="text-center" @onclick='() => OrdenarPor("PrimeraVenta")'>1ª VENTA
+                                    @RenderIcono("PrimeraVenta")</th>
+                                    <th role="button" class="text-center" @onclick='() => OrdenarPor("UltimaVenta")'>ÚLTIMA VENTA
+                                    @RenderIcono("UltimaVenta")</th>
+                                    <th role="button" class="text-center" @onclick='() => OrdenarPor("DiasAgotado")'>DÍAS AGOTADO
+                                    @RenderIcono("DiasAgotado")</th>
+                                    <th role="button" class="text-center" @onclick='() => OrdenarPor("Velocidad")'>VEL./DÍA
+                                    @RenderIcono("Velocidad")</th>
+                                    <th role="button" class="text-end" @onclick='() => OrdenarPor("DineroPerdido")'>$ PERDIDO
+                                    @RenderIcono("DineroPerdido")</th>
+                                    <th class="text-center">ESTADO</th>
+                                    <th>ETA STOCKOUT</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white">
+                            @foreach (var item in DatosFiltrados)
+                            {
+                                var rowClass = item.HorasSinStock > 48 ? "table-danger" :
+                                item.HorasSinStock > 24 ? "table-warning" : "";
+                                        <tr class="@rowClass">
+                                            <td class="fw-bold text-uppercase small">@item.MaquinaNombre</td>
+                                            <td class="fw-bold">@item.ProductoNombre</td>
+                                            <td class="text-center font-monospace small">@item.NumeroSlot</td>
+                                            <td class="text-center font-monospace @(item.StockInicial > 0 ? "fw-bold" : "text-muted")">
+                                        @(item.StockInicial > 0 ? item.StockInicial.ToString() : "-")
+                                            </td>
+                                            <td class="text-center font-monospace fw-bold @(item.StockInicial > 0 && item.CantidadVendida >= item.StockInicial ? "text-danger" : "")">
+                                        @item.CantidadVendida
+                                            </td>
+                                            <td class="text-center small">
+                                        @if (item.PrimeraVenta.HasValue)
+                                        {
+                                                        <span title="@item.PrimeraVenta.Value.ToString("dd/MM/yyyy HH:mm")">
+                                                @item.PrimeraVenta.Value.ToString("dd/MM HH:mm")
+                                                        </span>
+                                        }
+                                            </td>
+                                            <td class="text-center small">
+                                        @if (item.UltimaVenta.HasValue)
+                                        {
+                                                        <span title="@item.UltimaVenta.Value.ToString("dd/MM/yyyy HH:mm")">
+                                                @item.UltimaVenta.Value.ToString("dd/MM HH:mm")
+                                                        </span>
+                                        }
+                                            </td>
+                                            <td class="text-center font-monospace fw-bold">
+                                        @item.DiasSinStock.ToString("F1")
+                                            </td>
+                                            <td class="text-center font-monospace">
+                                        @item.VelocidadDiaria.ToString("F2")
+                                            </td>
+                                            <td class="text-end font-monospace fw-bold @(item.GananciaPerdidaEstimada > 0 ? "text-danger" : "")">
+                                                $@item.GananciaPerdidaEstimada.ToString("N0")
+                                            </td>
+                                            <td class="text-center">
+                                                @if (item.EsDeadSlot)
+                                                {
+                                                    <span class="badge bg-secondary">SIN VENTAS</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="badge @item.ColorAlerta">@item.NivelAlerta</span>
+                                                }
+                                            </td>
+                                            <td class="text-center">
+                                                @if (item.DiasHastaStockout.HasValue)
+                                                {
+                                                    <span>~@item.DiasHastaStockout.Value.ToString("F1") días</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-muted">—</span>
+                                                }
+                                            </td>
+                                        </tr>
+                            }
+                            </tbody>
+                        }
                     </table>
             </div>
             </div>

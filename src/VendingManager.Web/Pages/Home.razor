@@ -433,7 +433,7 @@ backgroundColor = new[] { "#198754", "#dc3545" }
                 break;
         }
 
-        string url = $"reportes?start={inicio:yyyy-MM-dd}&end={fin:yyyy-MM-dd}&maquinaId={MaquinaActualId}";
+        string url = $"informe-ventas?start={inicio:yyyy-MM-dd}&end={fin:yyyy-MM-dd}&maquinaId={MaquinaActualId}";
         NavManager.NavigateTo(url);
     }
 

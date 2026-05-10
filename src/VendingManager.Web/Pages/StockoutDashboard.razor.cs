@@ -24,6 +24,7 @@ namespace VendingManager.Web.Pages
         private double UmbralHoras = 24;
         private bool SoloConQuiebre = true;
         private bool soloDeadSlots = false;
+        private bool verAgrupado = true; // Vista agrupada por producto por defecto
 
         // Templates
         private int TemplateSeleccionado = 0;
@@ -48,6 +49,54 @@ namespace VendingManager.Web.Pages
                 (!SoloConQuiebre || d.PosibleQuiebre) &&
                 (!soloDeadSlots || d.EsDeadSlot)
             ).ToList();
+
+        /// <summary>
+        /// Datos agrupados por producto (agrega todos los slots del mismo producto).
+        /// Se usa en la tabla de alertas cuando verAgrupado = true.
+        /// </summary>
+        private List<StockoutProductoDto> DatosAgrupados
+        {
+            get
+            {
+                var filtrados = DatosFiltrados;
+                if (filtrados == null || filtrados.Count == 0) return new();
+
+                return filtrados
+                    .GroupBy(d => new { d.ProductoId, d.ProductoNombre })
+                    .Select(g =>
+                    {
+                        var todasFechasVentas = g.SelectMany(d => d.FechasVentas).OrderBy(f => f).ToList();
+                        var ultimaVenta = todasFechasVentas.LastOrDefault();
+                        var stockTotal = g.Sum(d => d.StockInicial);
+                        var vendidoTotal = g.Sum(d => d.CantidadVendida);
+                        var finPeriodo = g.Max(d => d.FinReporte);
+                        var horasSinStock = vendidoTotal >= stockTotal && stockTotal > 0
+                            ? (finPeriodo - ultimaVenta).TotalHours
+                            : 0.0;
+                        // Si ningún slot vendió nada, no hay quiebre real
+                        var posibleQuiebre = vendidoTotal >= 0.8 * stockTotal && stockTotal > 0;
+
+                        return new StockoutProductoDto
+                        {
+                            ProductoId = g.Key.ProductoId,
+                            ProductoNombre = g.Key.ProductoNombre,
+                            CantidadTotalSlots = g.Count(),
+                            StockInicialTotal = stockTotal,
+                            CantidadVendidaTotal = vendidoTotal,
+                            PrimeraVenta = g.Min(d => d.PrimeraVenta),
+                            UltimaVenta = g.Max(d => d.UltimaVenta),
+                            HorasSinStock = Math.Max(0, horasSinStock),
+                            DineroPerdidoEstimado = g.Sum(d => d.DineroPerdidoEstimado),
+                            GananciaPerdidaEstimada = g.Sum(d => d.GananciaPerdidaEstimada),
+                            VelocidadDiaria = g.Average(d => d.VelocidadDiaria),
+                            PosibleQuiebre = posibleQuiebre,
+                            Maquinas = g.Select(d => d.MaquinaNombre).Distinct().ToList()
+                        };
+                    })
+                    .OrderByDescending(p => p.GananciaPerdidaEstimada)
+                    .ToList();
+            }
+        }
 
         protected override async Task OnInitializedAsync()
         {
@@ -513,6 +562,51 @@ namespace VendingManager.Web.Pages
         {
             public DateTime Fecha { get; set; }
             public int Cantidad { get; set; }
+        }
+
+        /// <summary>
+        /// Datos de stockout agrupados por producto (todos los slots combinados).
+        /// </summary>
+        public class StockoutProductoDto
+        {
+            public int? ProductoId { get; set; }
+            public string ProductoNombre { get; set; } = string.Empty;
+            public int CantidadTotalSlots { get; set; }
+            public int StockInicialTotal { get; set; }
+            public int CantidadVendidaTotal { get; set; }
+            public DateTime? PrimeraVenta { get; set; }
+            public DateTime? UltimaVenta { get; set; }
+            public double HorasSinStock { get; set; }
+            public double DiasSinStock => HorasSinStock / 24.0;
+            public decimal DineroPerdidoEstimado { get; set; }
+            public decimal GananciaPerdidaEstimada { get; set; }
+            public decimal VelocidadDiaria { get; set; }
+            public bool PosibleQuiebre { get; set; }
+            public List<string> Maquinas { get; set; } = new();
+
+            public string MaquinasResumen => Maquinas.Count switch
+            {
+                0 => "-",
+                1 => Maquinas[0],
+                <= 3 => string.Join(", ", Maquinas),
+                _ => $"{Maquinas.Count} máquinas"
+            };
+
+            public string NivelAlerta => HorasSinStock switch
+            {
+                > 72 => "Crítico",
+                > 48 => "Alto",
+                > 24 => "Medio",
+                _ => "Normal"
+            };
+
+            public string ColorAlerta => NivelAlerta switch
+            {
+                "Crítico" => "bg-danger text-white",
+                "Alto" => "bg-warning text-dark",
+                "Medio" => "bg-info text-dark",
+                _ => "bg-light text-muted border"
+            };
         }
     }
 }

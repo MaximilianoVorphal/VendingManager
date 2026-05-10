@@ -89,6 +89,9 @@ namespace VendingManager.Web.Pages
                     lista = lista.Where(d => !ProductosExcluidos.Contains(d.Producto ?? "")).ToList();
                 }
 
+                // Filtro por defecto: excluir productos sin nombre (---)
+                lista = lista.Where(d => !string.IsNullOrWhiteSpace(d.Producto) && d.Producto != "---").ToList();
+
                 return lista;
             }
         }
