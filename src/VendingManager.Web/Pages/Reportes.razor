@@ -32,9 +32,13 @@
                     <label class="fw-bold small text-uppercase mb-1">UNIDAD:</label>
                     <select class="form-select border-dark rounded-0 fw-bold py-2" @bind="MaquinaSeleccionada">
                         <option value="0">:: TODAS LAS UNIDADES ::</option>
-                        @if (ListaMaquinas != null)
+                        @if (ListaMaquinasFiltradas.Count == 0 && TemplateSeleccionado > 0)
                         {
-                            @foreach (var m in ListaMaquinas)
+                            <option value="0" disabled>SIN MÁQUINAS CONFIGURADAS</option>
+                        }
+                        else if (ListaMaquinasFiltradas.Count > 0)
+                        {
+                            @foreach (var m in ListaMaquinasFiltradas)
                             {
                                         <option value="@m.Id">@m.Nombre.ToUpper()</option>
                             }

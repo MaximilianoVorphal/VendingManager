@@ -49,6 +49,15 @@ namespace VendingManager.Web.Pages
         // --- TEMPLATE ---
         private int TemplateSeleccionado = 0;
 
+        // --- FILTRO DE MÁQUINAS POR TEMPLATE ---
+        private List<MaquinaSimpleDto> ListaMaquinasFiltradas =>
+            TemplateSeleccionado <= 0 || ListaTemplates == null ? ListaMaquinas ?? new()
+            : (ListaTemplates.FirstOrDefault(t => t.Id == TemplateSeleccionado)?.Periodos
+                .Select(p => p.MaquinaId)
+                .ToHashSet()) is { } allowedIds && allowedIds.Count > 0
+                ? (ListaMaquinas ?? new()).Where(m => allowedIds.Contains(m.Id)).ToList()
+                : new List<MaquinaSimpleDto>();
+
         // --- CONTROL DE ORDEN ---
         private string ColumnaOrden = "Fecha";
         private bool Ascendente = false;
@@ -85,8 +94,16 @@ namespace VendingManager.Web.Pages
         }
 
         // --- MÉTODOS FILTRO DE PRODUCTOS ---
-        private void AbrirModalFiltroProductos() => MostrarModalFiltroProductos = true;
-        private void CerrarModalFiltroProductos() => MostrarModalFiltroProductos = false;
+        private async Task AbrirModalFiltroProductos()
+        {
+            await JS.InvokeVoidAsync("modalScrollLock.lock");
+            MostrarModalFiltroProductos = true;
+        }
+        private async Task CerrarModalFiltroProductos()
+        {
+            await JS.InvokeVoidAsync("modalScrollLock.unlock");
+            MostrarModalFiltroProductos = false;
+        }
 
         private void ToggleProducto(string producto)
         {
@@ -112,13 +129,18 @@ namespace VendingManager.Web.Pages
         }
 
         // --- ADMIN METHODS ---
-        private void AbrirModalAdmin() 
+        private async Task AbrirModalAdmin() 
         {
+            await JS.InvokeVoidAsync("modalScrollLock.lock");
             MostrarModalAdmin = true;
             AdminMaquinaId = MaquinaSeleccionada; // Default to current selection
             AdminConfirmacion = "";
         }
-        private void CerrarModalAdmin() => MostrarModalAdmin = false;
+        private async Task CerrarModalAdmin()
+        {
+            await JS.InvokeVoidAsync("modalScrollLock.unlock");
+            MostrarModalAdmin = false;
+        }
 
         private async Task EjecutarBorradoAdmin()
         {
@@ -139,7 +161,7 @@ namespace VendingManager.Web.Pages
                     MensajeError = ""; // Clear errors
                     // Show success via JS or just reload (simple approach: reload report if it matches)
                     await CargarReporte(); // Refresh data
-                    CerrarModalAdmin();
+                    await CerrarModalAdmin();
                     await JS.InvokeVoidAsync("alert", msg); // Simple alert for admin success
                 }
                 else
@@ -263,6 +285,7 @@ namespace VendingManager.Web.Pages
                 string url = $"api/Ventas/informe-financiero?inicio={inicio}&fin={fin}&maquinaId={MaquinaSeleccionada}";
 
                 Financiero = await Http.GetFromJsonAsync<InformeFinancieroDto>(url);
+                await JS.InvokeVoidAsync("modalScrollLock.lock");
                 MostrarModalFinanciero = true;
             }
             catch (Exception ex)
@@ -271,11 +294,23 @@ namespace VendingManager.Web.Pages
             }
         }
 
-        private void CerrarModalFinanciero() => MostrarModalFinanciero = false;
+        private async Task CerrarModalFinanciero()
+        {
+            await JS.InvokeVoidAsync("modalScrollLock.unlock");
+            MostrarModalFinanciero = false;
+        }
 
         // NUEVO: CONTROL MODAL FANTASMAS
-        private void VerFantasmas() => MostrarModalFantasmas = true;
-        private void CerrarModalFantasmas() => MostrarModalFantasmas = false;
+        private async Task VerFantasmas()
+        {
+            await JS.InvokeVoidAsync("modalScrollLock.lock");
+            MostrarModalFantasmas = true;
+        }
+        private async Task CerrarModalFantasmas()
+        {
+            await JS.InvokeVoidAsync("modalScrollLock.unlock");
+            MostrarModalFantasmas = false;
+        }
 
         private void OrdenarPor(string columna)
         {
@@ -386,17 +421,22 @@ namespace VendingManager.Web.Pages
             }
         }
 
-        private void AbrirModalSync()
+        private async Task AbrirModalSync()
         {
+            await JS.InvokeVoidAsync("modalScrollLock.lock");
             FechaLimiteSync = DateTime.Now; // Default: Ahora
             MostrarModalSync = true;
         }
 
-        private void CerrarModalSync() => MostrarModalSync = false;
+        private async Task CerrarModalSync()
+        {
+            await JS.InvokeVoidAsync("modalScrollLock.unlock");
+            MostrarModalSync = false;
+        }
 
         private async Task EjecutarSync()
         {
-            MostrarModalSync = false;
+            await CerrarModalSync();
             await SincronizarPortal();
         }
 
@@ -459,6 +499,16 @@ namespace VendingManager.Web.Pages
         {
             public int Id { get; set; }
             public string Nombre { get; set; } = string.Empty;
+            public List<PeriodoRecargaDto> Periodos { get; set; } = new();
+        }
+
+        public class PeriodoRecargaDto
+        {
+            public int Id { get; set; }
+            public int MaquinaId { get; set; }
+            public string MaquinaNombre { get; set; } = string.Empty;
+            public DateTime FechaInicio { get; set; }
+            public DateTime FechaFin { get; set; }
         }
 
 
