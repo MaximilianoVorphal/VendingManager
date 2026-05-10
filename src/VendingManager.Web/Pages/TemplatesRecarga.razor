@@ -469,18 +469,21 @@
                                 <i class="bi bi-camera-fill me-2"></i>
                             }SUBIR FOTO RECARGA
                         </button>
-                        <InputFile OnChange="HandleFotoGuiaUpload" accept="image/*" class="d-none" id="fotoGuiaFileInput" />
-                        <button class="btn btn-outline-secondary rounded-0 fw-bold px-3" @onclick="TriggerFotoGuiaUpload" title="Cargar foto de referencia (productos)">
-                            @if (_fotoGuiaLoading)
-                            {
-                                <span class="spinner-border spinner-border-sm me-2"></span>
-                            }
-                            else
-                            {
-                                <i class="bi bi-image me-1"></i>
-                            }FOTO GUÍA
-                        </button>
-                        @if (!string.IsNullOrEmpty(FotoGuiaUrl))
+                        @if (string.IsNullOrEmpty(FotoGuiaUrl))
+                        {
+                            <InputFile OnChange="HandleFotoGuiaUpload" accept="image/*" class="d-none" id="fotoGuiaFileInput" />
+                            <button class="btn btn-outline-secondary rounded-0 fw-bold px-3" @onclick="TriggerFotoGuiaUpload" title="Cargar foto de referencia (productos)">
+                                @if (_fotoGuiaLoading)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-2"></span>
+                                }
+                                else
+                                {
+                                    <i class="bi bi-image me-1"></i>
+                                }FOTO GUÍA
+                            </button>
+                        }
+                        else
                         {
                             <button class="btn btn-outline-info rounded-0 fw-bold px-3" @onclick="MostrarFotoGuiaModal" title="Ver foto guía">
                                 <i class="bi bi-eye me-1"></i>VER FOTO GUÍA
@@ -524,10 +527,13 @@
                     </div>
                 </div>
                 <div class="modal-footer bg-dark border-top border-dark rounded-0 d-flex justify-content-between align-items-center">
-                    <div>
+                    <div class="d-flex align-items-center gap-3">
+                        <button class="btn btn-sm btn-outline-danger rounded-0 fw-bold" @onclick="EliminarFotoGuia" title="Eliminar foto guía">
+                            <i class="bi bi-trash me-1"></i>ELIMINAR FOTO
+                        </button>
                         <small class="text-muted">
                             <i class="bi bi-info-circle-fill me-1"></i>
-                            Esta foto es solo referencia. No se envía a ningún servidor.
+                            Esta foto es solo referencia.
                         </small>
                     </div>
                     <div class="d-flex align-items-center gap-2">
@@ -717,13 +723,7 @@
             MostrarFotoGuia = false;
         }
         PeriodoEnEdicionVisual = null;
-        RevokeFotoGuiaUrl();
-        // Revoke OCR photo blob URL if present
-        if (!string.IsNullOrEmpty(_fotoOcrUrl))
-        {
-            _fotoOcrUrl = null;
-        }
-        _currentTemplateId = 0;
+        // Photos kept in memory for convenience across reopens — no revoke here
         // Restaurar navbar al salir del editor
         Layout?.ExpandNavbar();
     }
@@ -1022,6 +1022,36 @@
     private void CerrarFotoGuiaModal()
     {
         MostrarFotoGuia = false;
+        StateHasChanged();
+    }
+
+    private async Task EliminarFotoGuia()
+    {
+        // Close the modal first
+        MostrarFotoGuia = false;
+
+        // Clear local state
+        RevokeFotoGuiaUrl();
+        FotoGuiaData = null;
+
+        // Delete from backend if we have a template
+        if (_currentTemplateId > 0)
+        {
+            try
+            {
+                var response = await Http.DeleteAsync($"api/TemplateRecarga/{_currentTemplateId}/foto-guia");
+                if (!response.IsSuccessStatusCode && response.StatusCode != System.Net.HttpStatusCode.NotFound)
+                {
+                    Logger.LogWarning("Failed to delete foto guía for template {Id}: {Status}", _currentTemplateId, response.StatusCode);
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Error deleting foto guía for template {Id}", _currentTemplateId);
+                // Non-critical: local state already cleared
+            }
+        }
+
         StateHasChanged();
     }
 

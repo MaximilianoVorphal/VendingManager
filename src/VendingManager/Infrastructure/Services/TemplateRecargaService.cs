@@ -671,6 +671,24 @@ public class TemplateRecargaService : ITemplateRecargaService
         return (template.FotoOcr, null);
     }
 
+    public async Task DeleteFotoGuiaAsync(int templateId)
+    {
+        var template = await _context.TemplatesRecarga.FindAsync(templateId)
+            ?? throw new KeyNotFoundException($"Template con ID {templateId} no encontrado");
+
+        template.FotoGuia = null;
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task DeleteFotoOcrAsync(int templateId)
+    {
+        var template = await _context.TemplatesRecarga.FindAsync(templateId)
+            ?? throw new KeyNotFoundException($"Template con ID {templateId} no encontrado");
+
+        template.FotoOcr = null;
+        await _context.SaveChangesAsync();
+    }
+
     /// <summary>
     /// Auto-syncs product changes to matching Venta records after template save.
     /// Only updates records where ProductoId differs from the pre-save snapshot.
