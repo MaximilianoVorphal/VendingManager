@@ -239,7 +239,7 @@
             <div class="modal-content rounded-0 border-2 border-dark shadow-lg">
                 <div class="modal-header bg-dark text-white rounded-0">
                     <h5 class="modal-title fw-bold">CREAR ORDEN MANUAL</h5>
-                    <button type="button" class="btn-close btn-close-white" @onclick="() => MostrarModalManual = false"></button>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CerrarModalManual"></button>
                 </div>
                 <div class="modal-body">
                     <p class="small text-muted mb-3">
@@ -275,7 +275,7 @@
                     </div>
                 </div>
                 <div class="modal-footer bg-light rounded-0">
-                    <button class="btn btn-outline-dark rounded-0 fw-bold" @onclick="() => MostrarModalManual = false">CANCELAR</button>
+                    <button class="btn btn-outline-dark rounded-0 fw-bold" @onclick="CerrarModalManual">CANCELAR</button>
                     <button class="btn btn-success rounded-0 fw-bold px-4" @onclick="CrearOrdenManual" disabled="@(MaquinaManualId == 0)">
                         CREAR ORDEN@(MaquinaManualId == -1 ? "ES (TODAS)" : "")
                     </button>

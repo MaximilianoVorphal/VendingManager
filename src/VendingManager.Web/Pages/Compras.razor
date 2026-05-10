@@ -2,6 +2,7 @@
 @using VendingManager.Shared.DTOs
 @inject HttpClient Http
 @inject NavigationManager Navigation
+@inject IJSRuntime JS
 
 <PageTitle>COMPRAS</PageTitle>
 
@@ -318,15 +319,17 @@
         }
     }
 
-    private void VerDetalles(CompraDto compra)
+    private async Task VerDetalles(CompraDto compra)
     {
+        await JS.InvokeVoidAsync("modalScrollLock.lock");
         CompraSeleccionada = compra;
         Error = null;
         MensajeExito = null;
     }
 
-    private void CerrarModalDetalles()
+    private async Task CerrarModalDetalles()
     {
+        await JS.InvokeVoidAsync("modalScrollLock.unlock");
         CompraSeleccionada = null;
     }
     
@@ -334,15 +337,17 @@
     private CompraDto? CompraAEliminar;
     private bool ProcesandoEliminacion = false;
 
-    private void ConfirmarEliminacion(CompraDto compra)
+    private async Task ConfirmarEliminacion(CompraDto compra)
     {
+        await JS.InvokeVoidAsync("modalScrollLock.lock");
         CompraAEliminar = compra;
         Error = null;
         MensajeExito = null;
     }
 
-    private void CancelarEliminacion()
+    private async Task CancelarEliminacion()
     {
+        await JS.InvokeVoidAsync("modalScrollLock.unlock");
         CompraAEliminar = null;
     }
 
@@ -358,7 +363,7 @@
             if (response.IsSuccessStatusCode)
             {
                 MensajeExito = "La compra ha sido eliminada y se ha revertido el stock y la caja.";
-                CompraAEliminar = null;
+                await CancelarEliminacion();
                 await CargarCompras();
             }
             else
@@ -390,7 +395,7 @@
             if (response.IsSuccessStatusCode)
             {
                 MensajeExito = $"La factura de {CompraSeleccionada.Proveedor} fue marcada como pagada. Se ha registrado el egreso en Caja.";
-                CerrarModalDetalles();
+                await CerrarModalDetalles();
                 await CargarCompras();
             }
             else
@@ -405,7 +410,7 @@
         finally
         {
             ProcesandoPago = false;
-            if(CompraSeleccionada != null) CerrarModalDetalles();
+            if(CompraSeleccionada != null) await CerrarModalDetalles();
         }
     }
 }

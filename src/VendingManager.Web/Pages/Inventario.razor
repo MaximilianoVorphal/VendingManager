@@ -428,16 +428,18 @@
     }
 
     // --- ACCIONES STOCK ---
-    private void AbrirModal(ProductoDTO producto, bool esIngreso)
+    private async Task AbrirModal(ProductoDTO producto, bool esIngreso)
     {
+        await JS.InvokeVoidAsync("modalScrollLock.lock");
         ProductoSeleccionado = producto;
         EsIngresoStock = esIngreso;
         CantidadMovimiento = 1;
         MostrarModal = true;
     }
 
-    private void CerrarModal()
+    private async Task CerrarModal()
     {
+        await JS.InvokeVoidAsync("modalScrollLock.unlock");
         MostrarModal = false;
         ProductoSeleccionado = null;
     }
@@ -462,7 +464,7 @@
                 var verbo = EsIngresoStock ? "ingresaron" : "sacaron";
                 Mensaje = $"✅ Éxito: Se {verbo} {CantidadMovimiento} unidades de '{ProductoSeleccionado.Nombre}'.";
                 AlertClass = "alert-success";
-                CerrarModal();
+                await CerrarModal();
             }
             else { Mensaje = "❌ Fallo al actualizar stock."; AlertClass = "alert-danger"; }
         }
@@ -470,8 +472,9 @@
     }
 
     // --- ACCIONES EDICIÓN ---
-    private void AbrirModalEditar(ProductoDTO? producto)
+    private async Task AbrirModalEditar(ProductoDTO? producto)
     {
+        await JS.InvokeVoidAsync("modalScrollLock.lock");
         if (producto == null)
         {
             // CREAR UNO NUEVO
@@ -508,8 +511,9 @@
         MostrarModalEditar = true;
     }
 
-    private void CerrarModalEditar()
+    private async Task CerrarModalEditar()
     {
+        await JS.InvokeVoidAsync("modalScrollLock.unlock");
         MostrarModalEditar = false;
         ProductoEditar = null;
     }
@@ -552,7 +556,7 @@
                 Mensaje = $"✅ Producto {action} correctamente.";
                 AlertClass = "alert-success";
                 await CargarInventario(); // Recargar lista completa
-                CerrarModalEditar();
+                await CerrarModalEditar();
             }
             else
             {

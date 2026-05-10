@@ -161,15 +161,17 @@ else
         users = await Http.GetFromJsonAsync<List<UserDto>>("api/users");
     }
 
-    private void ShowCreateModal()
+    private async Task ShowCreateModal()
     {
+        await JS.InvokeVoidAsync("modalScrollLock.lock");
         newUser = new CreateUserDto { Role = "User" };
         errorMessage = "";
         showCreateModal = true;
     }
 
-    private void ShowEditModal(UserDto user)
+    private async Task ShowEditModal(UserDto user)
     {
+        await JS.InvokeVoidAsync("modalScrollLock.lock");
         editingUser = user;
         updateUser = new UpdateUserDto { Role = user.Role };
         errorMessage = "";
@@ -181,8 +183,9 @@ else
         showEditModal = true;
     }
 
-    private void CloseModals()
+    private async Task CloseModals()
     {
+        await JS.InvokeVoidAsync("modalScrollLock.unlock");
         showCreateModal = false;
         showEditModal = false;
         editingUser = null;
@@ -196,7 +199,7 @@ else
             if (response.IsSuccessStatusCode)
             {
                 await LoadUsers();
-                CloseModals();
+                await CloseModals();
             }
             else
             {
@@ -219,7 +222,7 @@ else
             if (response.IsSuccessStatusCode)
             {
                 await LoadUsers();
-                CloseModals();
+                await CloseModals();
             }
             else
             {

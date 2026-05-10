@@ -297,6 +297,7 @@
 
     private async Task AbrirModalCritico()
     {
+        await JS.InvokeVoidAsync("modalScrollLock.lock");
         MostrarModalCriticoState = true;
         ListaCriticos = null; // Reset to show loading
         try
@@ -307,7 +308,11 @@
         catch { ListaCriticos = new(); }
     }
 
-    private void CerrarModalCritico() => MostrarModalCriticoState = false;
+    private async Task CerrarModalCritico()
+    {
+        await JS.InvokeVoidAsync("modalScrollLock.unlock");
+        MostrarModalCriticoState = false;
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -435,19 +440,21 @@ backgroundColor = new[] { "#198754", "#dc3545" }
 
 
     // INTERCEPTOR PARA MAQUINA: Muestra Modal
-    private void SubirArchivoMaquina(InputFileChangeEventArgs e) => PrepararCarga(e.File, "MAQUINA");
-    private void SubirArchivoTransbank(InputFileChangeEventArgs e) => PrepararCarga(e.File, "TRANSBANK");
+    private async Task SubirArchivoMaquina(InputFileChangeEventArgs e) => await PrepararCarga(e.File, "MAQUINA");
+    private async Task SubirArchivoTransbank(InputFileChangeEventArgs e) => await PrepararCarga(e.File, "TRANSBANK");
 
-    private void PrepararCarga(IBrowserFile file, string tipo)
+    private async Task PrepararCarga(IBrowserFile file, string tipo)
     {
+        await JS.InvokeVoidAsync("modalScrollLock.lock");
         PendingFile = file;
         PendingType = tipo;
         FechaLimiteCarga = DateTime.Now;
         MostrarModalFecha = true;
     }
 
-    private void CancelarCarga()
+    private async Task CancelarCarga()
     {
+        await JS.InvokeVoidAsync("modalScrollLock.unlock");
         PendingFile = null;
         MostrarModalFecha = false;
         InputKey++; // Reseteamos el input para permitir elegir el mismo archivo
@@ -456,6 +463,7 @@ backgroundColor = new[] { "#198754", "#dc3545" }
     private async Task ConfirmarCarga()
     {
         if (PendingFile == null) return;
+        await JS.InvokeVoidAsync("modalScrollLock.unlock");
         MostrarModalFecha = false;
         
         string fechaParam = FechaLimiteCarga.ToString("yyyy-MM-ddTHH:mm:ss");
