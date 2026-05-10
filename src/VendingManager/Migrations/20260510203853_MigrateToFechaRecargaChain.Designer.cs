@@ -12,8 +12,8 @@ using VendingManager.Infrastructure.Data;
 namespace VendingManager.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20260510194518_DropFechaInicio")]
-    partial class DropFechaInicio
+    [Migration("20260510203853_MigrateToFechaRecargaChain")]
+    partial class MigrateToFechaRecargaChain
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -762,10 +762,7 @@ namespace VendingManager.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<DateTime>("FechaFin")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime>("FechaInicio")
+                    b.Property<DateTime>("FechaRecarga")
                         .HasColumnType("datetime2");
 
                     b.Property<byte[]>("FotoGuia")
