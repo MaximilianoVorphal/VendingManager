@@ -252,8 +252,9 @@
         listaMaquinas = await Http.GetFromJsonAsync<List<Maquina>>("api/Maquinas");
     }
 
-    private void AbrirModal(Maquina? maquina)
+    private async Task AbrirModal(Maquina? maquina)
     {
+        await JS.InvokeVoidAsync("modalScrollLock.lock");
         if (maquina == null)
         {
             // Nuevo
@@ -274,8 +275,9 @@
         MostrarModal = true;
     }
 
-    private void CerrarModal()
+    private async Task CerrarModal()
     {
+        await JS.InvokeVoidAsync("modalScrollLock.unlock");
         MostrarModal = false;
         maquinaActual = new Maquina();
     }
@@ -307,7 +309,7 @@
         }
 
         await CargarMaquinas();
-        CerrarModal();
+        await CerrarModal();
     }
 
     private async Task Borrar(Maquina m)
