@@ -218,10 +218,12 @@ namespace VendingManager.Web.Pages
             {
                 MensajeError = "Error al analizar template: " + ex.Message;
                 Logger.LogError(ex, "Error analizando template");
+                StateHasChanged();
             }
             finally
             {
                 Cargando = false;
+                StateHasChanged();
             }
         }
 
@@ -437,6 +439,7 @@ namespace VendingManager.Web.Pages
 
         // View State
         private bool ShowDetailView = false;
+        private bool _timelineVisible = false;
 
         // Data
         private int CalculateStockAtTime(StockoutAnalysisDto item, DateTime time)
