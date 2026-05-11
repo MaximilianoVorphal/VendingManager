@@ -61,7 +61,9 @@ public class TemplateRecargaService : ITemplateRecargaService
             {
                 var endDate = i < sorted.Count - 1
                     ? sorted[i + 1].FechaRecarga
-                    : sorted[i].FechaRecarga.AddYears(2);
+                    : (sorted[i].FechaRecarga <= DateTime.Now
+                        ? (DateTime.Now < sorted[i].FechaRecarga.AddDays(90) ? DateTime.Now : sorted[i].FechaRecarga.AddDays(90))
+                        : sorted[i].FechaRecarga.AddDays(90));
                 lookup[sorted[i].Id] = endDate;
             }
         }
@@ -284,7 +286,10 @@ public class TemplateRecargaService : ITemplateRecargaService
             .Select(p => (DateTime?)p.FechaRecarga)
             .FirstOrDefaultAsync();
 
-        return nextRecarga ?? fechaRecarga.AddYears(2);
+        // No next recarga: cap to max 90 days from recarga for past periods, or fechaRecarga + 90 days for future ones
+        return nextRecarga ?? (fechaRecarga <= DateTime.Now
+            ? (DateTime.Now < fechaRecarga.AddDays(90) ? DateTime.Now : fechaRecarga.AddDays(90))
+            : fechaRecarga.AddDays(90));
     }
 
     /// <summary>
