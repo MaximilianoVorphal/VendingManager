@@ -23,6 +23,9 @@
                 <small class="text-muted fw-bold">DEFINE PERÍODOS ESPECÍFICOS POR MÁQUINA PARA ANÁLISIS</small>
             </div>
             <div class="d-flex gap-2">
+                <button class="btn btn-dark rounded-0 fw-bold border-dark" @onclick="AbrirModalSincronizarGlobal" title="Sincronizar ventas históricas de TODOS los templates">
+                    <i class="bi bi-arrow-repeat me-1"></i> SINCRONIZAR TODO
+                </button>
                 <button class="btn btn-warning rounded-0 fw-bold border-dark" @onclick="MostrarPendientes" title="Slots pendientes de configurar">
                     <i class="bi bi-exclamation-circle me-1"></i> PENDIENTES
                 </button>
@@ -598,6 +601,68 @@
     </div>
 }
 
+<!-- MODAL SINCRONIZAR VENTAS (GLOBAL — TODOS LOS TEMPLATES) -->
+@if (MostrarModalSincronizarGlobal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5); z-index: 1110;">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-2 border-dark rounded-0">
+                <div class="modal-header bg-dark text-white rounded-0 border-bottom border-dark">
+                    <h5 class="modal-title fw-bold text-uppercase">
+                        <i class="bi bi-arrow-repeat me-2"></i> SINCRONIZAR TODOS LOS TEMPLATES
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CerrarModalSincronizarGlobal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="fw-bold">Vas a sincronizar <strong>TODOS</strong> los templates contra las ventas históricas.</p>
+                    <p class="small text-muted mb-4">
+                        Cada template recorrerá sus períodos y asignará el ProductoId (y opcionalmente el CostoVenta) 
+                        a las ventas que estén dentro del rango de fechas de cada período.
+                    </p>
+                    <div class="form-check">
+                        <input class="form-check-input border-dark" type="checkbox" id="checkCostosGlobal" @bind="ActualizarCostosSincronizacionGlobal">
+                        <label class="form-check-label fw-bold small" for="checkCostosGlobal">
+                            ¿Actualizar también Costo de Venta con el costo histórico a la fecha de cada venta?
+                        </label>
+                    </div>
+                    @if (ResultadoSincronizacionGlobal != null)
+                    {
+                        <div class="mt-4 p-3 bg-light border border-dark rounded-0">
+                            <h6 class="fw-bold text-uppercase mb-2">
+                                <i class="bi bi-check-circle-fill text-success me-1"></i> RESULTADO
+                            </h6>
+                            <p class="fw-bold mb-1">
+                                @ResultadoSincronizacionGlobal.TotalVentasActualizadas ventas actualizadas en 
+                                @ResultadoSincronizacionGlobal.TemplatesProcesados templates.
+                            </p>
+                            @if (ResultadoSincronizacionGlobal.Detalles.Any())
+                            {
+                                <div class="mt-2" style="max-height: 120px; overflow-y: auto;">
+                                    @foreach (var d in ResultadoSincronizacionGlobal.Detalles)
+                                    {
+                                        <div class="d-flex justify-content-between small py-1 border-bottom">
+                                            <span class="fw-bold">@d.TemplateNombre</span>
+                                            <span class="font-monospace">@d.VentasActualizadas ventas</span>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer border-top border-dark">
+                    <button type="button" class="btn btn-secondary rounded-0" @onclick="CerrarModalSincronizarGlobal" disabled="@SincronizandoGlobal">
+                        CANCELAR
+                    </button>
+                    <button type="button" class="btn btn-dark rounded-0 fw-bold border-dark" @onclick="SincronizarTodasVentas" disabled="@SincronizandoGlobal">
+                        @(SincronizandoGlobal ? "SINCRONIZANDO..." : "SÍ, SINCRONIZAR TODO")
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 <!-- MODAL SINCRONIZAR VENTAS -->
 @if (MostrarModalSincronizar)
 {
@@ -1128,6 +1193,12 @@
     private bool ActualizarCostosSincronizacion = false;
     private bool Sincronizando = false;
 
+    // Sincronización global (todos los templates)
+    private bool MostrarModalSincronizarGlobal = false;
+    private bool ActualizarCostosSincronizacionGlobal = false;
+    private bool SincronizandoGlobal = false;
+    private SyncAllResultDto? ResultadoSincronizacionGlobal;
+
     private List<TemplateRecargaDto>? Templates;
     private List<MaquinaSimpleDto>? ListaMaquinas;
 
@@ -1654,11 +1725,77 @@
         }
     }
 
+    // === Sincronización global (todos los templates) ===
+
+    private async Task AbrirModalSincronizarGlobal()
+    {
+        await LockScroll();
+        ActualizarCostosSincronizacionGlobal = false;
+        ResultadoSincronizacionGlobal = null;
+        MostrarModalSincronizarGlobal = true;
+    }
+
+    private async Task CerrarModalSincronizarGlobal()
+    {
+        await UnlockScroll();
+        MostrarModalSincronizarGlobal = false;
+    }
+
+    private async Task SincronizarTodasVentas()
+    {
+        SincronizandoGlobal = true;
+        MensajeError = "";
+        MensajeExito = "";
+        ResultadoSincronizacionGlobal = null;
+        StateHasChanged();
+
+        try
+        {
+            var response = await Http.PostAsync(
+                $"api/TemplateRecarga/sincronizar-todas-ventas?actualizarCostos={ActualizarCostosSincronizacionGlobal}",
+                null);
+
+            if (response.IsSuccessStatusCode)
+            {
+                ResultadoSincronizacionGlobal = await response.Content.ReadFromJsonAsync<SyncAllResultDto>();
+                MensajeExito = $"Sincronización completada: {ResultadoSincronizacionGlobal?.TotalVentasActualizadas ?? 0} ventas actualizadas en {ResultadoSincronizacionGlobal?.TemplatesProcesados ?? 0} templates.";
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                MensajeError = "Error al sincronizar: " + error;
+            }
+        }
+        catch (Exception ex)
+        {
+            MensajeError = "Error de red: " + ex.Message;
+        }
+        finally
+        {
+            SincronizandoGlobal = false;
+            StateHasChanged();
+        }
+    }
+
     // DTOs Locales
     public class SyncResultDto
     {
         public string Message { get; set; } = string.Empty;
         public int Count { get; set; }
+    }
+
+    public class SyncAllResultDto
+    {
+        public int TotalVentasActualizadas { get; set; }
+        public int TemplatesProcesados { get; set; }
+        public List<SyncAllDetailDto> Detalles { get; set; } = new();
+    }
+
+    public class SyncAllDetailDto
+    {
+        public int TemplateId { get; set; }
+        public string TemplateNombre { get; set; } = string.Empty;
+        public int VentasActualizadas { get; set; }
     }
 
     // DTOs Locales

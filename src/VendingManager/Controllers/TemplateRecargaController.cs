@@ -128,6 +128,16 @@ public class TemplateRecargaController(ITemplateRecargaService service) : Contro
     }
 
     /// <summary>
+    /// Sincronizar TODOS los templates contra las ventas históricas (global)
+    /// </summary>
+    [HttpPost("sincronizar-todas-ventas")]
+    public async Task<ActionResult<SyncAllVentasResultDto>> SincronizarTodasVentas([FromQuery] bool actualizarCostos = false)
+    {
+        var result = await service.SyncAllVentasAsync(actualizarCostos);
+        return Ok(result);
+    }
+
+    /// <summary>
     /// Sincronizar el producto de un slot específico en las ventas históricas
     /// </summary>
     [HttpPatch("{templateId}/periodo/{periodoId}/slot/{numeroSlot}/sincronizar-producto")]
