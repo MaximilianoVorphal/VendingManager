@@ -201,13 +201,12 @@
 
             // 2. Definir boundaries globales. 
             // Buscamos el inicio más antiguo y le quitamos un par de días de pad.
-            // El fin será HOY + 3 días para poder ver templates futuros si existen.
+            // El fin será HOY + 7 días. El sentinel condicional (SYSDATETIME) 
+            // asegura que los templates activos no estiren la timeline hasta 2099.
             var minDate = allPeriodosPlana.Min(p => p.FechaRecarga).Date;
-            var maxTemplateDate = allPeriodosPlana.Max(p => p.FechaFin).Date;
-            var possibleEnd = DateTime.Now.Date.AddDays(7); 
             
             GlobalStart = minDate.AddDays(-3);
-            GlobalEnd = maxTemplateDate > possibleEnd ? maxTemplateDate.AddDays(3) : possibleEnd;
+            GlobalEnd = DateTime.Now.Date.AddDays(7);
             TotalSeconds = (GlobalEnd - GlobalStart).TotalSeconds;
 
             // 3. Generar Rulerticks (Para marcar los inicios de mes en el encabezado)
