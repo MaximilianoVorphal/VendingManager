@@ -363,6 +363,7 @@ public class TemplateRecargaService : ITemplateRecargaService
                 .ThenInclude(p => p.Maquina)
             .Include(t => t.Periodos)
                 .ThenInclude(p => p.SnapshotSlots)
+                .ThenInclude(s => s.Producto)
             .FirstOrDefaultAsync(t => t.Id == templateId);
 
         if (template == null || !template.Periodos.Any())
