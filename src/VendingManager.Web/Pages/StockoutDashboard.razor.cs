@@ -70,9 +70,17 @@ namespace VendingManager.Web.Pages
                         var stockTotal = g.Sum(d => d.StockInicial);
                         var vendidoTotal = g.Sum(d => d.CantidadVendida);
                         var finPeriodo = g.Max(d => d.FinReporte);
-                        var horasSinStock = vendidoTotal >= stockTotal && stockTotal > 0
-                            ? (finPeriodo - ultimaVenta).TotalHours
-                            : 0.0;
+                        double horasSinStock;
+                        if (ultimaVenta == default || stockTotal == 0)
+                        {
+                            horasSinStock = 0;
+                        }
+                        else
+                        {
+                            horasSinStock = vendidoTotal >= stockTotal && stockTotal > 0
+                                ? (finPeriodo - ultimaVenta).TotalHours
+                                : 0.0;
+                        }
                         // Si ningún slot vendió nada, no hay quiebre real
                         var posibleQuiebre = vendidoTotal >= 0.8 * stockTotal && stockTotal > 0;
 
@@ -197,13 +205,11 @@ namespace VendingManager.Web.Pages
                 }
 
                 // Initialize timeline
-                CurrentTimeTicks = FechaInicio.Ticks;
+                CurrentStepIndex = 0;
                 if (FechaFin > FechaInicio)
                 {
-                    // Adjust step size based on duration? 
-                    // If duration is 7 days, 1 hour step is fine (168 steps).
-                    // If duration is 1 month, 1 hour step is 720 steps (maybe too fine?).
-                    TimeStepTicks = TimeSpan.FromMinutes(30).Ticks;
+                    TotalSteps = (int)(FechaFin - FechaInicio).TotalMinutes / TimeStepMinutes;
+                    if (TotalSteps < 1) TotalSteps = 1;
                 }
 
                 AplicarOrdenamiento();
@@ -418,15 +424,17 @@ namespace VendingManager.Web.Pages
         }
 
         // Timeline Control
-        private long CurrentTimeTicks;
+        private int CurrentStepIndex;
+        private int TotalSteps;
+        private const int TimeStepMinutes = 30;
         private DateTime CurrentTime
         {
-            get => new DateTime(CurrentTimeTicks);
-            set => CurrentTimeTicks = value.Ticks;
+            get => FechaInicio.AddMinutes(CurrentStepIndex * TimeStepMinutes);
+            set => CurrentStepIndex = (int)((value - FechaInicio).TotalMinutes / TimeStepMinutes);
         }
-        private long TimeStepTicks = TimeSpan.FromHours(1).Ticks; // 1 hour steps for slider
         private bool IsPlaying = false;
         private System.Threading.Timer? PlaybackTimer;
+        private int _lastRenderedStepIndex = -1;
 
         // View State
         private bool ShowDetailView = false;
@@ -463,7 +471,7 @@ namespace VendingManager.Web.Pages
             {
                 PlaybackTimer = new System.Threading.Timer(async _ =>
                 {
-                    if (CurrentTimeTicks >= FechaFin.Ticks)
+                    if (CurrentStepIndex >= TotalSteps)
                     {
                         IsPlaying = false;
                         await InvokeAsync(StateHasChanged);
@@ -471,14 +479,21 @@ namespace VendingManager.Web.Pages
                         return;
                     }
 
-                    CurrentTimeTicks += TimeStepTicks;
+                    CurrentStepIndex++;
                     await InvokeAsync(StateHasChanged);
-                }, null, 0, 100); // Update every 100ms
+                }, null, 0, 500); // Update every 500ms
             }
             else
             {
                 PlaybackTimer?.Dispose();
             }
+        }
+
+        protected override bool ShouldRender()
+        {
+            if (_lastRenderedStepIndex == CurrentStepIndex) return false;
+            _lastRenderedStepIndex = CurrentStepIndex;
+            return true;
         }
 
         // DTOs Locales
