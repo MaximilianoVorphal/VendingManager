@@ -240,9 +240,10 @@
                                     <span class="badge bg-danger fs-6">@CurrentTime.ToString("dddd dd/MM HH:mm")</span>
                                     <span>@FechaFin.ToString("dd/MM HH:mm")</span>
                                 </label>
-                                <input type="range" class="form-range" 
-                                       min="@FechaInicio.Ticks" max="@FechaFin.Ticks" step="@TimeStepTicks" 
-                                       @bind="CurrentTimeTicks" @bind:event="oninput" />
+                                <input type="range" class="form-range"
+                                       min="0" max="@TotalSteps" step="1"
+                                       value="@CurrentStepIndex"
+                                       @onchange="(e => CurrentStepIndex = int.TryParse(e.Value?.ToString(), out int idx) ? idx : 0)" />
                                 
                                 <!-- Day Markers -->
                                 <div class="d-flex justify-content-between position-relative mt-2" style="height: 20px;">
