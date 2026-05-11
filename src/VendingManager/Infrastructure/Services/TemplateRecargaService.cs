@@ -156,10 +156,14 @@ public class TemplateRecargaService : ITemplateRecargaService
         template.Nombre = dto.Nombre;
         template.Descripcion = dto.Descripcion;
 
-        // Validate chain for each period BEFORE updating
+        // Validate chain for each period BEFORE updating.
+        // Exclude the template's own existing periods — otherwise the validation
+        // sees the old periods (still in DB) and falsely rejects the update as a
+        // backward/duplicate chain conflict.
+        var excludeIds = template.Periodos.Select(p => p.Id).ToHashSet();
         foreach (var p in dto.Periodos)
         {
-            await ValidateFechaRecargaChainAsync(p.MaquinaId, p.FechaRecarga);
+            await ValidateFechaRecargaChainAsync(p.MaquinaId, p.FechaRecarga, excludeIds);
         }
 
         // Eliminar snapshots de períodos anteriores
@@ -259,11 +263,11 @@ public class TemplateRecargaService : ITemplateRecargaService
     /// would create a backward or duplicate chain for this machine.
     /// Called before CreateAsync and UpdateAsync commit.
     /// </summary>
-    private async Task ValidateFechaRecargaChainAsync(int maquinaId, DateTime fechaRecarga, int? excludePeriodoId = null)
+    private async Task ValidateFechaRecargaChainAsync(int maquinaId, DateTime fechaRecarga, HashSet<int>? excludePeriodoIds = null)
     {
         var maxExisting = await _context.PeriodosRecarga
             .Where(p => p.MaquinaId == maquinaId
-                     && (excludePeriodoId == null || p.Id != excludePeriodoId.Value))
+                     && (excludePeriodoIds == null || !excludePeriodoIds.Contains(p.Id)))
             .MaxAsync(p => (DateTime?)p.FechaRecarga);
 
         if (maxExisting.HasValue && fechaRecarga <= maxExisting.Value)
