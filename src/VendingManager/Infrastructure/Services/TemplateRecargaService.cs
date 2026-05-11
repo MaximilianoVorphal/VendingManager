@@ -33,10 +33,42 @@ public class TemplateRecargaService : ITemplateRecargaService
             .OrderByDescending(t => t.FechaCreacion)
             .ToListAsync();
 
+        // Build cross-template chain: periods for the same machine may span multiple templates.
+        // Without this, GetFechaFinFromTemplate only sees periods within a single template,
+        // causing false overlaps when a machine has periods in different templates.
+        var crossTemplateChain = BuildCrossTemplateChain(templates);
+
         return templates
-            .Select(t => MapToDto(t))
+            .Select(t => MapToDto(t, crossTemplateChain))
             .OrderByDescending(t => t.FechaRecargaMin)
             .ToList();
+    }
+
+    /// <summary>
+    /// Builds a lookup of PeriodoId → FechaFin using ALL periods across ALL templates
+    /// for the same machine. This ensures the chain works correctly when a machine has
+    /// periods in different templates (cross-template chain).
+    /// </summary>
+    private static Dictionary<int, DateTime> BuildCrossTemplateChain(List<TemplateRecarga> templates)
+    {
+        var allPeriodos = templates.SelectMany(t => t.Periodos).ToList();
+        var lookup = new Dictionary<int, DateTime>();
+
+        foreach (var group in allPeriodos.GroupBy(p => p.MaquinaId))
+        {
+            var sorted = group.OrderBy(p => p.FechaRecarga).ToList();
+            for (int i = 0; i < sorted.Count; i++)
+            {
+                var endDate = i < sorted.Count - 1
+                    ? sorted[i + 1].FechaRecarga
+                    : (sorted[i].FechaRecarga <= DateTime.Now
+                        ? DateTime.Now
+                        : new DateTime(2099, 12, 31, 23, 59, 59, 999));
+                lookup[sorted[i].Id] = endDate;
+            }
+        }
+
+        return lookup;
     }
 
     public async Task<TemplateRecargaDto?> GetByIdAsync(int id)
@@ -895,7 +927,7 @@ public async Task<int> SyncVentasWithTemplateAsync(int templateId, bool actualiz
         }
     }
 
-    private static TemplateRecargaDto MapToDto(TemplateRecarga t)
+    private static TemplateRecargaDto MapToDto(TemplateRecarga t, Dictionary<int, DateTime>? crossTemplateChain = null)
     {
         return new TemplateRecargaDto
         {
@@ -909,9 +941,11 @@ public async Task<int> SyncVentasWithTemplateAsync(int templateId, bool actualiz
                 MaquinaId = p.MaquinaId,
                 MaquinaNombre = p.Maquina?.Nombre ?? "Desconocida",
                 FechaRecarga = p.FechaRecarga,
-                // FechaFin is computed — we use the next period's FechaRecarga or sentinel
-                // For in-memory mapping, derive from the template's periods
-                FechaFin = GetFechaFinFromTemplate(t, p),
+                // Use cross-template chain when available (GetAllAsync path);
+                // fall back to intra-template lookup for other callers
+                FechaFin = crossTemplateChain != null && crossTemplateChain.TryGetValue(p.Id, out var endDate)
+                    ? endDate
+                    : GetFechaFinFromTemplate(t, p),
                 TieneFotoGuia = p.FotoGuia != null,
                 TieneFotoOcr = p.FotoOcr != null,
                 SnapshotSlots = p.SnapshotSlots.Select(s => new SnapshotSlotDto
