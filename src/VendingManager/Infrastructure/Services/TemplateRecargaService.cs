@@ -631,6 +631,38 @@ public async Task<int> SyncVentasWithTemplateAsync(int templateId, bool actualiz
         return ventasActualizadas;
     }
 
+    public async Task<SyncAllVentasResultDto> SyncAllVentasAsync(bool actualizarCostos)
+    {
+        var result = new SyncAllVentasResultDto();
+
+        var templateIds = await _context.TemplatesRecarga
+            .Select(t => new { t.Id, t.Nombre })
+            .OrderBy(t => t.Id)
+            .ToListAsync();
+
+        foreach (var tpl in templateIds)
+        {
+            var count = await SyncVentasWithTemplateAsync(tpl.Id, actualizarCostos);
+            result.Detalles.Add(new SyncTemplateVentasResult
+            {
+                TemplateId = tpl.Id,
+                TemplateNombre = tpl.Nombre,
+                VentasActualizadas = count
+            });
+        }
+
+        result.TemplatesProcesados = templateIds.Count;
+        result.TotalVentasActualizadas = result.Detalles.Sum(d => d.VentasActualizadas);
+
+        _logger.LogInformation(
+            "[SyncAllVentas] Completado: {Templates} templates procesados, {Total} ventas actualizadas. " +
+            "Detalle: {@Detalles}",
+            result.TemplatesProcesados, result.TotalVentasActualizadas,
+            result.Detalles.Select(d => new { d.TemplateId, d.TemplateNombre, d.VentasActualizadas }));
+
+        return result;
+    }
+
     public async Task<SyncSlotProductoResultDto> SyncSlotProductoAsync(int templateId, int periodoId, string numeroSlot, int productoId)
     {
         var periodo = await _context.PeriodosRecarga
