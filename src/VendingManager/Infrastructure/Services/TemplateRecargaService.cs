@@ -254,7 +254,7 @@ public class TemplateRecargaService : ITemplateRecargaService
             .Select(p => (DateTime?)p.FechaRecarga)
             .FirstOrDefaultAsync();
 
-        return nextRecarga ?? new DateTime(2099, 12, 31, 23, 59, 59, 999);
+        return nextRecarga ?? (fechaRecarga <= DateTime.Now ? DateTime.Now : new DateTime(2099, 12, 31, 23, 59, 59, 999));
     }
 
     /// <summary>
@@ -277,7 +277,7 @@ public class TemplateRecargaService : ITemplateRecargaService
         {
             var endDate = i < sorted.Count - 1
                 ? sorted[i + 1].FechaRecarga
-                : new DateTime(2099, 12, 31, 23, 59, 59, 999);
+                : (sorted[i].FechaRecarga <= DateTime.Now ? DateTime.Now : new DateTime(2099, 12, 31, 23, 59, 59, 999));
             endDates[sorted[i].Id] = endDate;
         }
 
@@ -940,6 +940,6 @@ public async Task<int> SyncVentasWithTemplateAsync(int templateId, bool actualiz
             .OrderBy(p2 => p2.FechaRecarga)
             .FirstOrDefault();
 
-        return nextPeriodo?.FechaRecarga ?? new DateTime(2099, 12, 31, 23, 59, 59, 999);
+        return nextPeriodo?.FechaRecarga ?? (p.FechaRecarga <= DateTime.Now ? DateTime.Now : new DateTime(2099, 12, 31, 23, 59, 59, 999));
     }
 }
