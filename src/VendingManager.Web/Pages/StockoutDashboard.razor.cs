@@ -43,6 +43,14 @@ namespace VendingManager.Web.Pages
         private string ColumnaOrden = "DineroPerdido";
         private bool Ascendente = false;
 
+        /// <summary>
+        /// Returns true when the user has made a valid selection (template or manual filters).
+        /// Used to enable/disable the action buttons and show placeholder when nothing selected.
+        /// </summary>
+        private bool HaySeleccion =>
+            (TemplateSeleccionado > 0) ||
+            (MaquinaSeleccionada > 0 || FechaInicio != DateTime.Today.AddDays(-7) || FechaFin != DateTime.Today);
+
         private List<StockoutAnalysisDto> DatosFiltrados =>
             Datos == null ? new() :
             Datos.Where(d =>
@@ -124,7 +132,7 @@ namespace VendingManager.Web.Pages
                 }
             }
 
-            await CargarDatos();
+            // No templateId in URL — do NOT auto-run. User must explicitly click the button.
         }
 
         private async Task CargarMaquinas()
