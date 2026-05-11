@@ -434,7 +434,6 @@ namespace VendingManager.Web.Pages
         }
         private bool IsPlaying = false;
         private System.Threading.Timer? PlaybackTimer;
-        private int _lastRenderedStepIndex = -1;
 
         // View State
         private bool ShowDetailView = false;
@@ -487,13 +486,6 @@ namespace VendingManager.Web.Pages
             {
                 PlaybackTimer?.Dispose();
             }
-        }
-
-        protected override bool ShouldRender()
-        {
-            if (_lastRenderedStepIndex == CurrentStepIndex) return false;
-            _lastRenderedStepIndex = CurrentStepIndex;
-            return true;
         }
 
         // DTOs Locales
