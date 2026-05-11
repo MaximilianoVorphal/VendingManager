@@ -38,6 +38,13 @@ public interface ITemplateRecargaService
     Task<int> SyncVentasWithTemplateAsync(int templateId, bool actualizarCostos);
 
     /// <summary>
+    /// Sincroniza TODOS los templates contra las ventas históricas.
+    /// Itera cada template y aplica la misma lógica que SyncVentasWithTemplateAsync.
+    /// Devuelve un resumen con totales y detalle por template.
+    /// </summary>
+    Task<SyncAllVentasResultDto> SyncAllVentasAsync(bool actualizarCostos);
+
+    /// <summary>
     /// Sincroniza el producto de un slot específico en las ventas históricas
     /// dentro de un período.
     /// </summary>
