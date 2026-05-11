@@ -89,7 +89,7 @@
                         </div>
                         <div class="col-12 col-md-4">
                             <button class="btn btn-danger w-100 rounded-0 fw-bold py-2" @onclick="CargarDatos"
-                        disabled="@Cargando">
+                        disabled="@(Cargando || !HaySeleccion)">
                             @(Cargando ? "ANALIZANDO..." : "DETECTAR QUIEBRES")
                             </button>
                         </div>
@@ -118,7 +118,7 @@
                         </div>
                         <div class="col-12 col-md-4">
                             <button class="btn btn-danger w-100 rounded-0 fw-bold py-2" @onclick="CargarDatosPorTemplate"
-                        disabled="@Cargando">
+                        disabled="@(Cargando || !HaySeleccion)">
                             @(Cargando ? "ANALIZANDO..." : "ANALIZAR POR TEMPLATE")
                             </button>
                         </div>
@@ -139,6 +139,15 @@
             <div class="text-center py-5 border border-dark border-2 bg-light">
                 <div class="spinner-grow text-danger" role="status"></div>
                 <p class="mt-2 fw-bold text-uppercase" style="letter-spacing: 2px;">Analizando Ventas...</p>
+            </div>
+    }
+    else if (Datos == null && !HaySeleccion)
+    {
+            <div class="text-center py-5 text-muted border border-dark border-2 bg-light">
+                <i class="bi bi-search fs-1"></i>
+                <p class="mt-2 fw-bold text-uppercase" style="letter-spacing: 1px;">
+                    Seleccioná un template o parámetros de búsqueda para analizar
+                </p>
             </div>
     }
     else if (Datos != null)

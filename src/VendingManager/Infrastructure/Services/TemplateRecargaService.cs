@@ -278,8 +278,18 @@ public class TemplateRecargaService : ITemplateRecargaService
     /// <summary>
     /// Returns the computed end date for a specific period using the chain logic.
     /// </summary>
-    private async Task<DateTime> GetEndDateForPeriodoAsync(int maquinaId, DateTime fechaRecarga)
+    private async Task<DateTime> GetEndDateForPeriodoAsync(
+        int maquinaId,
+        DateTime fechaRecarga,
+        Dictionary<(int maquinaId, DateTime fechaRecarga), DateTime>? crossTemplateLookup = null)
     {
+        // Use cross-template lookup for O(1) lookup when available
+        if (crossTemplateLookup != null &&
+            crossTemplateLookup.TryGetValue((maquinaId, fechaRecarga), out var endDate))
+        {
+            return endDate;
+        }
+
         var nextRecarga = await _context.PeriodosRecarga
             .Where(p => p.MaquinaId == maquinaId && p.FechaRecarga > fechaRecarga)
             .OrderBy(p => p.FechaRecarga)
@@ -356,6 +366,10 @@ public class TemplateRecargaService : ITemplateRecargaService
 
         var result = new List<StockoutAnalysisDto>();
 
+        // Build cross-template lookup BEFORE the period loop so GetEndDateForPeriodoAsync
+        // can resolve end dates across ALL templates (not just the current one)
+        var crossTemplateLookup = await BuildCrossTemplateLookupAsync();
+
         // Procesar cada período (cada máquina con su rango específico)
         foreach (var periodo in template.Periodos)
         {
@@ -365,8 +379,8 @@ public class TemplateRecargaService : ITemplateRecargaService
                 .GroupBy(s => s.ProductoId!.Value)
                 .ToDictionary(g => g.Key, g => g.Sum(s => s.CantidadInicial));
 
-            // Get end date from chain helper
-            var fechaFin = await GetEndDateForPeriodoAsync(periodo.MaquinaId, periodo.FechaRecarga);
+            // Get end date from cross-template lookup (avoids DB query for next recarga)
+            var fechaFin = await GetEndDateForPeriodoAsync(periodo.MaquinaId, periodo.FechaRecarga, crossTemplateLookup);
 
             var analisisMaquina = await AnalizarMaquinaEnPeriodo(
                 periodo.MaquinaId,
@@ -389,6 +403,40 @@ public class TemplateRecargaService : ITemplateRecargaService
     }
 
     /// <summary>
+    /// Builds a cross-template lookup: (MaquinaId, FechaRecarga) → FechaFin for O(1) lookup.
+    /// Uses all periods from ALL templates to find the next recarga across the full chain.
+    /// </summary>
+    private async Task<Dictionary<(int maquinaId, DateTime fechaRecarga), DateTime>> BuildCrossTemplateLookupAsync()
+    {
+        var allTemplates = await _context.TemplatesRecarga
+            .Include(t => t.Periodos)
+            .AsNoTracking()
+            .ToListAsync();
+
+        var allPeriodos = allTemplates.SelectMany(t => t.Periodos).ToList();
+        var lookup = new Dictionary<(int maquinaId, DateTime fechaRecarga), DateTime>();
+
+        foreach (var group in allPeriodos.GroupBy(p => p.MaquinaId))
+        {
+            var sorted = group.OrderBy(p => p.FechaRecarga).ToList();
+            for (int i = 0; i < sorted.Count; i++)
+            {
+                var endDate = i < sorted.Count - 1
+                    ? sorted[i + 1].FechaRecarga
+                    : (sorted[i].FechaRecarga <= DateTime.Now
+                        ? (DateTime.Now < sorted[i].FechaRecarga.AddDays(90) ? DateTime.Now : sorted[i].FechaRecarga.AddDays(90))
+                        : sorted[i].FechaRecarga.AddDays(90));
+                lookup[(sorted[i].MaquinaId, sorted[i].FechaRecarga)] = endDate;
+            }
+        }
+
+        return lookup;
+    }
+
+    /// <summary>
+    /// Análisis de stockout para una máquina específica en un período determinado.
+    /// Si hay snapshot para el producto, usa cálculo exacto. Sino, usa inferencia por silencio.
+    /// </summary>
     /// Análisis de stockout para una máquina específica en un período determinado.
     /// Si hay snapshot para el producto, usa cálculo exacto. Sino, usa inferencia por silencio.
     /// </summary>

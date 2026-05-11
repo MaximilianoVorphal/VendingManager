@@ -45,7 +45,9 @@ public class SalesAnalyticsService : ISalesAnalyticsService
             .Select(p => (DateTime?)p.FechaRecarga)
             .FirstOrDefaultAsync();
 
-        return nextRecarga ?? (fechaRecarga <= DateTime.Now ? DateTime.Now : new DateTime(2099, 12, 31, 23, 59, 59, 999));
+        return nextRecarga ?? (fechaRecarga <= DateTime.Now
+            ? (DateTime.Now < fechaRecarga.AddDays(90) ? DateTime.Now : fechaRecarga.AddDays(90))
+            : fechaRecarga.AddDays(90));
     }
 
         public async Task<DashboardStats> GetDashboardStatsAsync(int maquinaId)
