@@ -212,9 +212,13 @@
             @if (TemplateSeleccionado > 0)
             {
                 <div class="card border-2 border-dark rounded-0 shadow-sm mb-4">
-                    <div class="card-header bg-dark text-white rounded-0 fw-bold border-bottom border-dark text-uppercase">
-                        <i class="bi bi-clock-history me-2"></i>TIMELINE DE AGOTAMIENTO
+                    <div class="card-header bg-dark text-white rounded-0 fw-bold border-bottom border-dark text-uppercase d-flex justify-content-between align-items-center"
+                         role="button" @onclick="() => _timelineVisible = !_timelineVisible" style="cursor: pointer;">
+                        <span><i class="bi bi-clock-history me-2"></i>TIMELINE DE AGOTAMIENTO</span>
+                        <i class="bi @(_timelineVisible ? "bi-chevron-up" : "bi-chevron-down")"></i>
                     </div>
+                    @if (_timelineVisible)
+                    {
                     <div class="card-body bg-light">
                         
                         <!-- VIEW TOGGLE & SLIDER CONTROLS -->
@@ -402,6 +406,7 @@
                         </div>
 
                     </div>
+                    }
                 </div>
             }
 
