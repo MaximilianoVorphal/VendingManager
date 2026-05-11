@@ -196,7 +196,7 @@ namespace VendingManager.Web.Pages
                     var periodoMaquina = TemplateActual?.Periodos.FirstOrDefault(p => p.MaquinaId == MaquinaFiltroTemplate);
                     if (periodoMaquina != null)
                     {
-                        FechaInicio = periodoMaquina.FechaInicio;
+                        FechaInicio = periodoMaquina.FechaRecarga;
                         FechaFin = periodoMaquina.FechaFin;
                     }
                 }
@@ -207,7 +207,7 @@ namespace VendingManager.Web.Pages
                     // Actualizar fechas del timeline basado en el template completo
                     if (TemplateActual != null && TemplateActual.Periodos.Any())
                     {
-                        FechaInicio = TemplateActual.Periodos.Min(p => p.FechaInicio);
+                        FechaInicio = TemplateActual.Periodos.Min(p => p.FechaRecarga);
                         FechaFin = TemplateActual.Periodos.Max(p => p.FechaFin);
                     }
                 }
@@ -326,7 +326,7 @@ namespace VendingManager.Web.Pages
                 if (TemplateActual != null)
                 {
                     var periodo = TemplateActual.Periodos.FirstOrDefault(p => p.MaquinaId == maquinaId);
-                    if (periodo != null) fechaInicio = periodo.FechaInicio; // Fecha + Hora exacta
+                    if (periodo != null) fechaInicio = periodo.FechaRecarga; // Fecha + Hora exacta
                 }
                 else if (productoInfo.PrimeraVenta.HasValue)
                 {
@@ -572,7 +572,7 @@ namespace VendingManager.Web.Pages
             public int Id { get; set; }
             public int MaquinaId { get; set; }
             public string MaquinaNombre { get; set; } = string.Empty;
-            public DateTime FechaInicio { get; set; }
+            public DateTime FechaRecarga { get; set; }
             public DateTime FechaFin { get; set; }
         }
 
