@@ -73,7 +73,10 @@
                                 <span class="fw-bold text-uppercase text-truncate d-block" style="max-width: 180px;">@template.Nombre</span>
                                 @if (template.CantidadSlotsPendientes > 0)
                                 {
-                                    <span class="badge bg-warning text-dark rounded-0">⚠ @template.CantidadSlotsPendientes pendiente(s)</span>
+                                    <span class="badge bg-warning text-dark rounded-0 pending-badge">
+                                        <span class="pending-count">@template.CantidadSlotsPendientes</span>
+                                        <span class="pending-label"> pendiente(s)</span>
+                                    </span>
                                 }
                             </div>
                             <div class="d-flex gap-1">
