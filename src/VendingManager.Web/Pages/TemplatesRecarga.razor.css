@@ -124,18 +124,33 @@
 
 /* === IPAD-SPECIFIC: Template cards layout (768px - 1024px) === */
 @media (min-width: 768px) and (max-width: 1024px) {
-    /* Header: let template name take available space, prevent badge from squishing it */
+    /* Header: let template name take available space */
     .industrial-wrapper .card-header .text-truncate {
         max-width: none !important;
         flex: 1 1 auto !important;
-        min-width: 0 !important; /* Allows text-truncate to work in flex */
+        min-width: 0 !important;
     }
 
-    /* Badge: prevent wrapping, keep compact */
-    .industrial-wrapper .card-header .badge {
-        font-size: 0.7rem !important;
-        padding: 0.25rem 0.4rem !important;
-        white-space: nowrap !important;
+    /* Pending badge: show only number in a compact square on iPad */
+    .industrial-wrapper .pending-badge .pending-label {
+        display: none !important;
+    }
+
+    .industrial-wrapper .pending-badge .pending-count {
+        display: block !important;
+        font-size: 0.85rem !important;
+        font-weight: 900 !important;
+        line-height: 1 !important;
+        padding: 0.3rem 0.4rem !important;
+        min-width: 1.6rem !important;
+        text-align: center !important;
+    }
+
+    .industrial-wrapper .pending-badge {
+        padding: 0.15rem !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
         flex-shrink: 0 !important;
     }
 
@@ -182,15 +197,33 @@
 
 /* === SMALL TABLETS: tighter spacing === */
 @media (max-width: 767px) {
-    /* Header: let name take space, badge and buttons don't compress */
+    /* Header: let name take space */
     .industrial-wrapper .card-header .text-truncate {
         max-width: none !important;
         flex: 1 1 auto !important;
         min-width: 0 !important;
     }
 
-    .industrial-wrapper .card-header .badge {
-        white-space: nowrap !important;
+    /* Pending badge: compact square with number only */
+    .industrial-wrapper .pending-badge .pending-label {
+        display: none !important;
+    }
+
+    .industrial-wrapper .pending-badge .pending-count {
+        display: block !important;
+        font-size: 0.8rem !important;
+        font-weight: 900 !important;
+        line-height: 1 !important;
+        padding: 0.25rem 0.35rem !important;
+        min-width: 1.4rem !important;
+        text-align: center !important;
+    }
+
+    .industrial-wrapper .pending-badge {
+        padding: 0.1rem !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
         flex-shrink: 0 !important;
     }
 
