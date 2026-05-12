@@ -124,9 +124,26 @@
 
 /* === IPAD-SPECIFIC: Template cards layout (768px - 1024px) === */
 @media (min-width: 768px) and (max-width: 1024px) {
-    /* Header: allow more space for template name */
+    /* Header: let template name take available space, prevent badge from squishing it */
     .industrial-wrapper .card-header .text-truncate {
-        max-width: 140px !important;
+        max-width: none !important;
+        flex: 1 1 auto !important;
+        min-width: 0 !important; /* Allows text-truncate to work in flex */
+    }
+
+    /* Badge: prevent wrapping, keep compact */
+    .industrial-wrapper .card-header .badge {
+        font-size: 0.7rem !important;
+        padding: 0.25rem 0.4rem !important;
+        white-space: nowrap !important;
+        flex-shrink: 0 !important;
+    }
+
+    /* Edit/delete buttons: prevent compression */
+    .industrial-wrapper .card-header .btn-sm {
+        padding: 0.3rem 0.5rem !important;
+        font-size: 0.85rem !important;
+        flex-shrink: 0 !important;
     }
 
     /* Card body: reduce padding and font sizes */
@@ -152,18 +169,6 @@
         font-size: 0.8rem !important;
         padding: 0.4rem 0.5rem !important;
     }
-
-    /* Badge: smaller on iPad */
-    .industrial-wrapper .card-header .badge {
-        font-size: 0.7rem !important;
-        padding: 0.25rem 0.4rem !important;
-    }
-
-    /* Edit/delete buttons in header: ensure minimum touch target */
-    .industrial-wrapper .card-header .btn-sm {
-        padding: 0.3rem 0.5rem !important;
-        font-size: 0.85rem !important;
-    }
 }
 
 /* === IPAD PORTRAIT: single column layout for better readability === */
@@ -177,8 +182,20 @@
 
 /* === SMALL TABLETS: tighter spacing === */
 @media (max-width: 767px) {
+    /* Header: let name take space, badge and buttons don't compress */
     .industrial-wrapper .card-header .text-truncate {
-        max-width: 120px !important;
+        max-width: none !important;
+        flex: 1 1 auto !important;
+        min-width: 0 !important;
+    }
+
+    .industrial-wrapper .card-header .badge {
+        white-space: nowrap !important;
+        flex-shrink: 0 !important;
+    }
+
+    .industrial-wrapper .card-header .btn-sm {
+        flex-shrink: 0 !important;
     }
 
     .industrial-wrapper .card-body {
