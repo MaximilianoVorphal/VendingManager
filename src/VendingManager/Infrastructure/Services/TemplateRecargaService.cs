@@ -265,17 +265,17 @@ public class TemplateRecargaService : ITemplateRecargaService
     /// </summary>
     private async Task ValidateFechaRecargaChainAsync(int maquinaId, DateTime fechaRecarga, HashSet<int>? excludePeriodoIds = null)
     {
-        var maxExisting = await _context.PeriodosRecarga
+        var exists = await _context.PeriodosRecarga
             .Where(p => p.MaquinaId == maquinaId
+                     && p.FechaRecarga == fechaRecarga
                      && (excludePeriodoIds == null || !excludePeriodoIds.Contains(p.Id)))
-            .MaxAsync(p => (DateTime?)p.FechaRecarga);
+            .AnyAsync();
 
-        if (maxExisting.HasValue && fechaRecarga <= maxExisting.Value)
+        if (exists)
         {
             throw new InvalidOperationException(
-                $"La FechaRecarga {fechaRecarga:dd/MM/yyyy HH:mm} es anterior o igual a la última "
-              + $"recarga registrada ({maxExisting.Value:dd/MM/yyyy HH:mm}) para esta máquina. "
-              + $"Cada período debe tener una FechaRecarga posterior al anterior.");
+                $"Ya existe un período con FechaRecarga {fechaRecarga:dd/MM/yyyy HH:mm} "
+              + $"para la máquina {maquinaId}. No se permiten fechas duplicadas en la cadena.");
         }
     }
 
