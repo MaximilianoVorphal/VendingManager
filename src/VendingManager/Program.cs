@@ -141,7 +141,7 @@ builder.Services.AddResponseCompression(options =>
 {
     options.EnableForHttps = true;
     options.MimeTypes = Microsoft.AspNetCore.ResponseCompression.ResponseCompressionDefaults.MimeTypes.Concat(
-        new[] { "application/octet-stream", "application/wasm" });
+        new[] { "application/octet-stream" });
 });
 
 // Registrar HttpClient para Pre-rendering (Server Side)
@@ -210,7 +210,6 @@ else
 }
 
 app.UseHttpsRedirection();
-app.UseStaticFiles();
 app.UseAntiforgery();
 app.UseResponseCompression();
 app.UseCors("PermitirBlazor"); // Activar CORS
