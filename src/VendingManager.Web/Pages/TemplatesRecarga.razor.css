@@ -82,9 +82,18 @@
     display: none;
 }
 
-@media (max-width: 768px) {
+@media (max-width: var(--bp-md)) {
     .fab-container {
         display: block;
+    }
+
+    .industrial-wrapper .inventory-grid {
+        grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+        gap: 6px;
+    }
+
+    .industrial-wrapper .slot-unit {
+        min-height: 100px;
     }
 }
 
@@ -117,7 +126,7 @@
 }
 
 /* === RESPONSIVE: notebooks 14" y pantallas chicas === */
-@media (max-width: 1200px) {
+@media (max-width: var(--bp-xl)) {
     .industrial-wrapper .inventory-grid {
         grid-template-columns: repeat(auto-fill, minmax(105px, 1fr));
         gap: 8px;
@@ -152,17 +161,6 @@
     }
 }
 
-@media (max-width: 768px) {
-    .industrial-wrapper .inventory-grid {
-        grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
-        gap: 6px;
-    }
-
-    .industrial-wrapper .slot-unit {
-        min-height: 100px;
-    }
-}
-
 /* Date input: ensure full date (DD/MM/YYYY) is visible on desktop Chrome */
 .date-input {
     min-width: 140px;
@@ -193,8 +191,8 @@
     border-left: 4px solid #ffc107;
 }
 
-/* === IPAD-SPECIFIC: Template cards layout (768px - 1024px) === */
-@media (min-width: 768px) and (max-width: 1024px) {
+/* === IPAD LANDSCAPE: card grid adjustments (834px - 1194px) === */
+@media (min-width: var(--bp-md)) and (max-width: var(--bp-xl)) and (orientation: landscape) {
     /* Header: let template name take available space */
     .industrial-wrapper .card-header .text-truncate {
         max-width: none !important;
@@ -202,7 +200,7 @@
         min-width: 0 !important;
     }
 
-    /* Pending badge: show only number in a compact square on iPad */
+    /* Pending badge: compact square with number only */
     .industrial-wrapper .pending-badge .pending-label {
         display: none !important;
     }
@@ -212,13 +210,13 @@
         font-size: 0.85rem !important;
         font-weight: 900 !important;
         line-height: 1 !important;
-        padding: 0.3rem 0.4rem !important;
-        min-width: 1.6rem !important;
+        padding: 0.25rem 0.35rem !important;
+        min-width: 1.5rem !important;
         text-align: center !important;
     }
 
     .industrial-wrapper .pending-badge {
-        padding: 0.15rem !important;
+        padding: 0.1rem !important;
         display: inline-flex !important;
         align-items: center !important;
         justify-content: center !important;
@@ -227,38 +225,47 @@
 
     /* Edit/delete buttons: prevent compression */
     .industrial-wrapper .card-header .btn-sm {
-        padding: 0.3rem 0.5rem !important;
-        font-size: 0.85rem !important;
+        padding: 0.25rem 0.4rem !important;
+        font-size: 0.8rem !important;
         flex-shrink: 0 !important;
     }
 
-    /* Card body: reduce padding and font sizes */
+    /* Card body: reduce padding for landscape */
     .industrial-wrapper .card-body {
-        padding: 0.75rem !important;
+        padding: 0.6rem !important;
     }
 
     .industrial-wrapper .card-body h6 {
-        font-size: 0.8rem !important;
-    }
-
-    .industrial-wrapper .card-body .small {
         font-size: 0.75rem !important;
     }
 
-    /* Machine list: reduce max-height to fit better */
-    .industrial-wrapper .card-body .period-list {
-        max-height: 120px !important;
+    .industrial-wrapper .card-body .small {
+        font-size: 0.7rem !important;
     }
 
-    /* Footer buttons: ensure they fit without overflow */
-    .industrial-wrapper .card-footer .btn {
-        font-size: 0.8rem !important;
-        padding: 0.4rem 0.5rem !important;
+    /* Machine chassis: reduce gap for landscape height constraint */
+    .industrial-wrapper .machine-chassis {
+        gap: 0.5rem;
+        padding: 0.5rem;
+    }
+
+    .industrial-wrapper .shelf-container {
+        padding: 0.4rem;
+    }
+
+    /* Modal footer: horizontal layout at wider landscape */
+    .modal-footer {
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .modal-footer .btn {
+        flex: 1 1 auto;
     }
 }
 
 /* === IPAD PORTRAIT: single column layout for better readability === */
-@media (min-width: 768px) and (max-width: 850px) and (orientation: portrait) {
+@media (max-width: 850px) and (orientation: portrait) {
     /* Force single column on iPad portrait for better readability */
     .industrial-wrapper .row > .col-md-6 {
         flex: 0 0 100% !important;
@@ -312,8 +319,16 @@
     }
 }
 
+/* === HEADER BUTTONS INTERMEDIATE: 577px - 767.98px === */
+@media (min-width: 577px) and (max-width: var(--bp-md)) {
+    .industrial-wrapper .header-actions .btn {
+        font-size: 0.8rem;
+        padding: 0.3rem 0.6rem;
+    }
+}
+
 /* === MOBILE <=576px: tighter button sizing, input overrides === */
-@media (max-width: 576px) {
+@media (max-width: var(--bp-xs)) {
     /* Header action buttons: smaller like btn-sm */
     .industrial-wrapper .header-actions .btn {
         font-size: 0.75rem;
@@ -335,5 +350,18 @@
     .time-input {
         min-width: 0;
         flex-shrink: 1;
+    }
+}
+
+/* === PENDING SLOTS MODAL TABLE: 768px-992px range (iPad landscape risk) === */
+@media (min-width: var(--bp-md)) and (max-width: var(--bp-lg)) {
+    .modal-lg .industrial-stack-table {
+        font-size: clamp(0.7rem, 1.5vw, 0.85rem);
+    }
+
+    .modal-lg .industrial-stack-table th,
+    .modal-lg .industrial-stack-table td {
+        padding: 0.3rem 0.5rem;
+        white-space: nowrap;
     }
 }
