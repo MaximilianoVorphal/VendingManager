@@ -7,6 +7,13 @@ html {
    CSS CUSTOM PROPERTIES (DESIGN TOKENS)
    ========================================= */
 :root {
+    /* Canonical Breakpoint Tokens (Bootstrap 5 aligned) */
+    --bp-xs: 575.98px;
+    --bp-sm: 576px;
+    --bp-md: 767.98px;
+    --bp-lg: 992px;
+    --bp-xl: 1199.98px;
+
     /* Colors */
     --industrial-black: #000;
     --industrial-white: #fff;
@@ -41,6 +48,7 @@ html {
     background-color: #f4f4f4;
     min-height: 100vh;
     font-family: 'Segoe UI', Consolas, monospace;
+    padding: clamp(0.75rem, 2vw, 1.5rem);
 }
 
 /* La Barra Superior */
@@ -55,7 +63,7 @@ html {
 }
 
 /* Ajuste de padding lateral para que no toque los bordes en movil/tablet landscape */
-@media (max-width: 992px) {
+@media (max-width: var(--bp-lg)) {
     .industrial-navbar .container {
         padding-left: 20px;
         padding-right: 20px;
@@ -127,7 +135,7 @@ html {
 /* =========================================
    MEDIA QUERIES (MOBILE OPTIMIZATION)
    ========================================= */
-@media (max-width: 992px) {
+@media (max-width: var(--bp-lg)) {
     /* Tablet/Mobile breakpoint */
 
     .industrial-navbar {
@@ -338,7 +346,7 @@ html {
 }
 
 /* AJUSTES MOBILE PARA DROPDOWN */
-@media (max-width: 992px) {
+@media (max-width: var(--bp-lg)) {
     .industrial-dropdown {
         display: block;
         width: 100%;
@@ -421,7 +429,7 @@ html {
 }
 
 /* TABLE RESPONSIVE STACK */
-@media screen and (max-width: 768px) {
+@media (max-width: var(--bp-md)) {
 
     /* Aplicar solo a tablas marcadas explícitamente con esta clase */
     .industrial-stack-table table,
@@ -486,6 +494,10 @@ html {
     background-color: var(--industrial-white);
     border: var(--industrial-border);
     box-shadow: 2px 2px 0px rgba(0, 0, 0, 0.1);
+}
+
+.industrial-card-body {
+    padding: clamp(0.5rem, 1.5vw, 1rem);
 }
 
 .industrial-card-header {
@@ -654,16 +666,16 @@ html {
 .industrial-kpi-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 1rem;
+    gap: clamp(0.5rem, 1.5vw, 1.25rem);
 }
 
-@media (max-width: 1024px) {
+@media (max-width: var(--bp-lg)) {
     .industrial-kpi-grid {
         grid-template-columns: repeat(2, 1fr);
     }
 }
 
-@media (max-width: 576px) {
+@media (max-width: var(--bp-xs)) {
     .industrial-kpi-grid {
         grid-template-columns: 1fr;
     }
@@ -706,7 +718,7 @@ html {
 }
 
 /* KPI Responsive Font (from Home.razor T2.8) */
-@media (max-width: 1199px) {
+@media (max-width: var(--bp-xl)) {
     .kpi-amount {
         font-size: clamp(1.5rem, 4vw, 2.2rem) !important;
         letter-spacing: -1px;
@@ -718,9 +730,9 @@ html {
 }
 
 /* =========================================
-   IPAD-SPECIFIC REFINEMENTS (768px - 1199px)
+   IPAD-SPECIFIC REFINEMENTS (768px - 1199.98px)
    ========================================= */
-@media (min-width: 768px) and (max-width: 1199px) {
+@media (min-width: var(--bp-md)) and (max-width: var(--bp-xl)) {
     h1.display-5 { font-size: clamp(1.8rem, 3.5vw, 2.5rem) !important; }
     h1.display-4 { font-size: clamp(2rem, 4vw, 3rem) !important; }
     .card-body { padding: 0.75rem !important; }
@@ -749,5 +761,15 @@ html {
         width: 36px !important;
         height: 36px !important;
         font-size: 1.2rem !important;
+    }
+}
+
+/* iPad landscape (834px+ width): hide hamburger, show full nav */
+@media (min-width: var(--bp-md)) and (max-width: var(--bp-xl)) and (orientation: landscape) {
+    .hamburger-btn {
+        display: none !important;
+    }
+    .nav-links-container {
+        display: flex !important;
     }
 }
