@@ -130,7 +130,7 @@
 }
 
 /* Tablets y móviles — scroll horizontal de tabla */
-@media (max-width: 768px) {
+@media (max-width: var(--bp-md)) {
     .industrial-wrapper .report-header {
         flex-direction: column;
         align-items: flex-start !important;
