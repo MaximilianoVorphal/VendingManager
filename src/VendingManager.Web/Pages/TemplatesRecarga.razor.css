@@ -265,6 +265,7 @@
 }
 
 /* === IPAD PORTRAIT: single column layout for better readability === */
+/* Intentional: 850px targets iPad portrait (834px + buffer) — no canonical token fits this device-specific range */
 @media (max-width: 850px) and (orientation: portrait) {
     /* Force single column on iPad portrait for better readability */
     .industrial-wrapper .row > .col-md-6 {
@@ -274,7 +275,7 @@
 }
 
 /* === SMALL TABLETS: tighter spacing === */
-@media (max-width: 767px) {
+@media (max-width: var(--bp-md)) {
     /* Header: let name take space */
     .industrial-wrapper .card-header .text-truncate {
         max-width: none !important;
@@ -319,8 +320,8 @@
     }
 }
 
-/* === HEADER BUTTONS INTERMEDIATE: 577px - 767.98px === */
-@media (min-width: 577px) and (max-width: var(--bp-md)) {
+/* === HEADER BUTTONS INTERMEDIATE: sm (576px) - md (767.98px) === */
+@media (min-width: var(--bp-sm)) and (max-width: var(--bp-md)) {
     .industrial-wrapper .header-actions .btn {
         font-size: 0.8rem;
         padding: 0.3rem 0.6rem;
