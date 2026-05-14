@@ -47,7 +47,7 @@ public abstract class ViewportTestBase
         Context = await _browser.NewContextAsync(new BrowserNewContextOptions
         {
             ViewportSize = new ViewportSize { Width = profile.Width, Height = profile.Height },
-            DeviceScaleFactor = profile.DeviceScaleFactor,
+            DeviceScaleFactor = (float)profile.DeviceScaleFactor,
             IsMobile = profile.IsMobile,
         });
 
@@ -57,7 +57,7 @@ public abstract class ViewportTestBase
         await _page.GotoAsync(url, new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle });
 
         // Wait a bit for Blazor to settle
-        await _page.WaitForTimeout(500);
+        await Task.Delay(500);
     }
 
     /// <summary>
@@ -73,8 +73,7 @@ public abstract class ViewportTestBase
             })
         ");
 
-        result.ScrollWidth.Should().BeLessThanOrEqualTo(
-            result.ClientWidth,
+        Assert.That(result.ScrollWidth, Is.LessThanOrEqualTo(result.ClientWidth),
             $"Horizontal overflow detected: scrollWidth={result.ScrollWidth} > clientWidth={result.ClientWidth}");
     }
 

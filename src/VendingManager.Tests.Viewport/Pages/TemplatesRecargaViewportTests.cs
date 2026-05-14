@@ -45,7 +45,7 @@ public class TemplatesRecargaViewportTests : ViewportTestBase
         // At least one creation action should be reachable
         var createLink = Page.Locator("a[href*=\"crear\"], a[href*=\"nuevo\"], .btn-create");
         var createCount = await createLink.CountAsync();
-        createCount.Should().BeGreaterThan(0, "No create action found on TemplatesRecarga");
+        Assert.That(createCount, Is.GreaterThan(0), "No create action found on TemplatesRecarga");
     }
 
     /// <summary>
@@ -62,7 +62,7 @@ public class TemplatesRecargaViewportTests : ViewportTestBase
 
         var pendingBtn = Page.Locator("a[href*=\"pending\"], a[href*=\"slots\"], button.btn-pending, [data-testid=\"pending-slots\"]");
         var count = await pendingBtn.CountAsync();
-        count.Should().BeGreaterThan(0, "No pending slots button/link found on TemplatesRecarga");
+        Assert.That(count, Is.GreaterThan(0), "No pending slots button/link found on TemplatesRecarga");
     }
 
     /// <summary>
@@ -82,7 +82,7 @@ public class TemplatesRecargaViewportTests : ViewportTestBase
         await pendingBtn.ClickAsync();
 
         // Wait for modal to appear
-        await Page.WaitForSelectorAsync(".modal.show, [role=\"dialog\"]", new WaitForSelectorOptions { Timeout = 5000 });
+        await Page.WaitForSelectorAsync(".modal.show, [role=\"dialog\"]", new() { Timeout = 5000 });
 
         // Check overflow inside the modal
         var modalOverflow = await Page.EvaluateAsync<bool>(@"
@@ -93,7 +93,7 @@ public class TemplatesRecargaViewportTests : ViewportTestBase
             }
         ");
 
-        modalOverflow.Should().BeFalse("Modal has horizontal overflow");
+        Assert.That(modalOverflow, Is.False, "Modal has horizontal overflow");
     }
 
     /// <summary>
@@ -110,7 +110,7 @@ public class TemplatesRecargaViewportTests : ViewportTestBase
         // At iPad portrait (834px), Bootstrap col-md-6 should give 2 cards per row
         var cards = Page.Locator(".card, .template-card, .industrial-card");
         var count = await cards.CountAsync();
-        count.Should().BeGreaterThan(0, "No cards found on TemplatesRecarga");
+        Assert.That(count, Is.GreaterThan(0), "No cards found on TemplatesRecarga");
     }
 
     private static IEnumerable<ViewportProfile> MobileProfiles()

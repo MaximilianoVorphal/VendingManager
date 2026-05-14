@@ -37,6 +37,6 @@ public class HomeViewportTests : ViewportTestBase
         await SetupViewport(ViewportConfig.IPhonePortrait, "/");
 
         var innerWidth = await Page.EvaluateAsync<int>("window.innerWidth");
-        innerWidth.Should().Be(ViewportConfig.IPhonePortrait.Width);
+        Assert.That(innerWidth, Is.EqualTo(ViewportConfig.IPhonePortrait.Width));
     }
 }
