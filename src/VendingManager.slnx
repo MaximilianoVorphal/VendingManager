@@ -3,4 +3,5 @@
   <Project Path="VendingManager/VendingManager.csproj" />
   <Project Path="VendingManager.Shared/VendingManager.Shared.csproj" />
   <Project Path="VendingManager.Tests/VendingManager.Tests.csproj" />
+  <Project Path="VendingManager.Tests.Viewport/VendingManager.Tests.Viewport.csproj" />
 </Solution>
