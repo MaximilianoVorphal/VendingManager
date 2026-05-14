@@ -102,7 +102,7 @@
 /* === BREAKPOINTS RESPONSIVE === */
 
 /* Notebooks 14" — reorganizar controles de filtro */
-@media (max-width: 1200px) {
+@media (max-width: var(--bp-xl)) {
     .industrial-wrapper .report-filters {
         padding: 0.75rem;
     }
