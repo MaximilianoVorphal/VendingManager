@@ -7,31 +7,13 @@ using VendingManager.Shared.Enums;
 public class TemplateRecargaEntityTests
 {
     /// <summary>
-    /// New template instances default to Borrador (the starting state).
-    /// Migration sets existing templates to Activo.
+    /// New template instances default to Pendiente (the starting state).
     /// </summary>
     [Fact]
-    public void NewTemplateRecarga_DefaultsToBorrador()
+    public void NewTemplateRecarga_DefaultsToPendiente()
     {
         var template = new TemplateRecarga { Nombre = "Test", FechaCreacion = DateTime.Now };
-        template.Estado.Should().Be(EstadoTemplate.Borrador);
-    }
-
-    /// <summary>
-    /// New template has no carga dates until transition to EnCarga.
-    /// </summary>
-    [Fact]
-    public void NewTemplateRecarga_FechaCargaInicioIsNull()
-    {
-        var template = new TemplateRecarga { Nombre = "Test", FechaCreacion = DateTime.Now };
-        template.FechaCargaInicio.Should().BeNull();
-    }
-
-    [Fact]
-    public void NewTemplateRecarga_FechaCargaFinIsNull()
-    {
-        var template = new TemplateRecarga { Nombre = "Test", FechaCreacion = DateTime.Now };
-        template.FechaCargaFin.Should().BeNull();
+        template.Estado.Should().Be(EstadoTemplate.Pendiente);
     }
 
     /// <summary>
@@ -46,37 +28,18 @@ public class TemplateRecargaEntityTests
     }
 
     /// <summary>
-    /// Estado can be set explicitly (needed for migration-verified Activo default).
+    /// Estado can be set explicitly (needed for migration-verified Terminado default).
     /// </summary>
     [Fact]
-    public void TemplateRecarga_CanSetEstadoToActivo()
+    public void TemplateRecarga_CanSetEstadoToTerminado()
     {
         var template = new TemplateRecarga
         {
             Nombre = "Test",
             FechaCreacion = DateTime.Now,
-            Estado = EstadoTemplate.Activo
+            Estado = EstadoTemplate.Terminado
         };
-        template.Estado.Should().Be(EstadoTemplate.Activo);
-    }
-
-    /// <summary>
-    /// Carga dates can be set during EnCarga transition.
-    /// </summary>
-    [Fact]
-    public void TemplateRecarga_CanSetCargaDates()
-    {
-        var inicio = DateTime.Now;
-        var fin = DateTime.Now.AddHours(8);
-        var template = new TemplateRecarga
-        {
-            Nombre = "Test",
-            FechaCreacion = DateTime.Now,
-            FechaCargaInicio = inicio,
-            FechaCargaFin = fin
-        };
-        template.FechaCargaInicio.Should().Be(inicio);
-        template.FechaCargaFin.Should().Be(fin);
+        template.Estado.Should().Be(EstadoTemplate.Terminado);
     }
 
     /// <summary>
@@ -89,5 +52,24 @@ public class TemplateRecargaEntityTests
         var bytes = new byte[] { 1, 2, 3, 4, 5, 6, 7, 8 };
         template.RowVersion = bytes;
         template.RowVersion.Should().BeEquivalentTo(bytes);
+    }
+
+    /// <summary>
+    /// FechaCargaInicio and FechaCargaFin removed — these were for EnCarga→Activo transition.
+    /// Verify they are no longer properties on the entity.
+    /// </summary>
+    [Fact]
+    public void TemplateRecarga_FechaCargaInicio_Removed()
+    {
+        var template = new TemplateRecarga { Nombre = "Test", FechaCreacion = DateTime.Now };
+        // The property should not exist — compile-time check via reflection
+        typeof(TemplateRecarga).GetProperty("FechaCargaInicio").Should().BeNull("FechaCargaInicio was only used for EnCarga→Activo transition");
+    }
+
+    [Fact]
+    public void TemplateRecarga_FechaCargaFin_Removed()
+    {
+        var template = new TemplateRecarga { Nombre = "Test", FechaCreacion = DateTime.Now };
+        typeof(TemplateRecarga).GetProperty("FechaCargaFin").Should().BeNull("FechaCargaFin was only used for EnCarga→Activo transition");
     }
 }

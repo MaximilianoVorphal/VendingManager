@@ -59,7 +59,7 @@ namespace VendingManager.Infrastructure.Data
             {
                 e.Property(t => t.Estado)
                     .HasConversion<int>()
-                    .HasDefaultValueSql("2");
+                    .HasDefaultValueSql("0"); // Pendiente (0) is default for new instances
 
                 e.Property(t => t.RowVersion)
                     .IsRowVersion();

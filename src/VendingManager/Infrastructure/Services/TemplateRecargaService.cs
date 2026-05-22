@@ -504,11 +504,11 @@ public class TemplateRecargaService : ITemplateRecargaService
             .FirstOrDefaultAsync(t => t.Id == templateId)
             ?? throw new KeyNotFoundException($"Template con ID {templateId} no encontrado");
 
-        if (template.Estado != EstadoTemplate.Borrador && template.Estado != EstadoTemplate.EnCarga)
+        if (template.Estado != EstadoTemplate.Pendiente)
         {
             throw new InvalidOperationException(
                 $"No se pueden modificar slots: el template está en estado {template.Estado}. " +
-                $"Solo puede modificar slots en estados Borrador o EnCarga.");
+                $"Solo puede modificar slots en estado Pendiente.");
         }
 
         var periodo = await _context.PeriodosRecarga
@@ -715,8 +715,6 @@ public class TemplateRecargaService : ITemplateRecargaService
             Descripcion = t.Descripcion,
             FechaCreacion = t.FechaCreacion,
             Estado = t.Estado,
-            FechaCargaInicio = t.FechaCargaInicio,
-            FechaCargaFin = t.FechaCargaFin,
             Periodos = t.Periodos.Select(p => new PeriodoRecargaDto
             {
                 Id = p.Id,
