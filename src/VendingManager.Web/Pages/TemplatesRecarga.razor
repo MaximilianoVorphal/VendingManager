@@ -1247,7 +1247,7 @@
         MensajeExito = "";
         try
         {
-            var response = await Http.PostAsync($"api/TemplateRecarga/{templateId}/start-loading", null);
+            var response = await Http.PostAsync($"api/TemplateRecarga/{templateId}/iniciar-carga", null);
             if (response.IsSuccessStatusCode)
             {
                 MensajeExito = "Carga iniciada correctamente.";
@@ -1271,7 +1271,7 @@
         MensajeExito = "";
         try
         {
-            var response = await Http.PostAsync($"api/TemplateRecarga/{templateId}/finalize", null);
+            var response = await Http.PostAsync($"api/TemplateRecarga/{templateId}/finalizar-carga", null);
             if (response.IsSuccessStatusCode)
             {
                 MensajeExito = "Carga finalizada correctamente.";
@@ -1295,7 +1295,7 @@
         MensajeExito = "";
         try
         {
-            var response = await Http.PostAsync($"api/TemplateRecarga/{templateId}/close", null);
+            var response = await Http.PostAsync($"api/TemplateRecarga/{templateId}/cerrar", null);
             if (response.IsSuccessStatusCode)
             {
                 MensajeExito = "Template cerrado correctamente.";
@@ -1319,7 +1319,7 @@
         MensajeExito = "";
         try
         {
-            var response = await Http.PostAsync($"api/TemplateRecarga/{templateId}/reset", null);
+            var response = await Http.PostAsync($"api/TemplateRecarga/{templateId}/reabrir", null);
             if (response.IsSuccessStatusCode)
             {
                 MensajeExito = "Template reabierto correctamente.";
