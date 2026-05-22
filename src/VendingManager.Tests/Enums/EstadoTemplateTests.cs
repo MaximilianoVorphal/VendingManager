@@ -6,13 +6,12 @@ using VendingManager.Shared.Enums;
 public class EstadoTemplateTests
 {
     /// <summary>
-    /// Verifies enum has exactly 2 states: Pendiente and Terminado.
-    /// This is structural but needed to document the contract.
+    /// Verifies enum has exactly 3 states: Pendiente, Activo, and Terminado.
     /// </summary>
     [Fact]
-    public void EstadoTemplate_HasTwoStates()
+    public void EstadoTemplate_HasThreeStates()
     {
-        Enum.GetValues<EstadoTemplate>().Should().HaveCount(2);
+        Enum.GetValues<EstadoTemplate>().Should().HaveCount(3);
     }
 
     [Fact]
@@ -22,9 +21,15 @@ public class EstadoTemplateTests
     }
 
     [Fact]
-    public void EstadoTemplate_Terminado_HasValueOne()
+    public void EstadoTemplate_Activo_HasValueOne()
     {
-        ((int)EstadoTemplate.Terminado).Should().Be(1);
+        ((int)EstadoTemplate.Activo).Should().Be(1);
+    }
+
+    [Fact]
+    public void EstadoTemplate_Terminado_HasValueTwo()
+    {
+        ((int)EstadoTemplate.Terminado).Should().Be(2);
     }
 
     /// <summary>
@@ -32,6 +37,7 @@ public class EstadoTemplateTests
     /// </summary>
     [Theory]
     [InlineData("Pendiente", EstadoTemplate.Pendiente)]
+    [InlineData("Activo", EstadoTemplate.Activo)]
     [InlineData("Terminado", EstadoTemplate.Terminado)]
     public void EstadoTemplate_ParseFromName_ReturnsCorrectValue(string name, EstadoTemplate expected)
     {

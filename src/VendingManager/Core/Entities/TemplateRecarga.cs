@@ -26,7 +26,8 @@ public class TemplateRecarga
     /// <summary>
     /// Estado del ciclo de vida del template.
     /// - Pendiente (0): Template en desarrollo, slots siendo configurados. No feed stock-critico.
-    /// - Terminado (1): Template completado. Fuente para stock-critico (más reciente por máquina).
+    /// - Activo (1): Template completado. Fuente para stock-critico (más reciente por máquina).
+    /// - Terminado (2): Cycle cerrado. Histórico, no usado para stock-critico.
     /// Defaults to Pendiente for new instances.
     /// </summary>
     public EstadoTemplate Estado { get; set; } = EstadoTemplate.Pendiente;

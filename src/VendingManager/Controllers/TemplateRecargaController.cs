@@ -20,7 +20,29 @@ public class TemplateRecargaController(
     }
 
     /// <summary>
-    /// Termina un template: Pendiente → Terminado.
+    /// Activa un template: Pendiente (0) → Activo (1).
+    /// El template queda como la fuente activa para stock-critico.
+    /// </summary>
+    [HttpPost("{id}/activar")]
+    public async Task<ActionResult<TemplateRecargaDto>> Activar(int id)
+    {
+        try
+        {
+            var template = await lifecycleService.ActivarAsync(id);
+            return Ok(template);
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains(" no encontrado"))
+        {
+            return NotFound(new { error = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Termina un template: Activo (1) → Terminado (2).
     /// El template queda como completado, fuente para stock-critico.
     /// </summary>
     [HttpPost("{id}/terminar")]
