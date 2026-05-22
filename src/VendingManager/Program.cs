@@ -115,6 +115,8 @@ builder.Services.AddScoped<IMaquinaService, MaquinaService>();
 builder.Services.AddScoped<IInformesService, InformesService>();
 builder.Services.AddScoped<VendingManager.Core.Interfaces.IOrdenCargaService, OrdenCargaService>();
 builder.Services.AddScoped<ITemplateRecargaService, TemplateRecargaService>();
+builder.Services.AddScoped<ITemplateRecargaLifecycleService, TemplateRecargaLifecycleService>();
+builder.Services.AddScoped<ITemplateRecargaAnalyticsService, TemplateRecargaAnalyticsService>();
 builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddScoped<ICompraService, CompraService>();
 builder.Services.AddScoped<IGastoRecurrenteService, GastoRecurrenteService>();

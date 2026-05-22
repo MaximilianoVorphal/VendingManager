@@ -11,6 +11,21 @@ public class TemplateRecargaDto
     public string? Descripcion { get; set; }
     public DateTime FechaCreacion { get; set; }
 
+    /// <summary>
+    /// Estado del ciclo de vida del template (Borrador, EnCarga, Activo, Cerrado).
+    /// </summary>
+    public EstadoTemplate Estado { get; set; } = EstadoTemplate.Borrador;
+
+    /// <summary>
+    /// Fecha y hora cuando se inició la carga (transición Borrador → EnCarga).
+    /// </summary>
+    public DateTime? FechaCargaInicio { get; set; }
+
+    /// <summary>
+    /// Fecha y hora cuando se finalizó la carga (transición EnCarga → Activo).
+    /// </summary>
+    public DateTime? FechaCargaFin { get; set; }
+
     public List<PeriodoRecargaDto> Periodos { get; set; } = new();
 
     // Helpers para UI

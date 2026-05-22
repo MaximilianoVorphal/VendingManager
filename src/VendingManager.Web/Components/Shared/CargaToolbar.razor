@@ -1,0 +1,35 @@
+@namespace VendingManager.Web.Components.Shared
+
+<div class="carga-toolbar sticky-tools-header py-2 mb-3">
+    <div class="btn-group w-100 shadow-sm border border-dark rounded-0 bg-white" role="group">
+        <input type="radio" class="btn-check" name="cargatool" id="toolRefill" autocomplete="off"
+               checked="@(CurrentTool == "REFILL")" @onchange="@(() => OnToolSelected.InvokeAsync("REFILL"))">
+        <label class="btn btn-outline-dark fw-bold rounded-0 py-3 @(CurrentTool == "REFILL" ? "active-tool" : "")" for="toolRefill">
+            <i class="bi bi-box-seam d-block fs-4"></i>RELLENAR
+        </label>
+
+        <input type="radio" class="btn-check" name="cargatool" id="toolEmpty" autocomplete="off"
+               checked="@(CurrentTool == "EMPTY")" @onchange="@(() => OnToolSelected.InvokeAsync("EMPTY"))">
+        <label class="btn btn-outline-dark fw-bold rounded-0 py-3 @(CurrentTool == "EMPTY" ? "active-tool" : "")" for="toolEmpty">
+            <i class="bi bi-trash d-block fs-4"></i>VACIAR
+        </label>
+
+        <input type="radio" class="btn-check" name="cargatool" id="toolSwap" autocomplete="off"
+               checked="@(CurrentTool == "SWAP")" @onchange="@(() => OnToolSelected.InvokeAsync("SWAP"))">
+        <label class="btn btn-outline-dark fw-bold rounded-0 py-3 @(CurrentTool == "SWAP" ? "active-tool" : "")" for="toolSwap">
+            <i class="bi bi-arrow-repeat d-block fs-4"></i>CAMBIAR
+        </label>
+    </div>
+</div>
+
+@code {
+    /// <summary>
+    /// The currently selected tool: REFILL | EMPTY | SWAP | "" (none)
+    /// </summary>
+    [Parameter] public string CurrentTool { get; set; } = "";
+
+    /// <summary>
+    /// Fired when the user selects a different tool.
+    /// </summary>
+    [Parameter] public EventCallback<string> OnToolSelected { get; set; }
+}

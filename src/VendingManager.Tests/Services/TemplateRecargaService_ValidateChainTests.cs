@@ -19,7 +19,9 @@ public class TemplateRecargaService_ValidateChainTests : IDisposable
     {
         _context = TestDataHelpers.CreateInMemoryContext($"ValidateChainTestDb_{Guid.NewGuid()}");
         var mockLogger = new Moq.Mock<Microsoft.Extensions.Logging.ILogger<TemplateRecargaService>>();
-        _service = new TemplateRecargaService(_context, mockLogger.Object);
+        var mockLifecycle = new Moq.Mock<ITemplateRecargaLifecycleService>();
+        var mockAnalytics = new Moq.Mock<ITemplateRecargaAnalyticsService>();
+        _service = new TemplateRecargaService(_context, mockLogger.Object, mockLifecycle.Object, mockAnalytics.Object);
     }
 
     public void Dispose()
