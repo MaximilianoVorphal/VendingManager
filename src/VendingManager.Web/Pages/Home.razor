@@ -550,6 +550,7 @@ backgroundColor = new[] { "#198754", "#dc3545" }
         public string Producto { get; set; } = "";
         public int StockActual { get; set; }
         public int CapacidadMaxima { get; set; }
+        public string Fuente { get; set; } = "configuracion";
     }
 }
 
@@ -559,8 +560,19 @@ backgroundColor = new[] { "#198754", "#dc3545" }
         <div class="modal-dialog modal-dialog-centered modal-lg">
             <div class="modal-content rounded-0 border-2 border-danger shadow-lg">
                 <div class="modal-header bg-danger text-white rounded-0 border-bottom border-dark">
-                    <h5 class="modal-title fw-bold text-uppercase"><i
-                        class="bi bi-exclamation-triangle-fill me-2"></i>REPORTE DE STOCK CRÍTICO</h5>
+                    <div class="d-flex align-items-center justify-content-between w-100">
+                        <h5 class="modal-title fw-bold text-uppercase"><i
+                            class="bi bi-exclamation-triangle-fill me-2"></i>REPORTE DE STOCK CRÍTICO</h5>
+                        @{
+                            var firstItem = ListaCriticos?.FirstOrDefault();
+                            var fuente = firstItem?.Fuente ?? "configuracion";
+                            var fuenteClass = fuente == "template" ? "bg-primary" : "bg-secondary";
+                            var fuenteText = fuente == "template" ? "Template activo" : "Inventario directo";
+                        }
+                        <span class="badge @fuenteClass text-white rounded-pill small ms-3" style="font-size: 0.65rem;">
+                            Fuente: @fuenteText
+                        </span>
+                    </div>
                     <button type="button" class="btn-close btn-close-white" @onclick="CerrarModalCritico"></button>
                 </div>
                 <div class="modal-body p-0">
@@ -612,8 +624,8 @@ backgroundColor = new[] { "#198754", "#dc3545" }
                 </div>
                 <div class="modal-footer bg-light rounded-0">
                     <button type="button" class="btn btn-dark rounded-0 fw-bold px-4" @onclick="CerrarModalCritico">CERRAR PANTALLA</button>
-                    <button type="button" class="btn btn-danger rounded-0 fw-bold px-4" 
-                            @onclick='() => NavManager.NavigateTo($"cargas?maquinaId={MaquinaActualId}")'>
+                    <button type="button" class="btn btn-danger rounded-0 fw-bold px-4"
+                            @onclick='() => NavManager.NavigateTo($"templates-recarga?maquinaId={MaquinaActualId}")'>
                         <i class="bi bi-truck me-2"></i>GESTIONAR CARGA
                     </button>
                 </div>

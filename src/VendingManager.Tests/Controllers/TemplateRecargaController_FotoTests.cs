@@ -11,6 +11,7 @@ using VendingManager.Core.Interfaces;
 public class TemplateRecargaController_FotoTests
 {
     private readonly Mock<ITemplateRecargaService> _mockService;
+    private readonly Mock<ITemplateRecargaLifecycleService> _mockLifecycle;
     private readonly TemplateRecargaController _controller;
     private const int TemplateId = 1;
     private const int PeriodoId = 10;
@@ -18,7 +19,8 @@ public class TemplateRecargaController_FotoTests
     public TemplateRecargaController_FotoTests()
     {
         _mockService = new Mock<ITemplateRecargaService>();
-        _controller = new TemplateRecargaController(_mockService.Object);
+        _mockLifecycle = new Mock<ITemplateRecargaLifecycleService>();
+        _controller = new TemplateRecargaController(_mockService.Object, _mockLifecycle.Object);
     }
 
     private static IFormFile CreateMockFormFile(byte[] content, string contentType, string fileName)

@@ -203,6 +203,16 @@
     color: #fff;
 }
 
+/* === DEPRECATION BANNER === */
+.deprecation-banner {
+    background-color: #fff3cd;
+}
+
+.deprecation-banner .alert-link {
+    text-decoration: underline;
+    font-weight: 800;
+}
+
 /* === IPAD LANDSCAPE: sticky header visibility (834px landscape) === */
 @media (min-width: var(--bp-md)) and (max-width: var(--bp-xl)) and (orientation: landscape) {
     .industrial-wrapper .sticky-tools-header {

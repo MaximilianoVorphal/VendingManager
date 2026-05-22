@@ -16,4 +16,10 @@ public class VendingConfig
     /// Ejemplo en Docker: "/var/uploads/vendingmanager"
     /// </summary>
     public string? FacturaUploadPath { get; set; }
+
+    /// <summary>
+    /// Cuando es true, stock-critico consulta SnapshotSlots del template Activo más reciente
+    /// en lugar de ConfiguracionSlots. Permite transición gradual al nuevo flujo.
+    /// </summary>
+    public bool UseTemplateInventoryForStockCritico { get; set; } = false;
 }

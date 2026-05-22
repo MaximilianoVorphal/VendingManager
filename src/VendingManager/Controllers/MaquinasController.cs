@@ -101,6 +101,7 @@ namespace VendingManager.Controllers
                 }
                 string detalle = $"Máquina {nombreMaq}: {string.Join(", ", detalles)}";
                 await auditService.RegistrarAccionAsync(User.Identity?.Name ?? "Desconocido", "Movimiento Inventario", detalle);
+                Response.Headers["X-Deprecated"] = "use /api/TemplateRecarga/{id}/periodo/{periodoId}/slot-batch";
                 return Ok();
             }
             catch (Exception ex)

@@ -6,7 +6,9 @@ namespace VendingManager.Controllers;
 
 [Route("api/[controller]")]
 [ApiController]
-public class TemplateRecargaController(ITemplateRecargaService service) : ControllerBase
+public class TemplateRecargaController(
+    ITemplateRecargaService service,
+    ITemplateRecargaLifecycleService lifecycleService) : ControllerBase
 {
     /// Obtener todos los templates de recarga
     /// </summary>
@@ -15,6 +17,129 @@ public class TemplateRecargaController(ITemplateRecargaService service) : Contro
     {
         var result = await service.GetAllAsync();
         return Ok(result);
+    }
+
+    /// <summary>
+    /// Inicia la carga de un template: Borrador → EnCarga.
+    /// Requiere que el template tenga al menos un SnapshotSlot.
+    /// </summary>
+    [HttpPost("{id}/iniciar-carga")]
+    public async Task<ActionResult<TemplateRecargaDto>> IniciarCarga(int id)
+    {
+        try
+        {
+            var template = await lifecycleService.StartLoadingAsync(id);
+            return Ok(template);
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains(" no encontrado"))
+        {
+            return NotFound(new { error = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Finaliza la carga de un template: EnCarga → Activo.
+    /// Sincroniza los SnapshotSlots a ConfiguracionSlots.
+    /// </summary>
+    [HttpPost("{id}/finalizar-carga")]
+    public async Task<ActionResult<TemplateRecargaDto>> FinalizarCarga(int id)
+    {
+        try
+        {
+            var template = await lifecycleService.FinalizeAsync(id);
+            return Ok(template);
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains(" no encontrado"))
+        {
+            return NotFound(new { error = ex.Message });
+        }
+        catch (Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException)
+        {
+            // TL-7: RowVersion concurrency conflict — second concurrent finalize gets 409
+            return Conflict(new { error = "El registro fue modificado por otro usuario. Intente novamente.", code = "ROWVERSION_CONFLICT" });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Cierra un template: Activo → Cerrado.
+    /// El template queda como histórico, no permite más transiciones.
+    /// </summary>
+    [HttpPost("{id}/cerrar")]
+    public async Task<ActionResult<TemplateRecargaDto>> Cerrar(int id)
+    {
+        try
+        {
+            var template = await lifecycleService.CloseAsync(id);
+            return Ok(template);
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains(" no encontrado"))
+        {
+            return NotFound(new { error = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Reabre un template cerrado: cualquier estado → Borrador.
+    /// Limpia todos los SnapshotSlots y las fechas de carga.
+    /// </summary>
+    [HttpPost("{id}/reabrir")]
+    public async Task<ActionResult<TemplateRecargaDto>> Reabrir(int id)
+    {
+        try
+        {
+            var template = await lifecycleService.ResetToDraftAsync(id);
+            return Ok(template);
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains(" no encontrado"))
+        {
+            return NotFound(new { error = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Aplica acciones en lote a los slots de un período.
+    /// Soporta: REFILL (actualizar cantidad), EMPTY (cantidad=0), SWAP (cambiar producto).
+    /// </summary>
+    [HttpPost("{templateId}/periodo/{periodoId}/slot-batch")]
+    public async Task<ActionResult<SlotBatchResponse>> SlotBatch(
+        int templateId,
+        int periodoId,
+        [FromBody] SlotBatchRequest request)
+    {
+        if (request.Actions == null || !request.Actions.Any())
+        {
+            return BadRequest(new { error = "Debe enviar al menos una acción", code = "EMPTY_ACTIONS" });
+        }
+
+        try
+        {
+            var result = await service.ApplySlotBatchAsync(templateId, periodoId, request.Actions);
+            return Ok(result);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { error = ex.Message, code = "NOT_FOUND" });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message, code = "INVALID_ACTION" });
+        }
     }
 
     /// <summary>

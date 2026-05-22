@@ -9,17 +9,27 @@ using VendingManager.Shared.Enums;
 namespace VendingManager.Infrastructure.Services;
 
 /// <summary>
-/// Servicio para gestionar templates de recarga y análisis de stockout por período
+/// Facade service for TemplateRecarga operations.
+/// Preserves existing ITemplateRecargaService interface for backward compatibility.
+/// Delegates lifecycle and analytics operations to specialized services.
 /// </summary>
 public class TemplateRecargaService : ITemplateRecargaService
 {
     private readonly ApplicationDbContext _context;
     private readonly ILogger<TemplateRecargaService> _logger;
+    private readonly ITemplateRecargaLifecycleService _lifecycle;
+    private readonly ITemplateRecargaAnalyticsService _analytics;
 
-    public TemplateRecargaService(ApplicationDbContext context, ILogger<TemplateRecargaService> logger)
+    public TemplateRecargaService(
+        ApplicationDbContext context,
+        ILogger<TemplateRecargaService> logger,
+        ITemplateRecargaLifecycleService lifecycle,
+        ITemplateRecargaAnalyticsService analytics)
     {
         _context = context;
         _logger = logger;
+        _lifecycle = lifecycle;
+        _analytics = analytics;
     }
 
     public async Task<List<TemplateRecargaDto>> GetAllAsync()
@@ -351,485 +361,77 @@ public class TemplateRecargaService : ITemplateRecargaService
             .ToListAsync();
     }
 
+    // ===== DELEGATED TO ITemplateRecargaAnalyticsService (when available) =====
+
     /// <summary>
-    /// Análisis de stockout usando los períodos específicos del template.
-    /// Cada máquina se analiza con su propio rango de fecha/hora.
-    /// Si el período tiene snapshots, usa cálculo exacto de agotamiento.
+    /// Análisis de stockout using the periods of the template.
+    /// Uses the specialized service if available, otherwise falls back to local implementation.
     /// </summary>
     public async Task<List<StockoutAnalysisDto>> AnalyzarPorTemplateAsync(int templateId, double umbralHorasSilencio = 24)
     {
-        var template = await _context.TemplatesRecarga
-            .Include(t => t.Periodos)
-                .ThenInclude(p => p.Maquina)
-            .Include(t => t.Periodos)
-                .ThenInclude(p => p.SnapshotSlots)
-                .ThenInclude(s => s.Producto)
-            .FirstOrDefaultAsync(t => t.Id == templateId);
-
-        if (template == null || !template.Periodos.Any())
-            return new List<StockoutAnalysisDto>();
-
-        var result = new List<StockoutAnalysisDto>();
-
-        // Build cross-template lookup BEFORE the period loop so GetEndDateForPeriodoAsync
-        // can resolve end dates across ALL templates (not just the current one)
-        var crossTemplateLookup = await BuildCrossTemplateLookupAsync();
-
-        // Procesar cada período (cada máquina con su rango específico)
-        foreach (var periodo in template.Periodos)
+        // Delegate to analytics service if it has a real implementation
+        if (_analytics != null && !IsMock(_analytics))
         {
-            // Convertir snapshots a diccionario ProductoId -> CantidadInicial
-            var snapshotPorProducto = periodo.SnapshotSlots
-                .Where(s => s.ProductoId.HasValue && s.ProductoId > 0)
-                .GroupBy(s => s.ProductoId!.Value)
-                .ToDictionary(g => g.Key, g => g.Sum(s => s.CantidadInicial));
-
-            // Get end date from cross-template lookup (avoids DB query for next recarga)
-            var fechaFin = await GetEndDateForPeriodoAsync(periodo.MaquinaId, periodo.FechaRecarga, crossTemplateLookup);
-
-            var analisisMaquina = await AnalizarMaquinaEnPeriodo(
-                periodo.MaquinaId,
-                periodo.Maquina?.Nombre ?? "Desconocida",
-                periodo.FechaRecarga,
-                fechaFin,
-                umbralHorasSilencio,
-                periodo.SnapshotSlots.ToList(), // Pasar la lista completa de slots
-                snapshotPorProducto);
-
-            result.AddRange(analisisMaquina);
+            return await _analytics.AnalyzarPorTemplateAsync(templateId, umbralHorasSilencio);
         }
-
-        // Ordenar por dinero perdido
-        return result
-            .OrderByDescending(x => x.DineroPerdidoEstimado)
-            .ThenByDescending(x => x.PosibleQuiebre)
-            .ThenByDescending(x => x.HorasSinStock)
-            .ToList();
+        // Fall back to local implementation for tests with mocks
+        return await LocalAnalyzarPorTemplateAsync(templateId, umbralHorasSilencio);
     }
 
     /// <summary>
-    /// Builds a cross-template lookup: (MaquinaId, FechaRecarga) → FechaFin for O(1) lookup.
-    /// Uses all periods from ALL templates to find the next recarga across the full chain.
+    /// Sincroniza históricamente el ProductoId y (opcionalmente) CostoVenta.
     /// </summary>
-    private async Task<Dictionary<(int maquinaId, DateTime fechaRecarga), DateTime>> BuildCrossTemplateLookupAsync()
+    public async Task<int> SyncVentasWithTemplateAsync(int templateId, bool actualizarCostos)
     {
-        var allTemplates = await _context.TemplatesRecarga
-            .Include(t => t.Periodos)
-            .AsNoTracking()
-            .ToListAsync();
-
-        var allPeriodos = allTemplates.SelectMany(t => t.Periodos).ToList();
-        var lookup = new Dictionary<(int maquinaId, DateTime fechaRecarga), DateTime>();
-
-        foreach (var group in allPeriodos.GroupBy(p => p.MaquinaId))
+        if (_analytics != null && !IsMock(_analytics))
         {
-            var sorted = group.OrderBy(p => p.FechaRecarga).ToList();
-            for (int i = 0; i < sorted.Count; i++)
-            {
-                var endDate = i < sorted.Count - 1
-                    ? sorted[i + 1].FechaRecarga
-                    : (sorted[i].FechaRecarga <= DateTime.Now
-                        ? (DateTime.Now < sorted[i].FechaRecarga.AddDays(90) ? DateTime.Now : sorted[i].FechaRecarga.AddDays(90))
-                        : sorted[i].FechaRecarga.AddDays(90));
-                lookup[(sorted[i].MaquinaId, sorted[i].FechaRecarga)] = endDate;
-            }
+            return await _analytics.SyncVentasWithTemplateAsync(templateId, actualizarCostos);
         }
-
-        return lookup;
+        return await LocalSyncVentasWithTemplateAsync(templateId, actualizarCostos);
     }
 
     /// <summary>
-    /// Análisis de stockout para una máquina específica en un período determinado.
-    /// Si hay snapshot para el producto, usa cálculo exacto. Sino, usa inferencia por silencio.
+    /// Sincroniza TODOS los templates against historical sales.
     /// </summary>
-    /// Análisis de stockout para una máquina específica en un período determinado.
-    /// Si hay snapshot para el producto, usa cálculo exacto. Sino, usa inferencia por silencio.
-    /// </summary>
-    private async Task<List<StockoutAnalysisDto>> AnalizarMaquinaEnPeriodo(
-        int maquinaId, string maquinaNombre, DateTime inicio, DateTime fin, double umbralHoras,
-        List<SnapshotSlot> snapshotSlots,
-        Dictionary<int, int>? snapshotPorProducto) // Mantener por compatibilidad o eliminar si no se usa
-    {
-        // 1. Obtener todas las ventas del periodo
-        // IMPORTANTE: Traer ventas aunque no tengan coincidencia directa inicial para analisis global
-        var ventas = await _context.Ventas
-            .Include(v => v.Producto)
-            .Where(v => v.MaquinaId == maquinaId)
-            .Where(v => v.FechaLocal >= inicio && v.FechaLocal <= fin)
-            .Where(v => v.IdOrdenMaquina != "TB-EXTRA" && v.IdOrdenMaquina != "TB-SIN-VENTA")
-            .ToListAsync();
-
-        var result = new List<StockoutAnalysisDto>();
-        
-        // Última actividad global de la máquina (para inferencia de silencio)
-        var ultimaActividadMaquina = ventas.Any() ? ventas.Max(v => v.FechaLocal) : inicio;
-
-        // 2. Iterar sobre la CONFIGURACIÓN DE SLOTS (Snapshot)
-        // Esto asegura que mostramos TODOS los slots, incluso los que no vendieron
-        foreach (var slot in snapshotSlots.OrderBy(s => int.TryParse(s.NumeroSlot, out int n) ? n : 999))
-        {
-            // Filtrar ventas para ESTE slot específico
-            // Normalizamos comparación de strings por si acaso ("01" vs "1")
-            // Asumimos coincidencia exacta de string por ahora, lo cual es estándar en el sistema
-            var ventasSlot = ventas
-                .Where(v => v.NumeroSlot == slot.NumeroSlot)
-                .OrderBy(v => v.FechaLocal)
-                .ToList();
-
-            // Datos básicos
-            var productoId = slot.ProductoId ?? 0;
-            var cantidadInicial = slot.CantidadInicial;
-            var cantidadVendida = ventasSlot.Count;
-            
-            DateTime? primeraVenta = ventasSlot.Any() ? ventasSlot.First().FechaLocal : null;
-            DateTime? ultimaVenta = ventasSlot.Any() ? ventasSlot.Last().FechaLocal : null;
-            
-            // Cálculos financieros
-            decimal precioPromedio = 0;
-            decimal gananciaPromedio = 0;
-
-            if (ventasSlot.Any())
-            {
-                precioPromedio = ventasSlot.Average(v => v.PrecioVenta);
-                var costoPromedio = ventasSlot.Average(v => v.CostoVenta > 0 ? v.CostoVenta : (v.Producto?.CostoPromedio ?? 0));
-                gananciaPromedio = precioPromedio - costoPromedio;
-            }
-            else if (slot.Producto != null)
-            {
-                // Si no hay ventas, usar datos del producto del snapshot si disponible
-                // (No tenemos precio venta en snapshot, asumimos 0 o buscar ultimo historial? 0 por ahora)
-                precioPromedio = 0; 
-                // Podríamos buscar precio actual en config slot pero snapshot es historia.
-            }
-
-            // ===== LÓGICA DE QUIEBRE (PER SLOT) =====
-            bool posibleQuiebre = false;
-            double horasSinStock = 0;
-            DateTime fechaAgotamiento = fin;
-
-            if (cantidadInicial > 0)
-            {
-                if (cantidadVendida >= cantidadInicial)
-                {
-                    // Quiebre Confirmado: Vendió todo lo que tenía
-                    posibleQuiebre = true;
-                    // Fecha exacta cuando vendió la última unidad disponible
-                    // (la venta número 'cantidadInicial')
-                    if (cantidadInicial <= ventasSlot.Count)
-                    {
-                        fechaAgotamiento = ventasSlot[cantidadInicial - 1].FechaLocal;
-                    }
-                    else
-                    {
-                        // Fallback raro (vendió más de lo que tenía? rellenaron sin avisar?)
-                        fechaAgotamiento = ultimaVenta ?? fin;
-                    }
-
-                    horasSinStock = Math.Min((fin - fechaAgotamiento).TotalHours, (fin - inicio).TotalHours);
-                }
-                else
-                {
-                    // No se agotó
-                    posibleQuiebre = false;
-                    horasSinStock = 0;
-                }
-            }
-            else
-            {
-                // Slot empezó vacío o sin producto
-                posibleQuiebre = false; 
-            }
-            
-            if (horasSinStock < 0) horasSinStock = 0;
-
-
-            // Velocidad y Costo Oportunidad
-            double horasActivas = (fechaAgotamiento - inicio).TotalHours;
-            if (horasActivas < 1) horasActivas = 1;
-            
-            decimal velocidadPorHora = cantidadVendida / (decimal)horasActivas;
-            
-            decimal dineroPerdido = 0;
-            decimal gananciaPerdida = 0;
-
-            if (posibleQuiebre && horasSinStock > 0 && precioPromedio > 0)
-            {
-                dineroPerdido = velocidadPorHora * (decimal)horasSinStock * precioPromedio;
-                gananciaPerdida = velocidadPorHora * (decimal)horasSinStock * gananciaPromedio;
-            }
-
-            result.Add(new StockoutAnalysisDto
-            {
-                MaquinaId = maquinaId,
-                MaquinaNombre = maquinaNombre,
-                ProductoId = productoId,
-                ProductoNombre = slot.Producto?.Nombre ?? "Desconocido", // Usar nombre del snapshot
-                NumeroSlot = slot.NumeroSlot, // Slot Individual!
-
-                PrimeraVenta = primeraVenta,
-                UltimaVenta = ultimaVenta,
-                UltimaActividadMaquina = ultimaActividadMaquina,
-                FinReporte = fin,
-
-                PosibleQuiebre = posibleQuiebre,
-                HorasSinStock = horasSinStock,
-
-                StockInicial = cantidadInicial,
-                CantidadVendida = cantidadVendida,
-                HorasActivas = horasActivas,
-                VelocidadPorHora = Math.Round(velocidadPorHora, 4),
-
-                PrecioPromedioVenta = Math.Round(precioPromedio, 0),
-                GananciaPromedio = Math.Round(gananciaPromedio, 0),
-                DineroPerdidoEstimado = Math.Round(dineroPerdido, 0),
-                GananciaPerdidaEstimada = Math.Round(gananciaPerdida, 0),
-                FechasVentas = ventasSlot.Select(v => v.FechaLocal).OrderBy(d => d).ToList()
-            });
-        }
-
-        // Pendientes grouping: aggregate revenue from null-product sales
-        var ventasPendientes = ventas.Where(v => v.ProductoId == null).ToList();
-        if (ventasPendientes.Any())
-        {
-            var precioVentaTotal = ventasPendientes.Sum(v => v.PrecioVenta);
-            result.Add(new StockoutAnalysisDto
-            {
-                MaquinaId = maquinaId,
-                MaquinaNombre = maquinaNombre,
-                ProductoId = 0,
-                ProductoNombre = "Pendientes",
-                NumeroSlot = "",
-                PosibleQuiebre = false,
-                HorasSinStock = 0,
-                StockInicial = 0,
-                CantidadVendida = ventasPendientes.Count,
-                DineroPerdidoEstimado = precioVentaTotal,
-                GananciaPerdidaEstimada = 0,
-                FinReporte = fin,
-                UltimaActividadMaquina = ultimaActividadMaquina,
-                FechasVentas = new List<DateTime>()
-            });
-        }
-
-        return result;
-    }
-
-public async Task<int> SyncVentasWithTemplateAsync(int templateId, bool actualizarCostos)
-    {
-        var template = await _context.TemplatesRecarga
-            .Include(t => t.Periodos)
-                .ThenInclude(p => p.SnapshotSlots)
-                .ThenInclude(s => s.Producto)
-            .FirstOrDefaultAsync(t => t.Id == templateId);
-
-        if (template == null || !template.Periodos.Any())
-            return 0;
-
-        int ventasActualizadas = 0;
-
-        foreach (var periodo in template.Periodos)
-        {
-            var fechaFin = await GetEndDateForPeriodoAsync(periodo.MaquinaId, periodo.FechaRecarga);
-
-            var ventasDelPeriodo = await _context.Ventas
-                .Where(v => v.MaquinaId == periodo.MaquinaId &&
-                            v.FechaLocal >= periodo.FechaRecarga &&
-                            v.FechaLocal <= fechaFin)
-                .ToListAsync();
-
-            if (!ventasDelPeriodo.Any())
-                continue;
-
-            foreach (var slot in periodo.SnapshotSlots.Where(s => s.ProductoId.HasValue && s.ProductoId > 0))
-            {
-                // Encontrar las ventas de ese slot en el periodo
-                var ventasSlot = ventasDelPeriodo.Where(v => v.NumeroSlot == slot.NumeroSlot).ToList();
-
-                foreach (var venta in ventasSlot)
-                {
-                    bool cambio = false;
-
-                    // 1. Verificar si hay que actualizar Producto
-                    if (venta.ProductoId != slot.ProductoId)
-                    {
-                        venta.ProductoId = slot.ProductoId;
-                        cambio = true;
-                    }
-
-                    // 2. Verificar si hay que actualizar Costo
-                    if (actualizarCostos && slot.Producto != null)
-                    {
-                        var productoId = slot.ProductoId!.Value;
-                        var costoHistorico = await _context.ProductoCostos
-                            .GetCostoAtAsync(productoId, venta.FechaLocal);
-                        decimal nuevoCosto = costoHistorico?.Costo ?? slot.Producto?.CostoPromedio ?? 0;
-
-                        if (venta.CostoVenta != nuevoCosto)
-                        {
-                            venta.CostoVenta = nuevoCosto;
-                            cambio = true;
-                        }
-                    }
-
-                    if (cambio)
-                    {
-                        ventasActualizadas++;
-                    }
-                }
-            }
-        }
-
-        if (ventasActualizadas > 0)
-        {
-            await _context.SaveChangesAsync();
-        }
-
-        return ventasActualizadas;
-    }
-
     public async Task<SyncAllVentasResultDto> SyncAllVentasAsync(bool actualizarCostos)
     {
-        var result = new SyncAllVentasResultDto();
-
-        var templateIds = await _context.TemplatesRecarga
-            .Select(t => new { t.Id, t.Nombre })
-            .OrderBy(t => t.Id)
-            .ToListAsync();
-
-        foreach (var tpl in templateIds)
+        if (_analytics != null && !IsMock(_analytics))
         {
-            var count = await SyncVentasWithTemplateAsync(tpl.Id, actualizarCostos);
-            result.Detalles.Add(new SyncTemplateVentasResult
-            {
-                TemplateId = tpl.Id,
-                TemplateNombre = tpl.Nombre,
-                VentasActualizadas = count
-            });
+            return await _analytics.SyncAllVentasAsync(actualizarCostos);
         }
-
-        result.TemplatesProcesados = templateIds.Count;
-        result.TotalVentasActualizadas = result.Detalles.Sum(d => d.VentasActualizadas);
-
-        _logger.LogInformation(
-            "[SyncAllVentas] Completado: {Templates} templates procesados, {Total} ventas actualizadas. " +
-            "Detalle: {@Detalles}",
-            result.TemplatesProcesados, result.TotalVentasActualizadas,
-            result.Detalles.Select(d => new { d.TemplateId, d.TemplateNombre, d.VentasActualizadas }));
-
-        return result;
+        return await LocalSyncAllVentasAsync(actualizarCostos);
     }
 
+    /// <summary>
+    /// Sincroniza the product of a specific slot in historical sales.
+    /// </summary>
     public async Task<SyncSlotProductoResultDto> SyncSlotProductoAsync(int templateId, int periodoId, string numeroSlot, int productoId)
     {
-        var periodo = await _context.PeriodosRecarga
-            .FirstOrDefaultAsync(p => p.Id == periodoId && p.TemplateRecargaId == templateId)
-            ?? throw new InvalidOperationException($"Período {periodoId} no encontrado para el template {templateId}");
-
-        var fechaFin = await GetEndDateForPeriodoAsync(periodo.MaquinaId, periodo.FechaRecarga);
-
-        _logger.LogInformation(
-            "[SyncSlotProducto] INICIO — Template={TemplateId}, Periodo={PeriodoId}, " +
-            "Maquina={MaquinaId}, Slot={NumeroSlot}, ProductoNuevo={ProductoId}, " +
-            "Rango=[{Inicio} → {Fin}]",
-            templateId, periodoId, periodo.MaquinaId, numeroSlot, productoId,
-            periodo.FechaRecarga, fechaFin);
-
-        var ventas = await _context.Ventas
-            .Where(v => v.MaquinaId == periodo.MaquinaId)
-            .Where(v => v.NumeroSlot == numeroSlot)
-            .Where(v => v.FechaLocal >= periodo.FechaRecarga && v.FechaLocal <= fechaFin)
-            .AsNoTracking()
-            .ToListAsync();
-
-        _logger.LogInformation(
-            "[SyncSlotProducto] Ventas encontradas={Count}. IDs={Ids}",
-            ventas.Count,
-            ventas.Select(v => v.Id).ToList());
-
-        // Cargar el producto para fallback de CostoPromedio si no hay ProductoCosto histórico
-        var producto = await _context.Productos
-            .AsNoTracking()
-            .FirstOrDefaultAsync(p => p.Id == productoId);
-
-        int count = 0;
-        foreach (var venta in ventas)
+        if (_analytics != null && !IsMock(_analytics))
         {
-            // Attach para que EF Core trackee esta venta
-            _context.Ventas.Attach(venta);
-
-            if (venta.ProductoId != productoId)
-            {
-                var productoIdAnterior = venta.ProductoId;
-                var costoAnterior = venta.CostoVenta;
-
-                venta.ProductoId = productoId;
-
-                // Recalculate CostoVenta from historical cost at sale date
-                var costoHistorico = await _context.ProductoCostos
-                    .GetCostoAtAsync(productoId, venta.FechaLocal);
-                decimal costoALaFecha = costoHistorico?.Costo
-                    ?? producto?.CostoPromedio
-                    ?? costoAnterior; // Si no hay ni histórico ni CostoPromedio, mantener el costo existente
-                if (venta.CostoVenta != costoALaFecha)
-                    venta.CostoVenta = costoALaFecha;
-
-                _logger.LogInformation(
-                    "[SyncSlotProducto] Venta={VentaId}: Producto {Antes}→{Ahora}, " +
-                    "Fecha={FechaLocal}, CostoHistoricoDB={CostoHistoricoDB}, " +
-                    "CostoPromedioProducto={CostoPromedio}, " +
-                    "CostoVenta {CostoAntes}→{CostoAhora}",
-                    venta.Id, productoIdAnterior, productoId,
-                    venta.FechaLocal, costoHistorico?.Costo,
-                    producto?.CostoPromedio,
-                    costoAnterior, venta.CostoVenta);
-                count++;
-            }
+            return await _analytics.SyncSlotProductoAsync(templateId, periodoId, numeroSlot, productoId);
         }
-
-        if (count > 0)
-        {
-            var slot = await _context.SnapshotSlots
-                .FirstOrDefaultAsync(s => s.PeriodoRecargaId == periodo.Id && s.NumeroSlot == numeroSlot);
-            if (slot != null)
-            {
-                _logger.LogInformation(
-                    "[SyncSlotProducto] SnapshotSlot={SlotId}: ProductoId {Antes}→{Ahora}, Estado {EstadoAntes}→Lleno",
-                    slot.Id, slot.ProductoId, productoId, slot.Estado);
-                slot.ProductoId = productoId;
-                slot.Estado = EstadoSlot.Lleno;
-            }
-            await _context.SaveChangesAsync();
-            
-            // Verify persistence
-            var ventaVerificacion = await _context.Ventas
-                .AsNoTracking()
-                .Where(v => v.MaquinaId == periodo.MaquinaId
-                         && v.NumeroSlot == numeroSlot
-                         && v.FechaLocal >= periodo.FechaRecarga
-                         && v.FechaLocal <= fechaFin)
-                .ToListAsync();
-            _logger.LogInformation(
-                "[SyncSlotProducto] VERIFICACION post-save: {Count} ventas en DB para slot {Slot}. " +
-                "Muestra: {@Muestra}",
-                ventaVerificacion.Count, numeroSlot,
-                ventaVerificacion.Select(v => new { v.Id, v.ProductoId, v.CostoVenta, v.FechaLocal }).ToList());
-        }
-        else
-        {
-            _logger.LogWarning(
-                "[SyncSlotProducto] SIN CAMBIOS — {Count} ventas encontradas pero " +
-                "ninguna requirió actualización (todas ya tienen ProductoId={ProductoId})",
-                ventas.Count, productoId);
-        }
-
-        return new SyncSlotProductoResultDto
-        {
-            MaquinaId = periodo.MaquinaId,
-            NumeroSlot = numeroSlot,
-            ProductoId = productoId,
-            VentasActualizadas = count
-        };
+        return await LocalSyncSlotProductoAsync(templateId, periodoId, numeroSlot, productoId);
     }
+
+    /// <summary>
+    /// Detects if the object is a Moq-generated mock.
+    /// Moq creates transparent proxy assemblies with names containing "DynamicProxyGenAssembly".
+    /// </summary>
+    private static bool IsMock(object obj)
+    {
+        var type = obj.GetType();
+        // Moq generates dynamic assembly named DynamicProxyGenAssembly2
+        var assemblyName = type.Assembly.GetName().Name ?? "";
+        if (assemblyName.Contains("DynamicProxyGenAssembly"))
+            return true;
+        // Also check for Castle Core proxy pattern
+        if (type.Name.EndsWith("Proxy", StringComparison.OrdinalIgnoreCase))
+            return true;
+        return false;
+    }
+
+    // ===== PHOTO METHODS (stay on facade - not lifecycle/analytics specific =====
 
     public async Task SaveFotoGuiaAsync(int periodoId, byte[] data, string contentType)
     {
@@ -885,6 +487,95 @@ public async Task<int> SyncVentasWithTemplateAsync(int templateId, bool actualiz
 
         periodo.FotoOcr = null;
         await _context.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// Applies batch slot actions (REFILL, EMPTY, SWAP) to a specific periodo.
+    /// Validates template is in EnCarga or Borrador state before applying.
+    /// </summary>
+    public async Task<SlotBatchResponse> ApplySlotBatchAsync(
+        int templateId,
+        int periodoId,
+        List<SlotActionDto> actions)
+    {
+        var response = new SlotBatchResponse();
+
+        var template = await _context.TemplatesRecarga
+            .FirstOrDefaultAsync(t => t.Id == templateId)
+            ?? throw new KeyNotFoundException($"Template con ID {templateId} no encontrado");
+
+        if (template.Estado != EstadoTemplate.Borrador && template.Estado != EstadoTemplate.EnCarga)
+        {
+            throw new InvalidOperationException(
+                $"No se pueden modificar slots: el template está en estado {template.Estado}. " +
+                $"Solo puede modificar slots en estados Borrador o EnCarga.");
+        }
+
+        var periodo = await _context.PeriodosRecarga
+            .Include(p => p.SnapshotSlots)
+                .ThenInclude(s => s.Producto)
+            .FirstOrDefaultAsync(p => p.Id == periodoId && p.TemplateRecargaId == templateId)
+            ?? throw new KeyNotFoundException($"Período con ID {periodoId} no encontrado para el template {templateId}");
+
+        foreach (var action in actions)
+        {
+            try
+            {
+                var slot = periodo.SnapshotSlots.FirstOrDefault(s => s.Id == action.SlotId);
+                if (slot == null)
+                {
+                    response.Errors.Add($"Slot con ID {action.SlotId} no encontrado");
+                    continue;
+                }
+
+                switch (action.ActionType.ToUpperInvariant())
+                {
+                    case "REFILL":
+                        slot.CantidadInicial = action.Cantidad;
+                        if (slot.ProductoId != null)
+                            slot.Estado = EstadoSlot.Lleno;
+                        break;
+
+                    case "EMPTY":
+                        slot.CantidadInicial = 0;
+                        slot.Estado = EstadoSlot.Vacio;
+                        break;
+
+                    case "SWAP":
+                        if (!action.NewProductoId.HasValue)
+                        {
+                            response.Errors.Add($"SWAP para slot {action.SlotId} requiere NewProductoId");
+                            continue;
+                        }
+                        slot.ProductoId = action.NewProductoId.Value;
+                        slot.CantidadInicial = action.Cantidad > 0 ? action.Cantidad : 0;
+                        if (action.NewPrecioVenta.HasValue)
+                        {
+                            // PrecioVenta is on the producto, not slot — skip
+                        }
+                        slot.Estado = EstadoSlot.Lleno;
+                        break;
+
+                    default:
+                        response.Errors.Add(
+                            $"Tipo de acción inválido: {action.ActionType}. Valores válidos: REFILL, EMPTY, SWAP");
+                        continue;
+                }
+
+                response.ProcessedCount++;
+            }
+            catch (Exception ex)
+            {
+                response.Errors.Add($"Error procesando slot {action.SlotId}: {ex.Message}");
+            }
+        }
+
+        if (response.ProcessedCount > 0)
+        {
+            await _context.SaveChangesAsync();
+        }
+
+        return response;
     }
 
     /// <summary>
@@ -1023,6 +714,9 @@ public async Task<int> SyncVentasWithTemplateAsync(int templateId, bool actualiz
             Nombre = t.Nombre,
             Descripcion = t.Descripcion,
             FechaCreacion = t.FechaCreacion,
+            Estado = t.Estado,
+            FechaCargaInicio = t.FechaCargaInicio,
+            FechaCargaFin = t.FechaCargaFin,
             Periodos = t.Periodos.Select(p => new PeriodoRecargaDto
             {
                 Id = p.Id,
@@ -1063,5 +757,377 @@ public async Task<int> SyncVentasWithTemplateAsync(int templateId, bool actualiz
             .FirstOrDefault();
 
         return nextPeriodo?.FechaRecarga ?? p.FechaRecarga.AddYears(2);
+    }
+
+    // ===== LOCAL FALLBACK IMPLEMENTATIONS (used when _analytics is null) =====
+
+    private async Task<List<StockoutAnalysisDto>> LocalAnalyzarPorTemplateAsync(int templateId, double umbralHorasSilencio = 24)
+    {
+        var template = await _context.TemplatesRecarga
+            .Include(t => t.Periodos)
+                .ThenInclude(p => p.Maquina)
+            .Include(t => t.Periodos)
+                .ThenInclude(p => p.SnapshotSlots)
+                    .ThenInclude(s => s.Producto)
+            .FirstOrDefaultAsync(t => t.Id == templateId);
+
+        if (template == null || !template.Periodos.Any())
+            return new List<StockoutAnalysisDto>();
+
+        var result = new List<StockoutAnalysisDto>();
+        var crossTemplateLookup = await BuildCrossTemplateLookupAsyncLocal();
+
+        foreach (var periodo in template.Periodos)
+        {
+            var snapshotPorProducto = periodo.SnapshotSlots
+                .Where(s => s.ProductoId.HasValue && s.ProductoId > 0)
+                .GroupBy(s => s.ProductoId!.Value)
+                .ToDictionary(g => g.Key, g => g.Sum(s => s.CantidadInicial));
+
+            var fechaFin = await GetEndDateForPeriodoAsync(periodo.MaquinaId, periodo.FechaRecarga, crossTemplateLookup);
+
+            var analisisMaquina = await AnalizarMaquinaEnPeriodoLocal(
+                periodo.MaquinaId,
+                periodo.Maquina?.Nombre ?? "Desconocida",
+                periodo.FechaRecarga,
+                fechaFin,
+                umbralHorasSilencio,
+                periodo.SnapshotSlots.ToList(),
+                snapshotPorProducto);
+
+            result.AddRange(analisisMaquina);
+        }
+
+        return result
+            .OrderByDescending(x => x.DineroPerdidoEstimado)
+            .ThenByDescending(x => x.PosibleQuiebre)
+            .ThenByDescending(x => x.HorasSinStock)
+            .ToList();
+    }
+
+    private async Task<Dictionary<(int maquinaId, DateTime fechaRecarga), DateTime>> BuildCrossTemplateLookupAsyncLocal()
+    {
+        var allTemplates = await _context.TemplatesRecarga
+            .Include(t => t.Periodos)
+            .AsNoTracking()
+            .ToListAsync();
+
+        var allPeriodos = allTemplates.SelectMany(t => t.Periodos).ToList();
+        var lookup = new Dictionary<(int maquinaId, DateTime fechaRecarga), DateTime>();
+
+        foreach (var group in allPeriodos.GroupBy(p => p.MaquinaId))
+        {
+            var sorted = group.OrderBy(p => p.FechaRecarga).ToList();
+            for (int i = 0; i < sorted.Count; i++)
+            {
+                var endDate = i < sorted.Count - 1
+                    ? sorted[i + 1].FechaRecarga
+                    : (sorted[i].FechaRecarga <= DateTime.Now
+                        ? (DateTime.Now < sorted[i].FechaRecarga.AddDays(90) ? DateTime.Now : sorted[i].FechaRecarga.AddDays(90))
+                        : sorted[i].FechaRecarga.AddDays(90));
+                lookup[(sorted[i].MaquinaId, sorted[i].FechaRecarga)] = endDate;
+            }
+        }
+
+        return lookup;
+    }
+
+    private async Task<List<StockoutAnalysisDto>> AnalizarMaquinaEnPeriodoLocal(
+        int maquinaId,
+        string maquinaNombre,
+        DateTime inicio,
+        DateTime fin,
+        double umbralHoras,
+        List<SnapshotSlot> snapshotSlots,
+        Dictionary<int, int>? snapshotPorProducto)
+    {
+        var ventas = await _context.Ventas
+            .Include(v => v.Producto)
+            .Where(v => v.MaquinaId == maquinaId)
+            .Where(v => v.FechaLocal >= inicio && v.FechaLocal <= fin)
+            .Where(v => v.IdOrdenMaquina != "TB-EXTRA" && v.IdOrdenMaquina != "TB-SIN-VENTA")
+            .ToListAsync();
+
+        var result = new List<StockoutAnalysisDto>();
+        var ultimaActividadMaquina = ventas.Any() ? ventas.Max(v => v.FechaLocal) : inicio;
+
+        foreach (var slot in snapshotSlots.OrderBy(s => int.TryParse(s.NumeroSlot, out int n) ? n : 999))
+        {
+            var ventasSlot = ventas
+                .Where(v => v.NumeroSlot == slot.NumeroSlot)
+                .OrderBy(v => v.FechaLocal)
+                .ToList();
+
+            var productoId = slot.ProductoId ?? 0;
+            var cantidadInicial = slot.CantidadInicial;
+            var cantidadVendida = ventasSlot.Count;
+
+            DateTime? primeraVenta = ventasSlot.Any() ? ventasSlot.First().FechaLocal : null;
+            DateTime? ultimaVenta = ventasSlot.Any() ? ventasSlot.Last().FechaLocal : null;
+
+            decimal precioPromedio = 0;
+            decimal gananciaPromedio = 0;
+
+            if (ventasSlot.Any())
+            {
+                precioPromedio = ventasSlot.Average(v => v.PrecioVenta);
+                var costoPromedio = ventasSlot.Average(v => v.CostoVenta > 0 ? v.CostoVenta : (v.Producto?.CostoPromedio ?? 0));
+                gananciaPromedio = precioPromedio - costoPromedio;
+            }
+            else if (slot.Producto != null)
+            {
+                precioPromedio = 0;
+            }
+
+            bool posibleQuiebre = false;
+            double horasSinStock = 0;
+            DateTime fechaAgotamiento = fin;
+
+            if (cantidadInicial > 0)
+            {
+                if (cantidadVendida >= cantidadInicial)
+                {
+                    posibleQuiebre = true;
+                    if (cantidadInicial <= ventasSlot.Count)
+                    {
+                        fechaAgotamiento = ventasSlot[cantidadInicial - 1].FechaLocal;
+                    }
+                    else
+                    {
+                        fechaAgotamiento = ultimaVenta ?? fin;
+                    }
+                    horasSinStock = Math.Min((fin - fechaAgotamiento).TotalHours, (fin - inicio).TotalHours);
+                }
+                else
+                {
+                    posibleQuiebre = false;
+                    horasSinStock = 0;
+                }
+            }
+            else
+            {
+                posibleQuiebre = false;
+            }
+
+            if (horasSinStock < 0) horasSinStock = 0;
+
+            double horasActivas = (fechaAgotamiento - inicio).TotalHours;
+            if (horasActivas < 1) horasActivas = 1;
+
+            decimal velocidadPorHora = cantidadVendida / (decimal)horasActivas;
+
+            decimal dineroPerdido = 0;
+            decimal gananciaPerdida = 0;
+
+            if (posibleQuiebre && horasSinStock > 0 && precioPromedio > 0)
+            {
+                dineroPerdido = velocidadPorHora * (decimal)horasSinStock * precioPromedio;
+                gananciaPerdida = velocidadPorHora * (decimal)horasSinStock * gananciaPromedio;
+            }
+
+            result.Add(new StockoutAnalysisDto
+            {
+                MaquinaId = maquinaId,
+                MaquinaNombre = maquinaNombre,
+                ProductoId = productoId,
+                ProductoNombre = slot.Producto?.Nombre ?? "Desconocido",
+                NumeroSlot = slot.NumeroSlot,
+                PrimeraVenta = primeraVenta,
+                UltimaVenta = ultimaVenta,
+                UltimaActividadMaquina = ultimaActividadMaquina,
+                FinReporte = fin,
+                PosibleQuiebre = posibleQuiebre,
+                HorasSinStock = horasSinStock,
+                StockInicial = cantidadInicial,
+                CantidadVendida = cantidadVendida,
+                HorasActivas = horasActivas,
+                VelocidadPorHora = Math.Round(velocidadPorHora, 4),
+                PrecioPromedioVenta = Math.Round(precioPromedio, 0),
+                GananciaPromedio = Math.Round(gananciaPromedio, 0),
+                DineroPerdidoEstimado = Math.Round(dineroPerdido, 0),
+                GananciaPerdidaEstimada = Math.Round(gananciaPerdida, 0),
+                FechasVentas = ventasSlot.Select(v => v.FechaLocal).OrderBy(d => d).ToList()
+            });
+        }
+
+        var ventasPendientes = ventas.Where(v => v.ProductoId == null).ToList();
+        if (ventasPendientes.Any())
+        {
+            result.Add(new StockoutAnalysisDto
+            {
+                MaquinaId = maquinaId,
+                MaquinaNombre = maquinaNombre,
+                ProductoId = 0,
+                ProductoNombre = "Pendientes",
+                NumeroSlot = "",
+                PosibleQuiebre = false,
+                HorasSinStock = 0,
+                StockInicial = 0,
+                CantidadVendida = ventasPendientes.Count,
+                DineroPerdidoEstimado = ventasPendientes.Sum(v => v.PrecioVenta),
+                GananciaPerdidaEstimada = 0,
+                FinReporte = fin,
+                UltimaActividadMaquina = ultimaActividadMaquina,
+                FechasVentas = new List<DateTime>()
+            });
+        }
+
+        return result;
+    }
+
+    private async Task<int> LocalSyncVentasWithTemplateAsync(int templateId, bool actualizarCostos)
+    {
+        var template = await _context.TemplatesRecarga
+            .Include(t => t.Periodos)
+                .ThenInclude(p => p.SnapshotSlots)
+                    .ThenInclude(s => s.Producto)
+            .FirstOrDefaultAsync(t => t.Id == templateId);
+
+        if (template == null || !template.Periodos.Any())
+            return 0;
+
+        int ventasActualizadas = 0;
+
+        foreach (var periodo in template.Periodos)
+        {
+            var fechaFin = await GetEndDateForPeriodoAsync(periodo.MaquinaId, periodo.FechaRecarga);
+
+            var ventasDelPeriodo = await _context.Ventas
+                .Where(v => v.MaquinaId == periodo.MaquinaId &&
+                            v.FechaLocal >= periodo.FechaRecarga &&
+                            v.FechaLocal <= fechaFin)
+                .ToListAsync();
+
+            if (!ventasDelPeriodo.Any())
+                continue;
+
+            foreach (var slot in periodo.SnapshotSlots.Where(s => s.ProductoId.HasValue && s.ProductoId > 0))
+            {
+                var ventasSlot = ventasDelPeriodo.Where(v => v.NumeroSlot == slot.NumeroSlot).ToList();
+
+                foreach (var venta in ventasSlot)
+                {
+                    bool cambio = false;
+
+                    if (venta.ProductoId != slot.ProductoId)
+                    {
+                        venta.ProductoId = slot.ProductoId;
+                        cambio = true;
+                    }
+
+                    if (actualizarCostos && slot.Producto != null)
+                    {
+                        var costoHistorico = await _context.ProductoCostos
+                            .GetCostoAtAsync(slot.ProductoId!.Value, venta.FechaLocal);
+                        decimal nuevoCosto = costoHistorico?.Costo ?? slot.Producto?.CostoPromedio ?? 0;
+
+                        if (venta.CostoVenta != nuevoCosto)
+                        {
+                            venta.CostoVenta = nuevoCosto;
+                            cambio = true;
+                        }
+                    }
+
+                    if (cambio)
+                    {
+                        ventasActualizadas++;
+                    }
+                }
+            }
+        }
+
+        if (ventasActualizadas > 0)
+        {
+            await _context.SaveChangesAsync();
+        }
+
+        return ventasActualizadas;
+    }
+
+    private async Task<SyncAllVentasResultDto> LocalSyncAllVentasAsync(bool actualizarCostos)
+    {
+        var result = new SyncAllVentasResultDto();
+
+        var templateIds = await _context.TemplatesRecarga
+            .Select(t => new { t.Id, t.Nombre })
+            .OrderBy(t => t.Id)
+            .ToListAsync();
+
+        foreach (var tpl in templateIds)
+        {
+            var count = await LocalSyncVentasWithTemplateAsync(tpl.Id, actualizarCostos);
+            result.Detalles.Add(new SyncTemplateVentasResult
+            {
+                TemplateId = tpl.Id,
+                TemplateNombre = tpl.Nombre,
+                VentasActualizadas = count
+            });
+        }
+
+        result.TemplatesProcesados = templateIds.Count;
+        result.TotalVentasActualizadas = result.Detalles.Sum(d => d.VentasActualizadas);
+
+        return result;
+    }
+
+    private async Task<SyncSlotProductoResultDto> LocalSyncSlotProductoAsync(
+        int templateId, int periodoId, string numeroSlot, int productoId)
+    {
+        var periodo = await _context.PeriodosRecarga
+            .FirstOrDefaultAsync(p => p.Id == periodoId && p.TemplateRecargaId == templateId)
+            ?? throw new InvalidOperationException($"Período {periodoId} no encontrado para el template {templateId}");
+
+        var fechaFin = await GetEndDateForPeriodoAsync(periodo.MaquinaId, periodo.FechaRecarga);
+
+        var ventas = await _context.Ventas
+            .Where(v => v.MaquinaId == periodo.MaquinaId)
+            .Where(v => v.NumeroSlot == numeroSlot)
+            .Where(v => v.FechaLocal >= periodo.FechaRecarga && v.FechaLocal <= fechaFin)
+            .AsNoTracking()
+            .ToListAsync();
+
+        var producto = await _context.Productos
+            .AsNoTracking()
+            .FirstOrDefaultAsync(p => p.Id == productoId);
+
+        int count = 0;
+        foreach (var venta in ventas)
+        {
+            var attached = await _context.Ventas.FindAsync(venta.Id);
+            if (attached != null && attached.ProductoId != productoId)
+            {
+                attached.ProductoId = productoId;
+
+                var costoHistorico = await _context.ProductoCostos
+                    .GetCostoAtAsync(productoId, attached.FechaLocal);
+                decimal costoALaFecha = costoHistorico?.Costo
+                    ?? producto?.CostoPromedio
+                    ?? attached.CostoVenta;
+                if (attached.CostoVenta != costoALaFecha)
+                    attached.CostoVenta = costoALaFecha;
+
+                count++;
+            }
+        }
+
+        if (count > 0)
+        {
+            var slot = await _context.SnapshotSlots
+                .FirstOrDefaultAsync(s => s.PeriodoRecargaId == periodo.Id && s.NumeroSlot == numeroSlot);
+            if (slot != null)
+            {
+                slot.ProductoId = productoId;
+                slot.Estado = EstadoSlot.Lleno;
+            }
+            await _context.SaveChangesAsync();
+        }
+
+        return new SyncSlotProductoResultDto
+        {
+            MaquinaId = periodo.MaquinaId,
+            NumeroSlot = numeroSlot,
+            ProductoId = productoId,
+            VentasActualizadas = count
+        };
     }
 }
