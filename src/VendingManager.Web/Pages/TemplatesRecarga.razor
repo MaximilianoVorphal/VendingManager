@@ -135,9 +135,16 @@
                                 </span>
                                 @if (template.Estado == EstadoTemplate.Pendiente)
                                 {
+                                    <button class="btn btn-sm btn-success rounded-0 fw-bold"
+                                        @onclick="() => ActivarTemplate(template.Id)">
+                                        <i class="bi bi-check-circle me-1"></i> ACTIVAR
+                                    </button>
+                                }
+                                else if (template.Estado == EstadoTemplate.Activo)
+                                {
                                     <button class="btn btn-sm btn-dark rounded-0 fw-bold"
                                         @onclick="() => TerminarTemplate(template.Id)">
-                                        <i class="bi bi-check-circle me-1"></i> TERMINAR
+                                        <i class="bi bi-check-circle-fill me-1"></i> TERMINAR
                                     </button>
                                 }
                                 else if (template.Estado == EstadoTemplate.Terminado)
@@ -365,6 +372,16 @@
                     }
                     else
                     {
+                        @* CargaToolbar visible when template is Pendiente (loading phase) *@
+                        @if (PeriodoEnEdicionVisual?.Id > 0 && TemplateIdEdicion > 0)
+                        {
+                            var templateEnEdicion = Templates?.FirstOrDefault(t => t.Id == TemplateIdEdicion);
+                            if (templateEnEdicion != null && templateEnEdicion.Estado == EstadoTemplate.Pendiente)
+                            {
+                                <CargaToolbar CurrentTool="@_currentTool" OnToolSelected="OnToolSelected" />
+                            }
+                        }
+
                         <div class="d-flex flex-column gap-4 machine-chassis">
                             @foreach (var shelf in shelves)
                             {
@@ -384,7 +401,7 @@
                                                         <span class="text-muted fw-bold me-1" style="font-size:0.7rem;">SLOT</span>
                                                         <span class="font-monospace fw-bold" style="font-size: 0.9rem;">@slot.NumeroSlot</span>
                                                     </div>
-                                                    <button class="btn btn-sm text-danger p-0 m-0 lh-1" @onclick="() => PeriodoEnEdicionVisual.SnapshotSlots.Remove(slot)" title="Eliminar Slot">
+                                                    <button class="btn btn-sm text-danger p-0 m-0 lh-1" @onclick="() => PeriodoEnEdicionVisual?.SnapshotSlots.Remove(slot)" title="Eliminar Slot">
                                                         <i class="bi bi-x-circle-fill fs-5"></i>
                                                     </button>
                                                 </div>
@@ -767,6 +784,9 @@
     // Tracks the template being edited for photo upload targets
     private int _currentTemplateId = 0;
 
+    // CargaToolbar tool selection (REFILL | EMPTY | SWAP | "")
+    private string _currentTool = "";
+
     // === Defensive scroll lock helpers (guard against missing JS) ===
     private async Task LockScroll() {
         try { await JS.InvokeVoidAsync("modalScrollLock.lock"); } catch { }
@@ -787,6 +807,7 @@
     {
         await LockScroll();
         PeriodoEnEdicionVisual = periodo;
+        _currentTool = ""; // Reset tool selection when opening visual editor
         // Reset OCR state when opening
         ProcesandoOcr = false;
         MensajeErrorOcr = "";
@@ -1216,6 +1237,30 @@
     private string MensajeExito = "";
 
     // State transition methods
+    private async Task ActivarTemplate(int templateId)
+    {
+        MensajeError = "";
+        MensajeExito = "";
+        try
+        {
+            var response = await Http.PostAsync($"api/TemplateRecarga/{templateId}/activar", null);
+            if (response.IsSuccessStatusCode)
+            {
+                MensajeExito = "Template activado correctamente.";
+                await CargarTemplates();
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                MensajeError = "Error al activar template: " + error;
+            }
+        }
+        catch (Exception ex)
+        {
+            MensajeError = "Error de red: " + ex.Message;
+        }
+    }
+
     private async Task TerminarTemplate(int templateId)
     {
         MensajeError = "";
@@ -1267,7 +1312,8 @@
     private string GetEstadoBadgeClass(EstadoTemplate estado) => estado switch
     {
         EstadoTemplate.Pendiente => "bg-warning text-dark",
-        EstadoTemplate.Terminado => "bg-success",
+        EstadoTemplate.Activo => "bg-success",
+        EstadoTemplate.Terminado => "bg-dark",
         _ => "bg-secondary"
     };
 
@@ -1557,6 +1603,13 @@
             slot.ProductoId = null;
             slot.CantidadInicial = 0;
         }
+    }
+
+    private Task OnToolSelected(string tool)
+    {
+        _currentTool = tool;
+        StateHasChanged();
+        return Task.CompletedTask;
     }
 
     private async Task CargarSlotsParaPeriodo(int periodoIndex)
