@@ -1748,6 +1748,7 @@
             if (response.IsSuccessStatusCode)
             {
                 MensajeExito = EsEdicion ? "Template actualizado correctamente" : "Template creado correctamente";
+                await UnlockScroll();
                 MostrarModal = false;
                 await CargarTemplates();
             }
