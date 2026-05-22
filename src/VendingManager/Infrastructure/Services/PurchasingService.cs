@@ -44,11 +44,11 @@ namespace VendingManager.Infrastructure.Services
             if (_config.Value.UseTemplateInventoryForStockCritico)
             {
                 // Try template-based inventory first
-                var templateSlots = await _lifecycleService.GetActiveTemplateSlotsAsync(maquinaId);
+                var templateSlots = await _lifecycleService.GetLatestTerminadoTemplateSlotsAsync(maquinaId);
                 if (templateSlots.Any())
                 {
                     _logger.LogInformation(
-                        "[GetStockCritico] Using template inventory for maquina {MaquinaId}: {Count} slots",
+                        "[GetStockCritico] Using latest completed template inventory for maquina {MaquinaId}: {Count} slots",
                         maquinaId, templateSlots.Count);
 
                     return await BuildStockCriticoFromTemplateSlots(templateSlots, maquinaId);

@@ -133,28 +133,14 @@
                                 <span class="badge @GetEstadoBadgeClass(template.Estado) rounded-0 fw-bold">
                                     @template.Estado.ToString().ToUpper()
                                 </span>
-                                @if (template.Estado == EstadoTemplate.Borrador)
-                                {
-                                    <button class="btn btn-sm btn-primary rounded-0 fw-bold"
-                                        @onclick="() => IniciarCarga(template.Id)">
-                                        <i class="bi bi-play-fill me-1"></i> INICIAR CARGA
-                                    </button>
-                                }
-                                else if (template.Estado == EstadoTemplate.EnCarga)
-                                {
-                                    <button class="btn btn-sm btn-success rounded-0 fw-bold"
-                                        @onclick="() => FinalizarCarga(template.Id)">
-                                        <i class="bi bi-check-circle me-1"></i> FINALIZAR CARGA
-                                    </button>
-                                }
-                                else if (template.Estado == EstadoTemplate.Activo)
+                                @if (template.Estado == EstadoTemplate.Pendiente)
                                 {
                                     <button class="btn btn-sm btn-dark rounded-0 fw-bold"
-                                        @onclick="() => CerrarTemplate(template.Id)">
-                                        <i class="bi bi-lock-fill me-1"></i> CERRAR TEMPLATE
+                                        @onclick="() => TerminarTemplate(template.Id)">
+                                        <i class="bi bi-check-circle me-1"></i> TERMINAR
                                     </button>
                                 }
-                                else if (template.Estado == EstadoTemplate.Cerrado)
+                                else if (template.Estado == EstadoTemplate.Terminado)
                                 {
                                     <button class="btn btn-sm btn-outline-dark rounded-0 fw-bold"
                                         @onclick="() => ReabrirTemplate(template.Id)">
@@ -162,13 +148,6 @@
                                     </button>
                                 }
                             </div>
-
-                            <!-- EnCarga: show carga toolbar + pending actions -->
-                            @if (template.Estado == EstadoTemplate.EnCarga)
-                            {
-                                <CargaToolbar CurrentTool="@_currentTool" OnToolSelected="HandleToolSelected" />
-                                <PendingActionsQueue Count="@_pendingCount" Disabled="@(_pendingCount == 0)" OnConfirm="() => GuardarCambiosTemplate(template.Id)" />
-                            }
 
                             <button class="btn btn-danger w-100 rounded-0 fw-bold"
                                         @onclick="() => AnalizarTemplate(template.Id)">
@@ -1236,75 +1215,23 @@
     private string MensajeError = "";
     private string MensajeExito = "";
 
-    // Carga toolbar state
-    private string _currentTool = "";
-    private int _pendingCount = 0;
-
     // State transition methods
-    private async Task IniciarCarga(int templateId)
+    private async Task TerminarTemplate(int templateId)
     {
         MensajeError = "";
         MensajeExito = "";
         try
         {
-            var response = await Http.PostAsync($"api/TemplateRecarga/{templateId}/iniciar-carga", null);
+            var response = await Http.PostAsync($"api/TemplateRecarga/{templateId}/terminar", null);
             if (response.IsSuccessStatusCode)
             {
-                MensajeExito = "Carga iniciada correctamente.";
+                MensajeExito = "Template terminado correctamente.";
                 await CargarTemplates();
             }
             else
             {
                 var error = await response.Content.ReadAsStringAsync();
-                MensajeError = "Error al iniciar carga: " + error;
-            }
-        }
-        catch (Exception ex)
-        {
-            MensajeError = "Error de red: " + ex.Message;
-        }
-    }
-
-    private async Task FinalizarCarga(int templateId)
-    {
-        MensajeError = "";
-        MensajeExito = "";
-        try
-        {
-            var response = await Http.PostAsync($"api/TemplateRecarga/{templateId}/finalizar-carga", null);
-            if (response.IsSuccessStatusCode)
-            {
-                MensajeExito = "Carga finalizada correctamente.";
-                await CargarTemplates();
-            }
-            else
-            {
-                var error = await response.Content.ReadAsStringAsync();
-                MensajeError = "Error al finalizar carga: " + error;
-            }
-        }
-        catch (Exception ex)
-        {
-            MensajeError = "Error de red: " + ex.Message;
-        }
-    }
-
-    private async Task CerrarTemplate(int templateId)
-    {
-        MensajeError = "";
-        MensajeExito = "";
-        try
-        {
-            var response = await Http.PostAsync($"api/TemplateRecarga/{templateId}/cerrar", null);
-            if (response.IsSuccessStatusCode)
-            {
-                MensajeExito = "Template cerrado correctamente.";
-                await CargarTemplates();
-            }
-            else
-            {
-                var error = await response.Content.ReadAsStringAsync();
-                MensajeError = "Error al cerrar template: " + error;
+                MensajeError = "Error al terminar template: " + error;
             }
         }
         catch (Exception ex)
@@ -1337,24 +1264,10 @@
         }
     }
 
-    private void HandleToolSelected(string tool)
-    {
-        _currentTool = tool;
-    }
-
-    private async Task GuardarCambiosTemplate(int templateId)
-    {
-        // Placeholder — real implementation will use slot-batch when EnCarga is active
-        MensajeExito = "Cambios guardados (slot-batch pendiente de integrar).";
-        await Task.CompletedTask;
-    }
-
     private string GetEstadoBadgeClass(EstadoTemplate estado) => estado switch
     {
-        EstadoTemplate.Borrador => "bg-secondary",
-        EstadoTemplate.EnCarga => "bg-warning text-dark",
-        EstadoTemplate.Activo => "bg-success",
-        EstadoTemplate.Cerrado => "bg-dark",
+        EstadoTemplate.Pendiente => "bg-warning text-dark",
+        EstadoTemplate.Terminado => "bg-success",
         _ => "bg-secondary"
     };
 
@@ -1993,7 +1906,7 @@
         public string Nombre { get; set; } = string.Empty;
         public string? Descripcion { get; set; }
         public DateTime FechaCreacion { get; set; }
-        public EstadoTemplate Estado { get; set; } = EstadoTemplate.Borrador;
+        public EstadoTemplate Estado { get; set; } = EstadoTemplate.Pendiente;
         public List<PeriodoRecargaDto> Periodos { get; set; } = new();
         public int CantidadMaquinas => Periodos.Count;
         public DateTime? FechaRecargaMin => Periodos.Any() ? Periodos.Min(p => p.FechaRecarga) : null;

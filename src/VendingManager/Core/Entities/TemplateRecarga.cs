@@ -24,20 +24,12 @@ public class TemplateRecarga
     public DateTime FechaCreacion { get; set; } = DateTime.Now;
 
     /// <summary>
-    /// Estado del ciclo de vida del template (Borrador, EnCarga, Activo, Cerrado).
-    /// Defaults to Borrador for new instances. Migration sets existing to Activo.
+    /// Estado del ciclo de vida del template.
+    /// - Pendiente (0): Template en desarrollo, slots siendo configurados. No feed stock-critico.
+    /// - Terminado (1): Template completado. Fuente para stock-critico (más reciente por máquina).
+    /// Defaults to Pendiente for new instances.
     /// </summary>
-    public EstadoTemplate Estado { get; set; } = EstadoTemplate.Borrador;
-
-    /// <summary>
-    /// Fecha y hora cuando se inició la carga (transición Borrador → EnCarga).
-    /// </summary>
-    public DateTime? FechaCargaInicio { get; set; }
-
-    /// <summary>
-    /// Fecha y hora cuando se finalizó la carga (transición EnCarga → Activo).
-    /// </summary>
-    public DateTime? FechaCargaFin { get; set; }
+    public EstadoTemplate Estado { get; set; } = EstadoTemplate.Pendiente;
 
     /// <summary>
     /// Concurrency token para optimistic concurrency en transiciones de estado.

@@ -76,12 +76,12 @@ public class PurchasingService_GetStockCritico_Tests : IDisposable
 
         // Verify lifecycle service was NOT called
         _mockLifecycleService.Verify(
-            s => s.GetActiveTemplateSlotsAsync(It.IsAny<int>()),
+            s => s.GetLatestTerminadoTemplateSlotsAsync(It.IsAny<int>()),
             Times.Never);
     }
 
     [Fact]
-    public async Task GetStockCriticoAsync_FlagEnabled_WithActiveTemplate_ReturnsTemplateSlots()
+    public async Task GetStockCriticoAsync_FlagEnabled_WithTerminadoTemplate_ReturnsTemplateSlots()
     {
         // Arrange
         var service = CreateService(useTemplateInventory: true);
@@ -101,7 +101,7 @@ public class PurchasingService_GetStockCritico_Tests : IDisposable
         };
 
         _mockLifecycleService
-            .Setup(s => s.GetActiveTemplateSlotsAsync(2))
+            .Setup(s => s.GetLatestTerminadoTemplateSlotsAsync(2))
             .ReturnsAsync(templateSlots);
 
         // Act
@@ -115,7 +115,7 @@ public class PurchasingService_GetStockCritico_Tests : IDisposable
     }
 
     [Fact]
-    public async Task GetStockCriticoAsync_FlagEnabled_NoActiveTemplate_FallsBackToConfiguracionSlots()
+    public async Task GetStockCriticoAsync_FlagEnabled_NoTerminadoTemplate_FallsBackToConfiguracionSlots()
     {
         // Arrange
         var service = CreateService(useTemplateInventory: true);
@@ -129,9 +129,9 @@ public class PurchasingService_GetStockCritico_Tests : IDisposable
         _context.ConfiguracionSlots.Add(slot);
         await _context.SaveChangesAsync();
 
-        // No active template (returns empty list)
+        // No Terminado template (returns empty list)
         _mockLifecycleService
-            .Setup(s => s.GetActiveTemplateSlotsAsync(3))
+            .Setup(s => s.GetLatestTerminadoTemplateSlotsAsync(3))
             .ReturnsAsync(new List<SnapshotSlotDto>());
 
         // Act
@@ -190,7 +190,7 @@ public class PurchasingService_GetStockCritico_Tests : IDisposable
             new SnapshotSlotDto { Id = 4, NumeroSlot = "4", ProductoId = 1, ProductoNombre = "Agua", CantidadInicial = 3, CapacidadSlot = 10, Estado = EstadoSlot.Lleno }
         };
 
-        _mockLifecycleService.Setup(s => s.GetActiveTemplateSlotsAsync(5)).ReturnsAsync(templateSlots);
+        _mockLifecycleService.Setup(s => s.GetLatestTerminadoTemplateSlotsAsync(5)).ReturnsAsync(templateSlots);
 
         // Act
         var result = await service.GetStockCriticoAsync(maquinaId: 5);
@@ -216,7 +216,7 @@ public class PurchasingService_GetStockCritico_Tests : IDisposable
             new SnapshotSlotDto { Id = 2, NumeroSlot = "2", ProductoId = 1, ProductoNombre = "Papas", CantidadInicial = 1, CapacidadSlot = 10, Estado = EstadoSlot.Lleno }
         };
 
-        _mockLifecycleService.Setup(s => s.GetActiveTemplateSlotsAsync(6)).ReturnsAsync(templateSlots);
+        _mockLifecycleService.Setup(s => s.GetLatestTerminadoTemplateSlotsAsync(6)).ReturnsAsync(templateSlots);
 
         // Act
         var result = await service.GetStockCriticoAsync(maquinaId: 6);

@@ -35,128 +35,86 @@ public class TemplateRecargaController_LifecycleTests
 
     // ══════════════════════════════════════════════════════════════════════════
     // Task 3.1: State transition endpoints
+    // StartLoadingAsync (iniciar-carga) and FinalizeAsync (finalizar-carga) removed
     // ══════════════════════════════════════════════════════════════════════════
 
     [Fact]
-    public async Task IniciarCarga_ValidTransition_Returns200WithUpdatedTemplate()
+    public async Task Terminar_ValidTransition_Returns200WithUpdatedTemplate()
     {
-        var dto = MakeDto(1, EstadoTemplate.EnCarga);
-        _mockLifecycle.Setup(s => s.StartLoadingAsync(1)).ReturnsAsync(dto);
+        var dto = MakeDto(1, EstadoTemplate.Terminado);
+        _mockLifecycle.Setup(s => s.TerminarAsync(1)).ReturnsAsync(dto);
 
-        var result = await _controller.IniciarCarga(1);
+        var result = await _controller.Terminar(1);
 
         result.Result.Should().BeOfType<OkObjectResult>();
         var ok = (OkObjectResult)result.Result!;
         ok.Value.Should().BeOfType<TemplateRecargaDto>();
-        ((TemplateRecargaDto)ok.Value!).Estado.Should().Be(EstadoTemplate.EnCarga);
+        ((TemplateRecargaDto)ok.Value!).Estado.Should().Be(EstadoTemplate.Terminado);
     }
 
     [Fact]
-    public async Task IniciarCarga_InvalidState_Returns400()
+    public async Task Terminar_InvalidState_Returns400()
     {
-        _mockLifecycle.Setup(s => s.StartLoadingAsync(1))
-            .ThrowsAsync(new InvalidOperationException("No se puede iniciar carga: el template está en estado Activo"));
+        _mockLifecycle.Setup(s => s.TerminarAsync(1))
+            .ThrowsAsync(new InvalidOperationException("No se puede terminar: el template está en estado Terminado"));
 
-        var result = await _controller.IniciarCarga(1);
+        var result = await _controller.Terminar(1);
 
         result.Result.Should().BeOfType<BadRequestObjectResult>();
     }
 
     [Fact]
-    public async Task IniciarCarga_NotFound_Returns404()
+    public async Task Terminar_NotFound_Returns404()
     {
-        _mockLifecycle.Setup(s => s.StartLoadingAsync(999))
+        _mockLifecycle.Setup(s => s.TerminarAsync(999))
             .ThrowsAsync(new InvalidOperationException("Template con ID 999 no encontrado"));
 
-        var result = await _controller.IniciarCarga(999);
+        var result = await _controller.Terminar(999);
 
         result.Result.Should().BeOfType<NotFoundObjectResult>();
-    }
-
-    [Fact]
-    public async Task FinalizarCarga_ValidTransition_Returns200WithUpdatedTemplate()
-    {
-        var dto = MakeDto(1, EstadoTemplate.Activo);
-        _mockLifecycle.Setup(s => s.FinalizeAsync(1)).ReturnsAsync(dto);
-
-        var result = await _controller.FinalizarCarga(1);
-
-        result.Result.Should().BeOfType<OkObjectResult>();
-        var ok = (OkObjectResult)result.Result!;
-        ok.Value.Should().BeOfType<TemplateRecargaDto>();
-        ((TemplateRecargaDto)ok.Value!).Estado.Should().Be(EstadoTemplate.Activo);
-    }
-
-    [Fact]
-    public async Task FinalizarCarga_InvalidState_Returns400()
-    {
-        _mockLifecycle.Setup(s => s.FinalizeAsync(1))
-            .ThrowsAsync(new InvalidOperationException("No se puede finalizar carga: el template está en estado Borrador"));
-
-        var result = await _controller.FinalizarCarga(1);
-
-        result.Result.Should().BeOfType<BadRequestObjectResult>();
-    }
-
-    [Fact]
-    public async Task FinalizarCarga_NotFound_Returns404()
-    {
-        _mockLifecycle.Setup(s => s.FinalizeAsync(999))
-            .ThrowsAsync(new InvalidOperationException("Template con ID 999 no encontrado"));
-
-        var result = await _controller.FinalizarCarga(999);
-
-        result.Result.Should().BeOfType<NotFoundObjectResult>();
-    }
-
-    [Fact]
-    public async Task Cerrar_ValidTransition_Returns200WithUpdatedTemplate()
-    {
-        var dto = MakeDto(1, EstadoTemplate.Cerrado);
-        _mockLifecycle.Setup(s => s.CloseAsync(1)).ReturnsAsync(dto);
-
-        var result = await _controller.Cerrar(1);
-
-        result.Result.Should().BeOfType<OkObjectResult>();
-        var ok = (OkObjectResult)result.Result!;
-        ok.Value.Should().BeOfType<TemplateRecargaDto>();
-        ((TemplateRecargaDto)ok.Value!).Estado.Should().Be(EstadoTemplate.Cerrado);
-    }
-
-    [Fact]
-    public async Task Cerrar_InvalidState_Returns400()
-    {
-        _mockLifecycle.Setup(s => s.CloseAsync(1))
-            .ThrowsAsync(new InvalidOperationException("No se puede cerrar: el template está en estado Borrador"));
-
-        var result = await _controller.Cerrar(1);
-
-        result.Result.Should().BeOfType<BadRequestObjectResult>();
     }
 
     [Fact]
     public async Task Reabrir_ValidTransition_Returns200WithUpdatedTemplate()
     {
-        var dto = MakeDto(1, EstadoTemplate.Borrador);
-        _mockLifecycle.Setup(s => s.ResetToDraftAsync(1)).ReturnsAsync(dto);
+        var dto = MakeDto(1, EstadoTemplate.Pendiente);
+        _mockLifecycle.Setup(s => s.ReabrirAsync(1)).ReturnsAsync(dto);
 
         var result = await _controller.Reabrir(1);
 
         result.Result.Should().BeOfType<OkObjectResult>();
         var ok = (OkObjectResult)result.Result!;
         ok.Value.Should().BeOfType<TemplateRecargaDto>();
-        ((TemplateRecargaDto)ok.Value!).Estado.Should().Be(EstadoTemplate.Borrador);
+        ((TemplateRecargaDto)ok.Value!).Estado.Should().Be(EstadoTemplate.Pendiente);
     }
 
     [Fact]
     public async Task Reabrir_NotFound_Returns404()
     {
-        _mockLifecycle.Setup(s => s.ResetToDraftAsync(999))
+        _mockLifecycle.Setup(s => s.ReabrirAsync(999))
             .ThrowsAsync(new InvalidOperationException("Template con ID 999 no encontrado"));
 
         var result = await _controller.Reabrir(999);
 
         result.Result.Should().BeOfType<NotFoundObjectResult>();
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // IniciarCarga and FinalizarCarga endpoints removed
+    // ══════════════════════════════════════════════════════════════════════════
+
+    [Fact]
+    public void IniciarCarga_Endpoint_Removed()
+    {
+        // The controller should NOT have an IniciarCarga method
+        typeof(TemplateRecargaController).GetMethod("IniciarCarga").Should().BeNull();
+    }
+
+    [Fact]
+    public void FinalizarCarga_Endpoint_Removed()
+    {
+        // The controller should NOT have a FinalizarCarga method
+        typeof(TemplateRecargaController).GetMethod("FinalizarCarga").Should().BeNull();
     }
 
     // ══════════════════════════════════════════════════════════════════════════
@@ -258,51 +216,9 @@ public class TemplateRecargaController_LifecycleTests
     [Fact]
     public void TemplateEstadoResponse_HasCorrectStructure()
     {
-        var response = new TemplateEstadoResponse { TemplateId = 1, Estado = EstadoTemplate.EnCarga };
+        var response = new TemplateEstadoResponse { TemplateId = 1, Estado = EstadoTemplate.Terminado };
         response.TemplateId.Should().Be(1);
-        response.Estado.Should().Be(EstadoTemplate.EnCarga);
-    }
-
-    // ══════════════════════════════════════════════════════════════════════════
-    // TL-6: SLOTS_REQUIRED — zero slots → 400 Bad Request
-    // ══════════════════════════════════════════════════════════════════════════
-
-    [Fact]
-    public async Task IniciarCarga_NoSlotsConfigured_ReturnsBadRequest()
-    {
-        // Template has periods but zero SnapshotSlots → should reject Borrador→EnCarga
-        var dto = MakeDto(1, EstadoTemplate.Borrador);
-        _mockLifecycle.Setup(s => s.StartLoadingAsync(1))
-            .ThrowsAsync(new InvalidOperationException(
-                "No se puede iniciar carga: el template no tiene slots configurados. Agregue al menos un slot antes de iniciar."));
-
-        var result = await _controller.IniciarCarga(1);
-
-        result.Result.Should().BeOfType<BadRequestObjectResult>();
-        var badRequest = (BadRequestObjectResult)result.Result!;
-        badRequest.Value.Should().NotBeNull();
-    }
-
-    // ══════════════════════════════════════════════════════════════════════════
-    // TL-7: RowVersion concurrency — second finalize gets 409 Conflict
-    // ══════════════════════════════════════════════════════════════════════════
-
-    [Fact]
-    public async Task FinalizarCarga_ConcurrentRequest_ReturnsConflict()
-    {
-        // First request succeeds (EnCarga → Activo), second concurrent request on
-        // same template should get 409 Conflict due to RowVersion mismatch.
-        // The controller maps DbUpdateConcurrencyException → 409 Conflict.
-        var dto = MakeDto(1, EstadoTemplate.Activo);
-        _mockLifecycle.Setup(s => s.FinalizeAsync(1))
-            .ThrowsAsync(new Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException(
-                "RowVersion conflict: el registro fue modificado por otro usuario."));
-
-        var result = await _controller.FinalizarCarga(1);
-
-        result.Result.Should().BeOfType<ConflictObjectResult>();
-        var conflict = (ConflictObjectResult)result.Result!;
-        conflict.Value.Should().NotBeNull();
+        response.Estado.Should().Be(EstadoTemplate.Terminado);
     }
 
     // ══════════════════════════════════════════════════════════════════════════

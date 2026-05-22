@@ -2,8 +2,8 @@ namespace VendingManager.Shared.DTOs;
 using VendingManager.Shared.Enums;
 
 /// <summary>
-    /// DTO para mostrar un template de recarga con sus períodos
-    /// </summary>
+/// DTO para mostrar un template de recarga con sus períodos
+/// </summary>
 public class TemplateRecargaDto
 {
     public int Id { get; set; }
@@ -12,19 +12,9 @@ public class TemplateRecargaDto
     public DateTime FechaCreacion { get; set; }
 
     /// <summary>
-    /// Estado del ciclo de vida del template (Borrador, EnCarga, Activo, Cerrado).
+    /// Estado del ciclo de vida del template (Pendiente, Terminado).
     /// </summary>
-    public EstadoTemplate Estado { get; set; } = EstadoTemplate.Borrador;
-
-    /// <summary>
-    /// Fecha y hora cuando se inició la carga (transición Borrador → EnCarga).
-    /// </summary>
-    public DateTime? FechaCargaInicio { get; set; }
-
-    /// <summary>
-    /// Fecha y hora cuando se finalizó la carga (transición EnCarga → Activo).
-    /// </summary>
-    public DateTime? FechaCargaFin { get; set; }
+    public EstadoTemplate Estado { get; set; } = EstadoTemplate.Pendiente;
 
     public List<PeriodoRecargaDto> Periodos { get; set; } = new();
 
@@ -147,4 +137,3 @@ public class SyncSlotProductoRequestDto
 {
     public int ProductoId { get; set; }
 }
-
