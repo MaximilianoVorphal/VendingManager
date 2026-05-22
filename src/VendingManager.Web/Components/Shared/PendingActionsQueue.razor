@@ -1,0 +1,32 @@
+@namespace VendingManager.Web.Components.Shared
+
+<div class="pending-actions-queue d-flex align-items-center gap-2 flex-wrap">
+    @if (Count > 0)
+    {
+        <span class="badge bg-warning text-dark rounded-0 fw-bold px-3 py-2">
+            <i class="bi bi-exclamation-circle me-1"></i>@Count ACCIÓN(ES)
+        </span>
+    }
+    <button class="btn btn-sm btn-success rounded-0 fw-bold border-dark @(Disabled ? "btn-disabled" : "")"
+            disabled="@Disabled"
+            @onclick="OnConfirm">
+        <i class="bi bi-save me-2"></i>GUARDAR CAMBIOS
+    </button>
+</div>
+
+@code {
+    /// <summary>
+    /// Number of pending actions to display in the badge.
+    /// </summary>
+    [Parameter] public int Count { get; set; }
+
+    /// <summary>
+    /// Whether the confirm button should be disabled.
+    /// </summary>
+    [Parameter] public bool Disabled { get; set; }
+
+    /// <summary>
+    /// Fired when the user clicks the confirm/save button.
+    /// </summary>
+    [Parameter] public EventCallback OnConfirm { get; set; }
+}

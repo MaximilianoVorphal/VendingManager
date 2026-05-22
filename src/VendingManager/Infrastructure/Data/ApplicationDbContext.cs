@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using VendingManager.Core.Entities;
+using VendingManager.Shared.Enums;
 
 namespace VendingManager.Infrastructure.Data
 {
@@ -53,18 +54,29 @@ namespace VendingManager.Infrastructure.Data
             modelBuilder.Entity<DetalleOrdenCarga>()
                 .Property(d => d.CostoUnitario).HasColumnType("decimal(18,2)");
 
-            modelBuilder.Entity<ProductoCosto>(e =>
+            // TemplateRecarga: Estado enum as int + RowVersion concurrency token
+            modelBuilder.Entity<TemplateRecarga>(e =>
             {
-                e.ToTable("ProductoCostos");
-                e.HasKey(p => p.Id);
-                e.Property(p => p.Costo).HasColumnType("decimal(18,2)");
-                e.Property(p => p.FechaDesde).HasColumnType("datetime2");
-                e.Property(p => p.FechaHasta).HasColumnType("datetime2");
+                e.Property(t => t.Estado)
+                    .HasConversion<int>()
+                    .HasDefaultValueSql("2");
 
-                e.HasIndex(p => new { p.ProductoId, p.FechaDesde })
+                e.Property(t => t.RowVersion)
+                    .IsRowVersion();
+            });
+
+            modelBuilder.Entity<ProductoCosto>(entity =>
+            {
+                entity.ToTable("ProductoCostos");
+                entity.HasKey(p => p.Id);
+                entity.Property(p => p.Costo).HasColumnType("decimal(18,2)");
+                entity.Property(p => p.FechaDesde).HasColumnType("datetime2");
+                entity.Property(p => p.FechaHasta).HasColumnType("datetime2");
+
+                entity.HasIndex(p => new { p.ProductoId, p.FechaDesde })
                     .IncludeProperties(p => p.FechaHasta);
 
-                e.HasOne(p => p.Producto)
+                entity.HasOne(p => p.Producto)
                     .WithMany()
                     .HasForeignKey(p => p.ProductoId)
                     .OnDelete(DeleteBehavior.Restrict);

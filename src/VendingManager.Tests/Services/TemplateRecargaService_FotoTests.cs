@@ -12,13 +12,17 @@ public class TemplateRecargaService_FotoTests : IDisposable
 {
     private readonly ApplicationDbContext _context;
     private readonly Mock<Microsoft.Extensions.Logging.ILogger<TemplateRecargaService>> _mockLogger;
+    private readonly Mock<ITemplateRecargaLifecycleService> _mockLifecycle;
+    private readonly Mock<ITemplateRecargaAnalyticsService> _mockAnalytics;
     private readonly TemplateRecargaService _service;
 
     public TemplateRecargaService_FotoTests()
     {
         _context = TestDataHelpers.CreateInMemoryContext($"TemplateFotoTestDb_{Guid.NewGuid()}");
         _mockLogger = new Mock<Microsoft.Extensions.Logging.ILogger<TemplateRecargaService>>();
-        _service = new TemplateRecargaService(_context, _mockLogger.Object);
+        _mockLifecycle = new Mock<ITemplateRecargaLifecycleService>();
+        _mockAnalytics = new Mock<ITemplateRecargaAnalyticsService>();
+        _service = new TemplateRecargaService(_context, _mockLogger.Object, _mockLifecycle.Object, _mockAnalytics.Object);
     }
 
     public void Dispose()

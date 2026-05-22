@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System;
 using System.Collections.Generic;
@@ -19,16 +20,81 @@ namespace VendingManager.Infrastructure.Services
         private readonly IOptions<VendingConfig> _config;
         private readonly IExcelExportService _excelExportService;
         private readonly IMemoryCache _cache;
+        private readonly ITemplateRecargaLifecycleService _lifecycleService;
+        private readonly ILogger<PurchasingService> _logger;
 
-        public PurchasingService(ApplicationDbContext context, IOptions<VendingConfig> config, IExcelExportService excelExportService, IMemoryCache cache)
+        public PurchasingService(
+            ApplicationDbContext context,
+            IOptions<VendingConfig> config,
+            IExcelExportService excelExportService,
+            IMemoryCache cache,
+            ITemplateRecargaLifecycleService lifecycleService,
+            ILogger<PurchasingService> logger)
         {
             _context = context;
             _config = config;
             _excelExportService = excelExportService;
             _cache = cache;
+            _lifecycleService = lifecycleService;
+            _logger = logger;
         }
 
         public async Task<List<StockCriticoDto>> GetStockCriticoAsync(int maquinaId)
+        {
+            if (_config.Value.UseTemplateInventoryForStockCritico)
+            {
+                // Try template-based inventory first
+                var templateSlots = await _lifecycleService.GetActiveTemplateSlotsAsync(maquinaId);
+                if (templateSlots.Any())
+                {
+                    _logger.LogInformation(
+                        "[GetStockCritico] Using template inventory for maquina {MaquinaId}: {Count} slots",
+                        maquinaId, templateSlots.Count);
+
+                    return await BuildStockCriticoFromTemplateSlots(templateSlots, maquinaId);
+                }
+                _logger.LogWarning(
+                    "[GetStockCritico] No active template for maquina {MaquinaId}; falling back to ConfiguracionSlots",
+                    maquinaId);
+            }
+
+            // Fallback: use ConfiguracionSlots directly
+            return await GetStockCriticoFromConfiguracionSlots(maquinaId);
+        }
+
+        private async Task<List<StockCriticoDto>> BuildStockCriticoFromTemplateSlots(List<SnapshotSlotDto> templateSlots, int maquinaId)
+        {
+            // Get maquina name(s) for display
+            var maquinaIds = templateSlots
+                .Where(s => s.ProductoId != null)
+                .Select(s => maquinaId) // Already filtered by maquina in the query
+                .Distinct()
+                .ToList();
+
+            // If filtering by maquinaId, get that maquina's name; otherwise use "TODAS"
+            string maquinaNombre = maquinaId > 0
+                ? await _context.Maquinas.Where(m => m.Id == maquinaId).Select(m => m.Nombre).FirstOrDefaultAsync() ?? "Máquina"
+                : "TODAS LAS MÁQUINAS";
+
+            return templateSlots
+                .Where(s => s.ProductoId != null && s.CantidadInicial <= 2)
+                .Select(s => new StockCriticoDto
+                {
+                    SlotId = s.Id,
+                    Maquina = maquinaNombre,
+                    NumeroSlot = s.NumeroSlot,
+                    Producto = s.ProductoNombre,
+                    ProductoId = s.ProductoId ?? 0,
+                    StockActual = s.CantidadInicial,
+                    CapacidadMaxima = s.CapacidadSlot,
+                    Fuente = "template"
+                })
+                .OrderBy(s => s.Maquina)
+                .ThenBy(s => s.NumeroSlot)
+                .ToList();
+        }
+
+        private async Task<List<StockCriticoDto>> GetStockCriticoFromConfiguracionSlots(int maquinaId)
         {
             var query = _context.ConfiguracionSlots
                 .Include(s => s.Maquina)
@@ -49,7 +115,8 @@ namespace VendingManager.Infrastructure.Services
                     Producto = s.Producto != null ? s.Producto.Nombre : "Sin producto",
                     ProductoId = s.ProductoId ?? 0,
                     StockActual = s.StockActual,
-                    CapacidadMaxima = s.CapacidadMaxima
+                    CapacidadMaxima = s.CapacidadMaxima,
+                    Fuente = "configuracion"
                 })
                 .OrderBy(s => s.Maquina)
                 .ThenBy(s => s.NumeroSlot)

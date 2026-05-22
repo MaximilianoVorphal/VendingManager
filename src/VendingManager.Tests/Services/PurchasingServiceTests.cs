@@ -2,6 +2,7 @@ namespace VendingManager.Tests.Services;
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Moq;
 using VendingManager.Core.Configuration;
@@ -14,6 +15,8 @@ public class PurchasingServiceTests : IDisposable
 {
     private readonly ApplicationDbContext _context;
     private readonly Mock<IExcelExportService> _mockExcelExport;
+    private readonly Mock<ITemplateRecargaLifecycleService> _mockLifecycleService;
+    private readonly Mock<ILogger<PurchasingService>> _mockLogger;
     private readonly IMemoryCache _cache;
     private readonly PurchasingService _purchasingService;
 
@@ -26,13 +29,18 @@ public class PurchasingServiceTests : IDisposable
             CajaStartDate = new DateTime(2025, 12, 18),
             TransbankFee = 80,
             RotacionStockMinimoDias = 30,
-            RotacionUmbralCritico = 7
+            RotacionUmbralCritico = 7,
+            UseTemplateInventoryForStockCritico = false
         };
         var config = Options.Create(vendingConfig);
         _mockExcelExport = new Mock<IExcelExportService>();
+        _mockLifecycleService = new Mock<ITemplateRecargaLifecycleService>();
+        _mockLogger = new Mock<ILogger<PurchasingService>>();
         _cache = new MemoryCache(new MemoryCacheOptions());
 
-        _purchasingService = new PurchasingService(_context, config, _mockExcelExport.Object, _cache);
+        _purchasingService = new PurchasingService(
+            _context, config, _mockExcelExport.Object, _cache,
+            _mockLifecycleService.Object, _mockLogger.Object);
     }
 
     public void Dispose()

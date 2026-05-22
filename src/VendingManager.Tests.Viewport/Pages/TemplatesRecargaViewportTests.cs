@@ -1,5 +1,6 @@
 namespace VendingManager.Tests.Viewport.Pages;
 
+using Microsoft.Playwright;
 using Microsoft.Playwright.NUnit;
 using NUnit.Framework;
 
@@ -111,6 +112,102 @@ public class TemplatesRecargaViewportTests : ViewportTestBase
         var cards = Page.Locator(".card, .template-card, .industrial-card");
         var count = await cards.CountAsync();
         Assert.That(count, Is.GreaterThan(0), "No cards found on TemplatesRecarga");
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // UC-7: Deprecation banner on Reposicion page
+    // ══════════════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// UC-7: Reposicion page (/reposicion) displays a deprecation banner with
+    /// "DESCONTINUADA" text and a link to Templates de Recarga.
+    /// </summary>
+    [Test]
+    [TestCaseSource(typeof(ViewportConfig), nameof(ViewportConfig.AllProfiles))]
+    public async Task ReposicionPage_ShowsDeprecationBanner(ViewportProfile profile)
+    {
+        var available = await IsAppAvailableAsync();
+        if (!available) Assert.Ignore("App not available at " + BaseUrl);
+
+        await SetupViewport(profile, "/reposicion");
+
+        // Banner must be visible
+        var banner = Page.Locator(".deprecation-banner");
+        Assert.That(await banner.IsVisibleAsync(), Is.True,
+            "Deprecation banner should be visible on Reposicion page");
+
+        // Must contain deprecation notice
+        var bannerText = await banner.TextContentAsync();
+        Assert.That(bannerText, Does.Contain("DESCONTINUADA"),
+            "Banner should mark Reposicion as discontinued");
+
+        // Must link to /templates-recarga
+        var link = banner.Locator("a[href*=\"templates-recarga\"]");
+        Assert.That(await link.CountAsync(), Is.GreaterThan(0),
+            "Banner should contain a link to /templates-recarga");
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // E2E Lifecycle Test: Borrador → EnCarga → Activo → Cerrado (task 6.8)
+    // ══════════════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// E2E: Full browser lifecycle via the TemplatesRecarga UI.
+    /// Creates a draft template, loads it, finalizes it, and closes it.
+    /// Uses the UI flow (not API) to exercise the complete state machine.
+    /// </summary>
+    [Test]
+    [TestCaseSource(typeof(ViewportConfig), nameof(ViewportConfig.AllProfiles))]
+    public async Task E2E_Lifecycle_BorradorEnCargaActivoCerrado(ViewportProfile profile)
+    {
+        var available = await IsAppAvailableAsync();
+        if (!available) Assert.Ignore("App not available at " + BaseUrl);
+
+        await SetupViewport(profile, "/templates-recarga");
+
+        // Step 1: Create new template (navigate to crear page)
+        var createBtn = Page.Locator("a[href*=\"crear\"], a[href*=\"nuevo\"], .btn-create").First;
+        await createBtn.ClickAsync();
+        await Page.WaitForURLAsync("**/*crear**", new() { Timeout = 5000 });
+
+        // Fill in template name
+        var nameInput = Page.Locator("input[name*=\"Nombre\"], input#nombre, input[placeholder*=\"nombre\"]").First;
+        await nameInput.FillAsync($"E2E Test {DateTime.Now:HHmmss}");
+
+        // Submit form
+        var submitBtn = Page.Locator("button[type=\"submit\"], button.btn-primary").First;
+        await submitBtn.ClickAsync();
+
+        // Wait to return to list
+        await Page.WaitForURLAsync("**/templates-recarga**", new() { Timeout = 8000 });
+
+        // Step 2: Initiate carga (Borrador → EnCarga)
+        var templateCard = Page.Locator(".card, .template-card, .industrial-card").First;
+        var cargaBtn = templateCard.Locator("button[href*=\"iniciar\"], a[href*=\"iniciar\"], .btn-iniciar").First;
+        await cargaBtn.ClickAsync();
+
+        // Confirm the transition
+        var confirmBtn = Page.Locator("button.confirm, .btn-confirm, button.btn-primary").First;
+        await confirmBtn.ClickAsync();
+
+        // Step 3: Finalize (EnCarga → Activo)
+        await Page.WaitForTimeoutAsync(1000);
+        var finalizeBtn = Page.Locator("button[href*=\"finalizar\"], a[href*=\"finalizar\"], .btn-finalizar").First;
+        await finalizeBtn.ClickAsync();
+
+        // Confirm
+        await confirmBtn.ClickAsync();
+
+        // Step 4: Close (Activo → Cerrado)
+        await Page.WaitForTimeoutAsync(1000);
+        var cerrarBtn = Page.Locator("button[href*=\"cerrar\"], a[href*=\"cerrar\"], .btn-cerrar").First;
+        await cerrarBtn.ClickAsync();
+        await confirmBtn.ClickAsync();
+
+        // Verify template is now in Cerrado state
+        var estadoBadge = Page.Locator(".badge:has-text(\"CERRADO\"), .estado-badge:has-text(\"Cerrado\")").First;
+        Assert.That(await estadoBadge.CountAsync(), Is.GreaterThan(0),
+            "Template should be in Cerrado state after E2E lifecycle");
     }
 
     private static IEnumerable<ViewportProfile> MobileProfiles()

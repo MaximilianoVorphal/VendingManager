@@ -79,4 +79,10 @@ public interface ITemplateRecargaService
     /// Eliminar la foto OCR de un período
     /// </summary>
     Task DeleteFotoOcrAsync(int periodoId);
+
+    /// <summary>
+    /// Aplica una lista de acciones de slot a un período específico del template.
+    /// Soporta REFILL (actualiza cantidad), EMPTY (cantidad=0), SWAP (cambia producto).
+    /// </summary>
+    Task<SlotBatchResponse> ApplySlotBatchAsync(int templateId, int periodoId, List<SlotActionDto> actions);
 }
