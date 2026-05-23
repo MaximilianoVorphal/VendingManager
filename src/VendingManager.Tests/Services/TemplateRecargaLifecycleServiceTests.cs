@@ -10,8 +10,8 @@ using VendingManager.Tests.TestData;
 
 /// <summary>
 /// Tests for TemplateRecargaLifecycleService state transitions.
-/// State machine: Pendiente (0) → Activo (1) → Terminado (2).
-/// Reabrir: Terminado (2) → Pendiente (0).
+/// State machine: Pendiente (0) → Terminado (2).
+/// Reabrir: Terminado (2) → Pendiente (0), preserves SnapshotSlots.
 /// </summary>
 public class TemplateRecargaLifecycleServiceTests : IDisposable
 {
@@ -27,111 +27,13 @@ public class TemplateRecargaLifecycleServiceTests : IDisposable
 
     public void Dispose() => _context.Dispose();
 
-    #region ActivarAsync tests (Pendiente → Activo)
+    #region TerminarAsync tests (Pendiente → Terminado)
 
     /// <summary>
-    /// Valid: Pendiente → Activo transitions correctly.
+    /// Valid: Pendiente → Terminado transitions correctly.
     /// </summary>
     [Fact]
-    public async Task ActivarAsync_Pendiente_SetsActivo()
-    {
-        // Arrange
-        var maquina = TestDataHelpers.CreateMaquina(id: 1, nombre: "Machine 1");
-        _context.Maquinas.Add(maquina);
-
-        var template = new TemplateRecarga
-        {
-            Id = 1,
-            Nombre = "Test Template",
-            Estado = EstadoTemplate.Pendiente,
-            Periodos = new List<PeriodoRecarga>
-            {
-                new()
-                {
-                    Id = 1,
-                    MaquinaId = 1,
-                    FechaRecarga = DateTime.Now,
-                    SnapshotSlots = new List<SnapshotSlot>
-                    {
-                        new() { NumeroSlot = "1", ProductoId = 1, CantidadInicial = 10, Estado = EstadoSlot.Lleno }
-                    }
-                }
-            }
-        };
-        _context.TemplatesRecarga.Add(template);
-        await _context.SaveChangesAsync();
-
-        // Act
-        var result = await _service.ActivarAsync(template.Id);
-
-        // Assert
-        result.Estado.Should().Be(EstadoTemplate.Activo);
-    }
-
-    /// <summary>
-    /// Invalid: Activo → Activo throws InvalidOperationException.
-    /// </summary>
-    [Fact]
-    public async Task ActivarAsync_Activo_ThrowsInvalidOperationException()
-    {
-        // Arrange
-        var template = new TemplateRecarga
-        {
-            Id = 2,
-            Nombre = "Already Activo",
-            Estado = EstadoTemplate.Activo
-        };
-        _context.TemplatesRecarga.Add(template);
-        await _context.SaveChangesAsync();
-
-        // Act & Assert
-        var act = async () => await _service.ActivarAsync(template.Id);
-        await act.Should().ThrowAsync<InvalidOperationException>()
-            .WithMessage("*Activo*");
-    }
-
-    /// <summary>
-    /// Invalid: Terminado → Activo throws InvalidOperationException.
-    /// </summary>
-    [Fact]
-    public async Task ActivarAsync_Terminado_ThrowsInvalidOperationException()
-    {
-        // Arrange
-        var template = new TemplateRecarga
-        {
-            Id = 3,
-            Nombre = "Already Terminado",
-            Estado = EstadoTemplate.Terminado
-        };
-        _context.TemplatesRecarga.Add(template);
-        await _context.SaveChangesAsync();
-
-        // Act & Assert
-        var act = async () => await _service.ActivarAsync(template.Id);
-        await act.Should().ThrowAsync<InvalidOperationException>()
-            .WithMessage("*Pendiente*");
-    }
-
-    /// <summary>
-    /// Not found: throws InvalidOperationException with clear message.
-    /// </summary>
-    [Fact]
-    public async Task ActivarAsync_NotFound_ThrowsInvalidOperationException()
-    {
-        var act = async () => await _service.ActivarAsync(9999);
-        await act.Should().ThrowAsync<InvalidOperationException>()
-            .WithMessage("*no encontrado*");
-    }
-
-    #endregion
-
-    #region TerminarAsync tests (Activo → Terminado)
-
-    /// <summary>
-    /// Valid: Activo → Terminado transitions correctly.
-    /// </summary>
-    [Fact]
-    public async Task TerminarAsync_Activo_SetsTerminado()
+    public async Task TerminarAsync_Pendiente_SetsTerminado()
     {
         // Arrange
         var maquina = TestDataHelpers.CreateMaquina(id: 1, nombre: "Machine 1");
@@ -141,7 +43,7 @@ public class TemplateRecargaLifecycleServiceTests : IDisposable
         {
             Id = 10,
             Nombre = "Template to Terminar",
-            Estado = EstadoTemplate.Activo,
+            Estado = EstadoTemplate.Pendiente,
             Periodos = new List<PeriodoRecarga>
             {
                 new()
@@ -167,28 +69,6 @@ public class TemplateRecargaLifecycleServiceTests : IDisposable
     }
 
     /// <summary>
-    /// Invalid: Pendiente → Terminado throws InvalidOperationException.
-    /// </summary>
-    [Fact]
-    public async Task TerminarAsync_Pendiente_ThrowsInvalidOperationException()
-    {
-        // Arrange
-        var template = new TemplateRecarga
-        {
-            Id = 11,
-            Nombre = "Pendiente Template",
-            Estado = EstadoTemplate.Pendiente
-        };
-        _context.TemplatesRecarga.Add(template);
-        await _context.SaveChangesAsync();
-
-        // Act & Assert
-        var act = async () => await _service.TerminarAsync(template.Id);
-        await act.Should().ThrowAsync<InvalidOperationException>()
-            .WithMessage("*Activo*");
-    }
-
-    /// <summary>
     /// Invalid: Terminado → Terminado throws InvalidOperationException.
     /// </summary>
     [Fact]
@@ -207,18 +87,29 @@ public class TemplateRecargaLifecycleServiceTests : IDisposable
         // Act & Assert
         var act = async () => await _service.TerminarAsync(template.Id);
         await act.Should().ThrowAsync<InvalidOperationException>()
-            .WithMessage("*Activo*");
+            .WithMessage("*Pendiente*");
+    }
+
+    /// <summary>
+    /// Not found: throws InvalidOperationException with clear message.
+    /// </summary>
+    [Fact]
+    public async Task TerminarAsync_NotFound_ThrowsInvalidOperationException()
+    {
+        var act = async () => await _service.TerminarAsync(9999);
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*no encontrado*");
     }
 
     #endregion
 
-    #region ReabrirAsync tests (Terminado → Pendiente)
+    #region ReabrirAsync tests (Terminado → Pendiente, preserves slots)
 
     /// <summary>
-    /// Valid: Terminado → Pendiente resets state and clears slots.
+    /// Valid: Terminado → Pendiente resets state and preserves all SnapshotSlots.
     /// </summary>
     [Fact]
-    public async Task ReabrirAsync_Terminado_ResetsToPendiente()
+    public async Task ReabrirAsync_Terminado_ResetsToPendiente_PreservesSlots()
     {
         // Arrange
         var maquina = TestDataHelpers.CreateMaquina(id: 1, nombre: "Machine 1");
@@ -238,7 +129,8 @@ public class TemplateRecargaLifecycleServiceTests : IDisposable
                     FechaRecarga = DateTime.Now,
                     SnapshotSlots = new List<SnapshotSlot>
                     {
-                        new() { NumeroSlot = "1", ProductoId = 1, CantidadInicial = 10, Estado = EstadoSlot.Lleno }
+                        new() { NumeroSlot = "1", ProductoId = 1, CantidadInicial = 10, Estado = EstadoSlot.Lleno },
+                        new() { NumeroSlot = "2", ProductoId = 1, CantidadInicial = 5, Estado = EstadoSlot.Lleno }
                     }
                 }
             }
@@ -251,28 +143,12 @@ public class TemplateRecargaLifecycleServiceTests : IDisposable
 
         // Assert
         result.Estado.Should().Be(EstadoTemplate.Pendiente);
-    }
 
-    /// <summary>
-    /// Invalid: Activo → Reabrir throws InvalidOperationException (must be Terminado).
-    /// </summary>
-    [Fact]
-    public async Task ReabrirAsync_Activo_ThrowsInvalidOperationException()
-    {
-        // Arrange
-        var template = new TemplateRecarga
-        {
-            Id = 21,
-            Nombre = "Activo Template",
-            Estado = EstadoTemplate.Activo
-        };
-        _context.TemplatesRecarga.Add(template);
-        await _context.SaveChangesAsync();
-
-        // Act & Assert
-        var act = async () => await _service.ReabrirAsync(template.Id);
-        await act.Should().ThrowAsync<InvalidOperationException>()
-            .WithMessage("*Terminado*");
+        // Verify all slots are preserved (not cleared)
+        var periodo = result.Periodos.First();
+        periodo.SnapshotSlots.Should().HaveCount(2);
+        periodo.SnapshotSlots.Should().Contain(s => s.NumeroSlot == "1");
+        periodo.SnapshotSlots.Should().Contain(s => s.NumeroSlot == "2");
     }
 
     /// <summary>
@@ -299,13 +175,13 @@ public class TemplateRecargaLifecycleServiceTests : IDisposable
 
     #endregion
 
-    #region GetLatestActivoTemplateSlotsAsync tests
+    #region GetLatestTerminadoTemplateSlotsAsync tests
 
     /// <summary>
-    /// Returns SnapshotSlots from the latest Activo template for the machine.
+    /// Returns SnapshotSlots from the latest Terminado template for the machine.
     /// </summary>
     [Fact]
-    public async Task GetLatestActivoTemplateSlotsAsync_WithActivoTemplate_ReturnsSlots()
+    public async Task GetLatestTerminadoTemplateSlotsAsync_WithTerminadoTemplate_ReturnsSlots()
     {
         // Arrange
         var maquina = TestDataHelpers.CreateMaquina(id: 1, nombre: "Machine 1");
@@ -317,8 +193,8 @@ public class TemplateRecargaLifecycleServiceTests : IDisposable
         var template = new TemplateRecarga
         {
             Id = 40,
-            Nombre = "Activo Template",
-            Estado = EstadoTemplate.Activo,
+            Nombre = "Terminado Template",
+            Estado = EstadoTemplate.Terminado,
             Periodos = new List<PeriodoRecarga>
             {
                 new()
@@ -338,7 +214,7 @@ public class TemplateRecargaLifecycleServiceTests : IDisposable
         await _context.SaveChangesAsync();
 
         // Act
-        var result = await _service.GetLatestActivoTemplateSlotsAsync(maquina.Id);
+        var result = await _service.GetLatestTerminadoTemplateSlotsAsync(maquina.Id);
 
         // Assert
         result.Should().HaveCount(2);
@@ -347,10 +223,10 @@ public class TemplateRecargaLifecycleServiceTests : IDisposable
     }
 
     /// <summary>
-    /// Returns empty list when no Activo template exists for the machine.
+    /// Returns empty list when no Terminado template exists for the machine.
     /// </summary>
     [Fact]
-    public async Task GetLatestActivoTemplateSlotsAsync_NoActivoTemplate_ReturnsEmpty()
+    public async Task GetLatestTerminadoTemplateSlotsAsync_NoTerminadoTemplate_ReturnsEmpty()
     {
         // Arrange
         var maquina = TestDataHelpers.CreateMaquina(id: 2, nombre: "Machine 2");
@@ -376,17 +252,17 @@ public class TemplateRecargaLifecycleServiceTests : IDisposable
         await _context.SaveChangesAsync();
 
         // Act
-        var result = await _service.GetLatestActivoTemplateSlotsAsync(maquina.Id);
+        var result = await _service.GetLatestTerminadoTemplateSlotsAsync(maquina.Id);
 
         // Assert
         result.Should().BeEmpty();
     }
 
     /// <summary>
-    /// Returns only slots from the most recent Activo template (not all Activo templates).
+    /// Returns only slots from the most recent Terminado template (not all Terminado templates).
     /// </summary>
     [Fact]
-    public async Task GetLatestActivoTemplateSlotsAsync_MultipleActivo_ReturnsLatest()
+    public async Task GetLatestTerminadoTemplateSlotsAsync_MultipleTerminado_ReturnsLatest()
     {
         // Arrange
         var maquina = TestDataHelpers.CreateMaquina(id: 3, nombre: "Machine 3");
@@ -395,12 +271,12 @@ public class TemplateRecargaLifecycleServiceTests : IDisposable
         var producto = TestDataHelpers.CreateProducto(id: 1, nombre: "Product 1");
         _context.Productos.Add(producto);
 
-        // Older Activo template
+        // Older Terminado template
         var olderTemplate = new TemplateRecarga
         {
             Id = 50,
-            Nombre = "Old Activo",
-            Estado = EstadoTemplate.Activo,
+            Nombre = "Old Terminado",
+            Estado = EstadoTemplate.Terminado,
             FechaCreacion = DateTime.Now.AddDays(-10),
             Periodos = new List<PeriodoRecarga>
             {
@@ -418,12 +294,12 @@ public class TemplateRecargaLifecycleServiceTests : IDisposable
         };
         _context.TemplatesRecarga.Add(olderTemplate);
 
-        // Newer Activo template
+        // Newer Terminado template
         var newerTemplate = new TemplateRecarga
         {
             Id = 51,
-            Nombre = "New Activo",
-            Estado = EstadoTemplate.Activo,
+            Nombre = "New Terminado",
+            Estado = EstadoTemplate.Terminado,
             FechaCreacion = DateTime.Now,
             Periodos = new List<PeriodoRecarga>
             {
@@ -443,7 +319,7 @@ public class TemplateRecargaLifecycleServiceTests : IDisposable
         await _context.SaveChangesAsync();
 
         // Act
-        var result = await _service.GetLatestActivoTemplateSlotsAsync(maquina.Id);
+        var result = await _service.GetLatestTerminadoTemplateSlotsAsync(maquina.Id);
 
         // Assert — should return slots from the newer template
         result.Should().HaveCount(1);
@@ -503,42 +379,29 @@ public class TemplateRecargaLifecycleServiceTests : IDisposable
 
     #endregion
 
-    #region StartLoadingAsync removed tests
+    #region ActivarAsync removed tests
 
     /// <summary>
-    /// StartLoadingAsync no longer exists (EnCarga state removed).
+    /// ActivarAsync no longer exists (intermediate Activo state removed).
     /// </summary>
     [Fact]
-    public void StartLoadingAsync_NoLongerExists()
+    public void ActivarAsync_NoLongerExists()
     {
-        _service.GetType().GetMethod("StartLoadingAsync").Should().BeNull();
+        _service.GetType().GetMethod("ActivarAsync").Should().BeNull();
     }
 
     #endregion
 
-    #region FinalizeAsync removed tests
+    #region GetLatestTerminadoTemplateSlotsAsync present
 
     /// <summary>
-    /// FinalizeAsync no longer exists (old Activo state now handled differently).
+    /// GetLatestTerminadoTemplateSlotsAsync exists and GetLatestActivoTemplateSlotsAsync does not.
     /// </summary>
     [Fact]
-    public void FinalizeAsync_NoLongerExists()
+    public void GetLatestTerminadoTemplateSlotsAsync_Exists_GetLatestActivoTemplateSlotsAsync_DoesNot()
     {
-        _service.GetType().GetMethod("FinalizeAsync").Should().BeNull();
-    }
-
-    #endregion
-
-    #region GetLatestTerminadoTemplateSlotsAsync renamed tests
-
-    /// <summary>
-    /// GetLatestTerminadoTemplateSlotsAsync renamed to GetLatestActivoTemplateSlotsAsync.
-    /// </summary>
-    [Fact]
-    public void GetLatestTerminadoTemplateSlotsAsync_Renamed()
-    {
-        _service.GetType().GetMethod("GetLatestTerminadoTemplateSlotsAsync").Should().BeNull();
-        _service.GetType().GetMethod("GetLatestActivoTemplateSlotsAsync").Should().NotBeNull();
+        _service.GetType().GetMethod("GetLatestTerminadoTemplateSlotsAsync").Should().NotBeNull();
+        _service.GetType().GetMethod("GetLatestActivoTemplateSlotsAsync").Should().BeNull();
     }
 
     #endregion
