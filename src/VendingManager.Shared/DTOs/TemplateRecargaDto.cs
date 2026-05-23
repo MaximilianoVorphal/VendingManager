@@ -16,6 +16,12 @@ public class TemplateRecargaDto
     /// </summary>
     public EstadoTemplate Estado { get; set; } = EstadoTemplate.Pendiente;
 
+    /// <summary>
+    /// True si este template es el último Terminado de al menos una de sus máquinas.
+    /// Es el que se usa para calcular stock-critico en el Home.
+    /// </summary>
+    public bool EsActivo { get; set; }
+
     public List<PeriodoRecargaDto> Periodos { get; set; } = new();
 
     // Helpers para UI

@@ -48,10 +48,37 @@ public class TemplateRecargaService : ITemplateRecargaService
         // causing false overlaps when a machine has periods in different templates.
         var crossTemplateChain = BuildCrossTemplateChain(templates);
 
-        return templates
+        var dtos = templates
             .Select(t => MapToDto(t, crossTemplateChain))
             .OrderByDescending(t => t.FechaRecargaMin)
             .ToList();
+
+        // Mark latest Terminado template per machine as EsActivo.
+        // This is the template that feeds stock-critico calculations.
+        MarcarActivos(dtos);
+
+        return dtos;
+    }
+
+    /// <summary>
+    /// Marca como EsActivo los templates que son el último Terminado de cada máquina.
+    /// </summary>
+    private static void MarcarActivos(List<TemplateRecargaDto> dtos)
+    {
+        // Solo templates Terminado (o normalizados) compiten por ser "activos"
+        var terminados = dtos.Where(t => t.Estado == EstadoTemplate.Terminado).ToList();
+
+        // Agrupar por máquina, encontrar el período más reciente
+        var latestPerMachine = terminados
+            .SelectMany(t => t.Periodos, (t, p) => new { Template = t, Periodo = p })
+            .GroupBy(x => x.Periodo.MaquinaId)
+            .Select(g => g.OrderByDescending(x => x.Periodo.FechaRecarga).First());
+
+        // Marcar los templates ganadores
+        foreach (var winner in latestPerMachine)
+        {
+            winner.Template.EsActivo = true;
+        }
     }
 
     /// <summary>

@@ -130,8 +130,8 @@
 <div class="card-footer bg-light border-top border-dark d-flex flex-column gap-2">
                             <!-- State badge + transition controls -->
                             <div class="d-flex align-items-center justify-content-between mb-1">
-                                <span class="badge @GetEstadoBadgeClass(template.Estado) rounded-0 fw-bold">
-                                    @GetEstadoDisplay(template.Estado)
+                                <span class="badge @GetEstadoBadgeClass(template) rounded-0 fw-bold">
+                                    @GetEstadoDisplay(template)
                                 </span>
                                 @if (template.Estado == EstadoTemplate.Pendiente)
                                 {
@@ -1278,17 +1278,22 @@
         }
     }
 
-    private string GetEstadoBadgeClass(EstadoTemplate estado) => estado switch
+    private string GetEstadoBadgeClass(TemplateRecargaDto template) => template.Estado switch
     {
         EstadoTemplate.Pendiente => "bg-warning text-dark",
+        EstadoTemplate.Terminado when template.EsActivo => "bg-success",
         EstadoTemplate.Terminado => "bg-dark",
         _ => "bg-secondary"
     };
 
-    private string GetEstadoDisplay(EstadoTemplate estado) =>
-        Enum.IsDefined(estado)
-            ? estado.ToString().ToUpper()
+    private string GetEstadoDisplay(TemplateRecargaDto template)
+    {
+        if (template.Estado == EstadoTemplate.Terminado && template.EsActivo)
+            return "ACTIVO";
+        return Enum.IsDefined(template.Estado)
+            ? template.Estado.ToString().ToUpper()
             : "DESCONOCIDO";
+    }
 
     // Pendientes
     private bool MostrarModalPendientes = false;
@@ -1933,6 +1938,7 @@
         public string? Descripcion { get; set; }
         public DateTime FechaCreacion { get; set; }
         public EstadoTemplate Estado { get; set; } = EstadoTemplate.Pendiente;
+        public bool EsActivo { get; set; }
         public List<PeriodoRecargaDto> Periodos { get; set; } = new();
         public int CantidadMaquinas => Periodos.Count;
         public DateTime? FechaRecargaMin => Periodos.Any() ? Periodos.Min(p => p.FechaRecarga) : null;
