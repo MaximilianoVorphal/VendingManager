@@ -110,6 +110,14 @@
                                     {
                                         <span class="badge bg-warning border border-dark rounded-0 text-dark"><i class="bi bi-clock-history me-1"></i>PENDIENTE</span>
                                     }
+                                    @if (c.TransferenciaId != null)
+                                    {
+                                        <span class="badge bg-success rounded-0 ms-1" title="Vinculada a transferencia"><i class="bi bi-link"></i> VINCRON.</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-secondary rounded-0 ms-1" title="Sin vincular"><i class="bi bi-unlink"></i> SIN VINC.</span>
+                                    }
                                 </td>
                                 <td class="text-center">
                                     <div class="d-flex justify-content-center gap-2 flex-wrap">
