@@ -168,7 +168,8 @@
                         </div>
                         <div class="card-body bg-light">
                             <CompraForm OnCompraCreated="OnCompraCreada" Trabajador="@State.ActiveRendicion!.Trabajador"
-                                        Transferencias="@State.Transferencias" />
+                                        Transferencias="@State.Transferencias"
+                                        RendicionId="@State.ActiveRendicion!.Id" />
                         </div>
                     </div>
                 }
