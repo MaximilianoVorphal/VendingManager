@@ -122,6 +122,7 @@ builder.Services.AddScoped<ICompraService, CompraService>();
 builder.Services.AddScoped<IGastoRecurrenteService, GastoRecurrenteService>();
 builder.Services.AddScoped<ITransferenciaService, TransferenciaService>();
 builder.Services.AddScoped<IRendicionService, RendicionService>();
+builder.Services.AddScoped<IContabilidadService, ContabilidadService>();
 builder.Services.AddScoped<IExcelExportService, ExcelExportService>();
 builder.Services.AddScoped<IVentaRepository, VentaRepository>();
 builder.Services.AddScoped<IMaquinaRepository, MaquinaRepository>();
