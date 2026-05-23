@@ -45,7 +45,7 @@
                     {
                         <span>▶ </span>
                     }
-                    [@i] @i switch { 1 => "TRANSFERENCIA", 2 => "COMPRA", 3 => "GASTO", 4 => "CUADRAR", 5 => "CERRAR", _ => "" }
+                    [@i] @NombrePaso(i)
                 </button>
             }
         </div>
@@ -376,6 +376,16 @@
             }
         }
     }
+
+    private string NombrePaso(int paso) => paso switch
+    {
+        1 => "TRANSFERENCIA",
+        2 => "COMPRA",
+        3 => "GASTO",
+        4 => "CUADRAR",
+        5 => "CERRAR",
+        _ => ""
+    };
 
     private async Task IrAlPaso(int paso)
     {
