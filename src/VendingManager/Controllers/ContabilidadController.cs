@@ -127,6 +127,24 @@ public class ContabilidadController(IContabilidadService contabilidadService) : 
         }
     }
 
+    [HttpPost("transferencia/{id}/desvincular")]
+    public async Task<IActionResult> DesvincularTransferencia(int id, CancellationToken ct = default)
+    {
+        try
+        {
+            await _service.DesvincularTransferenciaAsync(id, ct);
+            return Ok(new { message = "Transferencia desvinculada" });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
     private static TransferenciaDto MapToDto(VendingManager.Core.Entities.Transferencia t)
     {
         return new TransferenciaDto
