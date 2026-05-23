@@ -35,4 +35,8 @@ public class MovimientoCaja
 
     // Vinculación con Gasto Recurrente (evita duplicados por mes)
     public int? GastoRecurrenteId { get; set; }
+
+    // Vinculación con Rendicion (nullable FK — sin ruptura de cambios existentes)
+    public int? RendicionId { get; set; }
+    public Rendicion? Rendicion { get; set; }
 }

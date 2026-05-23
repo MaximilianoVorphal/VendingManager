@@ -11,6 +11,7 @@ public class CompraDto
     public string TipoFactura { get; set; } = "MERCADERIA";
     public bool PagadaCaja { get; set; } = true;
     public string? FacturaImagenPath { get; set; }
+    public int? TransferenciaId { get; set; }
     public List<DetalleCompraDto> Detalles { get; set; } = new();
 }
 
