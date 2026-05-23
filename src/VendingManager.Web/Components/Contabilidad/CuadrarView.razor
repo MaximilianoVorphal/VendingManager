@@ -1,0 +1,277 @@
+@using VendingManager.Shared.DTOs
+@using VendingManager.Shared.Enums
+@inject HttpClient Http
+
+<div class="p-3">
+    <h4 class="fw-bold text-uppercase mb-4 text-center" style="letter-spacing: -1px;">
+        <i class="bi bi-check2-square me-2"></i>CUADRE DE RENDICIÓN
+    </h4>
+
+    @* ====== TRANSFERENCIAS SECTION ====== *@
+    <div class="card border-2 border-dark rounded-0 shadow mb-3">
+        <div class="card-header bg-dark text-white rounded-0 fw-bold d-flex justify-content-between align-items-center p-2">
+            <span><i class="bi bi-bank me-2"></i>💰 TRANSFERENCIAS</span>
+            <div class="d-flex gap-2">
+                <span class="badge bg-light text-dark rounded-0">@Transferencias.Count</span>
+                <span class="badge @(GetTransferenciasTotal() >= 0 ? "bg-success" : "bg-danger") rounded-0">
+                    Total: $@GetTransferenciasTotal().ToString("N0")
+                </span>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            @if (EditingTransferenciaId > 0)
+            {
+                @* Inline edit row *@
+                <div class="row g-2 p-2 bg-warning-subtle border-bottom border-dark align-items-center">
+                    <div class="col-md-4">
+                        <span class="fw-bold small">EDITANDO TRANSFERENCIA #@EditingTransferenciaId</span>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text bg-dark text-white border-dark rounded-0">$</span>
+                            <input type="number" class="form-control border-dark rounded-0 font-monospace text-end"
+                                   @bind="EditingMonto" min="0" />
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <button class="btn btn-success btn-sm rounded-0 fw-bold" @onclick="GuardarEdicionMonto">
+                            <i class="bi bi-check-lg"></i> GUARDAR
+                        </button>
+                    </div>
+                    <div class="col-md-2">
+                        <button class="btn btn-outline-dark btn-sm rounded-0 fw-bold" @onclick="CancelarEdicion">
+                            CANCELAR
+                        </button>
+                    </div>
+                    @if (!string.IsNullOrEmpty(ErrorEditando))
+                    {
+                        <div class="col-12 text-danger fw-bold small">@ErrorEditando</div>
+                    }
+                </div>
+            }
+
+            @if (Transferencias.Any())
+            {
+                <table class="table table-hover table-bordered border-dark m-0 align-middle">
+                    <thead class="bg-secondary text-white text-uppercase small fw-bold text-center">
+                        <tr>
+                            <th>FECHA</th>
+                            <th>DESCRIPCIÓN</th>
+                            <th style="width: 130px;">MONTO</th>
+                            <th style="width: 100px;">ESTADO</th>
+                            <th style="width: 100px;">ACCIÓN</th>
+                        </tr>
+                    </thead>
+                    <tbody class="fw-bold" style="font-size: 0.85rem;">
+                        @foreach (var t in Transferencias)
+                        {
+                            <tr>
+                                <td>@t.Fecha.ToString("dd/MM/yyyy")</td>
+                                <td>@(string.IsNullOrEmpty(t.Descripcion) ? "—" : t.Descripcion)</td>
+                                <td class="text-end font-monospace text-success fw-bold">$@t.Monto.ToString("N0")</td>
+                                <td class="text-center">
+                                    @if (t.Estado == TransferenciaEstado.Conciliado)
+                                    {
+                                        <span class="badge bg-success rounded-0">CONCILIADO</span>
+                                    }
+                                    else if (t.Estado == TransferenciaEstado.EnUso)
+                                    {
+                                        <span class="badge bg-primary rounded-0">EN USO</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-warning text-dark rounded-0">PENDIENTE</span>
+                                    }
+                                </td>
+                                <td class="text-center">
+                                    <div class="d-flex gap-1 justify-content-center">
+                                        <button class="btn btn-sm btn-outline-dark rounded-0 fw-bold"
+                                                title="Editar monto"
+                                                @onclick="() => IniciarEdicionMonto(t)"
+                                                disabled="@(t.Estado == TransferenciaEstado.Conciliado)">
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-danger rounded-0 fw-bold"
+                                                title="Desvincular">
+                                            <i class="bi bi-unlink"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+            else
+            {
+                <div class="text-center text-muted p-4">No hay transferencias registradas.</div>
+            }
+        </div>
+    </div>
+
+    @* ====== COMPRAS SECTION ====== *@
+    <div class="card border-2 border-dark rounded-0 shadow mb-3">
+        <div class="card-header bg-dark text-white rounded-0 fw-bold d-flex justify-content-between align-items-center p-2">
+            <span><i class="bi bi-cart4 me-2"></i>📦 COMPRAS</span>
+            <div class="d-flex gap-2">
+                <span class="badge bg-light text-dark rounded-0">@Compras.Count</span>
+                <span class="badge bg-danger rounded-0">Total: -$@GetComprasTotal().ToString("N0")</span>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            @if (Compras.Any())
+            {
+                <table class="table table-hover table-bordered border-dark m-0 align-middle">
+                    <thead class="bg-secondary text-white text-uppercase small fw-bold text-center">
+                        <tr>
+                            <th>FECHA</th>
+                            <th>Nº DOCUMENTO</th>
+                            <th>PROVEEDOR</th>
+                            <th style="width: 130px;">TOTAL</th>
+                            <th style="width: 100px;">ACCIÓN</th>
+                        </tr>
+                    </thead>
+                    <tbody class="fw-bold" style="font-size: 0.85rem;">
+                        @foreach (var c in Compras)
+                        {
+                            <tr>
+                                <td>@c.FechaCompra.ToString("dd/MM/yyyy")</td>
+                                <td class="font-monospace">@(string.IsNullOrEmpty(c.NumeroDocumento) ? "S/N" : c.NumeroDocumento)</td>
+                                <td>@c.Proveedor</td>
+                                <td class="text-end font-monospace text-danger">-$@c.MontoTotal.ToString("N0")</td>
+                                <td class="text-center">
+                                    <button class="btn btn-sm btn-outline-danger rounded-0 fw-bold"
+                                            title="Desvincular">
+                                        <i class="bi bi-unlink"></i> DESVINCULAR
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+            else
+            {
+                <div class="text-center text-muted p-4">No hay compras registradas.</div>
+            }
+        </div>
+    </div>
+
+    @* ====== GASTOS SECTION ====== *@
+    <div class="card border-2 border-dark rounded-0 shadow mb-4">
+        <div class="card-header bg-dark text-white rounded-0 fw-bold d-flex justify-content-between align-items-center p-2">
+            <span><i class="bi bi-fuel-pump me-2"></i>⛽ GASTOS</span>
+            <div class="d-flex gap-2">
+                <span class="badge bg-light text-dark rounded-0">@Gastos.Count</span>
+                <span class="badge bg-danger rounded-0">Total: -$@GetGastosTotal().ToString("N0")</span>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            @if (Gastos.Any())
+            {
+                <table class="table table-hover table-bordered border-dark m-0 align-middle">
+                    <thead class="bg-secondary text-white text-uppercase small fw-bold text-center">
+                        <tr>
+                            <th>FECHA</th>
+                            <th>CATEGORÍA</th>
+                            <th>DESCRIPCIÓN</th>
+                            <th style="width: 130px;">MONTO</th>
+                            <th style="width: 100px;">ACCIÓN</th>
+                        </tr>
+                    </thead>
+                    <tbody class="fw-bold" style="font-size: 0.85rem;">
+                        @foreach (var g in Gastos)
+                        {
+                            <tr>
+                                <td>@g.Fecha.ToString("dd/MM/yyyy")</td>
+                                <td><span class="badge bg-secondary rounded-0">@g.Categoria</span></td>
+                                <td>@g.Descripcion</td>
+                                <td class="text-end font-monospace text-danger">-$@Math.Abs(g.Monto).ToString("N0")</td>
+                                <td class="text-center">
+                                    <button class="btn btn-sm btn-outline-danger rounded-0 fw-bold"
+                                            title="Desvincular">
+                                        <i class="bi bi-unlink"></i> DESVINCULAR
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+            else
+            {
+                <div class="text-center text-muted p-4">No hay gastos registrados.</div>
+            }
+        </div>
+    </div>
+
+    @* Navigation buttons *@
+    <div class="d-flex gap-3 justify-content-between">
+        <button class="btn btn-outline-dark rounded-0 fw-bold px-4"
+                @onclick="() => OnAvanzar.InvokeAsync()">
+            <i class="bi bi-check me-2"></i>CUADRAR Y CONTINUAR
+        </button>
+    </div>
+</div>
+
+@code {
+    [Parameter] public List<TransferenciaDto> Transferencias { get; set; } = new();
+    [Parameter] public List<CompraDto> Compras { get; set; } = new();
+    [Parameter] public List<MovimientoCajaDto> Gastos { get; set; } = new();
+    [Parameter] public EventCallback OnItemUpdated { get; set; }
+    [Parameter] public EventCallback OnAvanzar { get; set; }
+
+    private int EditingTransferenciaId { get; set; }
+    private decimal EditingMonto { get; set; }
+    private string? ErrorEditando { get; set; }
+
+    private decimal GetTransferenciasTotal() => Transferencias.Sum(t => t.Monto);
+    private decimal GetComprasTotal() => Compras.Sum(c => c.MontoTotal);
+    private decimal GetGastosTotal() => Gastos.Sum(g => Math.Abs(g.Monto));
+
+    private void IniciarEdicionMonto(TransferenciaDto t)
+    {
+        EditingTransferenciaId = t.Id;
+        EditingMonto = t.Monto;
+        ErrorEditando = null;
+    }
+
+    private async Task GuardarEdicionMonto()
+    {
+        if (EditingTransferenciaId <= 0) return;
+
+        try
+        {
+            ErrorEditando = null;
+            var response = await Http.PutAsJsonAsync(
+                $"api/contabilidad/transferencia/{EditingTransferenciaId}/monto",
+                new { monto = EditingMonto });
+
+            if (response.IsSuccessStatusCode)
+            {
+                EditingTransferenciaId = 0;
+                EditingMonto = 0;
+                await OnItemUpdated.InvokeAsync();
+            }
+            else if (response.StatusCode == System.Net.HttpStatusCode.Conflict)
+            {
+                ErrorEditando = "Otro usuario modificó esta transferencia. Recargá la página.";
+            }
+            else
+            {
+                ErrorEditando = await response.Content.ReadAsStringAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            ErrorEditando = $"Error: {ex.Message}";
+        }
+    }
+
+    private void CancelarEdicion()
+    {
+        EditingTransferenciaId = 0;
+        EditingMonto = 0;
+        ErrorEditando = null;
+    }
+}

@@ -1,0 +1,98 @@
+@using VendingManager.Shared.DTOs
+@inject HttpClient Http
+@inject NavigationManager Navigation
+
+<div class="d-flex align-items-center gap-3 flex-wrap">
+    <div class="flex-grow-1" style="min-width: 250px;">
+        <select class="form-select form-select-sm border-dark rounded-0 fw-bold @(!string.IsNullOrEmpty(Error) ? "border-danger" : "")"
+                @onchange="OnWorkerSelected"
+                disabled="@Cargando">
+            <option value="">-- SELECCIONAR TRABAJADOR --</option>
+            @if (!Cargando && Workers.Any())
+            {
+                @foreach (var w in Workers)
+                {
+                    <option value="@w.Nombre">
+                        @(w.Nombre.ToUpper())
+                        @(w.RendicionActivaId.HasValue ? $" [R#{w.RendicionActivaId}]" : "")
+                        @if (w.RendicionesAbiertas > 1)
+                        {
+                            <span class="text-muted"> (+@(w.RendicionesAbiertas - 1) más)</span>
+                        }
+                    </option>
+                }
+            }
+        </select>
+    </div>
+
+    @if (!string.IsNullOrEmpty(Error))
+    {
+        <span class="badge bg-danger rounded-0 fw-bold">@Error</span>
+    }
+</div>
+
+@code {
+    [Parameter] public EventCallback<string> OnWorkerSelectedCallback { get; set; }
+    [Parameter] public string? InitialWorker { get; set; }
+
+    public List<TrabajadorActivoDto> Workers { get; set; } = new();
+    private bool Cargando { get; set; } = true;
+    private string? Error { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarTrabajadores();
+    }
+
+    private async Task CargarTrabajadores()
+    {
+        try
+        {
+            Cargando = true;
+            Error = null;
+            Workers = await Http.GetFromJsonAsync<List<TrabajadorActivoDto>>("api/contabilidad/trabajadores-activos") ?? new();
+        }
+        catch
+        {
+            Error = "No se pudieron cargar los trabajadores.";
+        }
+        finally
+        {
+            Cargando = false;
+        }
+    }
+
+    private async Task OnWorkerSelected(ChangeEventArgs e)
+    {
+        var worker = e.Value?.ToString();
+        if (string.IsNullOrEmpty(worker))
+        {
+            await OnWorkerSelectedCallback.InvokeAsync(string.Empty);
+            return;
+        }
+
+        var trabajador = Workers.FirstOrDefault(w => w.Nombre == worker);
+        if (trabajador == null)
+        {
+            await OnWorkerSelectedCallback.InvokeAsync(worker);
+            return;
+        }
+
+        // Navigate to existing rendicion if available
+        if (trabajador.RendicionActivaId.HasValue)
+        {
+            Navigation.NavigateTo($"/contabilidad?rendicionId={trabajador.RendicionActivaId}");
+        }
+        else
+        {
+            // Signal to parent to create new rendicion for this worker
+            await OnWorkerSelectedCallback.InvokeAsync(worker);
+        }
+    }
+
+    public async Task RefreshAsync()
+    {
+        await CargarTrabajadores();
+        await InvokeAsync(StateHasChanged);
+    }
+}
