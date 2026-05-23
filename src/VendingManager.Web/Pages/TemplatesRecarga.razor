@@ -1230,30 +1230,6 @@
     private string MensajeExito = "";
 
     // State transition methods
-    private async Task ActivarTemplate(int templateId)
-    {
-        MensajeError = "";
-        MensajeExito = "";
-        try
-        {
-            var response = await Http.PostAsync($"api/TemplateRecarga/{templateId}/activar", null);
-            if (response.IsSuccessStatusCode)
-            {
-                MensajeExito = "Template activado correctamente.";
-                await CargarTemplates();
-            }
-            else
-            {
-                var error = await response.Content.ReadAsStringAsync();
-                MensajeError = "Error al activar template: " + error;
-            }
-        }
-        catch (Exception ex)
-        {
-            MensajeError = "Error de red: " + ex.Message;
-        }
-    }
-
     private async Task TerminarTemplate(int templateId)
     {
         MensajeError = "";
