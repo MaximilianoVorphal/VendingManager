@@ -166,10 +166,71 @@ public class RendicionController(
         }
     }
 
+    [HttpGet("{id}/full")]
+    public async Task<ActionResult<RendicionFullDto>> GetRendicionFull(int id)
+    {
+        var rendicion = await rendicionService.GetByIdAsync(id);
+        if (rendicion == null) return NotFound();
+        var resumen = await rendicionService.GetResumenAsync(id);
+        var dto = MapToFullDto(rendicion, resumen);
+        return Ok(dto);
+    }
+
     private static RendicionDto MapToDto(Rendicion r)
     {
         return new RendicionDto
         {
+            Id = r.Id,
+            Trabajador = r.Trabajador,
+            FechaInicio = r.FechaInicio,
+            FechaFin = r.FechaFin,
+            Estado = r.Estado,
+            Observaciones = r.Observaciones,
+            Transferencias = r.Transferencias?.Select(t => new Shared.DTOs.TransferenciaDto
+            {
+                Id = t.Id,
+                Fecha = t.Fecha,
+                Monto = t.Monto,
+                Descripcion = t.Descripcion,
+                Trabajador = t.Trabajador,
+                Estado = t.Estado,
+                RendicionId = t.RendicionId,
+                MovimientoCajaId = t.MovimientoCajaId,
+                Compras = t.Compras?.Select(c => new CompraDto
+                {
+                    Id = c.Id,
+                    FechaCompra = c.FechaCompra,
+                    Proveedor = c.Proveedor,
+                    NumeroDocumento = c.NumeroDocumento,
+                    MontoTotal = c.MontoTotal,
+                    Estado = c.Estado,
+                    TipoFactura = c.TipoFactura,
+                    PagadaCaja = c.PagadaCaja
+                }).ToList() ?? new()
+            }).ToList() ?? new(),
+            Gastos = r.Gastos?.Select(g => new MovimientoCajaDto
+            {
+                Id = g.Id,
+                Fecha = g.Fecha,
+                Descripcion = g.Descripcion,
+                Monto = g.Monto,
+                Tipo = g.Tipo,
+                Categoria = g.Categoria,
+                ImagenPath = g.ImagenPath,
+                ProductoId = g.ProductoId,
+                Cantidad = g.Cantidad,
+                OrdenCargaId = g.OrdenCargaId,
+                CompraId = g.CompraId,
+                GastoRecurrenteId = g.GastoRecurrenteId
+            }).ToList() ?? new()
+        };
+    }
+
+    private static RendicionFullDto MapToFullDto(Rendicion r, RendicionResumenDto resumen)
+    {
+        return new RendicionFullDto
+        {
+            Resumen = resumen,
             Id = r.Id,
             Trabajador = r.Trabajador,
             FechaInicio = r.FechaInicio,
