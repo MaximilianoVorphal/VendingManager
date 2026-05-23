@@ -1,0 +1,122 @@
+@namespace VendingManager.Web.Pages.Dashboard
+@using VendingManager.Shared.DTOs
+
+@* UnifiedAlerts — Consolidated cross-domain alert display *@
+@* Parameters: Alertas (AlertaConsolidadaDto), IsLoaded (bool) *@
+
+<div class="mb-4">
+    @* Header with badge *@
+    <div class="d-flex align-items-center gap-3 mb-3">
+        <h5 class="fw-bold text-uppercase m-0" style="letter-spacing: 1px;">
+            <i class="bi bi-exclamation-triangle-fill me-2 text-danger"></i>ALERTAS
+        </h5>
+        @if (IsLoaded && Alertas != null && Alertas.Total > 0)
+        {
+            <span class="badge rounded-0 bg-danger fs-6 px-3 py-2">
+                @Alertas.Total
+            </span>
+        }
+    </div>
+
+    @if (IsLoaded && Alertas != null)
+    {
+        @if (Alertas.Total == 0)
+        {
+            @* Empty state: no alerts *@
+            <div class="text-center py-4 border border-2 border-dark bg-light">
+                <i class="bi bi-check-circle-fill text-success fs-3"></i>
+                <p class="mt-2 fw-bold text-uppercase text-muted mb-0" style="font-size: 0.8rem;">
+                    Sin alertas pendientes
+                </p>
+            </div>
+        }
+        else
+        {
+            @* Alert cards grouped by severity *@
+            <div class="row g-2">
+                @{
+                    var dangerAlerts = Alertas.Items.Where(a => a.Severidad == "danger").ToList();
+                    var warningAlerts = Alertas.Items.Where(a => a.Severidad == "warning").ToList();
+                    var infoAlerts = Alertas.Items.Where(a => a.Severidad == "info").ToList();
+                }
+
+                @if (dangerAlerts.Any())
+                {
+                    <div class="col-12">
+                        <div class="alert alert-danger border-2 border-dark rounded-0 p-2 mb-2" role="alert">
+                            <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                                <div class="d-flex align-items-center gap-2">
+                                    <i class="bi bi-exclamation-octagon-fill"></i>
+                                    <span class="fw-bold text-uppercase small">Requieren atención inmediata</span>
+                                </div>
+                                <span class="badge bg-danger rounded-0">@dangerAlerts.Count</span>
+                            </div>
+                            @foreach (var alert in dangerAlerts)
+                            {
+                                <a href="@alert.LinkUrl" class="d-block text-dark small mt-1 py-1 border-top border-danger-subtle">
+                                    <i class="bi bi-chevron-right me-1"></i>@alert.Mensaje
+                                </a>
+                            }
+                        </div>
+                    </div>
+                }
+
+                @if (warningAlerts.Any())
+                {
+                    <div class="col-12">
+                        <div class="alert alert-warning border-2 border-dark rounded-0 p-2 mb-2" role="alert">
+                            <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                                <div class="d-flex align-items-center gap-2">
+                                    <i class="bi bi-exclamation-circle-fill"></i>
+                                    <span class="fw-bold text-uppercase small">Atención requerida</span>
+                                </div>
+                                <span class="badge bg-warning text-dark rounded-0">@warningAlerts.Count</span>
+                            </div>
+                            @foreach (var alert in warningAlerts)
+                            {
+                                <a href="@alert.LinkUrl" class="d-block text-dark small mt-1 py-1 border-top border-warning-subtle">
+                                    <i class="bi bi-chevron-right me-1"></i>@alert.Mensaje
+                                </a>
+                            }
+                        </div>
+                    </div>
+                }
+
+                @if (infoAlerts.Any())
+                {
+                    <div class="col-12">
+                        <div class="alert alert-info border-2 border-dark rounded-0 p-2" role="alert">
+                            <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                                <div class="d-flex align-items-center gap-2">
+                                    <i class="bi bi-info-circle-fill"></i>
+                                    <span class="fw-bold text-uppercase small">Informativo</span>
+                                </div>
+                                <span class="badge bg-info rounded-0">@infoAlerts.Count</span>
+                            </div>
+                            @foreach (var alert in infoAlerts)
+                            {
+                                <a href="@alert.LinkUrl" class="d-block text-dark small mt-1 py-1 border-top border-info-subtle">
+                                    <i class="bi bi-chevron-right me-1"></i>@alert.Mensaje
+                                </a>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    }
+    else
+    {
+        @* Loading skeleton *@
+        <div class="row g-2">
+            <div class="col-12">
+                <div class="bg-secondary animated pulse rounded-0 p-3 mb-2" style="height: 80px;">&nbsp;</div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public AlertaConsolidadaDto? Alertas { get; set; }
+    [Parameter] public bool IsLoaded { get; set; }
+}

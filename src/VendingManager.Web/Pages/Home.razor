@@ -1,13 +1,15 @@
 @page "/"
+@using VendingManager.Shared.DTOs
+@using VendingManager.Web.Pages.Dashboard
 @inject HttpClient Http
 @inject NavigationManager NavManager
 @inject IJSRuntime JS
-@using System.Net.Http.Headers
 
 <PageTitle>CENTRO DE COMANDO</PageTitle>
 
-    <div class="industrial-wrapper container-fluid px-4 mt-4">
+<div class="industrial-wrapper container-fluid px-4 mt-4">
 
+    @* ─── Header + Machine Selector ─── *@
     <div class="row align-items-center mb-4 border-bottom border-3 border-dark pb-3">
         <div class="col-md-8">
             <h2 class="m-0 fw-bold text-uppercase" style="letter-spacing: -1px;">Status Operacional</h2>
@@ -16,7 +18,7 @@
         <div class="col-md-4">
             <label class="fw-bold mb-1 small text-uppercase">:: SELECCIÓN DE UNIDAD ::</label>
             <select class="form-select border-2 border-dark rounded-0 fw-bold bg-light text-uppercase py-2"
-                @onchange="CambiarMaquina">
+                    @onchange="CambiarMaquina">
                 <option value="0">:: TODAS LAS UNIDADES ::</option>
                 @if (ListaMaquinas != null)
                 {
@@ -29,370 +31,70 @@
         </div>
     </div>
 
-    @if (Stats == null)
+    @* ─── Loading State ─── *@
+    @if (Dashboard == null)
     {
-        <div class="text-center py-5 border border-dark border-2 bg-light">
+        <div class="text-center py-5 border border-dark border-2 bg-light mb-4">
             <div class="spinner-grow text-dark" role="status"></div>
             <p class="mt-2 fw-bold text-uppercase" style="letter-spacing: 2px;">Calculando Métricas...</p>
         </div>
     }
     else
     {
-        <div class="row g-4 mb-5">
-            <!-- DIARIO -->
-        <div class="col-md-4">
-                <div class="industrial-card card-hover h-100 position-relative cursor-pointer"
-                @onclick="@(() => IrAReporte("HOY"))" role="button">
-                    <div class="bg-dark text-white p-2 fw-bold text-center text-uppercase small"
-                    style="letter-spacing: 1px;">
-                        Reporte Diario (@DateTime.Now.ToString("dd/MM"))
-                    </div>
-                    <div class="p-4 text-center">
-                        <small class="text-muted text-uppercase fw-bold" style="font-size: 0.7rem;">Venta</small>
-                        <h1 class="display-5 fw-bold my-2 text-dark kpi-amount" style="letter-spacing: -2px;">
-                            $@Stats.Hoy.VentaTotal.ToString("N0")</h1>
+        @* ─── 1. Financial Pipeline (critical data, renders first) ─── *@
+        <FinancialPipeline Pipeline="Dashboard.Pipeline"
+                          MaquinaId="MaquinaActualId"
+                          IsLoaded="true" />
 
-                        <div class="d-flex justify-content-between gap-2 mt-4 border-top border-dark pt-3">
-                            <div class="text-start lh-1">
-                                <span class="d-block text-uppercase text-dark fw-bold"
-                                style="font-size: 0.7rem;">Confirmado</span>
-                                <span class="fw-bold text-success">$@Stats.Hoy.PagadoTB.ToString("N0")</span>
-                            </div>
-                            <div class="text-end lh-1">
-                                <span class="d-block text-uppercase text-dark fw-bold"
-                                style="font-size: 0.7rem;">Transacciones</span>
-                                <span class="fw-bold">@Stats.Hoy.CantidadVentas</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+        @* ─── 2. Alerts (visibility) ─── *@
+        <UnifiedAlerts Alertas="Dashboard.Alertas"
+                      IsLoaded="true" />
 
-            <!-- SEMANAL -->
-        <div class="col-md-4">
-                <div class="industrial-card card-hover h-100 cursor-pointer"
-                @onclick="@(() => IrAReporte("SEMANA"))" role="button">
-                    <div class="bg-secondary text-white p-2 fw-bold text-center text-uppercase small border-bottom border-dark"
-                    style="letter-spacing: 1px;">
-                        Reporte Semanal
-                    </div>
-                    <div class="p-4 text-center">
-                        <small class="text-muted text-uppercase fw-bold" style="font-size: 0.7rem;">Acumulado</small>
-                        <h1 class="display-5 fw-bold my-2 text-dark kpi-amount" style="letter-spacing: -2px;">
-                            $@Stats.Semana.VentaTotal.ToString("N0")</h1>
+        @* ─── 3. Data Upload (preserved XLS functionality) ─── *@
+        <DataUpload OnUploadComplete="CargarDashboard" />
 
-                        <div class="d-flex justify-content-between gap-2 mt-4 border-top border-dark pt-3">
-                            <div class="text-start lh-1">
-                                <span class="d-block text-uppercase text-dark fw-bold"
-                                style="font-size: 0.7rem;">Confirmado</span>
-                                <span class="fw-bold text-success">$@Stats.Semana.PagadoTB.ToString("N0")</span>
-                            </div>
-                            <div class="text-end lh-1">
-                                <span class="d-block text-uppercase text-dark fw-bold"
-                                style="font-size: 0.7rem;">Pendiente</span>
-                                <span class="fw-bold text-danger">$@Stats.Semana.Pendiente.ToString("N0")</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- MENSUAL -->
-        <div class="col-md-4">
-                <div class="industrial-card card-hover h-100 cursor-pointer"
-                @onclick="@(() => IrAReporte("MES"))" role="button">
-                    <div class="p-2 fw-bold text-center border-bottom border-2 border-dark text-uppercase small"
-                    style="background-color: #dcdcdc; letter-spacing: 1px;">
-                        Reporte Mensual (@DateTime.Now.ToString("MMM").ToUpper())
-                    </div>
-                    <div class="p-4 text-center">
-                        <small class="text-muted text-uppercase fw-bold" style="font-size: 0.7rem;">Total Proyectado</small>
-                        <h1 class="display-5 fw-bold my-2 text-dark kpi-amount" style="letter-spacing: -2px;">
-                            $@Stats.Mes.VentaTotal.ToString("N0")</h1>
-
-                        <div class="d-flex justify-content-between gap-2 mt-4 border-top border-dark pt-3">
-                            <div class="text-start lh-1">
-                                <span class="d-block text-uppercase text-dark fw-bold" style="font-size: 0.7rem;">Total
-                                    Ingreso</span>
-                                <span class="fw-bold text-success">$@Stats.Mes.PagadoTB.ToString("N0")</span>
-                            </div>
-                            <div class="text-end lh-1">
-                                <span class="d-block text-uppercase text-dark fw-bold"
-                                style="font-size: 0.7rem;">Transacciones</span>
-                                <span class="fw-bold">@Stats.Mes.CantidadVentas</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- CARD DE STOCK CRITICO -->
-        <div class="row mb-5">
-            <div class="col-12">
-                <div class="industrial-card card-hover h-100 cursor-pointer position-relative"
-                @onclick="AbrirModalCritico" role="button">
-                    <div class="bg-danger text-white p-2 fw-bold text-center text-uppercase small"
-                    style="letter-spacing: 1px;">
-                        🚨 ALERTA DE STOCK CRÍTICO (≤ 2 UNIDADES) 🚨
-                    </div>
-                    <div class="p-4 text-center d-flex align-items-center justify-content-center gap-4">
-                        <div>
-                            <small class="text-danger text-uppercase fw-bold d-block" style="font-size: 0.7rem;">Items en
-                                Riesgo</small>
-                            <h1 class="display-4 fw-bold my-0 text-danger kpi-amount-critico" style="letter-spacing: -2px;">
-                                @Stats.CantidadStockCritico
-                            </h1>
-                        </div>
-                        <div class="text-start border-start border-danger ps-4">
-                            <p class="mb-0 fw-bold small text-uppercase text-dark">
-                                Haga clic para ver el detalle de productos que requieren reposición inmediata.
-                            </p>
-                            <small class="text-muted">Inventario actualizado en tiempo real.</small>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- CHART SECTION -->
-        <div class="row mb-5">
-            <div class="col-md-8">
-                <div class="card border-2 border-dark rounded-0 shadow-sm">
-                    <div class="card-header bg-dark text-white fw-bold text-uppercase rounded-0">
-                        <i class="bi bi-graph-up-arrow me-2"></i>Tendencia de Ventas (Semanal)
-                    </div>
-                    <div class="card-body">
-                        <canvas id="salesChart" style="height: 300px; width: 100%;"></canvas>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="card border-2 border-dark rounded-0 shadow-sm h-100">
-                    <div class="card-header bg-dark text-white fw-bold text-uppercase rounded-0">
-                        <i class="bi bi-pie-chart-fill me-2"></i>Ventas Brutas
-                    </div>
-                    <div class="card-body d-flex align-items-center justify-content-center">
-                        <canvas id="paymentChart" style="max-height: 250px;"></canvas>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="row mt-5">
-            <div class="col-12 mb-3">
-                <h5 class="fw-bold text-uppercase border-bottom border-3 border-dark pb-2 d-flex align-items-center flex-wrap gap-2"
-                style="letter-spacing: 1px;">
-                    <span class="bg-dark text-white px-2 py-1">INPUT</span>
-                    <span>INGRESO DE DATOS_</span>
-                </h5>
-            </div>
-
-            <div class="col-md-6 mb-3">
-                <div class="card h-100 border-2 border-dark rounded-0">
-                    <div class="card-body bg-light">
-                        <div class="d-flex align-items-center mb-3">
-                            <div class="bg-dark text-white fw-bold px-2 py-1 me-2 rounded-0">01</div>
-                            <label class="fw-bold text-uppercase text-dark mb-0">REPORTE OURVEND (.XLS)</label>
-                        </div>
-                        <p class="small text-muted mb-2 font-monospace">Archivo fuente: "Give-out record"</p>
-
-                        <div class="input-group">
-                            <InputFile @key="InputKey" OnChange="SubirArchivoMaquina"
-                            class="form-control form-control-sm border-dark rounded-0" accept=".xls,.xlsx" />
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="col-md-6 mb-3">
-                <div class="card h-100 border-2 border-dark rounded-0">
-                    <div class="card-body bg-light">
-                        <div class="d-flex align-items-center mb-3">
-                            <div class="bg-dark text-white fw-bold px-2 py-1 me-2 rounded-0">02</div>
-                            <label class="fw-bold text-uppercase text-dark mb-0">CARTOLA TRANSBANK (.XLS/.CSV)</label>
-                        </div>
-                        <p class="small text-muted mb-2 font-monospace">Archivo fuente: "Transbank/Banco"</p>
-
-                        <div class="input-group">
-                            <InputFile @key="InputKey" OnChange="SubirArchivoTransbank"
-                            class="form-control form-control-sm border-dark rounded-0" accept=".xls,.xlsx,.csv" />
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            @if (!string.IsNullOrEmpty(Mensaje))
-            {
-                <div class="col-12 mt-2">
-                    <div class="alert alert-dark rounded-0 border-2 border-dark shadow-sm bg-white text-dark">
-                        @if (Cargando)
-                        {
-                            <span class="spinner-border spinner-border-sm me-2 text-dark" role="status"></span>
-                            <span class="fw-bold text-uppercase blinking-cursor">PROCESANDO DATOS...</span>
-                        }
-                        else
-                        {
-                            <span class="fw-bold text-uppercase me-2">> SYSTEM_LOG:</span>
-                            @Mensaje
-                        }
-                    </div>
-                </div>
-            }
-        </div>
+        @* ─── 4. Recent Activity (timeline) ─── *@
+        <RecentActivity Actividades="Dashboard.Actividad"
+                      MaquinaId="MaquinaActualId"
+                      IsLoaded="true" />
     }
 </div>
 
-<!-- MODAL FECHA LÍMITE (CARGA MANUAL) -->
-@if (MostrarModalFecha)
-{
-    <div class="modal show d-block" style="background: rgba(0,0,0,0.5);" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content rounded-0 border-2 border-dark shadow-lg">
-                <div class="modal-header bg-dark text-white rounded-0 border-bottom border-dark">
-                    <h5 class="modal-title fw-bold text-uppercase"><i class="bi bi-calendar-event me-2"></i>Configurar Importación</h5>
-                    <button type="button" class="btn-close btn-close-white" @onclick="CancelarCarga"></button>
-                </div>
-                <div class="modal-body p-4" style="background-color: #f8f9fa;">
-                    <div class="alert alert-info border-dark rounded-0 mb-3 small">
-                        <i class="bi bi-file-earmark-excel-fill me-1"></i> Archivo seleccionado: 
-                        <strong>@(PendingFile?.Name ?? "Desconocido")</strong>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label fw-bold small">IMPORTAR VENTAS HASTA (FECHA LOCAL):</label>
-                        <input type="datetime-local" @bind="FechaLimiteCarga" class="form-control border-dark rounded-0 fw-bold font-monospace" />
-                        <div class="form-text small fst-italic">Cualquier venta posterior a esta hora será ignorada.</div>
-                    </div>
-                </div>
-                <div class="modal-footer bg-light rounded-0 border-top border-dark">
-                     <button type="button" class="btn btn-outline-dark rounded-0 fw-bold" @onclick="CancelarCarga">CANCELAR</button>
-                    <button type="button" class="btn btn-dark rounded-0 fw-bold border-dark" @onclick="ConfirmarCarga">
-                        <i class="bi bi-upload me-1"></i> SUBIR AHORA
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-}
-
 @code {
-    private DashboardStats? Stats;
+    private DashboardUnificadoDto? Dashboard;
     private List<MaquinaSimpleDto>? ListaMaquinas;
     private int MaquinaActualId = 0;
 
-    private string Mensaje = "";
-    private bool Cargando = false;
-
-    // Manual Upload Logic
-    private bool MostrarModalFecha = false;
-    private DateTime FechaLimiteCarga = DateTime.Now;
-    private IBrowserFile? PendingFile;
-    private string PendingType = "MAQUINA"; // MAQUINA or TRANSBANK
-    private int InputKey = 0; // Para resetear el input file
-
-    // Critical Stock Modal Logic
-    private bool MostrarModalCriticoState = false;
-    private List<StockCriticoDto>? ListaCriticos;
-
-    private async Task AbrirModalCritico()
-    {
-        await JS.InvokeVoidAsync("modalScrollLock.lock");
-        MostrarModalCriticoState = true;
-        ListaCriticos = null; // Reset to show loading
-        try
-        {
-            ListaCriticos = await
-            Http.GetFromJsonAsync<List<StockCriticoDto>>($"api/Ventas/stock-critico?maquinaId={MaquinaActualId}") ?? new();
-        }
-        catch { ListaCriticos = new(); }
-    }
-
-    private async Task CerrarModalCritico()
-    {
-        await JS.InvokeVoidAsync("modalScrollLock.unlock");
-        MostrarModalCriticoState = false;
-    }
+    // ─── Lifecycle ─────────────────────────────────────────────────────────
 
     protected override async Task OnInitializedAsync()
     {
         await CargarMaquinas();
-        await CargarDatos();
+        await CargarDashboard();
     }
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (Stats != null)
-        {
-            await RenderCharts();
-        }
-    }
-
-    private async Task RenderCharts()
-    {
-        // 1. Bar Chart: Weekly Stats (Simulated distribution for visualisation)
-        var weeklyConfig = new
-        {
-            type = "bar",
-            data = new
-            {
-                labels = new[] { "Lun", "Mar", "Mie", "Jue", "Vie", "Sab", "Dom" },
-                datasets = new[]
-        {
-new
-{
-label = "Ventas ($)",
-data = new[] {
-Stats!.Semana.VentaTotal * 0.1m,
-Stats.Semana.VentaTotal * 0.15m,
-Stats.Semana.VentaTotal * 0.2m,
-Stats.Semana.VentaTotal * 0.1m,
-Stats.Semana.VentaTotal * 0.25m,
-Stats.Semana.VentaTotal * 0.15m,
-Stats.Semana.VentaTotal * 0.05m
-},
-backgroundColor = "#212529"
-}
-}
-            },
-            options = new
-            {
-                scales = new { y = new { beginAtZero = true } },
-                plugins = new { legend = new { display = false } },
-                responsive = true,
-                maintainAspectRatio = false
-            }
-        };
-        await JS.InvokeVoidAsync("ChartJsInterop.setupChart", "salesChart", weeklyConfig);
-
-        // 2. Pie Chart: Payment Status
-        var paymentConfig = new
-        {
-            type = "doughnut",
-            data = new
-            {
-                labels = new[] { "Confirmado", "Pendiente/Efectivo" },
-                datasets = new[]
-        {
-new
-{
-data = new[] { Stats.Semana.PagadoTB, Stats.Semana.Pendiente },
-backgroundColor = new[] { "#198754", "#dc3545" }
-}
-}
-            },
-            options = new
-            {
-                responsive = true,
-                maintainAspectRatio = false
-            }
-        };
-        await JS.InvokeVoidAsync("ChartJsInterop.setupChart", "paymentChart", paymentConfig);
-    }
+    // ─── Data Loading ───────────────────────────────────────────────────────
 
     private async Task CargarMaquinas()
     {
-        try { ListaMaquinas = await Http.GetFromJsonAsync<List<MaquinaSimpleDto>>("api/Ventas/lista-maquinas"); } catch { }
+        try
+        {
+            ListaMaquinas = await Http.GetFromJsonAsync<List<MaquinaSimpleDto>>("api/Ventas/lista-maquinas");
+        }
+        catch { }
+    }
+
+    private async Task CargarDashboard()
+    {
+        try
+        {
+            Dashboard = await Http.GetFromJsonAsync<DashboardUnificadoDto>(
+                $"api/dashboard/unificado?maquinaId={MaquinaActualId}");
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Dashboard load error: {ex.Message}");
+        }
     }
 
     private async Task CambiarMaquina(ChangeEventArgs e)
@@ -400,236 +102,16 @@ backgroundColor = new[] { "#198754", "#dc3545" }
         if (int.TryParse(e.Value?.ToString(), out int id))
         {
             MaquinaActualId = id;
-            Stats = null;
-            await CargarDatos();
+            Dashboard = null;
+            await CargarDashboard();
         }
     }
 
-    private async Task CargarDatos()
+    // ─── DTOs ───────────────────────────────────────────────────────────────
+
+    public class MaquinaSimpleDto
     {
-        try { Stats = await Http.GetFromJsonAsync<DashboardStats>($"api/Ventas/dashboard-stats?maquinaId={MaquinaActualId}"); }
-        catch (Exception ex)
-        {
-            Mensaje = "ERROR DE CONEXIÓN: " + ex.Message;
-        }
+        public int Id { get; set; }
+        public string Nombre { get; set; } = "";
     }
-
-    private void IrAReporte(string periodo)
-    {
-        DateTime inicio = DateTime.Today;
-        DateTime fin = DateTime.Today;
-
-        switch (periodo)
-        {
-            case "HOY":
-                // inicio y fin son correctos (hoy)
-                break;
-            case "SEMANA":
-                var diff = (7 + (DateTime.Today.DayOfWeek - DayOfWeek.Monday)) % 7;
-                inicio = DateTime.Today.AddDays(-1 * diff);
-                break;
-            case "MES":
-                inicio = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
-                break;
-        }
-
-        string url = $"informe-ventas?start={inicio:yyyy-MM-dd}&end={fin:yyyy-MM-dd}&maquinaId={MaquinaActualId}";
-        NavManager.NavigateTo(url);
-    }
-
-
-
-    // INTERCEPTOR PARA MAQUINA: Muestra Modal
-    private async Task SubirArchivoMaquina(InputFileChangeEventArgs e) => await PrepararCarga(e.File, "MAQUINA");
-    private async Task SubirArchivoTransbank(InputFileChangeEventArgs e) => await PrepararCarga(e.File, "TRANSBANK");
-
-    private async Task PrepararCarga(IBrowserFile file, string tipo)
-    {
-        await JS.InvokeVoidAsync("modalScrollLock.lock");
-        PendingFile = file;
-        PendingType = tipo;
-        FechaLimiteCarga = DateTime.Now;
-        MostrarModalFecha = true;
-    }
-
-    private async Task CancelarCarga()
-    {
-        await JS.InvokeVoidAsync("modalScrollLock.unlock");
-        PendingFile = null;
-        MostrarModalFecha = false;
-        InputKey++; // Reseteamos el input para permitir elegir el mismo archivo
-    }
-
-    private async Task ConfirmarCarga()
-    {
-        if (PendingFile == null) return;
-        await JS.InvokeVoidAsync("modalScrollLock.unlock");
-        MostrarModalFecha = false;
-        
-        string fechaParam = FechaLimiteCarga.ToString("yyyy-MM-ddTHH:mm:ss");
-        string endpoint = "";
-
-        if (PendingType == "MAQUINA")
-            endpoint = $"api/Ventas/subir-ventas-maquina?fechaLimite={fechaParam}";
-        else
-            endpoint = $"api/Ventas/subir-transbank?fechaLimite={fechaParam}";
-        
-        await SubirArchivoGenerico(PendingFile, endpoint);
-        PendingFile = null;
-        InputKey++; // Reseteamos el input al finalizar
-    }
-
-    // Refactorización para soportar llamada manual
-    private async Task SubirArchivoGenerico(IBrowserFile file, string endpoint)
-    {
-        Cargando = true;
-        Mensaje = "INICIANDO PROTOCOLO DE CARGA...";
-        StateHasChanged();
-
-        using var content = new MultipartFormDataContent();
-        try
-        {
-            var fileContent = new StreamContent(file.OpenReadStream(20 * 1024 * 1024));
-            fileContent.Headers.ContentType = new MediaTypeHeaderValue(file.ContentType);
-            content.Add(fileContent, "file", file.Name);
-
-            var resp = await Http.PostAsync(endpoint, content);
-
-            if (resp.IsSuccessStatusCode)
-            {
-                var serverMsg = await resp.Content.ReadAsStringAsync();
-                Mensaje = "OPERACIÓN COMPLETADA. " + serverMsg;
-                await CargarDatos();
-            }
-            else
-            {
-                Mensaje = "FALLO EN OPERACIÓN: " + resp.ReasonPhrase;
-            }
-        }
-        catch (Exception ex) { Mensaje = "ERROR CRÍTICO: " + ex.Message; }
-        finally { Cargando = false; }
-    }
-
-    // Helper to extract short machine code (last 4 digits, e.g., "0012" from "MAQUINA 2410280012...")
-    private string ExtractMachineCode(string machineName)
-    {
-        if (string.IsNullOrEmpty(machineName)) return "---";
-        // Find the numeric part and get last 4 digits
-        var parts = machineName.Replace("MAQUINA", "").Trim().Split(' ');
-        if (parts.Length > 0 && parts[0].Length >= 4)
-        {
-            // Return last 4 digits of the code
-            var code = parts[0];
-            return code.Substring(Math.Max(0, code.Length - 4));
-        }
-        return machineName.Length > 6 ? machineName.Substring(0, 6) : machineName;
-    }
-
-
-
-    public class DashboardStats
-    {
-        public PeriodoStats Hoy { get; set; } = new();
-        public PeriodoStats Semana { get; set; } = new();
-        public PeriodoStats Mes { get; set; } = new();
-        public int CantidadStockCritico { get; set; }
-    }
-    public class PeriodoStats
-    {
-        public decimal VentaTotal { get; set; }
-        public decimal PagadoTB { get; set; }
-        public decimal Pendiente { get; set; }
-        public int CantidadVentas { get; set; }
-    }
-    public class MaquinaSimpleDto { public int Id { get; set; } public string Nombre { get; set; } = ""; }
-    public class StockCriticoDto
-    {
-        public int SlotId { get; set; }
-        public string Maquina { get; set; } = "";
-        public string NumeroSlot { get; set; } = "";
-        public string Producto { get; set; } = "";
-        public int StockActual { get; set; }
-        public int CapacidadMaxima { get; set; }
-        public string Fuente { get; set; } = "configuracion";
-    }
-}
-
-@if (MostrarModalCriticoState)
-{
-    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5); z-index: 2000;">
-        <div class="modal-dialog modal-dialog-centered modal-lg">
-            <div class="modal-content rounded-0 border-2 border-danger shadow-lg">
-                <div class="modal-header bg-danger text-white rounded-0 border-bottom border-dark">
-                    <div class="d-flex align-items-center justify-content-between w-100">
-                        <h5 class="modal-title fw-bold text-uppercase"><i
-                            class="bi bi-exclamation-triangle-fill me-2"></i>REPORTE DE STOCK CRÍTICO</h5>
-                        @{
-                            var firstItem = ListaCriticos?.FirstOrDefault();
-                            var fuente = firstItem?.Fuente ?? "configuracion";
-                            var fuenteClass = fuente == "template" ? "bg-primary" : "bg-secondary";
-                            var fuenteText = fuente == "template" ? "Template activo" : "Inventario directo";
-                        }
-                        <span class="badge @fuenteClass text-white rounded-pill small ms-3" style="font-size: 0.65rem;">
-                            Fuente: @fuenteText
-                        </span>
-                    </div>
-                    <button type="button" class="btn-close btn-close-white" @onclick="CerrarModalCritico"></button>
-                </div>
-                <div class="modal-body p-0">
-                    @if (ListaCriticos == null)
-                    {
-                        <div class="text-center py-5">
-                            <div class="spinner-border text-danger" role="status"></div>
-                            <p class="mt-2 fw-bold text-uppercase small text-muted">Cargando reporte...</p>
-                        </div>
-                    }
-                    else if (ListaCriticos.Count == 0)
-                    {
-                        <div class="text-center py-5">
-                            <i class="bi bi-check-circle-fill text-success fs-1"></i>
-                            <h5 class="fw-bold mt-3 text-uppercase">¡Todo en orden!</h5>
-                            <p class="text-muted small">No hay productos con stock crítico en este momento.</p>
-                        </div>
-                    }
-                    else
-                    {
-                        <div class="table-responsive">
-                            <table class="table table-striped table-hover m-0 align-middle" style="font-size: 0.75rem;">
-                                <thead class="bg-light text-dark text-uppercase small font-monospace sticky-top">
-                                    <tr>
-                                        <th class="px-2" style="width: 60px;">MÁQ.</th>
-                                        <th class="text-center" style="width: 45px;">SLOT</th>
-                                        <th>PRODUCTO</th>
-                                        <th class="text-end" style="width: 60px;">STOCK</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach (var item in ListaCriticos)
-                                    {
-                                        <tr class="@(item.StockActual == 0 ? "table-danger" : "")">
-                                            <td class="fw-bold px-2 font-monospace" style="font-size: 0.7rem;">@ExtractMachineCode(item.Maquina)</td>
-                                            <td class="text-center font-monospace">@item.NumeroSlot</td>
-                                            <td class="text-uppercase" style="font-size: 0.7rem;">
-                                                <div class="text-truncate" style="max-width: 120px;" title="@item.Producto">@item.Producto</div>
-                                            </td>
-                                            <td class="text-end fw-bold font-monospace">
-                                                <span class="text-danger">@item.StockActual</span><span class="text-muted">/@item.CapacidadMaxima</span>
-                                            </td>
-                                        </tr>
-                                    }
-                                </tbody>
-                            </table>
-                        </div>
-                    }
-                </div>
-                <div class="modal-footer bg-light rounded-0">
-                    <button type="button" class="btn btn-dark rounded-0 fw-bold px-4" @onclick="CerrarModalCritico">CERRAR PANTALLA</button>
-                    <button type="button" class="btn btn-danger rounded-0 fw-bold px-4"
-                            @onclick='() => NavManager.NavigateTo($"templates-recarga?maquinaId={MaquinaActualId}")'>
-                        <i class="bi bi-truck me-2"></i>GESTIONAR CARGA
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
 }
