@@ -31,6 +31,9 @@ public class Compra
     // Ruta relativa a la imagen de la factura/boleta (ej: /uploads/compras/facturas/{guid}.jpg)
     public string? FacturaImagenPath { get; set; }
 
+    [MaxLength(200)]
+    public string? Trabajador { get; set; }
+
     // Vinculación con Transferencia (nullable FK — sin ruptura de cambios existentes)
     public int? TransferenciaId { get; set; }
     public Transferencia? Transferencia { get; set; }
