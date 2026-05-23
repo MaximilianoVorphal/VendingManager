@@ -39,4 +39,7 @@ public class MovimientoCaja
     // Vinculación con Rendicion (nullable FK — sin ruptura de cambios existentes)
     public int? RendicionId { get; set; }
     public Rendicion? Rendicion { get; set; }
+
+    [MaxLength(200)]
+    public string? Trabajador { get; set; }
 }
