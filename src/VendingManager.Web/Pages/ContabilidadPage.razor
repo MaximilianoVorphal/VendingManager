@@ -395,14 +395,17 @@
 
     private bool PuedeIrAlPaso(int paso)
     {
-        // Can always go back, or to current step
-        return paso <= State.CurrentStep;
+        // Allow: current step, any previous step, or next step if current step has data
+        if (paso <= State.CurrentStep) return true;
+        if (paso == State.CurrentStep + 1) return true; // allow advancing to next step
+        return false;
     }
 
     private async Task OnTransferenciaCreada(TransferenciaDto t)
     {
         State.Transferencias.Add(t);
         State.Recalcular();
+        State.IrAlPaso(2); // auto-advance to compra step
         SuccessMessage = $"Transferencia ${t.Monto.ToString("N0")} registrada para {t.Trabajador}.";
         Error = null;
         await Task.CompletedTask;
@@ -429,6 +432,7 @@
             State.Compras.Add(c);
         }
         State.Recalcular();
+        State.IrAlPaso(3); // auto-advance to gasto step
         SuccessMessage = $"Compra a {c.Proveedor} por ${c.MontoTotal.ToString("N0")} registrada.";
         Error = null;
         await Task.CompletedTask;
@@ -438,6 +442,7 @@
     {
         State.Gastos.Add(g);
         State.Recalcular();
+        State.IrAlPaso(4); // auto-advance to cuadrar step
         SuccessMessage = $"Gasto {g.Categoria} por ${Math.Abs(g.Monto).ToString("N0")} registrado.";
         Error = null;
         await Task.CompletedTask;
