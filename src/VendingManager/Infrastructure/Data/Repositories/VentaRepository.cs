@@ -57,22 +57,6 @@ public class VentaRepository(ApplicationDbContext context) : IVentaRepository
             .CountAsync(ct);
     }
 
-    public async Task<IReadOnlyList<Venta>> GetRecentAsync(int count, int? maquinaId = null, CancellationToken ct = default)
-    {
-        var query = context.Ventas
-            .Include(v => v.Maquina)
-            .Include(v => v.Producto)
-            .AsQueryable();
-
-        if (maquinaId.HasValue && maquinaId.Value > 0)
-            query = query.Where(v => v.MaquinaId == maquinaId.Value);
-
-        return await query
-            .OrderByDescending(v => v.FechaHora)
-            .Take(count)
-            .ToListAsync(ct);
-    }
-
     public async Task<decimal> SumPrecioVentaPaidInRangeAsync(DateTime since, DateTime until, CancellationToken ct = default)
     {
         return await context.Ventas
