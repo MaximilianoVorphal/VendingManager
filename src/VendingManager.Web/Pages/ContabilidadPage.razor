@@ -39,8 +39,7 @@
             {
                 <button class="btn btn-sm fw-bold rounded-0 px-3 py-2 border-2 border-dark"
                         style="@(State.CurrentStep == i ? "background-color: var(--industrial-black); color: var(--industrial-white);" : "background-color: var(--industrial-gray-100); color: var(--industrial-black);")"
-                        @onclick="() => IrAlPaso(i)"
-                        disabled="@(i > State.CurrentStep && ! PuedeIrAlPaso(i))">
+                        @onclick="() => IrAlPaso(i)">
                     @if (State.CurrentStep == i)
                     {
                         <span>▶ </span>
@@ -390,15 +389,8 @@
     private async Task IrAlPaso(int paso)
     {
         State.IrAlPaso(paso);
+        StateHasChanged();
         await Task.CompletedTask;
-    }
-
-    private bool PuedeIrAlPaso(int paso)
-    {
-        // Allow: current step, any previous step, or next step if current step has data
-        if (paso <= State.CurrentStep) return true;
-        if (paso == State.CurrentStep + 1) return true; // allow advancing to next step
-        return false;
     }
 
     private async Task OnTransferenciaCreada(TransferenciaDto t)
