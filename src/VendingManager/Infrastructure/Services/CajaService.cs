@@ -156,5 +156,13 @@ namespace VendingManager.Infrastructure.Services
         {
             return await _business.GetValorizacionStockAsync();
         }
+
+        public async Task<List<MovimientoCaja>> GetGastosNoVinculadosAsync()
+        {
+            return await _context.MovimientosCaja
+                .Where(m => m.Tipo == "GASTO" && m.RendicionId == null)
+                .OrderByDescending(m => m.Fecha)
+                .ToListAsync();
+        }
     }
 }
