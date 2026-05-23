@@ -90,7 +90,7 @@ public class TemplateRecargaLifecycleService : ITemplateRecargaLifecycleService
             .Include(t => t.Periodos)
                 .ThenInclude(p => p.SnapshotSlots)
                     .ThenInclude(s => s.Producto)
-            .Where(t => t.Estado == EstadoTemplate.Terminado)
+            .Where(t => t.Estado == EstadoTemplate.Terminado || (int)t.Estado == 1) // 1 = old Activo (migration may not have run)
             .Where(t => t.Periodos.Any(p => p.MaquinaId == maquinaId))
             .OrderByDescending(t => t.FechaCreacion)
             .FirstOrDefaultAsync();
@@ -199,7 +199,7 @@ public class TemplateRecargaLifecycleService : ITemplateRecargaLifecycleService
             Nombre = t.Nombre,
             Descripcion = t.Descripcion,
             FechaCreacion = t.FechaCreacion,
-            Estado = t.Estado,
+            Estado = NormalizarEstado(t.Estado),
             Periodos = t.Periodos.Select(p => new PeriodoRecargaDto
             {
                 Id = p.Id,
@@ -220,4 +220,14 @@ public class TemplateRecargaLifecycleService : ITemplateRecargaLifecycleService
             }).ToList()
         };
     }
+
+    /// <summary>
+    /// Normaliza valores de Estado que no matchean el enum actual.
+    /// Si no es Pendiente(0) ni Terminado(2), lo fuerza a Terminado(2).
+    /// Red de contención para valores huérfanos en BD (ej: viejo Activo=1).
+    /// </summary>
+    private static EstadoTemplate NormalizarEstado(EstadoTemplate estado) =>
+        estado is EstadoTemplate.Pendiente or EstadoTemplate.Terminado
+            ? estado
+            : EstadoTemplate.Terminado;
 }
