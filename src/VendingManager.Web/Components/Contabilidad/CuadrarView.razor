@@ -126,6 +126,7 @@
                 <table class="table table-hover table-bordered border-dark m-0 align-middle">
                     <thead class="bg-secondary text-white text-uppercase small fw-bold text-center">
                         <tr>
+                            <th style="width: 60px;">FACTURA</th>
                             <th>FECHA</th>
                             <th>Nº DOCUMENTO</th>
                             <th>PROVEEDOR</th>
@@ -137,6 +138,20 @@
                         @foreach (var c in Compras)
                         {
                             <tr>
+                                <td class="text-center">
+                                    @if (!string.IsNullOrEmpty(c.FacturaImagenPath))
+                                    {
+                                        <a href="api/compras/@c.Id/factura" target="_blank">
+                                            <img src="api/compras/@c.Id/factura" class="img-thumbnail border-dark"
+                                                 style="max-height: 40px; max-width: 40px; object-fit: cover;"
+                                                 alt="Factura" title="Ver factura" />
+                                        </a>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted" title="Sin factura"><i class="bi bi-file-earmark-x"></i></span>
+                                    }
+                                </td>
                                 <td>@c.FechaCompra.ToString("dd/MM/yyyy")</td>
                                 <td class="font-monospace">@(string.IsNullOrEmpty(c.NumeroDocumento) ? "S/N" : c.NumeroDocumento)</td>
                                 <td>@c.Proveedor</td>
