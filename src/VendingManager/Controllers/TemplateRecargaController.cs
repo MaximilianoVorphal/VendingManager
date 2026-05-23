@@ -43,7 +43,7 @@ public class TemplateRecargaController(
 
     /// <summary>
     /// Reabre un template: Terminado → Pendiente.
-    /// Limpia todos los SnapshotSlots.
+    /// Preserva los SnapshotSlots para permitir edición.
     /// </summary>
     [HttpPost("{id}/reabrir")]
     public async Task<ActionResult<TemplateRecargaDto>> Reabrir(int id)
