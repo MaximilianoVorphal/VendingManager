@@ -28,6 +28,7 @@ public class ComprasController(ICompraService compraService, IFacturaOcrService 
                 TipoFactura = c.TipoFactura,
                 PagadaCaja = c.PagadaCaja,
                 FacturaImagenPath = c.FacturaImagenPath,
+                TransferenciaId = c.TransferenciaId,
                 Detalles = c.Detalles.Select(d => new DetalleCompraDto
                 {
                     Id = d.Id,

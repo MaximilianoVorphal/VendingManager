@@ -394,4 +394,13 @@ public class CompraService : ICompraService
         var basePath = GetUploadBasePath();
         return Path.Combine(basePath, relativePath.TrimStart('/'));
     }
+
+    public async Task<IEnumerable<Compra>> GetComprasNoVinculadasAsync()
+    {
+        return await _context.Compras
+            .Where(c => c.TransferenciaId == null)
+            .OrderByDescending(c => c.FechaCompra)
+            .ThenByDescending(c => c.Id)
+            .ToListAsync();
+    }
 }

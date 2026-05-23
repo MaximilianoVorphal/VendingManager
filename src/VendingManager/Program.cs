@@ -120,6 +120,8 @@ builder.Services.AddScoped<ITemplateRecargaAnalyticsService, TemplateRecargaAnal
 builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddScoped<ICompraService, CompraService>();
 builder.Services.AddScoped<IGastoRecurrenteService, GastoRecurrenteService>();
+builder.Services.AddScoped<ITransferenciaService, TransferenciaService>();
+builder.Services.AddScoped<IRendicionService, RendicionService>();
 builder.Services.AddScoped<IExcelExportService, ExcelExportService>();
 builder.Services.AddScoped<IVentaRepository, VentaRepository>();
 builder.Services.AddScoped<IMaquinaRepository, MaquinaRepository>();

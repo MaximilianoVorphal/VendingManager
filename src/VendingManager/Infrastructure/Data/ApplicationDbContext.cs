@@ -34,6 +34,10 @@ namespace VendingManager.Infrastructure.Data
         public DbSet<OrdenCargaHistory> OrdenesCargaHistory { get; set; } = null!;
         public DbSet<UserHistory> UsersHistory { get; set; } = null!;
         public DbSet<ProductoCosto> ProductoCostos { get; set; } = null!;
+        public DbSet<Transferencia> Transferencias { get; set; } = null!;
+        public DbSet<Rendicion> Rendiciones { get; set; } = null!;
+        public DbSet<TransferenciaHistory> TransferenciasHistory { get; set; } = null!;
+        public DbSet<RendicionHistory> RendicionesHistory { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -80,6 +84,39 @@ namespace VendingManager.Infrastructure.Data
                     .WithMany()
                     .HasForeignKey(p => p.ProductoId)
                     .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // Transferencia: enum as int + relationships
+            modelBuilder.Entity<Transferencia>(e =>
+            {
+                e.Property(t => t.Estado).HasConversion<int>();
+                e.Property(t => t.Monto).HasColumnType("decimal(18,2)");
+                e.HasOne(t => t.Rendicion)
+                    .WithMany(r => r.Transferencias)
+                    .HasForeignKey(t => t.RendicionId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(t => t.MovimientoCaja)
+                    .WithMany()
+                    .HasForeignKey(t => t.MovimientoCajaId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasMany(t => t.Compras)
+                    .WithOne(c => c.Transferencia)
+                    .HasForeignKey(c => c.TransferenciaId)
+                    .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            // Rendicion: enum as int + relationships
+            modelBuilder.Entity<Rendicion>(e =>
+            {
+                e.Property(r => r.Estado).HasConversion<int>();
+                e.HasMany(r => r.Transferencias)
+                    .WithOne(t => t.Rendicion)
+                    .HasForeignKey(t => t.RendicionId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasMany(r => r.Gastos)
+                    .WithOne(m => m.Rendicion)
+                    .HasForeignKey(m => m.RendicionId)
+                    .OnDelete(DeleteBehavior.SetNull);
             });
         }
     }
