@@ -10,7 +10,7 @@ namespace VendingManager.Infrastructure.Services;
 
 /// <summary>
 /// Implements the lifecycle state machine for TemplateRecarga.
-/// State machine: Pendiente (0) → Activo (1) → Terminado (2).
+/// State machine: Pendiente (0) → Terminado (2).
 /// </summary>
 public class TemplateRecargaLifecycleService : ITemplateRecargaLifecycleService
 {
@@ -25,7 +25,7 @@ public class TemplateRecargaLifecycleService : ITemplateRecargaLifecycleService
         _logger = logger;
     }
 
-    public async Task<TemplateRecargaDto> ActivarAsync(int templateId)
+    public async Task<TemplateRecargaDto> TerminarAsync(int templateId)
     {
         var template = await _context.TemplatesRecarga
             .Include(t => t.Periodos)
@@ -39,37 +39,8 @@ public class TemplateRecargaLifecycleService : ITemplateRecargaLifecycleService
         if (template.Estado != EstadoTemplate.Pendiente)
         {
             throw new InvalidOperationException(
-                $"No se puede activar: el template está en estado {template.Estado}. " +
-                $"Solo templates en estado Pendiente pueden activarse.");
-        }
-
-        template.Estado = EstadoTemplate.Activo;
-
-        await _context.SaveChangesAsync();
-
-        _logger.LogInformation(
-            "[Activar] Template {TemplateId} transitioned to Activo",
-            templateId);
-
-        return MapToDto(template);
-    }
-
-    public async Task<TemplateRecargaDto> TerminarAsync(int templateId)
-    {
-        var template = await _context.TemplatesRecarga
-            .Include(t => t.Periodos)
-                .ThenInclude(p => p.Maquina)
-            .Include(t => t.Periodos)
-                .ThenInclude(p => p.SnapshotSlots)
-                .ThenInclude(s => s.Producto)
-            .FirstOrDefaultAsync(t => t.Id == templateId)
-            ?? throw new InvalidOperationException($"Template con ID {templateId} no encontrado");
-
-        if (template.Estado != EstadoTemplate.Activo)
-        {
-            throw new InvalidOperationException(
                 $"No se puede terminar: el template está en estado {template.Estado}. " +
-                $"Solo templates en estado Activo pueden terminarse.");
+                $"Solo templates en estado Pendiente pueden terminarse.");
         }
 
         template.Estado = EstadoTemplate.Terminado;
@@ -103,12 +74,6 @@ public class TemplateRecargaLifecycleService : ITemplateRecargaLifecycleService
 
         template.Estado = EstadoTemplate.Pendiente;
 
-        // Clear snapshot slots on reopen
-        foreach (var periodo in template.Periodos)
-        {
-            _context.SnapshotSlots.RemoveRange(periodo.SnapshotSlots);
-        }
-
         await _context.SaveChangesAsync();
 
         _logger.LogInformation(
@@ -118,24 +83,24 @@ public class TemplateRecargaLifecycleService : ITemplateRecargaLifecycleService
         return MapToDto(template);
     }
 
-    public async Task<List<SnapshotSlotDto>> GetLatestActivoTemplateSlotsAsync(int maquinaId)
+    public async Task<List<SnapshotSlotDto>> GetLatestTerminadoTemplateSlotsAsync(int maquinaId)
     {
-        // Find the latest Activo template that has a periodo for this machine
-        var latestActivoTemplate = await _context.TemplatesRecarga
+        // Find the latest Terminado template that has a periodo for this machine
+        var latestTerminadoTemplate = await _context.TemplatesRecarga
             .Include(t => t.Periodos)
                 .ThenInclude(p => p.SnapshotSlots)
                     .ThenInclude(s => s.Producto)
-            .Where(t => t.Estado == EstadoTemplate.Activo)
+            .Where(t => t.Estado == EstadoTemplate.Terminado)
             .Where(t => t.Periodos.Any(p => p.MaquinaId == maquinaId))
             .OrderByDescending(t => t.FechaCreacion)
             .FirstOrDefaultAsync();
 
-        if (latestActivoTemplate == null)
+        if (latestTerminadoTemplate == null)
         {
             return new List<SnapshotSlotDto>();
         }
 
-        var periodoForMaquina = latestActivoTemplate.Periodos
+        var periodoForMaquina = latestTerminadoTemplate.Periodos
             .FirstOrDefault(p => p.MaquinaId == maquinaId);
 
         if (periodoForMaquina == null)

@@ -44,7 +44,7 @@ namespace VendingManager.Infrastructure.Services
             if (_config.Value.UseTemplateInventoryForStockCritico)
             {
                 // Try template-based inventory first
-                var templateSlots = await _lifecycleService.GetLatestActivoTemplateSlotsAsync(maquinaId);
+                var templateSlots = await _lifecycleService.GetLatestTerminadoTemplateSlotsAsync(maquinaId);
                 if (templateSlots.Any())
                 {
                     _logger.LogInformation(
@@ -54,7 +54,7 @@ namespace VendingManager.Infrastructure.Services
                     return await BuildStockCriticoFromTemplateSlots(templateSlots, maquinaId);
                 }
                 _logger.LogWarning(
-                    "[GetStockCritico] No active template for maquina {MaquinaId}; falling back to ConfiguracionSlots",
+                    "[GetStockCritico] No Terminado template for maquina {MaquinaId}; falling back to ConfiguracionSlots",
                     maquinaId);
             }
 
