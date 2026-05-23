@@ -83,7 +83,7 @@
                                 {
                                     <span class="badge bg-warning text-dark rounded-0 pending-badge">
                                         <span class="pending-count">@template.CantidadSlotsPendientes</span>
-                                        <span class="pending-label"> pendiente(s)</span>
+                                        <span class="pending-label"> sin configurar</span>
                                     </span>
                                 }
                             </div>
@@ -136,15 +136,8 @@
                                 @if (template.Estado == EstadoTemplate.Pendiente)
                                 {
                                     <button class="btn btn-sm btn-success rounded-0 fw-bold"
-                                        @onclick="() => ActivarTemplate(template.Id)">
-                                        <i class="bi bi-check-circle me-1"></i> ACTIVAR
-                                    </button>
-                                }
-                                else if (template.Estado == EstadoTemplate.Activo)
-                                {
-                                    <button class="btn btn-sm btn-dark rounded-0 fw-bold"
                                         @onclick="() => TerminarTemplate(template.Id)">
-                                        <i class="bi bi-check-circle-fill me-1"></i> TERMINAR
+                                        <i class="bi bi-check-circle me-1"></i> FINALIZAR
                                     </button>
                                 }
                                 else if (template.Estado == EstadoTemplate.Terminado)
@@ -1312,7 +1305,6 @@
     private string GetEstadoBadgeClass(EstadoTemplate estado) => estado switch
     {
         EstadoTemplate.Pendiente => "bg-warning text-dark",
-        EstadoTemplate.Activo => "bg-success",
         EstadoTemplate.Terminado => "bg-dark",
         _ => "bg-secondary"
     };
