@@ -1,0 +1,190 @@
+@namespace VendingManager.Web.Pages.Dashboard
+@using VendingManager.Shared.DTOs
+
+@* FinancialPipeline — 4-column horizontal money-flow pipeline *@
+@* Parameters: Pipeline (PipelineFinancieroDto), MaquinaId (int), IsLoaded (bool) *@
+
+<div class="row g-3 mb-4">
+    @* ── Column 1: Ventas (filtered by maquinaId) ── *@
+    <div class="col-md-3">
+        <div class="industrial-card card border-2 border-dark rounded-0 h-100 cursor-pointer"
+             role="button" @onclick='() => NavigateToDetail("/informe-ventas")'>
+            <div class="bg-dark text-white p-2 fw-bold text-center text-uppercase small"
+                 style="letter-spacing: 1px;">
+                <i class="bi bi-currency-dollar me-1"></i>VENTAS (MES)
+            </div>
+            <div class="p-3">
+                @if (IsLoaded && Pipeline != null)
+                {
+                    <div class="text-center">
+                        <h3 class="fw-bold text-dark kpi-amount" style="letter-spacing: -1px;">
+                            $@Pipeline.VentasMes.ToString("N0")
+                        </h3>
+                        <small class="text-muted fw-bold text-uppercase" style="font-size: 0.65rem;">
+                            @Pipeline.CantidadVentasMes transacciones
+                        </small>
+                    </div>
+                    @if (MaquinaId > 0)
+                    {
+                        <div class="text-center mt-2">
+                            <span class="badge bg-secondary rounded-0 small">Filtrado por máquina</span>
+                        </div>
+                    }
+                }
+                else
+                {
+                    <div class="text-center py-3">
+                        <div class="bg-secondary animated pulse h3 mb-0" style="width: 80%;">&nbsp;</div>
+                        <div class="bg-secondary animated pulse h6 mt-2" style="width: 60%;">&nbsp;</div>
+                    </div>
+                }
+            </div>
+            <div class="text-center p-2 border-top border-dark">
+                <small class="text-uppercase fw-bold" style="font-size: 0.6rem; color: var(--industrial-gray-500);">
+                    VER INFORME →
+                </small>
+            </div>
+        </div>
+    </div>
+
+    @* ── Column 2: Transferencias (global, unfiltered) ── *@
+    <div class="col-md-3">
+        <div class="industrial-card card border-2 border-dark rounded-0 h-100 cursor-pointer"
+             role="button" @onclick='() => NavigateToDetail("/rendiciones")'>
+            <div class="bg-dark text-white p-2 fw-bold text-center text-uppercase small"
+                 style="letter-spacing: 1px;">
+                <i class="bi bi-arrow-left-right me-1"></i>TRANSFERENCIAS
+            </div>
+            <div class="p-3">
+                @if (IsLoaded && Pipeline != null)
+                {
+                    <div class="text-center">
+                        <h3 class="fw-bold text-dark kpi-amount" style="letter-spacing: -1px;">
+                            $@Pipeline.TransferenciasActivas.ToString("N0")
+                        </h3>
+                        <small class="text-muted fw-bold text-uppercase" style="font-size: 0.65rem;">
+                            @Pipeline.CantidadTransferencias activas
+                        </small>
+                    </div>
+                    <div class="text-center mt-2">
+                        <span class="badge bg-dark rounded-0 small">(Global)</span>
+                    </div>
+                }
+                else
+                {
+                    <div class="text-center py-3">
+                        <div class="bg-secondary animated pulse h3 mb-0" style="width: 80%;">&nbsp;</div>
+                        <div class="bg-secondary animated pulse h6 mt-2" style="width: 60%;">&nbsp;</div>
+                    </div>
+                }
+            </div>
+            <div class="text-center p-2 border-top border-dark">
+                <small class="text-uppercase fw-bold" style="font-size: 0.6rem; color: var(--industrial-gray-500);">
+                    VER RENDICIONES →
+                </small>
+            </div>
+        </div>
+    </div>
+
+    @* ── Column 3: Compras + Gastos (global, unfiltered) ── *@
+    <div class="col-md-3">
+        <div class="industrial-card card border-2 border-dark rounded-0 h-100 cursor-pointer"
+             role="button" @onclick='() => NavigateToDetail("/compras")'>
+            <div class="bg-dark text-white p-2 fw-bold text-center text-uppercase small"
+                 style="letter-spacing: 1px;">
+                <i class="bi bi-bag me-1"></i>COMPRAS + GASTOS
+            </div>
+            <div class="p-3">
+                @if (IsLoaded && Pipeline != null)
+                {
+                    <div class="text-center">
+                        <div class="mb-2">
+                            <small class="text-muted fw-bold text-uppercase d-block" style="font-size: 0.6rem;">Compras</small>
+                            <span class="fw-bold text-danger">-$@Pipeline.ComprasVinculadas.ToString("N0")</span>
+                        </div>
+                        <div class="border-top border-dark pt-2">
+                            <small class="text-muted fw-bold text-uppercase d-block" style="font-size: 0.6rem;">Gastos</small>
+                            <span class="fw-bold text-danger">-$@Pipeline.GastosVinculados.ToString("N0")</span>
+                        </div>
+                    </div>
+                    <div class="text-center mt-2">
+                        <span class="badge bg-dark rounded-0 small">(Global)</span>
+                    </div>
+                }
+                else
+                {
+                    <div class="text-center py-3">
+                        <div class="bg-secondary animated pulse h5 mb-0" style="width: 80%;">&nbsp;</div>
+                        <div class="bg-secondary animated pulse h6 mt-2" style="width: 60%;">&nbsp;</div>
+                    </div>
+                }
+            </div>
+            <div class="text-center p-2 border-top border-dark">
+                <small class="text-uppercase fw-bold" style="font-size: 0.6rem; color: var(--industrial-gray-500);">
+                    VER COMPRAS →
+                </small>
+            </div>
+        </div>
+    </div>
+
+    @* ── Column 4: Conciliación (computed: Transferido - Compras - Gastos) ── *@
+    <div class="col-md-3">
+        <div class="industrial-card card border-2 border-dark rounded-0 h-100 cursor-pointer"
+             role="button" @onclick='() => NavigateToDetail("/rendiciones")'>
+            <div class="bg-dark text-white p-2 fw-bold text-center text-uppercase small"
+                 style="letter-spacing: 1px;">
+                <i class="bi bi-calculator me-1"></i>CONCILIACIÓN
+            </div>
+            <div class="p-3">
+                @if (IsLoaded && Pipeline != null)
+                {
+                    <div class="text-center">
+                        <h3 class="fw-bold kpi-amount @(Pipeline.IsPositiva ? "text-success" : "text-danger")"
+                            style="letter-spacing: -1px;">
+                            $@Pipeline.Conciliacion.ToString("N0")
+                        </h3>
+                        @if (Pipeline.IsPositiva)
+                        {
+                            <small class="text-success fw-bold text-uppercase" style="font-size: 0.65rem;">
+                                <i class="bi bi-check-circle-fill me-1"></i>FONDOS POR RENDIR
+                            </small>
+                        }
+                        else
+                        {
+                            <small class="text-danger fw-bold text-uppercase" style="font-size: 0.65rem;">
+                                <i class="bi bi-exclamation-triangle-fill me-1"></i>SOBREGASTO
+                            </small>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="text-center py-3">
+                        <div class="bg-secondary animated pulse h3 mb-0" style="width: 80%;">&nbsp;</div>
+                        <div class="bg-secondary animated pulse h6 mt-2" style="width: 60%;">&nbsp;</div>
+                    </div>
+                }
+            </div>
+            <div class="text-center p-2 border-top border-dark">
+                <small class="text-uppercase fw-bold" style="font-size: 0.6rem; color: var(--industrial-gray-500);">
+                    VER RENDICIONES →
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public PipelineFinancieroDto? Pipeline { get; set; }
+    [Parameter] public int MaquinaId { get; set; }
+    [Parameter] public bool IsLoaded { get; set; }
+
+    [Inject] private NavigationManager? NavManager { get; set; }
+
+    private void NavigateToDetail(string baseUrl)
+    {
+        if (string.IsNullOrEmpty(baseUrl) || NavManager == null) return;
+        var url = MaquinaId > 0 ? $"{baseUrl}?maquinaId={MaquinaId}" : baseUrl;
+        NavManager.NavigateTo(url);
+    }
+}

@@ -1,0 +1,203 @@
+@namespace VendingManager.Web.Pages.Dashboard
+@using System.Net.Http.Headers
+
+@* DataUpload — Extracted XLS upload section from Home.razor *@
+@* Preserves all existing upload logic: Ourvend .xls + Transbank .xls/.csv *@
+
+<div class="row mt-4">
+    <div class="col-12 mb-3">
+        <h5 class="fw-bold text-uppercase border-bottom border-3 border-dark pb-2 d-flex align-items-center flex-wrap gap-2"
+            style="letter-spacing: 1px;">
+            <span class="bg-dark text-white px-2 py-1">INPUT</span>
+            <span>INGRESO DE DATOS_</span>
+        </h5>
+    </div>
+
+    <div class="col-md-6 mb-3">
+        <div class="card h-100 border-2 border-dark rounded-0">
+            <div class="card-body bg-light">
+                <div class="d-flex align-items-center mb-3">
+                    <div class="bg-dark text-white fw-bold px-2 py-1 me-2 rounded-0">01</div>
+                    <label class="fw-bold text-uppercase text-dark mb-0">REPORTE OURVEND (.XLS)</label>
+                </div>
+                <p class="small text-muted mb-2 font-monospace">Archivo fuente: "Give-out record"</p>
+
+                <div class="input-group">
+                    <InputFile @key="InputKey" OnChange="SubirArchivoMaquina"
+                               class="form-control form-control-sm border-dark rounded-0" accept=".xls,.xlsx" />
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6 mb-3">
+        <div class="card h-100 border-2 border-dark rounded-0">
+            <div class="card-body bg-light">
+                <div class="d-flex align-items-center mb-3">
+                    <div class="bg-dark text-white fw-bold px-2 py-1 me-2 rounded-0">02</div>
+                    <label class="fw-bold text-uppercase text-dark mb-0">CARTOLA TRANSBANK (.XLS/.CSV)</label>
+                </div>
+                <p class="small text-muted mb-2 font-monospace">Archivo fuente: "Transbank/Banco"</p>
+
+                <div class="input-group">
+                    <InputFile @key="InputKey" OnChange="SubirArchivoTransbank"
+                               class="form-control form-control-sm border-dark rounded-0" accept=".xls,.xlsx,.csv" />
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(Mensaje))
+    {
+        <div class="col-12 mt-2">
+            <div class="alert alert-dark rounded-0 border-2 border-dark shadow-sm bg-white text-dark">
+                @if (Cargando)
+                {
+                    <span class="spinner-border spinner-border-sm me-2 text-dark" role="status"></span>
+                    <span class="fw-bold text-uppercase">PROCESANDO DATOS...</span>
+                }
+                else
+                {
+                    <span class="fw-bold text-uppercase me-2">> SYSTEM_LOG:</span>
+                    @Mensaje
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@* Upload Modal *@
+@if (MostrarModalFecha)
+{
+    <div class="modal show d-block" style="background: rgba(0,0,0,0.5);" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content rounded-0 border-2 border-dark shadow-lg">
+                <div class="modal-header bg-dark text-white rounded-0 border-bottom border-dark">
+                    <h5 class="modal-title fw-bold text-uppercase">
+                        <i class="bi bi-calendar-event me-2"></i>Configurar Importación
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CancelarCarga"></button>
+                </div>
+                <div class="modal-body p-4" style="background-color: #f8f9fa;">
+                    <div class="alert alert-info border-dark rounded-0 mb-3 small">
+                        <i class="bi bi-file-earmark-excel-fill me-1"></i>
+                        Archivo seleccionado: <strong>@(PendingFile?.Name ?? "Desconocido")</strong>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small">IMPORTAR VENTAS HASTA (FECHA LOCAL):</label>
+                        <input type="datetime-local" @bind="FechaLimiteCarga"
+                               class="form-control border-dark rounded-0 fw-bold font-monospace" />
+                        <div class="form-text small fst-italic">
+                            Cualquier venta posterior a esta hora será ignorada.
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light rounded-0 border-top border-dark">
+                    <button type="button" class="btn btn-outline-dark rounded-0 fw-bold" @onclick="CancelarCarga">
+                        CANCELAR
+                    </button>
+                    <button type="button" class="btn btn-dark rounded-0 fw-bold border-dark" @onclick="ConfirmarCarga">
+                        <i class="bi bi-upload me-1"></i>SUBIR AHORA
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public EventCallback OnUploadComplete { get; set; }
+
+    private string Mensaje { get; set; } = "";
+    private bool Cargando { get; set; } = false;
+    private bool MostrarModalFecha { get; set; } = false;
+    private DateTime FechaLimiteCarga { get; set; } = DateTime.Now;
+    private IBrowserFile? PendingFile { get; set; }
+    private string PendingType { get; set; } = "MAQUINA";
+    private int InputKey { get; set; } = 0;
+
+    [Inject] private HttpClient? Http { get; set; }
+    [Inject] private IJSRuntime? JS { get; set; }
+
+    private async Task SubirArchivoMaquina(InputFileChangeEventArgs e) =>
+        await PrepararCarga(e.File, "MAQUINA");
+
+    private async Task SubirArchivoTransbank(InputFileChangeEventArgs e) =>
+        await PrepararCarga(e.File, "TRANSBANK");
+
+    private async Task PrepararCarga(IBrowserFile file, string tipo)
+    {
+        if (JS == null) return;
+        await JS.InvokeVoidAsync("modalScrollLock.lock");
+        PendingFile = file;
+        PendingType = tipo;
+        FechaLimiteCarga = DateTime.Now;
+        MostrarModalFecha = true;
+    }
+
+    private async Task CancelarCarga()
+    {
+        if (JS == null) return;
+        await JS.InvokeVoidAsync("modalScrollLock.unlock");
+        PendingFile = null;
+        MostrarModalFecha = false;
+        InputKey++;
+    }
+
+    private async Task ConfirmarCarga()
+    {
+        if (PendingFile == null || Http == null || JS == null) return;
+
+        await JS.InvokeVoidAsync("modalScrollLock.unlock");
+        MostrarModalFecha = false;
+
+        string fechaParam = FechaLimiteCarga.ToString("yyyy-MM-ddTHH:mm:ss");
+        string endpoint = PendingType == "MAQUINA"
+            ? $"api/Ventas/subir-ventas-maquina?fechaLimite={fechaParam}"
+            : $"api/Ventas/subir-transbank?fechaLimite={fechaParam}";
+
+        await SubirArchivoGenerico(PendingFile, endpoint);
+        PendingFile = null;
+        InputKey++;
+    }
+
+    private async Task SubirArchivoGenerico(IBrowserFile file, string endpoint)
+    {
+        if (Http == null) return;
+
+        Cargando = true;
+        Mensaje = "INICIANDO PROTOCOLO DE CARGA...";
+        StateHasChanged();
+
+        using var content = new MultipartFormDataContent();
+        try
+        {
+            var fileContent = new StreamContent(file.OpenReadStream(20 * 1024 * 1024));
+            fileContent.Headers.ContentType = new MediaTypeHeaderValue(file.ContentType);
+            content.Add(fileContent, "file", file.Name);
+
+            var resp = await Http.PostAsync(endpoint, content);
+
+            if (resp.IsSuccessStatusCode)
+            {
+                var serverMsg = await resp.Content.ReadAsStringAsync();
+                Mensaje = "OPERACIÓN COMPLETADA. " + serverMsg;
+                await OnUploadComplete.InvokeAsync();
+            }
+            else
+            {
+                Mensaje = "FALLO EN OPERACIÓN: " + resp.ReasonPhrase;
+            }
+        }
+        catch (Exception ex)
+        {
+            Mensaje = "ERROR CRÍTICO: " + ex.Message;
+        }
+        finally
+        {
+            Cargando = false;
+            StateHasChanged();
+        }
+    }
+}

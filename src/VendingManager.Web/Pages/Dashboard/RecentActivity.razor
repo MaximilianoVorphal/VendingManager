@@ -1,0 +1,144 @@
+@namespace VendingManager.Web.Pages.Dashboard
+@using VendingManager.Shared.DTOs
+
+@* RecentActivity — Cross-domain activity timeline with filters *@
+@* Parameters: Actividades (List<ActividadRecienteDto>), MaquinaId (int?), IsLoaded (bool) *@
+
+<div class="mb-4">
+    @* Header *@
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+        <h5 class="fw-bold text-uppercase m-0" style="letter-spacing: 1px;">
+            <i class="bi bi-clock-history me-2"></i>ACTIVIDAD RECIENTE
+        </h5>
+        @if (IsLoaded && Actividades != null && Actividades.Any())
+        {
+            <span class="badge bg-dark rounded-0">@ActividadesFiltradas.Count()</span>
+        }
+    </div>
+
+    @if (IsLoaded && Actividades != null)
+    {
+        @* Type filter buttons *@
+        <div class="d-flex flex-wrap gap-1 mb-3">
+            <button class="btn btn-sm @(TipoFiltro == "Todos" ? "btn-dark" : "btn-outline-dark") rounded-0 fw-bold text-uppercase"
+                    @onclick='() => SetFiltro("Todos")'>
+                Todos
+            </button>
+            <button class="btn btn-sm @(TipoFiltro == "venta" ? "btn-dark" : "btn-outline-dark") rounded-0 fw-bold text-uppercase"
+                    @onclick='() => SetFiltro("venta")'>
+                <i class="bi bi-currency-dollar me-1"></i>Venta
+            </button>
+            <button class="btn btn-sm @(TipoFiltro == "transferencia" ? "btn-dark" : "btn-outline-dark") rounded-0 fw-bold text-uppercase"
+                    @onclick='() => SetFiltro("transferencia")'>
+                <i class="bi bi-arrow-left-right me-1"></i>Transferencia
+            </button>
+            <button class="btn btn-sm @(TipoFiltro == "compra" ? "btn-dark" : "btn-outline-dark") rounded-0 fw-bold text-uppercase"
+                    @onclick='() => SetFiltro("compra")'>
+                <i class="bi bi-bag me-1"></i>Compra
+            </button>
+            <button class="btn btn-sm @(TipoFiltro == "movimiento_caja" ? "btn-dark" : "btn-outline-dark") rounded-0 fw-bold text-uppercase"
+                    @onclick='() => SetFiltro("movimiento_caja")'>
+                <i class="bi bi-wallet2 me-1"></i>Caja
+            </button>
+        </div>
+
+        @* Timeline *@
+        @if (ActividadesFiltradas.Any())
+        {
+            <div class="list-group list-group-flush">
+                @foreach (var actividad in ActividadesFiltradas)
+                {
+                    <a href="@actividad.LinkUrl" class="list-group-item list-group-item-action border-dark rounded-0 py-2 px-3 mb-1"
+                       style="background-color: #f8f9fa;">
+                        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="badge rounded-0 @GetTypeBadgeClass(actividad.Tipo) text-uppercase small"
+                                      style="font-size: 0.6rem; min-width: 90px; text-align: center;">
+                                    @FormatTipo(actividad.Tipo)
+                                </span>
+                                <span class="small fw-bold text-dark">@actividad.Descripcion</span>
+                            </div>
+                            <div class="d-flex align-items-center gap-3">
+                                @if (actividad.Monto > 0)
+                                {
+                                    <span class="fw-bold @GetMontoClass(actividad.Tipo) small">
+                                        $@actividad.Monto.ToString("N0")
+                                    </span>
+                                }
+                                <span class="text-muted small font-monospace" style="font-size: 0.65rem;">
+                                    @actividad.Fecha.ToString("dd/MM HH:mm")
+                                </span>
+                            </div>
+                        </div>
+                    </a>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="text-center py-4 border border-2 border-dark bg-light">
+                <i class="bi bi-inbox text-muted fs-3"></i>
+                <p class="mt-2 fw-bold text-uppercase text-muted mb-0" style="font-size: 0.8rem;">
+                    Sin actividad para este filtro
+                </p>
+            </div>
+        }
+    }
+    else
+    {
+        @* Loading skeleton *@
+        <div class="list-group list-group-flush">
+            @for (int i = 0; i < 5; i++)
+            {
+                <div class="list-group-item border-dark rounded-0 py-3 px-3 mb-1" style="background-color: #f8f9fa;">
+                    <div class="d-flex align-items-center gap-2">
+                        <div class="bg-secondary animated pulse rounded-0" style="width: 90px; height: 24px;">&nbsp;</div>
+                        <div class="bg-secondary animated pulse rounded-0" style="width: 150px; height: 18px;">&nbsp;</div>
+                        <div class="ms-auto bg-secondary animated pulse rounded-0" style="width: 60px; height: 18px;">&nbsp;</div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public List<ActividadRecienteDto>? Actividades { get; set; }
+    [Parameter] public int? MaquinaId { get; set; }
+    [Parameter] public bool IsLoaded { get; set; }
+
+    private string TipoFiltro { get; set; } = "Todos";
+
+    private IEnumerable<ActividadRecienteDto> ActividadesFiltradas =>
+        Actividades?
+            .Where(a => TipoFiltro == "Todos" || a.Tipo == TipoFiltro)
+            .Where(a => a.Tipo != "venta" || MaquinaId == null || a.MaquinaId == MaquinaId)
+            .OrderByDescending(a => a.Fecha)
+            .Take(20)
+        ?? Enumerable.Empty<ActividadRecienteDto>();
+
+    private void SetFiltro(string tipo)
+    {
+        TipoFiltro = tipo;
+    }
+
+    private string FormatTipo(string tipo) => tipo.Replace("_", " ").ToUpper();
+
+    private string GetTypeBadgeClass(string tipo) => tipo switch
+    {
+        "venta" => "bg-success",
+        "transferencia" => "bg-primary",
+        "compra" => "bg-warning text-dark",
+        "movimiento_caja" => "bg-secondary",
+        _ => "bg-dark"
+    };
+
+    private string GetMontoClass(string tipo) => tipo switch
+    {
+        "venta" => "text-success",
+        "transferencia" => "text-primary",
+        "compra" => "text-danger",
+        "movimiento_caja" => "text-dark",
+        _ => "text-dark"
+    };
+}
