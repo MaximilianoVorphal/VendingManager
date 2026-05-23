@@ -191,6 +191,35 @@
     border-left: 4px solid #ffc107;
 }
 
+/* === NOTEBOOK 13"-14" (1200px-1400px): compact badge + prevent button wrap === */
+@media (min-width: 1200px) and (max-width: 1400px) {
+    .industrial-wrapper .pending-badge .pending-label {
+        display: none !important;
+    }
+
+    .industrial-wrapper .pending-badge .pending-count {
+        display: block !important;
+        font-size: 0.8rem !important;
+        font-weight: 900 !important;
+        line-height: 1 !important;
+        padding: 0.25rem 0.35rem !important;
+        min-width: 1.4rem !important;
+        text-align: center !important;
+    }
+
+    .industrial-wrapper .pending-badge {
+        padding: 0.1rem !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        flex-shrink: 0 !important;
+    }
+
+    .industrial-wrapper .card-header .btn-sm {
+        flex-shrink: 0 !important;
+    }
+}
+
 /* === IPAD LANDSCAPE: card grid adjustments (834px - 1194px) === */
 @media (min-width: var(--bp-md)) and (max-width: var(--bp-xl)) and (orientation: landscape) {
     /* Header: let template name take available space */
