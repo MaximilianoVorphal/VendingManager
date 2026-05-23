@@ -402,7 +402,7 @@
                                                 <div class="mb-2 flex-grow-1 d-flex align-items-center position-relative">
                                                     <select class="form-select form-select-sm border-dark shadow-none fw-bold text-start product-select"
                                                         style="height: 100%; white-space: normal; cursor: pointer; padding: 2px;"
-                                                        @bind="slot.ProductoId">
+                                                        @bind="slot.ProductoId" @bind:after="() => OnProductoChanged(slot)">
                                                         <option value="">-- SELECCIONAR --</option>
                                                         @if (ListaProductos != null)
                                                         {
@@ -1583,6 +1583,15 @@
         }
     }
 
+    private void OnProductoChanged(SnapshotSlotFormModel slot)
+    {
+        // Si el slot estaba Pendiente y el usuario seleccionó un producto → pasa a Lleno
+        if (slot.Estado == EstadoSlot.Pendiente && slot.ProductoId.HasValue && slot.ProductoId > 0)
+        {
+            slot.Estado = EstadoSlot.Lleno;
+        }
+    }
+
     private Task OnToolSelected(string tool)
     {
         _currentTool = tool;
@@ -1661,8 +1670,14 @@
                 SnapshotSlots = p.SnapshotSlots
             .Select(s =>
             {
-                // Vacío o Pendiente → limpiar producto y cantidad
-                if (s.Estado is EstadoSlot.Vacio or EstadoSlot.Pendiente)
+                // Solo limpiar Pendiente si no tiene producto seleccionado (sigue pendiente)
+                // Vacío → siempre limpiar
+                if (s.Estado == EstadoSlot.Vacio)
+                {
+                    s.ProductoId = null;
+                    s.CantidadInicial = 0;
+                }
+                else if (s.Estado == EstadoSlot.Pendiente && (!s.ProductoId.HasValue || s.ProductoId <= 0))
                 {
                     s.ProductoId = null;
                     s.CantidadInicial = 0;
