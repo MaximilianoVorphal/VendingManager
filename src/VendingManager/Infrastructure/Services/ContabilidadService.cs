@@ -265,6 +265,39 @@ public class ContabilidadService : IContabilidadService
         return result;
     }
 
+    public async Task DesvincularTransferenciaAsync(
+        int transferenciaId,
+        CancellationToken ct = default)
+    {
+        await using var transaction = await _context.Database
+            .BeginTransactionAsync(IsolationLevel.ReadCommitted, ct);
+
+        try
+        {
+            var transferencia = await _context.Transferencias
+                .Include(t => t.Compras)
+                .FirstOrDefaultAsync(t => t.Id == transferenciaId, ct)
+                ?? throw new KeyNotFoundException($"Transferencia {transferenciaId} no encontrada.");
+
+            // Unlink from rendicion
+            transferencia.RendicionId = null;
+
+            // Update estado: if no linked compras remain → Pendiente, else keep EnUso
+            transferencia.Estado = transferencia.Compras.Count == 0
+                ? TransferenciaEstado.Pendiente
+                : TransferenciaEstado.EnUso;
+
+            _context.Transferencias.Update(transferencia);
+            await _context.SaveChangesAsync(ct);
+            await transaction.CommitAsync(ct);
+        }
+        catch
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
+    }
+
     public async Task ActualizarMontoTransferenciaAsync(
         int transferenciaId,
         decimal nuevoMonto,

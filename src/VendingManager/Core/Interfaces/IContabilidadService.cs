@@ -10,4 +10,5 @@ public interface IContabilidadService
     Task<MovimientoCaja> CrearGastoVinculadoAsync(GastoVinculadoRequest request, CancellationToken ct = default);
     Task<IReadOnlyList<TrabajadorActivoDto>> GetTrabajadoresActivosAsync(CancellationToken ct = default);
     Task ActualizarMontoTransferenciaAsync(int transferenciaId, decimal nuevoMonto, CancellationToken ct = default);
+    Task DesvincularTransferenciaAsync(int transferenciaId, CancellationToken ct = default);
 }
