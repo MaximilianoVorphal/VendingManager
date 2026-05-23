@@ -10,220 +10,325 @@
         </div>
     }
 
-    <div class="row g-3">
-        @* Proveedor y Numero Documento *@
-        <div class="col-md-6">
-            <label class="fw-bold small text-uppercase mb-1 text-muted">PROVEEDOR *</label>
-            <input type="text" class="form-control border-dark rounded-0 fw-bold"
-                   @bind="Form.Proveedor" placeholder="Nombre del proveedor..." />
-        </div>
-        <div class="col-md-3">
-            <label class="fw-bold small text-uppercase mb-1 text-muted">Nº DOCUMENTO</label>
-            <input type="text" class="form-control border-dark rounded-0 fw-bold font-monospace"
-                   @bind="Form.NumeroDocumento" placeholder="F-123456" />
-        </div>
-        <div class="col-md-3">
-            <label class="fw-bold small text-uppercase mb-1 text-muted">FECHA</label>
-            <input type="date" class="form-control border-dark rounded-0 fw-bold"
-                   @bind="Form.Fecha" />
-        </div>
+    @* Toggle: Crear nueva vs Vincular existente *@
+    <div class="btn-group w-100 mb-3" role="group">
+        <button class="btn btn-@(!VincularExistente ? "dark" : "outline-dark") rounded-0 fw-bold"
+                @onclick="() => { VincularExistente = false; Error = null; }">
+            <i class="bi bi-plus-lg me-1"></i>CREAR NUEVA
+        </button>
+        <button class="btn btn-@(VincularExistente ? "dark" : "outline-dark") rounded-0 fw-bold"
+                @onclick="() => { VincularExistente = true; Error = null; }">
+            <i class="bi bi-link me-1"></i>VINCULAR EXISTENTE
+        </button>
+    </div>
 
-        @* Tipo Factura *@
-        <div class="col-md-6">
-            <label class="fw-bold small text-uppercase mb-1 text-muted">TIPO DOCUMENTO</label>
-            <select class="form-select border-dark rounded-0 fw-bold" @bind="Form.TipoFactura">
-                <option value="MERCADERIA">🛒 MERCADERÍA</option>
-                <option value="GASTO_GENERAL">⛽ GASTO GENERAL</option>
-            </select>
-        </div>
-        <div class="col-md-6 d-flex align-items-end">
-            <div class="form-check form-switch w-100">
-                <input class="form-check-input border-dark" type="checkbox" id="pagadaCaja" @bind="Form.PagadaCaja" />
-                <label class="form-check-label fw-bold small" for="pagadaCaja">PAGADA EN EFECTIVO DE LA TRANSFERENCIA</label>
+    @if (!VincularExistente)
+    {
+        <div class="row g-3">
+            @* Proveedor y Numero Documento *@
+            <div class="col-md-6">
+                <label class="fw-bold small text-uppercase mb-1 text-muted">PROVEEDOR *</label>
+                <input type="text" class="form-control border-dark rounded-0 fw-bold"
+                       @bind="Form.Proveedor" placeholder="Nombre del proveedor..." />
+            </div>
+            <div class="col-md-3">
+                <label class="fw-bold small text-uppercase mb-1 text-muted">Nº DOCUMENTO</label>
+                <input type="text" class="form-control border-dark rounded-0 fw-bold font-monospace"
+                       @bind="Form.NumeroDocumento" placeholder="F-123456" />
+            </div>
+            <div class="col-md-3">
+                <label class="fw-bold small text-uppercase mb-1 text-muted">FECHA</label>
+                <input type="date" class="form-control border-dark rounded-0 fw-bold"
+                       @bind="Form.Fecha" />
+            </div>
+
+            @* Tipo Factura *@
+            <div class="col-md-6">
+                <label class="fw-bold small text-uppercase mb-1 text-muted">TIPO DOCUMENTO</label>
+                <select class="form-select border-dark rounded-0 fw-bold" @bind="Form.TipoFactura">
+                    <option value="MERCADERIA">🛒 MERCADERÍA</option>
+                    <option value="GASTO_GENERAL">⛽ GASTO GENERAL</option>
+                </select>
+            </div>
+            <div class="col-md-6 d-flex align-items-end">
+                <div class="form-check form-switch w-100">
+                    <input class="form-check-input border-dark" type="checkbox" id="pagadaCaja" @bind="Form.PagadaCaja" />
+                    <label class="form-check-label fw-bold small" for="pagadaCaja">PAGADA EN EFECTIVO DE LA TRANSFERENCIA</label>
+                </div>
+            </div>
+
+            @* Transferencia selector *@
+            <div class="col-12">
+                <label class="fw-bold small text-uppercase mb-1 text-muted">TRANSFERENCIA A UTILIZAR *</label>
+                <select class="form-select border-dark rounded-0 fw-bold" @bind="Form.TransferenciaId">
+                    <option value="0">-- SELECCIONAR TRANSFERENCIA --</option>
+                    @foreach (var t in Transferencias.Where(t => t.Estado != TransferenciaEstado.Conciliado))
+                    {
+                        <option value="@t.Id">
+                            @t.Fecha.ToString("dd/MM") - $@t.Monto.ToString("N0")
+                            @(t.Estado == TransferenciaEstado.EnUso ? " [EN USO]" : " [PENDIENTE]")
+                        </option>
+                    }
+                </select>
             </div>
         </div>
 
-        @* Transferencia selector *@
-        <div class="col-12">
-            <label class="fw-bold small text-uppercase mb-1 text-muted">TRANSFERENCIA A UTILIZAR *</label>
-            <select class="form-select border-dark rounded-0 fw-bold" @bind="Form.TransferenciaId">
-                <option value="0">-- SELECCIONAR TRANSFERENCIA --</option>
-                @foreach (var t in Transferencias.Where(t => t.Estado != TransferenciaEstado.Conciliado))
-                {
-                    <option value="@t.Id">
-                        @t.Fecha.ToString("dd/MM") - $@t.Monto.ToString("N0")
-                        @(t.Estado == TransferenciaEstado.EnUso ? " [EN USO]" : " [PENDIENTE]")
-                    </option>
-                }
-            </select>
-        </div>
-    </div>
-
-    @* Product Search / Detail Table for MERCADERIA *@
-    @if (Form.TipoFactura == "MERCADERIA")
-    {
-        <hr class="border-dark mt-4" />
-        <div class="bg-white border border-dark p-3 mb-3">
-            <div class="row g-2 align-items-end">
-                <div class="col-md-6">
-                    <label class="fw-bold small text-uppercase mb-1 text-muted">BUSCAR PRODUCTO</label>
-                    <select class="form-select border-dark rounded-0" @bind="ProductoSeleccionadoId">
-                        <option value="0">-- SELECCIONE PRODUCTO --</option>
-                        @foreach (var p in Productos)
-                        {
-                            <option value="@p.Id">@p.Nombre (Stock: @p.StockBodega | CPP: $@p.CostoPromedio.ToString("N0"))</option>
-                        }
-                    </select>
-                </div>
-                <div class="col-md-2">
-                    <label class="fw-bold small text-uppercase mb-1 text-muted">CANTIDAD</label>
-                    <input type="number" class="form-control border-dark rounded-0 fw-bold text-center"
-                           @bind="CantidadAgregar" @bind:event="oninput" min="1" />
-                </div>
-                <div class="col-md-3">
-                    <label class="fw-bold small text-uppercase mb-1 text-muted">COSTO UNITARIO</label>
-                    <div class="input-group">
-                        <span class="input-group-text bg-dark text-white border-dark rounded-0">$</span>
-                        <input type="number" class="form-control border-dark rounded-0 font-monospace text-end"
-                               @bind="CostoUnitarioAgregar" min="0" />
+        @* Product Search / Detail Table for MERCADERIA *@
+        @if (Form.TipoFactura == "MERCADERIA")
+        {
+            <hr class="border-dark mt-4" />
+            <div class="bg-white border border-dark p-3 mb-3">
+                <div class="row g-2 align-items-end">
+                    <div class="col-md-6">
+                        <label class="fw-bold small text-uppercase mb-1 text-muted">BUSCAR PRODUCTO</label>
+                        <select class="form-select border-dark rounded-0" @bind="ProductoSeleccionadoId">
+                            <option value="0">-- SELECCIONE PRODUCTO --</option>
+                            @foreach (var p in Productos)
+                            {
+                                <option value="@p.Id">@p.Nombre (Stock: @p.StockBodega | CPP: $@p.CostoPromedio.ToString("N0"))</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="fw-bold small text-uppercase mb-1 text-muted">CANTIDAD</label>
+                        <input type="number" class="form-control border-dark rounded-0 fw-bold text-center"
+                               @bind="CantidadAgregar" @bind:event="oninput" min="1" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="fw-bold small text-uppercase mb-1 text-muted">COSTO UNITARIO</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-dark text-white border-dark rounded-0">$</span>
+                            <input type="number" class="form-control border-dark rounded-0 font-monospace text-end"
+                                   @bind="CostoUnitarioAgregar" min="0" />
+                        </div>
+                    </div>
+                    <div class="col-md-1 d-grid">
+                        <button class="btn btn-outline-dark rounded-0 fw-bold"
+                                @onclick="AgregarDetalle"
+                                disabled="@(ProductoSeleccionadoId == 0)">
+                            <i class="bi bi-plus-lg"></i>
+                        </button>
                     </div>
                 </div>
-                <div class="col-md-1 d-grid">
-                    <button class="btn btn-outline-dark rounded-0 fw-bold"
-                            @onclick="AgregarDetalle"
-                            disabled="@(ProductoSeleccionadoId == 0)">
-                        <i class="bi bi-plus-lg"></i>
+            </div>
+
+            @* Detail Table *@
+            @if (Form.Detalles.Any())
+            {
+                <div class="table-responsive">
+                    <table class="table table-bordered border-dark table-hover align-middle mb-0">
+                        <thead class="bg-secondary text-white text-uppercase small fw-bold text-center">
+                            <tr>
+                                <th class="text-start">PRODUCTO</th>
+                                <th style="width: 80px;">CANT</th>
+                                <th style="width: 130px;">COSTO UNIT.</th>
+                                <th style="width: 130px;">SUBTOTAL</th>
+                                <th style="width: 50px;"></th>
+                            </tr>
+                        </thead>
+                        <tbody class="fw-bold" style="font-size: 0.85rem;">
+                            @foreach (var d in Form.Detalles)
+                            {
+                                <tr>
+                                    <td>@d.ProductoNombre</td>
+                                    <td class="text-center font-monospace">@d.Cantidad</td>
+                                    <td class="text-end font-monospace">$@d.CostoUnitario.ToString("N0")</td>
+                                    <td class="text-end text-success font-monospace">$@((d.Cantidad * d.CostoUnitario).ToString("N0"))</td>
+                                    <td class="text-center">
+                                        <button class="btn btn-sm btn-outline-danger border-dark rounded-0"
+                                                @onclick="() => EliminarDetalle(d)">
+                                            <i class="bi bi-trash-fill"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                        <tfoot class="bg-light">
+                            <tr>
+                                <td colspan="3" class="text-end fw-bold text-uppercase">TOTAL:</td>
+                                <td class="text-end fw-bold font-monospace text-success fs-5">$@Total.ToString("N0")</td>
+                                <td></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            }
+        }
+        else
+        {
+            @* Simple expense mode *@
+            <hr class="border-dark mt-4" />
+            <div class="row g-3">
+                <div class="col-md-8">
+                    <label class="fw-bold small text-uppercase mb-1 text-muted">DESCRIPCIÓN DEL GASTO</label>
+                    <input type="text" class="form-control border-dark rounded-0 fw-bold"
+                           @bind="Form.DescripcionGasto" placeholder="Ej: Bencina Camioneta" />
+                </div>
+                <div class="col-md-4">
+                    <label class="fw-bold small text-uppercase mb-1 text-muted">MONTO $</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-dark text-white border-dark rounded-0">$</span>
+                        <input type="number" class="form-control border-dark rounded-0 font-monospace text-end fs-5"
+                               @bind="GastoMonto" min="0" />
+                    </div>
+                </div>
+            </div>
+        }
+
+        @* Invoice upload section *@
+        <div class="mt-4 p-3 border border-dark rounded-0 bg-light">
+            <label class="fw-bold small text-uppercase mb-1 text-muted">📎 FACTURA (OPCIONAL)</label>
+            <div class="d-flex gap-2 align-items-center flex-wrap">
+                <label class="btn btn-outline-dark rounded-0 fw-bold mb-0" style="cursor:pointer;">
+                    <i class="bi bi-paperclip me-1"></i>
+                    @if (string.IsNullOrEmpty(FacturaFileName))
+                    {
+                        <span>SELECCIONAR ARCHIVO</span>
+                    }
+                    else
+                    {
+                        <span>CAMBIAR ARCHIVO</span>
+                    }
+                    <InputFile OnChange="HandleFileSelected" accept=".jpg,.jpeg,.png,.pdf" style="display: none;" />
+                </label>
+                @if (!string.IsNullOrEmpty(FacturaFileName))
+                {
+                    <span class="fw-bold small text-muted"><i class="bi bi-file-earmark me-1"></i>@FacturaFileName</span>
+                    <button class="btn btn-sm btn-outline-danger rounded-0" @onclick="ClearFactura" title="Quitar archivo">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                }
+            </div>
+            @if (!string.IsNullOrEmpty(FacturaPreviewUrl))
+            {
+                <div class="mt-2">
+                    @if (FacturaFileName?.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase) == true)
+                    {
+                        <a href="@FacturaPreviewUrl" target="_blank" class="btn btn-sm btn-outline-dark rounded-0">
+                            <i class="bi bi-file-earmark-pdf-fill text-danger me-1"></i> Ver PDF seleccionado
+                        </a>
+                    }
+                    else
+                    {
+                        <img src="@FacturaPreviewUrl" class="img-thumbnail border-dark" style="max-height: 80px; object-fit: cover;" />
+                    }
+                </div>
+            }
+            @if (FacturaUploadError != null)
+            {
+                <div class="text-warning fw-bold small mt-1">
+                    <i class="bi bi-exclamation-triangle me-1"></i>@FacturaUploadError
+                </div>
+            }
+        </div>
+
+        @* Submit button *@
+        <div class="mt-4">
+            <button class="btn btn-dark rounded-0 fw-bold w-100 py-2"
+                    @onclick="RegistrarCompra"
+                    disabled="@(Enviando || !PuedeRegistrar)">
+                @if (Enviando)
+                {
+                    <span class="spinner-border spinner-border-sm me-2"></span>
+                }
+                else
+                {
+                    <i class="bi bi-check-lg me-2"></i>
+                }
+                REGISTRAR COMPRA
+            </button>
+        </div>
+    }
+    else
+    {
+        @* ===== VINCULAR EXISTENTE: SEARCH & LINK ===== *@
+        <div class="bg-white border border-dark p-3 mb-3">
+            <div class="row g-2 align-items-end">
+                <div class="col-md-5">
+                    <label class="fw-bold small text-uppercase mb-1 text-muted">PROVEEDOR</label>
+                    <input type="text" class="form-control border-dark rounded-0" @bind="LinkSearch.Proveedor" placeholder="Buscar proveedor..." />
+                </div>
+                <div class="col-md-4">
+                    <label class="fw-bold small text-uppercase mb-1 text-muted">Nº DOCUMENTO</label>
+                    <input type="text" class="form-control border-dark rounded-0" @bind="LinkSearch.NumeroDocumento" placeholder="N° documento..." />
+                </div>
+                <div class="col-md-3 d-grid">
+                    <button class="btn btn-outline-dark rounded-0 fw-bold" @onclick="BuscarComprasNoVinculadas" disabled="@LinkBuscando">
+                        @if (LinkBuscando)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        else
+                        {
+                            <i class="bi bi-search me-1"></i>
+                        }
+                        BUSCAR
                     </button>
                 </div>
             </div>
         </div>
 
-        @* Detail Table *@
-        @if (Form.Detalles.Any())
+        @if (LinkError != null)
         {
-            <div class="table-responsive">
-                <table class="table table-bordered border-dark table-hover align-middle mb-0">
-                    <thead class="bg-secondary text-white text-uppercase small fw-bold text-center">
-                        <tr>
-                            <th class="text-start">PRODUCTO</th>
-                            <th style="width: 80px;">CANT</th>
-                            <th style="width: 130px;">COSTO UNIT.</th>
-                            <th style="width: 130px;">SUBTOTAL</th>
-                            <th style="width: 50px;"></th>
-                        </tr>
-                    </thead>
-                    <tbody class="fw-bold" style="font-size: 0.85rem;">
-                        @foreach (var d in Form.Detalles)
-                        {
-                            <tr>
-                                <td>@d.ProductoNombre</td>
-                                <td class="text-center font-monospace">@d.Cantidad</td>
-                                <td class="text-end font-monospace">$@d.CostoUnitario.ToString("N0")</td>
-                                <td class="text-end text-success font-monospace">$@((d.Cantidad * d.CostoUnitario).ToString("N0"))</td>
-                                <td class="text-center">
-                                    <button class="btn btn-sm btn-outline-danger border-dark rounded-0"
-                                            @onclick="() => EliminarDetalle(d)">
-                                        <i class="bi bi-trash-fill"></i>
-                                    </button>
-                                </td>
-                            </tr>
-                        }
-                    </tbody>
-                    <tfoot class="bg-light">
-                        <tr>
-                            <td colspan="3" class="text-end fw-bold text-uppercase">TOTAL:</td>
-                            <td class="text-end fw-bold font-monospace text-success fs-5">$@Total.ToString("N0")</td>
-                            <td></td>
-                        </tr>
-                    </tfoot>
-                </table>
+            <div class="alert alert-danger border-dark rounded-0 fw-bold small py-2 mb-3">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i>@LinkError
             </div>
         }
-    }
-    else
-    {
-        @* Simple expense mode *@
-        <hr class="border-dark mt-4" />
-        <div class="row g-3">
-            <div class="col-md-8">
-                <label class="fw-bold small text-uppercase mb-1 text-muted">DESCRIPCIÓN DEL GASTO</label>
-                <input type="text" class="form-control border-dark rounded-0 fw-bold"
-                       @bind="Form.DescripcionGasto" placeholder="Ej: Bencina Camioneta" />
-            </div>
-            <div class="col-md-4">
-                <label class="fw-bold small text-uppercase mb-1 text-muted">MONTO $</label>
-                <div class="input-group">
-                    <span class="input-group-text bg-dark text-white border-dark rounded-0">$</span>
-                    <input type="number" class="form-control border-dark rounded-0 font-monospace text-end fs-5"
-                           @bind="GastoMonto" min="0" />
+
+        @if (ComprasNoVinculadas != null)
+        {
+            @if (!ComprasNoVinculadas.Any())
+            {
+                <div class="text-center text-muted p-4 border border-dark bg-white">
+                    No se encontraron compras sin vincular.
                 </div>
-            </div>
-        </div>
-    }
-
-    @* Invoice upload section *@
-    <div class="mt-4 p-3 border border-dark rounded-0 bg-light">
-        <label class="fw-bold small text-uppercase mb-1 text-muted">📎 FACTURA (OPCIONAL)</label>
-        <div class="d-flex gap-2 align-items-center flex-wrap">
-            <label class="btn btn-outline-dark rounded-0 fw-bold mb-0" style="cursor:pointer;">
-                <i class="bi bi-paperclip me-1"></i>
-                @if (string.IsNullOrEmpty(FacturaFileName))
-                {
-                    <span>SELECCIONAR ARCHIVO</span>
-                }
-                else
-                {
-                    <span>CAMBIAR ARCHIVO</span>
-                }
-                <InputFile OnChange="HandleFileSelected" accept=".jpg,.jpeg,.png,.pdf" style="display: none;" />
-            </label>
-            @if (!string.IsNullOrEmpty(FacturaFileName))
-            {
-                <span class="fw-bold small text-muted"><i class="bi bi-file-earmark me-1"></i>@FacturaFileName</span>
-                <button class="btn btn-sm btn-outline-danger rounded-0" @onclick="ClearFactura" title="Quitar archivo">
-                    <i class="bi bi-x-lg"></i>
-                </button>
-            }
-        </div>
-        @if (!string.IsNullOrEmpty(FacturaPreviewUrl))
-        {
-            <div class="mt-2">
-                @if (FacturaFileName?.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase) == true)
-                {
-                    <a href="@FacturaPreviewUrl" target="_blank" class="btn btn-sm btn-outline-dark rounded-0">
-                        <i class="bi bi-file-earmark-pdf-fill text-danger me-1"></i> Ver PDF seleccionado
-                    </a>
-                }
-                else
-                {
-                    <img src="@FacturaPreviewUrl" class="img-thumbnail border-dark" style="max-height: 80px; object-fit: cover;" />
-                }
-            </div>
-        }
-        @if (FacturaUploadError != null)
-        {
-            <div class="text-warning fw-bold small mt-1">
-                <i class="bi bi-exclamation-triangle me-1"></i>@FacturaUploadError
-            </div>
-        }
-    </div>
-
-    @* Submit button *@
-    <div class="mt-4">
-        <button class="btn btn-dark rounded-0 fw-bold w-100 py-2"
-                @onclick="RegistrarCompra"
-                disabled="@(Enviando || !PuedeRegistrar)">
-            @if (Enviando)
-            {
-                <span class="spinner-border spinner-border-sm me-2"></span>
             }
             else
             {
-                <i class="bi bi-check-lg me-2"></i>
+                <div class="table-responsive">
+                    <table class="table table-bordered border-dark table-hover align-middle mb-0">
+                        <thead class="bg-secondary text-white text-uppercase small fw-bold text-center">
+                            <tr>
+                                <th>FECHA</th>
+                                <th>Nº FACTURA</th>
+                                <th>PROVEEDOR</th>
+                                <th class="text-end">MONTO</th>
+                                <th>TRANSFERENCIA</th>
+                                <th class="text-center">ACCIÓN</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white fw-bold" style="font-size: 0.85rem;">
+                            @foreach (var c in ComprasNoVinculadas)
+                            {
+                                <tr>
+                                    <td>@c.FechaCompra.ToString("dd/MM/yyyy")</td>
+                                    <td><span class="font-monospace">@(string.IsNullOrEmpty(c.NumeroDocumento) ? "S/N" : c.NumeroDocumento)</span></td>
+                                    <td>@c.Proveedor</td>
+                                    <td class="text-end text-danger font-monospace">$@c.MontoTotal.ToString("N0")</td>
+                                    <td>
+                                        <select class="form-select form-select-sm border-dark rounded-0" @bind="compraLinkTransferenciaId">
+                                            <option value="0">-- SEL. TRANSF. --</option>
+                                            @foreach (var t in Transferencias.Where(t => t.Estado != TransferenciaEstado.Conciliado))
+                                            {
+                                                <option value="@t.Id">@t.Fecha.ToString("dd/MM") - $@t.Monto.ToString("N0")</option>
+                                            }
+                                        </select>
+                                    </td>
+                                    <td class="text-center">
+                                        <button class="btn btn-sm btn-success rounded-0 fw-bold border-dark"
+                                                @onclick="() => VincularCompra(c.Id)"
+                                                disabled="@(compraLinkTransferenciaId == 0 || LinkEnviando)">
+                                            <i class="bi bi-link"></i> VINCULAR
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
             }
-            REGISTRAR COMPRA
-        </button>
-    </div>
+        }
+    }
 </div>
 
 @code {
@@ -247,6 +352,15 @@
     private byte[]? FacturaPreviewBytes;
     private string? FacturaFileName;
     private string? FacturaUploadError;
+
+    // Linking state
+    private bool VincularExistente { get; set; }
+    private LinkCompraSearch LinkSearch { get; set; } = new();
+    private List<CompraDto>? ComprasNoVinculadas { get; set; }
+    private int compraLinkTransferenciaId { get; set; }
+    private bool LinkBuscando { get; set; }
+    private bool LinkEnviando { get; set; }
+    private string? LinkError { get; set; }
 
     private decimal Total => Form.TipoFactura == "MERCADERIA"
         ? Form.Detalles.Sum(d => d.Cantidad * d.CostoUnitario)
@@ -417,6 +531,80 @@
         }
     }
 
+    // ====== VINCULAR EXISTENTE METHODS ======
+    private async Task BuscarComprasNoVinculadas()
+    {
+        try
+        {
+            LinkBuscando = true;
+            LinkError = null;
+
+            var url = "api/rendicion/compras-no-vinculadas";
+            if (!string.IsNullOrWhiteSpace(LinkSearch.Proveedor))
+                url += $"?proveedor={Uri.EscapeDataString(LinkSearch.Proveedor)}";
+            if (!string.IsNullOrWhiteSpace(LinkSearch.NumeroDocumento))
+                url += $"{(LinkSearch.Proveedor != null ? "&" : "?")}numeroDocumento={Uri.EscapeDataString(LinkSearch.NumeroDocumento)}";
+
+            ComprasNoVinculadas = await Http.GetFromJsonAsync<List<CompraDto>>(url) ?? new();
+        }
+        catch (Exception ex)
+        {
+            LinkError = $"Error al buscar compras: {ex.Message}";
+        }
+        finally
+        {
+            LinkBuscando = false;
+        }
+    }
+
+    private async Task VincularCompra(int compraId)
+    {
+        if (compraLinkTransferenciaId == 0)
+        {
+            LinkError = "Debe seleccionar una transferencia.";
+            return;
+        }
+
+        try
+        {
+            LinkEnviando = true;
+            LinkError = null;
+
+            var request = new LinkCompraRequest { CompraId = compraId, TransferenciaId = compraLinkTransferenciaId };
+            var response = await Http.PostAsJsonAsync($"api/rendicion/{RendicionId}/link-compra", request);
+            if (response.IsSuccessStatusCode)
+            {
+                // Find the linked compra in search results and update TransferenciaId
+                var linked = ComprasNoVinculadas?.FirstOrDefault(c => c.Id == compraId);
+                if (linked != null)
+                {
+                    linked.TransferenciaId = compraLinkTransferenciaId;
+                    await OnCompraCreated.InvokeAsync(linked);
+                }
+
+                // Reset search state
+                ComprasNoVinculadas = null;
+                compraLinkTransferenciaId = 0;
+                LinkSearch = new();
+                VincularExistente = false;
+                Error = null;
+            }
+            else
+            {
+                var errBody = await response.Content.ReadAsStringAsync();
+                LinkError = $"Error al vincular compra: {errBody}";
+            }
+        }
+        catch (Exception ex)
+        {
+            LinkError = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            LinkEnviando = false;
+        }
+    }
+
     private async Task HandleFileSelected(InputFileChangeEventArgs e)
     {
         Error = null;
@@ -533,5 +721,11 @@
         public string ProductoNombre { get; set; } = string.Empty;
         public int Cantidad { get; set; }
         public decimal CostoUnitario { get; set; }
+    }
+
+    private class LinkCompraSearch
+    {
+        public string? Proveedor { get; set; }
+        public string? NumeroDocumento { get; set; }
     }
 }
