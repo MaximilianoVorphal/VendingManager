@@ -1,0 +1,482 @@
+@page "/contabilidad"
+@using VendingManager.Shared.DTOs
+@using VendingManager.Shared.Enums
+@using VendingManager.Web.Pages.Contabilidad.State
+@using VendingManager.Web.Components.Contabilidad
+@inject HttpClient Http
+@inject NavigationManager Navigation
+
+<PageTitle>CONTABILIDAD UNIFICADA</PageTitle>
+
+<div class="industrial-wrapper container-fluid px-4 mt-4">
+
+    @* ====== HEADER ====== *@
+    <div class="row align-items-center mb-4 border-bottom border-3 border-dark pb-3">
+        <div class="col-12 d-flex justify-content-between align-items-center flex-wrap gap-3">
+            <div>
+                <h2 class="m-0 fw-bold text-uppercase" style="letter-spacing: -1px;">CONTABILIDAD UNIFICADA</h2>
+                <small class="text-muted fw-bold">GESTIÓN DE RENDICIONES POR TRABAJADOR</small>
+            </div>
+            @if (State.ActiveRendicion != null)
+            {
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge bg-dark rounded-0 fw-bold text-uppercase">
+                        <i class="bi bi-person"></i> @State.ActiveRendicion.Trabajador.ToUpper()
+                    </span>
+                    <span class="badge bg-secondary rounded-0 fw-bold text-uppercase">
+                        DESDE @State.ActiveRendicion.FechaInicio.ToString("dd/MM/yyyy")
+                    </span>
+                </div>
+            }
+        </div>
+    </div>
+
+    @* ====== STEP PROGRESS INDICATOR ====== *@
+    @if (State.ActiveRendicion != null)
+    {
+        <div class="d-flex gap-1 mb-4 flex-wrap">
+            @for (int i = 1; i <= 5; i++)
+            {
+                <button class="btn btn-sm fw-bold rounded-0 px-3 py-2 border-2 border-dark"
+                        style="@(State.CurrentStep == i ? "background-color: var(--industrial-black); color: var(--industrial-white);" : "background-color: var(--industrial-gray-100); color: var(--industrial-black);")"
+                        @onclick="() => IrAlPaso(i)"
+                        disabled="@(i > State.CurrentStep && ! PuedeIrAlPaso(i))">
+                    @if (State.CurrentStep == i)
+                    {
+                        <span>▶ </span>
+                    }
+                    [@i] @i switch { 1 => "TRANSFERENCIA", 2 => "COMPRA", 3 => "GASTO", 4 => "CUADRAR", 5 => "CERRAR", _ => "" }
+                </button>
+            }
+        </div>
+    }
+
+    @* ====== ERROR / SUCCESS ALERTS ====== *@
+    @if (!string.IsNullOrEmpty(Error))
+    {
+        <div class="alert alert-danger border-dark rounded-0 fw-bold mb-4 shadow-sm">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i> @Error
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(SuccessMessage))
+    {
+        <div class="alert alert-success border-dark rounded-0 fw-bold mb-4 shadow-sm">
+            <i class="bi bi-check-circle-fill me-2"></i> @SuccessMessage
+        </div>
+    }
+
+    @* ====== MAIN LAYOUT ====== *@
+    @if (State.ActiveRendicion == null && !Cargando)
+    {
+        @* ====== NO RENDICION: SHOW WORKER SELECTOR ====== *@
+        <div class="row">
+            <div class="col-lg-8 mx-auto">
+                <div class="card border-2 border-dark rounded-0 shadow my-4">
+                    <div class="card-header bg-dark text-white rounded-0 fw-bold">
+                        <i class="bi bi-person-check me-2"></i>SELECCIONAR TRABAJADOR
+                    </div>
+                    <div class="card-body bg-light p-4">
+                        <p class="text-muted fw-bold mb-4">
+                            Seleccioná un trabajador para comenzar a registrar su rendición de caja.
+                            Si no existe una rendición abierta, se creará una nueva automáticamente.
+                        </p>
+
+                        @if (Workers.Any())
+                        {
+                            <div class="list-group">
+                                @foreach (var w in Workers)
+                                {
+                                    <button class="list-group-item list-group-item-action fw-bold border-dark rounded-0 mb-1 text-start"
+                                            style="cursor: pointer;"
+                                            @onclick="() => SeleccionarTrabajador(w.Nombre)">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <i class="bi bi-person me-2"></i>@w.Nombre.ToUpper()
+                                            </div>
+                                            <div class="d-flex gap-2">
+                                                @if (w.RendicionActivaId.HasValue)
+                                                {
+                                                    <span class="badge bg-primary rounded-0">RENDICIÓN #@w.RendicionActivaId</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="badge bg-success rounded-0">NUEVA RENDICIÓN</span>
+                                                }
+                                                @if (w.RendicionesAbiertas > 1)
+                                                {
+                                                    <span class="badge bg-warning text-dark rounded-0">+@(w.RendicionesAbiertas - 1)</span>
+                                                }
+                                            </div>
+                                        </div>
+                                    </button>
+                                }
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="text-center text-muted p-4">
+                                <i class="bi bi-people display-4 mb-3"></i>
+                                <p>No hay trabajadores con rendiciones abiertas.</p>
+                                <p class="small">Creá una nueva rendición desde el módulo RENDICIONES.</p>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+    else if (Cargando)
+    {
+        <div class="row">
+            <div class="col-12 text-center p-5">
+                <div class="spinner-border text-dark mb-3" role="status"></div>
+                <p class="fw-bold text-muted">CARGANDO DATOS DE RENDICIÓN...</p>
+            </div>
+        </div>
+    }
+    else
+    {
+        @* ====== TWO-COLUMN WORK LAYOUT ====== *@
+        <div class="row g-4">
+
+            @* ====== LEFT: WORK AREA (70%) ====== *@
+            <div class="col-lg-8">
+
+                @* STEP 1: Transferencia Form *@
+                @if (State.CurrentStep == 1)
+                {
+                    <div class="card border-2 border-dark rounded-0 shadow mb-4">
+                        <div class="card-header bg-dark text-white rounded-0 fw-bold d-flex justify-content-between align-items-center">
+                            <span><i class="bi bi-bank me-2"></i>REGISTRAR TRANSFERENCIA</span>
+                            <span class="badge bg-light text-dark rounded-0">PASO 1 DE 5</span>
+                        </div>
+                        <div class="card-body bg-light">
+                            <TransferenciaForm OnTransferenciaCreated="OnTransferenciaCreada" 
+                                        Trabajador="@State.ActiveRendicion!.Trabajador"
+                                        RendicionId="@State.ActiveRendicion!.Id" />
+                        </div>
+                    </div>
+                }
+
+                @* STEP 2: Compra Form *@
+                @if (State.CurrentStep == 2)
+                {
+                    <div class="card border-2 border-dark rounded-0 shadow mb-4">
+                        <div class="card-header bg-dark text-white rounded-0 fw-bold d-flex justify-content-between align-items-center">
+                            <span><i class="bi bi-cart4 me-2"></i>REGISTRAR COMPRA VINCULADA</span>
+                            <span class="badge bg-light text-dark rounded-0">PASO 2 DE 5</span>
+                        </div>
+                        <div class="card-body bg-light">
+                            <CompraForm OnCompraCreated="OnCompraCreada" Trabajador="@State.ActiveRendicion!.Trabajador"
+                                        Transferencias="@State.Transferencias" />
+                        </div>
+                    </div>
+                }
+
+                @* STEP 3: Gasto Form *@
+                @if (State.CurrentStep == 3)
+                {
+                    <div class="card border-2 border-dark rounded-0 shadow mb-4">
+                        <div class="card-header bg-dark text-white rounded-0 fw-bold d-flex justify-content-between align-items-center">
+                            <span><i class="bi bi-fuel-pump me-2"></i>REGISTRAR GASTO</span>
+                            <span class="badge bg-light text-dark rounded-0">PASO 3 DE 5</span>
+                        </div>
+                        <div class="card-body bg-light">
+                            <GastoForm OnGastoCreated="OnGastoCreado" RendicionId="@State.ActiveRendicion!.Id" />
+                        </div>
+                    </div>
+                }
+
+                @* STEP 4: Cuadrar View *@
+                @if (State.CurrentStep == 4)
+                {
+                    <CuadrarView Transferencias="@State.Transferencias"
+                                 Compras="@State.Compras"
+                                 Gastos="@State.Gastos"
+                                 OnItemUpdated="OnItemActualizado"
+                                 OnAvanzar="() => IrAlPaso(5)" />
+                }
+
+                @* STEP 5: Cerrar Rendicion *@
+                @if (State.CurrentStep == 5)
+                {
+                    <div class="card border-2 border-dark rounded-0 shadow mb-4">
+                        <div class="card-header bg-dark text-white rounded-0 fw-bold">
+                            <i class="bi bi-lock-fill me-2"></i>CERRAR RENDICIÓN
+                        </div>
+                        <div class="card-body bg-light text-center p-5">
+                            @if (State.Diferencia == 0)
+                            {
+                                <div class="display-1 mb-3">✅</div>
+                                <h3 class="fw-bold text-success">¡RENDICIÓN CUADRADA!</h3>
+                                <p class="text-muted fw-bold mb-4">La rendición está perfectamente cuadrada. Podés cerrarla sin problemas.</p>
+                            }
+                            else if (State.Diferencia > 0)
+                            {
+                                <div class="display-1 mb-3">⚠️</div>
+                                <h3 class="fw-bold text-warning">DIFERENCIA POSITIVA</h3>
+                                <p class="text-muted fw-bold mb-4">
+                                    El trabajador debe <strong class="text-danger">$@State.Diferencia.ToString("N0")</strong>.
+                                    Verificá que los montos estén correctos antes de cerrar.
+                                </p>
+                            }
+                            else
+                            {
+                                <div class="display-1 mb-3">⚠️</div>
+                                <h3 class="fw-bold text-danger">DIFERENCIA NEGATIVA</h3>
+                                <p class="text-muted fw-bold mb-4">
+                                    Se le debe al trabajador <strong class="text-success">$@Math.Abs(State.Diferencia).ToString("N0")</strong>.
+                                    Verificá que los montos estén correctos antes de cerrar.
+                                </p>
+                            }
+
+                            <div class="d-flex gap-3 justify-content-center mt-4">
+                                <button class="btn btn-outline-dark rounded-0 fw-bold px-4"
+                                        @onclick="() => IrAlPaso(4)">
+                                    <i class="bi bi-arrow-left me-2"></i>VOLVER A CUADRAR
+                                </button>
+                                <button class="btn btn-warning rounded-0 fw-bold px-4"
+                                        @onclick="CerrarRendicion"
+                                        disabled="@CerrandoRendicion">
+                                    @if (CerrandoRendicion)
+                                    {
+                                        <span class="spinner-border spinner-border-sm me-2"></span>
+                                    }
+                                    else
+                                    {
+                                        <i class="bi bi-lock-fill me-2"></i>
+                                    }
+                                    CERRAR RENDICIÓN
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+
+            @* ====== RIGHT: STICKY RECONCILIATION PANEL (30%) ====== *@
+            <div class="col-lg-4">
+                <div class="position-sticky" style="top: 1rem;">
+                    <ReconciliationPanel State="@State" OnCerrar="() => IrAlPaso(5)" />
+                </div>
+            </div>
+        </div>
+    }
+
+</div>
+
+@code {
+    [SupplyParameterFromQuery(Name = "rendicionId")]
+    public int? QueryRendicionId { get; set; }
+
+    public ContabilidadPageState State { get; set; } = new();
+    public List<TrabajadorActivoDto> Workers { get; set; } = new();
+    private bool Cargando { get; set; } = true;
+    private bool CerrandoRendicion { get; set; }
+    private string? Error { get; set; }
+    private string? SuccessMessage { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (QueryRendicionId.HasValue)
+        {
+            await CargarRendicion(QueryRendicionId.Value);
+        }
+        else
+        {
+            await CargarTrabajadoresActivos();
+            Cargando = false;
+        }
+    }
+
+    private async Task CargarRendicion(int rendicionId)
+    {
+        try
+        {
+            Cargando = true;
+            Error = null;
+            var full = await Http.GetFromJsonAsync<RendicionFullDto>($"api/rendicion/{rendicionId}/full");
+            if (full == null)
+            {
+                Error = "Rendición no encontrada.";
+                Cargando = false;
+                return;
+            }
+
+            State.ActiveRendicion = full;
+            State.SelectedWorker = full.Trabajador;
+            State.Transferencias = full.Transferencias ?? new();
+            State.Compras = full.Transferencias?.SelectMany(t => t.Compras).ToList() ?? new();
+            State.Gastos = full.Gastos ?? new();
+            State.LiveReconciliation = full.Resumen;
+            State.Recalcular();
+            Cargando = false;
+        }
+        catch (Exception ex)
+        {
+            Error = $"Error al cargar rendición: {ex.Message}";
+            Cargando = false;
+        }
+    }
+
+    private async Task CargarTrabajadoresActivos()
+    {
+        try
+        {
+            Workers = await Http.GetFromJsonAsync<List<TrabajadorActivoDto>>("api/contabilidad/trabajadores-activos") ?? new();
+        }
+        catch
+        {
+            Error = "No se pudieron cargar los trabajadores activos.";
+        }
+    }
+
+    private async Task SeleccionarTrabajador(string nombre)
+    {
+        Error = null;
+        SuccessMessage = null;
+
+        // Check if worker has an open rendicion
+        var trabajador = Workers.FirstOrDefault(w => w.Nombre == nombre);
+        if (trabajador?.RendicionActivaId.HasValue == true)
+        {
+            await CargarRendicion(trabajador.RendicionActivaId.Value);
+        }
+        else
+        {
+            // Create a new rendicion
+            try
+            {
+                var request = new CreateRendicionRequest
+                {
+                    Trabajador = nombre,
+                    FechaInicio = DateTime.Today
+                };
+                var response = await Http.PostAsJsonAsync("api/rendicion", request);
+                if (response.IsSuccessStatusCode)
+                {
+                    var nueva = await response.Content.ReadFromJsonAsync<RendicionDto>();
+                    if (nueva != null)
+                    {
+                        await CargarRendicion(nueva.Id);
+                    }
+                }
+                else
+                {
+                    Error = "Error al crear rendición: " + await response.Content.ReadAsStringAsync();
+                    await CargarTrabajadoresActivos();
+                    Cargando = false;
+                }
+            }
+            catch (Exception ex)
+            {
+                Error = $"Error al crear rendición: {ex.Message}";
+                Cargando = false;
+            }
+        }
+    }
+
+    private async Task IrAlPaso(int paso)
+    {
+        State.IrAlPaso(paso);
+        await Task.CompletedTask;
+    }
+
+    private bool PuedeIrAlPaso(int paso)
+    {
+        // Can always go back, or to current step
+        return paso <= State.CurrentStep;
+    }
+
+    private async Task OnTransferenciaCreada(TransferenciaDto t)
+    {
+        State.Transferencias.Add(t);
+        State.Recalcular();
+        SuccessMessage = $"Transferencia ${t.Monto.ToString("N0")} registrada para {t.Trabajador}.";
+        Error = null;
+        await Task.CompletedTask;
+    }
+
+    private async Task OnCompraCreada(CompraDto c)
+    {
+        // Find the transferencia this compra belongs to and add it
+        // The service already linked it, we just need to add to the correct transferencia
+        var transferencia = State.Transferencias.FirstOrDefault(t => t.Compras.Any(comp => comp.Id == c.Id));
+        if (transferencia != null)
+        {
+            // Update the transferencia's compras list
+            var existingIdx = State.Transferencias.FindIndex(t => t.Id == transferencia.Id);
+            if (existingIdx >= 0)
+            {
+                var updated = State.Transferencias[existingIdx];
+                updated.Compras.Add(c);
+                State.Transferencias[existingIdx] = updated;
+            }
+        }
+        else
+        {
+            State.Compras.Add(c);
+        }
+        State.Recalcular();
+        SuccessMessage = $"Compra a {c.Proveedor} por ${c.MontoTotal.ToString("N0")} registrada.";
+        Error = null;
+        await Task.CompletedTask;
+    }
+
+    private async Task OnGastoCreado(MovimientoCajaDto g)
+    {
+        State.Gastos.Add(g);
+        State.Recalcular();
+        SuccessMessage = $"Gasto {g.Categoria} por ${Math.Abs(g.Monto).ToString("N0")} registrado.";
+        Error = null;
+        await Task.CompletedTask;
+    }
+
+    private async Task OnItemActualizado()
+    {
+        // Recalculate from current state
+        State.Recalcular();
+        await Task.CompletedTask;
+    }
+
+    private async Task CerrarRendicion()
+    {
+        if (State.ActiveRendicion == null) return;
+
+        // Check if all transferencias are conciliado
+        var pendiente = State.Transferencias.Where(t => t.Estado != TransferenciaEstado.Conciliado).ToList();
+        if (pendiente.Any())
+        {
+            Error = $"Hay {pendiente.Count} transferencia(s) no conciliada(s). Cuadrá antes de cerrar.";
+            await Task.CompletedTask;
+            return;
+        }
+
+        try
+        {
+            CerrandoRendicion = true;
+            Error = null;
+            var response = await Http.PostAsync($"api/rendicion/{State.ActiveRendicion.Id}/cerrar", null);
+            if (response.IsSuccessStatusCode)
+            {
+                SuccessMessage = "Rendición cerrada exitosamente.";
+                State.Limpiar();
+                await CargarTrabajadoresActivos();
+                Cargando = false;
+            }
+            else
+            {
+                Error = "Error al cerrar rendición: " + await response.Content.ReadAsStringAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            Error = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            CerrandoRendicion = false;
+        }
+    }
+}
