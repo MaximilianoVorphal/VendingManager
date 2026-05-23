@@ -9,67 +9,161 @@
         </div>
     }
 
-    @* Category Quick-Select Chips *@
-    <div class="mb-4">
-        <label class="fw-bold small text-uppercase mb-2 text-muted d-block">CATEGORÍA RÁPIDA</label>
-        <div class="d-flex gap-2 flex-wrap">
-            @foreach (var cat in Categorias)
-            {
-                <button class="btn btn-sm fw-bold rounded-0 px-3 py-2 border-2 border-dark"
-                        style="@(Form.Categoria == cat.Nombre ? $"background-color: {cat.Color}; color: white;" : "background-color: var(--industrial-gray-100); color: var(--industrial-black);")"
-                        @onclick="() => SeleccionarCategoria(cat.Nombre)"
-                        type="button">
-                    @cat.Icono @cat.Nombre
-                </button>
-            }
-        </div>
+    @* Toggle: Nuevo gasto vs Vincular existente *@
+    <div class="btn-group w-100 mb-3" role="group">
+        <button class="btn btn-@(!VincularExistente ? "dark" : "outline-dark") rounded-0 fw-bold"
+                @onclick="() => { VincularExistente = false; Error = null; }">
+            <i class="bi bi-plus-lg me-1"></i>NUEVO GASTO
+        </button>
+        <button class="btn btn-@(VincularExistente ? "dark" : "outline-dark") rounded-0 fw-bold"
+                @onclick="() => { VincularExistente = true; Error = null; }">
+            <i class="bi bi-link me-1"></i>VINCULAR EXISTENTE
+        </button>
     </div>
 
-    <div class="row g-3">
-        <div class="col-md-4">
-            <label class="fw-bold small text-uppercase mb-1 text-muted">FECHA *</label>
-            <input type="date" class="form-control border-dark rounded-0 fw-bold"
-                   @bind="Form.Fecha" />
-        </div>
-        <div class="col-md-8">
-            <label class="fw-bold small text-uppercase mb-1 text-muted">DESCRIPCIÓN *</label>
-            <input type="text" class="form-control border-dark rounded-0 fw-bold"
-                   @bind="Form.Descripcion" placeholder="Descripción del gasto..." />
-        </div>
-        <div class="col-md-6">
-            <label class="fw-bold small text-uppercase mb-1 text-muted">MONTO *</label>
-            <div class="input-group">
-                <span class="input-group-text bg-dark text-white border-dark rounded-0 fw-bold">$</span>
-                <input type="number" class="form-control border-dark rounded-0 fw-bold font-monospace text-end fs-5"
-                       @bind="Form.Monto" @bind:event="oninput" min="0" step="100"
-                       placeholder="0" />
+    @if (!VincularExistente)
+    {
+        @* Category Quick-Select Chips *@
+        <div class="mb-4">
+            <label class="fw-bold small text-uppercase mb-2 text-muted d-block">CATEGORÍA RÁPIDA</label>
+            <div class="d-flex gap-2 flex-wrap">
+                @foreach (var cat in Categorias)
+                {
+                    <button class="btn btn-sm fw-bold rounded-0 px-3 py-2 border-2 border-dark"
+                            style="@(Form.Categoria == cat.Nombre ? $"background-color: {cat.Color}; color: white;" : "background-color: var(--industrial-gray-100); color: var(--industrial-black);")"
+                            @onclick="() => SeleccionarCategoria(cat.Nombre)"
+                            type="button">
+                        @cat.Icono @cat.Nombre
+                    </button>
+                }
             </div>
         </div>
-        <div class="col-md-6 d-flex align-items-end">
-            @if (!string.IsNullOrEmpty(Form.Categoria))
-            {
-                <span class="badge rounded-0 px-3 py-2 fw-bold" style="background-color: @(Categorias.FirstOrDefault(c => c.Nombre == Form.Categoria)?.Color ?? "#888"); color: white;">
-                    @Form.Categoria.ToUpper()
-                </span>
-            }
-        </div>
-    </div>
 
-    <div class="mt-4">
-        <button class="btn btn-dark rounded-0 fw-bold w-100 py-2"
-                @onclick="RegistrarGasto"
-                disabled="@(Enviando || Form.Monto <= 0 || string.IsNullOrWhiteSpace(Form.Descripcion))">
-            @if (Enviando)
+        <div class="row g-3">
+            <div class="col-md-4">
+                <label class="fw-bold small text-uppercase mb-1 text-muted">FECHA *</label>
+                <input type="date" class="form-control border-dark rounded-0 fw-bold"
+                       @bind="Form.Fecha" />
+            </div>
+            <div class="col-md-8">
+                <label class="fw-bold small text-uppercase mb-1 text-muted">DESCRIPCIÓN *</label>
+                <input type="text" class="form-control border-dark rounded-0 fw-bold"
+                       @bind="Form.Descripcion" placeholder="Descripción del gasto..." />
+            </div>
+            <div class="col-md-6">
+                <label class="fw-bold small text-uppercase mb-1 text-muted">MONTO *</label>
+                <div class="input-group">
+                    <span class="input-group-text bg-dark text-white border-dark rounded-0 fw-bold">$</span>
+                    <input type="number" class="form-control border-dark rounded-0 fw-bold font-monospace text-end fs-5"
+                           @bind="Form.Monto" @bind:event="oninput" min="0" step="100"
+                           placeholder="0" />
+                </div>
+            </div>
+            <div class="col-md-6 d-flex align-items-end">
+                @if (!string.IsNullOrEmpty(Form.Categoria))
+                {
+                    <span class="badge rounded-0 px-3 py-2 fw-bold" style="background-color: @(Categorias.FirstOrDefault(c => c.Nombre == Form.Categoria)?.Color ?? "#888"); color: white;">
+                        @Form.Categoria.ToUpper()
+                    </span>
+                }
+            </div>
+        </div>
+
+        <div class="mt-4">
+            <button class="btn btn-dark rounded-0 fw-bold w-100 py-2"
+                    @onclick="RegistrarGasto"
+                    disabled="@(Enviando || Form.Monto <= 0 || string.IsNullOrWhiteSpace(Form.Descripcion))">
+                @if (Enviando)
+                {
+                    <span class="spinner-border spinner-border-sm me-2"></span>
+                }
+                else
+                {
+                    <i class="bi bi-check-lg me-2"></i>
+                }
+                REGISTRAR GASTO
+            </button>
+        </div>
+    }
+    else
+    {
+        @* ===== VINCULAR EXISTENTE: SEARCH & LINK ===== *@
+        <div class="bg-white border border-dark p-3 mb-3">
+            <div class="row g-2 align-items-end">
+                <div class="col-md-5">
+                    <label class="fw-bold small text-uppercase mb-1 text-muted">FECHA DESDE</label>
+                    <input type="date" class="form-control border-dark rounded-0" @bind="LinkSearch.FechaDesde" />
+                </div>
+                <div class="col-md-5">
+                    <label class="fw-bold small text-uppercase mb-1 text-muted">FECHA HASTA</label>
+                    <input type="date" class="form-control border-dark rounded-0" @bind="LinkSearch.FechaHasta" />
+                </div>
+                <div class="col-md-2 d-grid">
+                    <button class="btn btn-outline-dark rounded-0 fw-bold" @onclick="BuscarGastosNoVinculados" disabled="@LinkBuscando">
+                        @if (LinkBuscando)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        else
+                        {
+                            <i class="bi bi-search me-1"></i>
+                        }
+                        BUSCAR
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        @if (LinkError != null)
+        {
+            <div class="alert alert-danger border-dark rounded-0 fw-bold small py-2 mb-3">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i>@LinkError
+            </div>
+        }
+
+        @if (GastosNoVinculados != null)
+        {
+            @if (!GastosNoVinculados.Any())
             {
-                <span class="spinner-border spinner-border-sm me-2"></span>
+                <div class="text-center text-muted p-4 border border-dark bg-white">
+                    No se encontraron gastos sin vincular.
+                </div>
             }
             else
             {
-                <i class="bi bi-check-lg me-2"></i>
+                <div class="table-responsive">
+                    <table class="table table-bordered border-dark table-hover align-middle mb-0">
+                        <thead class="bg-secondary text-white text-uppercase small fw-bold text-center">
+                            <tr>
+                                <th>FECHA</th>
+                                <th>DESCRIPCIÓN</th>
+                                <th>CATEGORÍA</th>
+                                <th class="text-end">MONTO</th>
+                                <th class="text-center">ACCIÓN</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white fw-bold" style="font-size: 0.85rem;">
+                            @foreach (var g in GastosNoVinculados)
+                            {
+                                <tr>
+                                    <td>@g.Fecha.ToString("dd/MM/yyyy")</td>
+                                    <td>@g.Descripcion</td>
+                                    <td><span class="badge bg-secondary rounded-0">@g.Categoria</span></td>
+                                    <td class="text-end text-danger font-monospace">$@Math.Abs(g.Monto).ToString("N0")</td>
+                                    <td class="text-center">
+                                        <button class="btn btn-sm btn-success rounded-0 fw-bold border-dark"
+                                                @onclick="() => VincularGasto(g.Id)" disabled="@LinkEnviando">
+                                            <i class="bi bi-link"></i> VINCULAR
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
             }
-            REGISTRAR GASTO
-        </button>
-    </div>
+        }
+    }
 </div>
 
 @code {
@@ -89,6 +183,14 @@
         new() { Nombre = "MANTENCIÓN", Icono = "🔧", Color = "#6f42c1" },
         new() { Nombre = "OTRO", Icono = "📋", Color = "#888888" }
     };
+
+    // Linking state
+    private bool VincularExistente { get; set; }
+    private LinkGastoSearch LinkSearch { get; set; } = new();
+    private List<MovimientoCajaDto>? GastosNoVinculados { get; set; }
+    private bool LinkBuscando { get; set; }
+    private bool LinkEnviando { get; set; }
+    private string? LinkError { get; set; }
 
     private void SeleccionarCategoria(string nombre)
     {
@@ -148,6 +250,70 @@
         }
     }
 
+    // ====== VINCULAR EXISTENTE METHODS ======
+    private async Task BuscarGastosNoVinculados()
+    {
+        try
+        {
+            LinkBuscando = true;
+            LinkError = null;
+
+            var desde = LinkSearch.FechaDesde ?? DateTime.Today.AddMonths(-3);
+            var hasta = LinkSearch.FechaHasta ?? DateTime.Today;
+            var url = $"api/rendicion/gastos-no-vinculados?fechaDesde={desde:yyyy-MM-dd}&fechaHasta={hasta:yyyy-MM-dd}";
+
+            GastosNoVinculados = await Http.GetFromJsonAsync<List<MovimientoCajaDto>>(url) ?? new();
+        }
+        catch (Exception ex)
+        {
+            LinkError = $"Error al buscar gastos: {ex.Message}";
+        }
+        finally
+        {
+            LinkBuscando = false;
+        }
+    }
+
+    private async Task VincularGasto(int gastoId)
+    {
+        try
+        {
+            LinkEnviando = true;
+            LinkError = null;
+
+            var request = new LinkGastoRequest { GastoId = gastoId, RendicionId = RendicionId };
+            var response = await Http.PostAsJsonAsync($"api/rendicion/{RendicionId}/link-gasto", request);
+            if (response.IsSuccessStatusCode)
+            {
+                // Find the linked gasto in search results
+                var linked = GastosNoVinculados?.FirstOrDefault(g => g.Id == gastoId);
+                if (linked != null)
+                {
+                    await OnGastoCreated.InvokeAsync(linked);
+                }
+
+                // Reset search state
+                GastosNoVinculados = null;
+                LinkSearch = new();
+                VincularExistente = false;
+                Error = null;
+            }
+            else
+            {
+                var errBody = await response.Content.ReadAsStringAsync();
+                LinkError = $"Error al vincular gasto: {errBody}";
+            }
+        }
+        catch (Exception ex)
+        {
+            LinkError = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            LinkEnviando = false;
+        }
+    }
+
     private class GastoFormData
     {
         public DateTime Fecha { get; set; } = DateTime.Today;
@@ -161,5 +327,11 @@
         public string Nombre { get; set; } = string.Empty;
         public string Icono { get; set; } = string.Empty;
         public string Color { get; set; } = "#888888";
+    }
+
+    private class LinkGastoSearch
+    {
+        public DateTime? FechaDesde { get; set; }
+        public DateTime? FechaHasta { get; set; }
     }
 }
