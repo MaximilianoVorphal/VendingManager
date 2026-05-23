@@ -714,7 +714,7 @@ public class TemplateRecargaService : ITemplateRecargaService
             Nombre = t.Nombre,
             Descripcion = t.Descripcion,
             FechaCreacion = t.FechaCreacion,
-            Estado = t.Estado,
+            Estado = NormalizarEstado(t.Estado),
             Periodos = t.Periodos.Select(p => new PeriodoRecargaDto
             {
                 Id = p.Id,
@@ -756,6 +756,16 @@ public class TemplateRecargaService : ITemplateRecargaService
 
         return nextPeriodo?.FechaRecarga ?? p.FechaRecarga.AddYears(2);
     }
+
+    /// <summary>
+    /// Normaliza valores de Estado que no matchean el enum actual.
+    /// Si no es Pendiente(0) ni Terminado(2), lo fuerza a Terminado(2).
+    /// Red de contención para valores huérfanos en BD (ej: viejo Activo=1).
+    /// </summary>
+    private static EstadoTemplate NormalizarEstado(EstadoTemplate estado) =>
+        estado is EstadoTemplate.Pendiente or EstadoTemplate.Terminado
+            ? estado
+            : EstadoTemplate.Terminado;
 
     // ===== LOCAL FALLBACK IMPLEMENTATIONS (used when _analytics is null) =====
 
