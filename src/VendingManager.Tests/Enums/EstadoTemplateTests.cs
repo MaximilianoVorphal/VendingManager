@@ -6,24 +6,19 @@ using VendingManager.Shared.Enums;
 public class EstadoTemplateTests
 {
     /// <summary>
-    /// Verifies enum has exactly 3 states: Pendiente, Activo, and Terminado.
+    /// Verifies enum has exactly 2 states: Pendiente and Terminado.
+    /// Activo state eliminated (was intermediate step, now computed as latest Terminado).
     /// </summary>
     [Fact]
-    public void EstadoTemplate_HasThreeStates()
+    public void EstadoTemplate_HasTwoStates()
     {
-        Enum.GetValues<EstadoTemplate>().Should().HaveCount(3);
+        Enum.GetValues<EstadoTemplate>().Should().HaveCount(2);
     }
 
     [Fact]
     public void EstadoTemplate_Pendiente_HasValueZero()
     {
         ((int)EstadoTemplate.Pendiente).Should().Be(0);
-    }
-
-    [Fact]
-    public void EstadoTemplate_Activo_HasValueOne()
-    {
-        ((int)EstadoTemplate.Activo).Should().Be(1);
     }
 
     [Fact]
@@ -37,7 +32,6 @@ public class EstadoTemplateTests
     /// </summary>
     [Theory]
     [InlineData("Pendiente", EstadoTemplate.Pendiente)]
-    [InlineData("Activo", EstadoTemplate.Activo)]
     [InlineData("Terminado", EstadoTemplate.Terminado)]
     public void EstadoTemplate_ParseFromName_ReturnsCorrectValue(string name, EstadoTemplate expected)
     {
