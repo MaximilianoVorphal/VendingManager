@@ -1,0 +1,165 @@
+@using VendingManager.Shared.DTOs
+@inject HttpClient Http
+
+<div class="p-3">
+    @if (!string.IsNullOrEmpty(Error))
+    {
+        <div class="alert alert-danger border-dark rounded-0 fw-bold py-2 mb-3">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i> @Error
+        </div>
+    }
+
+    @* Category Quick-Select Chips *@
+    <div class="mb-4">
+        <label class="fw-bold small text-uppercase mb-2 text-muted d-block">CATEGORÍA RÁPIDA</label>
+        <div class="d-flex gap-2 flex-wrap">
+            @foreach (var cat in Categorias)
+            {
+                <button class="btn btn-sm fw-bold rounded-0 px-3 py-2 border-2 border-dark"
+                        style="@(Form.Categoria == cat.Nombre ? $"background-color: {cat.Color}; color: white;" : "background-color: var(--industrial-gray-100); color: var(--industrial-black);")"
+                        @onclick="() => SeleccionarCategoria(cat.Nombre)"
+                        type="button">
+                    @cat.Icono @cat.Nombre
+                </button>
+            }
+        </div>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-md-4">
+            <label class="fw-bold small text-uppercase mb-1 text-muted">FECHA *</label>
+            <input type="date" class="form-control border-dark rounded-0 fw-bold"
+                   @bind="Form.Fecha" />
+        </div>
+        <div class="col-md-8">
+            <label class="fw-bold small text-uppercase mb-1 text-muted">DESCRIPCIÓN *</label>
+            <input type="text" class="form-control border-dark rounded-0 fw-bold"
+                   @bind="Form.Descripcion" placeholder="Descripción del gasto..." />
+        </div>
+        <div class="col-md-6">
+            <label class="fw-bold small text-uppercase mb-1 text-muted">MONTO *</label>
+            <div class="input-group">
+                <span class="input-group-text bg-dark text-white border-dark rounded-0 fw-bold">$</span>
+                <input type="number" class="form-control border-dark rounded-0 fw-bold font-monospace text-end fs-5"
+                       @bind="Form.Monto" @bind:event="oninput" min="0" step="100"
+                       placeholder="0" />
+            </div>
+        </div>
+        <div class="col-md-6 d-flex align-items-end">
+            @if (!string.IsNullOrEmpty(Form.Categoria))
+            {
+                <span class="badge rounded-0 px-3 py-2 fw-bold" style="background-color: @(Categorias.FirstOrDefault(c => c.Nombre == Form.Categoria)?.Color ?? "#888"); color: white;">
+                    @Form.Categoria.ToUpper()
+                </span>
+            }
+        </div>
+    </div>
+
+    <div class="mt-4">
+        <button class="btn btn-dark rounded-0 fw-bold w-100 py-2"
+                @onclick="RegistrarGasto"
+                disabled="@(Enviando || Form.Monto <= 0 || string.IsNullOrWhiteSpace(Form.Descripcion))">
+            @if (Enviando)
+            {
+                <span class="spinner-border spinner-border-sm me-2"></span>
+            }
+            else
+            {
+                <i class="bi bi-check-lg me-2"></i>
+            }
+            REGISTRAR GASTO
+        </button>
+    </div>
+</div>
+
+@code {
+    [Parameter] public int RendicionId { get; set; }
+    [Parameter] public string? Trabajador { get; set; }
+    [Parameter] public EventCallback<MovimientoCajaDto> OnGastoCreated { get; set; }
+
+    private GastoFormData Form { get; set; } = new() { Fecha = DateTime.Today };
+    private bool Enviando { get; set; }
+    private string? Error { get; set; }
+
+    private List<CategoriaChip> Categorias { get; set; } = new()
+    {
+        new() { Nombre = "BENCINA", Icono = "⛽", Color = "#dc3545" },
+        new() { Nombre = "PEAJE", Icono = "🛣️", Color = "#0d6efd" },
+        new() { Nombre = "INSUMOS", Icono = "📦", Color = "#198754" },
+        new() { Nombre = "MANTENCIÓN", Icono = "🔧", Color = "#6f42c1" },
+        new() { Nombre = "OTRO", Icono = "📋", Color = "#888888" }
+    };
+
+    private void SeleccionarCategoria(string nombre)
+    {
+        Form.Categoria = nombre;
+    }
+
+    private async Task RegistrarGasto()
+    {
+        if (string.IsNullOrWhiteSpace(Form.Descripcion))
+        {
+            Error = "La descripción es obligatoria.";
+            return;
+        }
+        if (Form.Monto <= 0)
+        {
+            Error = "El monto debe ser mayor a cero.";
+            return;
+        }
+
+        try
+        {
+            Enviando = true;
+            Error = null;
+
+            var request = new GastoVinculadoRequest
+            {
+                RendicionId = RendicionId,
+                Trabajador = Trabajador ?? "",
+                Fecha = Form.Fecha,
+                Descripcion = Form.Descripcion,
+                Monto = Form.Monto,
+                Categoria = Form.Categoria ?? "GENERAL"
+            };
+
+            var response = await Http.PostAsJsonAsync("api/contabilidad/gasto-vinculado", request);
+            if (response.IsSuccessStatusCode)
+            {
+                var dto = await response.Content.ReadFromJsonAsync<MovimientoCajaDto>();
+                if (dto != null)
+                {
+                    Form = new() { Fecha = DateTime.Today };
+                    await OnGastoCreated.InvokeAsync(dto);
+                }
+            }
+            else
+            {
+                Error = await response.Content.ReadAsStringAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            Error = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            Enviando = false;
+        }
+    }
+
+    private class GastoFormData
+    {
+        public DateTime Fecha { get; set; } = DateTime.Today;
+        public string? Descripcion { get; set; }
+        public decimal Monto { get; set; }
+        public string? Categoria { get; set; }
+    }
+
+    private class CategoriaChip
+    {
+        public string Nombre { get; set; } = string.Empty;
+        public string Icono { get; set; } = string.Empty;
+        public string Color { get; set; } = "#888888";
+    }
+}

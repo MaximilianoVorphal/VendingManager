@@ -1,0 +1,143 @@
+@using VendingManager.Web.Pages.Contabilidad.State
+
+<div class="card border-2 border-dark rounded-0 shadow sticky-panel">
+    <div class="card-header bg-dark text-white rounded-0 fw-bold text-uppercase">
+        <i class="bi bi-graph-up me-2"></i>RECONCILIACIÓN
+    </div>
+    <div class="card-body bg-light p-3">
+
+        @if (State?.LiveReconciliation != null || State != null)
+        {
+            <div class="mb-3">
+                <div class="d-flex justify-content-between align-items-center py-2 border-bottom border-dark">
+                    <span class="text-muted fw-bold text-uppercase small" style="font-size: 0.7rem;">TRANSFERIDO</span>
+                    <span class="text-success fw-bold font-monospace">+$@TotalTransferido.ToString("N0")</span>
+                </div>
+                <div class="d-flex justify-content-between align-items-center py-2 border-bottom border-dark">
+                    <span class="text-muted fw-bold text-uppercase small" style="font-size: 0.7rem;">COMPRAS</span>
+                    <span class="text-danger fw-bold font-monospace">-$@TotalCompras.ToString("N0")</span>
+                </div>
+                <div class="d-flex justify-content-between align-items-center py-2 border-bottom border-dark">
+                    <span class="text-muted fw-bold text-uppercase small" style="font-size: 0.7rem;">GASTOS</span>
+                    <span class="text-danger fw-bold font-monospace">-$@TotalGastos.ToString("N0")</span>
+                </div>
+            </div>
+
+            <div class="@(DiferenciaClass) p-3 rounded-0 border border-dark text-center mb-3">
+                <small class="text-uppercase fw-bold d-block mb-1" style="font-size: 0.65rem;">DIFERENCIA</small>
+                <span class="fw-bold font-monospace fs-5">$@Diferencia.ToString("N0")</span>
+                @if (Diferencia == 0)
+                {
+                    <div class="mt-1">
+                        <span class="badge bg-success rounded-0 fw-bold">
+                            <i class="bi bi-check-circle-fill me-1"></i>CUADRADO
+                        </span>
+                    </div>
+                }
+                else if (Diferencia > 0)
+                {
+                    <div class="mt-1">
+                        <span class="badge bg-warning text-dark rounded-0 fw-bold">
+                            TRABAJADOR DEBE
+                        </span>
+                    </div>
+                }
+                else
+                {
+                    <div class="mt-1">
+                        <span class="badge bg-danger rounded-0 fw-bold">
+                            SE LE DEBE AL TRABAJADOR
+                        </span>
+                    </div>
+                }
+            </div>
+
+            <div class="mb-3">
+                <small class="text-muted fw-bold text-uppercase d-block mb-2" style="font-size: 0.7rem;">PASO ACTUAL</small>
+                <div class="d-flex gap-1">
+                    @for (int i = 1; i <= 5; i++)
+                    {
+                        <div class="flex-grow-1 text-center py-1 fw-bold small rounded-0 border border-dark"
+                             style="background-color: @(i <= (State?.CurrentStep ?? 1) ? "var(--industrial-black)" : "var(--industrial-gray-100)"); color: @(i <= (State?.CurrentStep ?? 1) ? "white" : "var(--industrial-black)"); font-size: 0.65rem;">
+                            @(i)
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <div class="row g-2 mb-3">
+                <div class="col-4">
+                    <div class="bg-white border border-dark p-2 text-center rounded-0">
+                        <div class="fw-bold font-monospace">@TransferenciasCount</div>
+                        <small class="text-muted text-uppercase fw-bold" style="font-size: 0.6rem;">Transferencias</small>
+                    </div>
+                </div>
+                <div class="col-4">
+                    <div class="bg-white border border-dark p-2 text-center rounded-0">
+                        <div class="fw-bold font-monospace">@ComprasCount</div>
+                        <small class="text-muted text-uppercase fw-bold" style="font-size: 0.6rem;">Compras</small>
+                    </div>
+                </div>
+                <div class="col-4">
+                    <div class="bg-white border border-dark p-2 text-center rounded-0">
+                        <div class="fw-bold font-monospace">@GastosCount</div>
+                        <small class="text-muted text-uppercase fw-bold" style="font-size: 0.6rem;">Gastos</small>
+                    </div>
+                </div>
+            </div>
+
+            @if (State?.CurrentStep == 5)
+            {
+                <button class="btn btn-warning rounded-0 fw-bold w-100 py-2"
+                        @onclick="() => OnCerrar.InvokeAsync()">
+                    <i class="bi bi-lock-fill me-2"></i>CERRAR RENDICIÓN
+                </button>
+            }
+            else
+            {
+                <button class="btn btn-dark rounded-0 fw-bold w-100 py-2"
+                        @onclick="() => OnCerrar.InvokeAsync()">
+                    <i class="bi bi-arrow-right me-2"></i>IR AL CIERRE
+                </button>
+            }
+        }
+        else
+        {
+            <div class="text-center text-muted p-4">
+                <i class="bi bi-inbox display-6 mb-3"></i>
+                <p class="fw-bold small">Sin datos de rendición</p>
+            </div>
+        }
+    </div>
+</div>
+
+<style>
+    .sticky-panel {
+        position: sticky;
+        top: 1rem;
+    }
+</style>
+
+@code {
+    [Parameter] public ContabilidadPageState? State { get; set; }
+    [Parameter] public EventCallback OnCerrar { get; set; }
+
+    private decimal TotalTransferido => State?.Transferencias.Sum(t => t.Monto) ?? 0;
+    private decimal TotalCompras => State?.Compras.Sum(c => c.MontoTotal) ?? 0;
+    private decimal TotalGastos => State?.Gastos.Sum(g => Math.Abs(g.Monto)) ?? 0;
+    private decimal Diferencia => TotalTransferido - TotalCompras - TotalGastos;
+
+    private int TransferenciasCount => State?.Transferencias.Count ?? 0;
+    private int ComprasCount => State?.Compras.Count ?? 0;
+    private int GastosCount => State?.Gastos.Count ?? 0;
+
+    private string DiferenciaClass
+    {
+        get
+        {
+            if (Diferencia == 0) return "bg-success text-white";
+            if (Diferencia > 0) return "bg-warning text-dark";
+            return "bg-danger text-white";
+        }
+    }
+}

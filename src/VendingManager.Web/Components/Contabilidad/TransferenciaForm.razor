@@ -1,0 +1,125 @@
+@using VendingManager.Shared.DTOs
+@inject HttpClient Http
+
+<div class="p-3">
+    @if (!string.IsNullOrEmpty(Error))
+    {
+        <div class="alert alert-danger border-dark rounded-0 fw-bold py-2 mb-3">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i> @Error
+        </div>
+    }
+
+    <div class="row g-3">
+        <div class="col-12">
+            <label class="fw-bold small text-uppercase mb-1 text-muted">TRABAJADOR</label>
+            <input type="text" class="form-control border-dark rounded-0 fw-bold" value="@Trabajador" readonly />
+        </div>
+        <div class="col-12">
+            <label class="fw-bold small text-uppercase mb-1 text-muted">MONTO *</label>
+            <div class="input-group">
+                <span class="input-group-text bg-dark text-white border-dark rounded-0 fw-bold">$</span>
+                <input type="number" class="form-control border-dark rounded-0 fw-bold font-monospace text-end fs-5"
+                       @bind="Form.Monto" @bind:event="oninput" min="0" step="100"
+                       placeholder="0" />
+            </div>
+        </div>
+        <div class="col-12">
+            <label class="fw-bold small text-uppercase mb-1 text-muted">DESCRIPCIÓN</label>
+            <textarea class="form-control border-dark rounded-0 fw-bold" rows="2"
+                      @bind="Form.Descripcion" placeholder="Ej: Efectivo para recarga máquina #3"></textarea>
+        </div>
+        <div class="col-md-6">
+            <label class="fw-bold small text-uppercase mb-1 text-muted">FECHA *</label>
+            <input type="date" class="form-control border-dark rounded-0 fw-bold"
+                   @bind="Form.Fecha" />
+        </div>
+        <div class="col-12 mt-3">
+            <button class="btn btn-dark rounded-0 fw-bold w-100 py-2"
+                    @onclick="RegistrarTransferencia"
+                    disabled="@(Enviando || Form.Monto <= 0)">
+                @if (Enviando)
+                {
+                    <span class="spinner-border spinner-border-sm me-2"></span>
+                }
+                else
+                {
+                    <i class="bi bi-check-lg me-2"></i>
+                }
+                REGISTRAR TRANSFERENCIA
+            </button>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public string Trabajador { get; set; } = string.Empty;
+    [Parameter] public int RendicionId { get; set; }
+    [Parameter] public EventCallback<TransferenciaDto> OnTransferenciaCreated { get; set; }
+
+    private TransferenciaFormData Form { get; set; } = new() { Fecha = DateTime.Today };
+    private bool Enviando { get; set; }
+    private string? Error { get; set; }
+
+    private async Task RegistrarTransferencia()
+    {
+        if (Form.Monto <= 0)
+        {
+            Error = "El monto debe ser mayor a cero.";
+            return;
+        }
+
+        try
+        {
+            Enviando = true;
+            Error = null;
+
+            var request = new TransferenciaConMovimientoRequest
+            {
+                RendicionId = RendicionId > 0 ? RendicionId : 0,
+                Trabajador = Trabajador,
+                Fecha = Form.Fecha,
+                Monto = Form.Monto,
+                Descripcion = Form.Descripcion
+            };
+
+            // If RendicionId was not passed, we need to determine it
+            // This will be handled by parent when wiring
+            if (request.RendicionId == 0)
+            {
+                Error = "No hay una rendición activa. Por favor selecciona un trabajador primero.";
+                Enviando = false;
+                return;
+            }
+
+            var response = await Http.PostAsJsonAsync("api/contabilidad/transferencia-con-movimiento", request);
+            if (response.IsSuccessStatusCode)
+            {
+                var dto = await response.Content.ReadFromJsonAsync<TransferenciaDto>();
+                if (dto != null)
+                {
+                    Form = new() { Fecha = DateTime.Today };
+                    await OnTransferenciaCreated.InvokeAsync(dto);
+                }
+            }
+            else
+            {
+                Error = await response.Content.ReadAsStringAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            Error = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            Enviando = false;
+        }
+    }
+
+    private class TransferenciaFormData
+    {
+        public DateTime Fecha { get; set; } = DateTime.Today;
+        public decimal Monto { get; set; }
+        public string? Descripcion { get; set; }
+    }
+}
