@@ -131,7 +131,7 @@
                             <!-- State badge + transition controls -->
                             <div class="d-flex align-items-center justify-content-between mb-1">
                                 <span class="badge @GetEstadoBadgeClass(template.Estado) rounded-0 fw-bold">
-                                    @template.Estado.ToString().ToUpper()
+                                    @GetEstadoDisplay(template.Estado)
                                 </span>
                                 @if (template.Estado == EstadoTemplate.Pendiente)
                                 {
@@ -1284,6 +1284,11 @@
         EstadoTemplate.Terminado => "bg-dark",
         _ => "bg-secondary"
     };
+
+    private string GetEstadoDisplay(EstadoTemplate estado) =>
+        Enum.IsDefined(estado)
+            ? estado.ToString().ToUpper()
+            : "DESCONOCIDO";
 
     // Pendientes
     private bool MostrarModalPendientes = false;
