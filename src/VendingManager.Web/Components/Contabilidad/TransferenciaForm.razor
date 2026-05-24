@@ -1,5 +1,6 @@
 @using VendingManager.Shared.DTOs
 @inject HttpClient Http
+@inject IJSRuntime JS
 
 <div class="p-3">
     @if (!string.IsNullOrEmpty(Error))
@@ -19,9 +20,10 @@
             <div class="input-group">
                 <span class="input-group-text bg-dark text-white border-dark rounded-0 fw-bold">$</span>
                 <input type="number" class="form-control border-dark rounded-0 fw-bold font-monospace text-end fs-5"
-                       @bind="Form.Monto" @bind:event="oninput" min="0" step="100"
-                       placeholder="0" />
+                       @oninput="OnMontoChanged" min="0" step="100"
+                       placeholder="0" value="@_montoDisplay" />
             </div>
+            <small class="text-muted">Debug: Monto = @Form.Monto | Display = @_montoDisplay | Enabled = @(!Enviando && Form.Monto > 0)</small>
         </div>
         <div class="col-12">
             <label class="fw-bold small text-uppercase mb-1 text-muted">DESCRIPCIÓN</label>
@@ -60,6 +62,7 @@
     private bool Enviando { get; set; }
     private string? Error { get; set; }
     private string _trabajadorLocal = string.Empty;
+    private string _montoDisplay = string.Empty;
 
     protected override void OnParametersSet()
     {
@@ -67,11 +70,25 @@
             _trabajadorLocal = Trabajador;
     }
 
+    private async Task OnMontoChanged(ChangeEventArgs e)
+    {
+        var raw = e.Value?.ToString() ?? "";
+        _montoDisplay = raw;
+        if (decimal.TryParse(raw, out var parsed))
+        {
+            Form.Monto = parsed;
+        }
+        await JS.InvokeVoidAsync("console.log", $"[TransferenciaForm] oninput: raw='{raw}', parsed={Form.Monto}");
+    }
+
     private async Task RegistrarTransferencia()
     {
+        await JS.InvokeVoidAsync("console.log", $"[TransferenciaForm] Click - Monto={Form.Monto}, RendicionId={RendicionId}, Trabajador='{_trabajadorLocal}'");
+
         if (Form.Monto <= 0)
         {
             Error = "El monto debe ser mayor a cero.";
+            await JS.InvokeVoidAsync("console.warn", "[TransferenciaForm] Monto <= 0, aborting");
             return;
         }
 
@@ -89,28 +106,42 @@
                 Descripcion = Form.Descripcion
             };
 
+            await JS.InvokeVoidAsync("console.log", $"[TransferenciaForm] POST body: {System.Text.Json.JsonSerializer.Serialize(request)}");
+
             var response = await Http.PostAsJsonAsync("api/contabilidad/transferencia-con-movimiento", request);
+
+            await JS.InvokeVoidAsync("console.log", $"[TransferenciaForm] Response: {response.StatusCode}");
+
             if (response.IsSuccessStatusCode)
             {
-                var dto = await response.Content.ReadFromJsonAsync<TransferenciaDto>();
+                var body = await response.Content.ReadAsStringAsync();
+                await JS.InvokeVoidAsync("console.log", $"[TransferenciaForm] Success body: {body}");
+
+                var dto = System.Text.Json.JsonSerializer.Deserialize<TransferenciaDto>(body);
                 if (dto != null)
                 {
+                    await JS.InvokeVoidAsync("console.log", $"[TransferenciaForm] DTO parsed: Id={dto.Id}, Monto={dto.Monto}");
                     Form = new() { Fecha = DateTime.Today };
+                    _montoDisplay = string.Empty;
                     await OnTransferenciaCreated.InvokeAsync(dto);
                 }
             }
             else
             {
-                Error = await response.Content.ReadAsStringAsync();
+                var errorBody = await response.Content.ReadAsStringAsync();
+                await JS.InvokeVoidAsync("console.error", $"[TransferenciaForm] Error response: {errorBody}");
+                Error = errorBody;
             }
         }
         catch (Exception ex)
         {
+            await JS.InvokeVoidAsync("console.error", $"[TransferenciaForm] Exception: {ex.Message}\n{ex.StackTrace}");
             Error = $"Error: {ex.Message}";
         }
         finally
         {
             Enviando = false;
+            await JS.InvokeVoidAsync("console.log", "[TransferenciaForm] Finally - Enviando=false");
         }
     }
 
