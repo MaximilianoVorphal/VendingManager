@@ -59,7 +59,8 @@ public class ContabilidadService : IContabilidadService
                 Descripcion = request.Descripcion,
                 Trabajador = request.Trabajador,
                 Estado = TransferenciaEstado.Pendiente,
-                RendicionId = rendicionId
+                RendicionId = rendicionId,
+                PeriodoId = request.PeriodoId
             };
             _context.Transferencias.Add(transferencia);
             await _context.SaveChangesAsync(ct);
