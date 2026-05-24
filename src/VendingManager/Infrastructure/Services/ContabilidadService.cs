@@ -28,10 +28,28 @@ public class ContabilidadService : IContabilidadService
 
         try
         {
-            // 1. Verify Rendicion exists
-            var rendicion = await _context.Rendiciones
-                .FirstOrDefaultAsync(r => r.Id == request.RendicionId, ct)
-                ?? throw new KeyNotFoundException($"Rendicion {request.RendicionId} no encontrada.");
+            // 1. Get or auto-create Rendicion
+            Rendicion rendicion;
+            if (request.RendicionId > 0)
+            {
+                rendicion = await _context.Rendiciones
+                    .FirstOrDefaultAsync(r => r.Id == request.RendicionId, ct)
+                    ?? throw new KeyNotFoundException($"Rendicion {request.RendicionId} no encontrada.");
+            }
+            else
+            {
+                // Auto-create a generic rendicion for period-based transfers
+                rendicion = new Rendicion
+                {
+                    Trabajador = !string.IsNullOrWhiteSpace(request.Trabajador) ? request.Trabajador : "General",
+                    FechaInicio = request.Fecha,
+                    Observaciones = "Auto-creada para transferencia sin rendición"
+                };
+                _context.Rendiciones.Add(rendicion);
+                await _context.SaveChangesAsync(ct);
+            }
+
+            var rendicionId = rendicion.Id;
 
             // 2. Create Transferencia
             var transferencia = new Transferencia
@@ -41,7 +59,7 @@ public class ContabilidadService : IContabilidadService
                 Descripcion = request.Descripcion,
                 Trabajador = request.Trabajador,
                 Estado = TransferenciaEstado.Pendiente,
-                RendicionId = request.RendicionId
+                RendicionId = rendicionId
             };
             _context.Transferencias.Add(transferencia);
             await _context.SaveChangesAsync(ct);
@@ -50,12 +68,12 @@ public class ContabilidadService : IContabilidadService
             var movimiento = new MovimientoCaja
             {
                 Fecha = request.Fecha,
-                Descripcion = $"Retiro para rendición #{request.RendicionId}: {request.Descripcion}",
+                Descripcion = $"Retiro para rendición #{rendicionId}: {request.Descripcion}",
                 Monto = -request.Monto,
                 Tipo = "RETIRO",
                 Categoria = "OTROS",
                 Trabajador = request.Trabajador,
-                RendicionId = request.RendicionId
+                RendicionId = rendicionId
             };
             _context.MovimientosCaja.Add(movimiento);
             await _context.SaveChangesAsync(ct);
