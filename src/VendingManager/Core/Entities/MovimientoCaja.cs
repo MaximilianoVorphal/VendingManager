@@ -26,7 +26,7 @@ public class MovimientoCaja
     public int? ProductoId { get; set; }
     public int Cantidad { get; set; } = 0;
 
-    // Vinculación con Orden de Carga (Recarga)
+    // Vinculación con Orden de Carga
     public int? OrdenCargaId { get; set; }
     // public OrdenCarga? OrdenCarga { get; set; } // Optional navigation, helpful for EF
 
