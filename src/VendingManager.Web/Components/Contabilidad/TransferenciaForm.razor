@@ -56,6 +56,7 @@
 @code {
     [Parameter] public string Trabajador { get; set; } = string.Empty;
     [Parameter] public int RendicionId { get; set; }
+    [Parameter] public int? PeriodoId { get; set; }
     [Parameter] public EventCallback<TransferenciaDto> OnTransferenciaCreated { get; set; }
 
     private TransferenciaFormData Form { get; set; } = new() { Fecha = DateTime.Today };
@@ -100,6 +101,7 @@
             var request = new TransferenciaConMovimientoRequest
             {
                 RendicionId = RendicionId,
+                PeriodoId = PeriodoId,
                 Trabajador = _trabajadorLocal,
                 Fecha = Form.Fecha,
                 Monto = Form.Monto,

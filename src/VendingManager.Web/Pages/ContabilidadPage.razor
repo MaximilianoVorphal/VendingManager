@@ -227,7 +227,8 @@
                     }
                     <TransferenciaForm OnTransferenciaCreated="OnTransferenciaCreada"
                                        Trabajador="@trabajador"
-                                       RendicionId="@(State.PeriodoActivoFull.Transferencias.FirstOrDefault()?.RendicionId ?? 0)" />
+                                       RendicionId="@(State.PeriodoActivoFull.Transferencias.FirstOrDefault()?.RendicionId ?? 0)"
+                                       PeriodoId="@State.PeriodoActivo?.Id" />
                 </div>
             </div>
         }
