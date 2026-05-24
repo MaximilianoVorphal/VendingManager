@@ -15,7 +15,7 @@ La **billetera general** del negocio. Cada peso que entra o sale se registra com
 | KPI | Qué mide | 
 |-----|----------|
 | **Ventas del Mes** | Plata que entró de las máquinas |
-| **Gastos Totales** | Plata que salió para operar (bencina, peajes, mantenciones, arriendos, internet, comisiones) |
+| **Gastos Totales** | Plata que salió para operar (bencina, peajes, mantenciones, arriendos, internet, comisiones, sueldos) |
 | **Aportes / Inyecciones** | Capital que metiste de tu bolsillo |
 | **Disponible en Caja** | Lo que queda: Ventas + Aportes − Gastos |
 
@@ -35,8 +35,9 @@ Responde a la pregunta: **"¿Cuánta plata tengo?"**
 | INTERNET | GASTO | Planes de datos, chips |
 | COMISIONES | GASTO | Comisiones bancarias |
 | MERMA | GASTO | Productos vencidos, rotos, robados |
+| SUELDOS | GASTO | Sueldos de personal (fijo mensual) |
 | APORTE | INGRESO | Capital que vos ponés |
-| RETIRO | EGRESO | Retiro de utilidades, sueldos |
+| RETIRO | EGRESO | Retiro de utilidades del dueño |
 
 ---
 
@@ -50,7 +51,7 @@ Ventas del mes
 = MARGEN BRUTO
 − Mermas (productos vencidos/rotos)
 − Gastos Variables (bencina, peajes, insumos, mantención)
-− Gastos Fijos (arriendo, internet, luz, POS)
+− Gastos Fijos (arriendo, internet, luz, POS, sueldos)
 = UTILIDAD OPERACIONAL (EBITDA)
 ```
 
