@@ -11,8 +11,8 @@
 
     <div class="row g-3">
         <div class="col-12">
-            <label class="fw-bold small text-uppercase mb-1 text-muted">TRABAJADOR</label>
-            <input type="text" class="form-control border-dark rounded-0 fw-bold" value="@Trabajador" readonly />
+            <label class="fw-bold small text-uppercase mb-1 text-muted">TRABAJADOR (opcional)</label>
+            <input type="text" class="form-control border-dark rounded-0 fw-bold" @bind="_trabajadorLocal" placeholder="Ej: Juan Pérez" />
         </div>
         <div class="col-12">
             <label class="fw-bold small text-uppercase mb-1 text-muted">MONTO *</label>
@@ -59,6 +59,13 @@
     private TransferenciaFormData Form { get; set; } = new() { Fecha = DateTime.Today };
     private bool Enviando { get; set; }
     private string? Error { get; set; }
+    private string _trabajadorLocal = string.Empty;
+
+    protected override void OnParametersSet()
+    {
+        if (!string.IsNullOrEmpty(Trabajador) && string.IsNullOrEmpty(_trabajadorLocal))
+            _trabajadorLocal = Trabajador;
+    }
 
     private async Task RegistrarTransferencia()
     {
@@ -76,17 +83,16 @@
             var request = new TransferenciaConMovimientoRequest
             {
                 RendicionId = RendicionId > 0 ? RendicionId : 0,
-                Trabajador = Trabajador,
+                Trabajador = _trabajadorLocal,
                 Fecha = Form.Fecha,
                 Monto = Form.Monto,
                 Descripcion = Form.Descripcion
             };
 
             // If RendicionId was not passed, we need to determine it
-            // This will be handled by parent when wiring
             if (request.RendicionId == 0)
             {
-                Error = "No hay una rendición activa. Por favor selecciona un trabajador primero.";
+                Error = "No hay una rendición activa. Creá un período contable primero.";
                 Enviando = false;
                 return;
             }
