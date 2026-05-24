@@ -36,6 +36,12 @@ public class Transferencia
     public Rendicion? Rendicion { get; set; }
 
     /// <summary>
+    /// FK opcional a AccountingPeriod cuando esta transferencia pertenece a un período contable.
+    /// </summary>
+    public int? PeriodoId { get; set; }
+    public AccountingPeriod? AccountingPeriod { get; set; }
+
+    /// <summary>
     /// FK opcional a MovimientoCaja cuando esta transferencia sale de caja.
     /// </summary>
     public int? MovimientoCajaId { get; set; }

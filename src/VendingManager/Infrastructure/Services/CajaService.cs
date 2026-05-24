@@ -157,10 +157,18 @@ namespace VendingManager.Infrastructure.Services
             return await _business.GetValorizacionStockAsync();
         }
 
-        public async Task<List<MovimientoCaja>> GetGastosNoVinculadosAsync()
+        public async Task<List<MovimientoCaja>> GetGastosNoVinculadosAsync(DateTime? fechaDesde = null, DateTime? fechaHasta = null)
         {
-            return await _context.MovimientosCaja
-                .Where(m => m.Tipo == "GASTO" && m.RendicionId == null)
+            var query = _context.MovimientosCaja
+                .Where(m => m.Tipo == "GASTO" && m.RendicionId == null);
+
+            if (fechaDesde.HasValue)
+                query = query.Where(m => m.Fecha >= fechaDesde.Value);
+
+            if (fechaHasta.HasValue)
+                query = query.Where(m => m.Fecha <= fechaHasta.Value);
+
+            return await query
                 .OrderByDescending(m => m.Fecha)
                 .ToListAsync();
         }

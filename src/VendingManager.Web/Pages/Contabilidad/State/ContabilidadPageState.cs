@@ -2,54 +2,54 @@ using VendingManager.Shared.DTOs;
 
 namespace VendingManager.Web.Pages.Contabilidad.State;
 
+/// <summary>
+/// State container for the ContabilidadPage (period-based accounting view).
+/// Replaces the old 5-step wizard state with a period-selection model.
+/// </summary>
 public class ContabilidadPageState
 {
-    public RendicionFullDto? ActiveRendicion { get; set; }
-    public List<TransferenciaDto> Transferencias { get; set; } = new();
-    public List<CompraDto> Compras { get; set; } = new();
-    public List<MovimientoCajaDto> Gastos { get; set; } = new();
-    public int CurrentStep { get; set; } = 1;
-    public string? SelectedWorker { get; set; }
-    public RendicionResumenDto? LiveReconciliation { get; set; }
+    /// <summary>Lista de períodos disponibles (filtrada por fecha si aplica).</summary>
+    public List<AccountingPeriodDto> Periodos { get; set; } = new();
 
-    public decimal TotalTransferido => Transferencias.Sum(t => t.Monto);
-    public decimal TotalCompras => Compras.Sum(c => c.MontoTotal);
-    public decimal TotalGastos => Gastos.Sum(g => Math.Abs(g.Monto));
-    public decimal Diferencia => TotalTransferido - TotalCompras - TotalGastos;
+    /// <summary>Período actualmente seleccionado (DTO base).</summary>
+    public AccountingPeriodDto? PeriodoActivo { get; set; }
 
-    public void Recalcular()
+    /// <summary>Datos completos del período activo (con transferencias, compras, gastos).</summary>
+    public AccountingPeriodFullDto? PeriodoActivoFull { get; set; }
+
+    /// <summary>Filtro de fecha desde para la lista de períodos.</summary>
+    public DateTime? FiltroDesde { get; set; }
+
+    /// <summary>Filtro de fecha hasta para la lista de períodos.</summary>
+    public DateTime? FiltroHasta { get; set; }
+
+    // Convenience properties for computed values
+    public decimal TotalTransferido => PeriodoActivoFull?.TotalTransferido ?? PeriodoActivo?.TotalTransferido ?? 0;
+    public decimal TotalCompras => PeriodoActivoFull?.TotalCompras ?? PeriodoActivo?.TotalCompras ?? 0;
+    public decimal TotalGastos => PeriodoActivoFull?.TotalGastos ?? PeriodoActivo?.TotalGastos ?? 0;
+    public decimal Diferencia => PeriodoActivoFull?.Diferencia ?? PeriodoActivo?.Diferencia ?? 0;
+
+    public List<TransferenciaDto> Transferencias => PeriodoActivoFull?.Transferencias ?? new();
+    public List<MovimientoCajaDto> Gastos => PeriodoActivoFull?.Gastos ?? new();
+
+    public List<CompraDto> Compras
     {
-        if (LiveReconciliation != null)
+        get
         {
-            LiveReconciliation.Transferido = TotalTransferido;
-            LiveReconciliation.TotalCompras = TotalCompras;
-            LiveReconciliation.TotalGastos = TotalGastos;
-            LiveReconciliation.Diferencia = Diferencia;
-        }
-        else
-        {
-            LiveReconciliation = new RendicionResumenDto
-            {
-                Transferido = TotalTransferido,
-                TotalCompras = TotalCompras,
-                TotalGastos = TotalGastos,
-                Diferencia = Diferencia
-            };
+            if (PeriodoActivoFull == null) return new();
+            return PeriodoActivoFull.Transferencias
+                .SelectMany(t => t.Compras)
+                .ToList();
         }
     }
 
-    public void AvanzarPaso() { if (CurrentStep < 5) CurrentStep++; }
-    public void RetrocederPaso() { if (CurrentStep > 1) CurrentStep--; }
-    public void IrAlPaso(int paso) { if (paso >= 1 && paso <= 5) CurrentStep = paso; }
     public void Limpiar()
     {
-        ActiveRendicion = null;
-        Transferencias.Clear();
-        Compras.Clear();
-        Gastos.Clear();
-        CurrentStep = 1;
-        SelectedWorker = null;
-        LiveReconciliation = null;
+        Periodos.Clear();
+        PeriodoActivo = null;
+        PeriodoActivoFull = null;
+        FiltroDesde = null;
+        FiltroHasta = null;
     }
 
     public void Dispose() { }
