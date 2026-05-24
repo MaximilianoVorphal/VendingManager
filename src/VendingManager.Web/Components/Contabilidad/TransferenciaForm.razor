@@ -117,7 +117,8 @@
                 var body = await response.Content.ReadAsStringAsync();
                 await JS.InvokeVoidAsync("console.log", $"[TransferenciaForm] Success body: {body}");
 
-                var dto = System.Text.Json.JsonSerializer.Deserialize<TransferenciaDto>(body);
+                var dto = System.Text.Json.JsonSerializer.Deserialize<TransferenciaDto>(body,
+                    new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
                 if (dto != null)
                 {
                     await JS.InvokeVoidAsync("console.log", $"[TransferenciaForm] DTO parsed: Id={dto.Id}, Monto={dto.Monto}");
