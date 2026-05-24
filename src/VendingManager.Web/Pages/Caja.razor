@@ -234,7 +234,7 @@
                     </div>
 
                     <div class="mb-3">
-                        <label class="fw-bold small text-uppercase mb-1 text-primary">🔗 VINCULAR A RECARGA (OPCIONAL):</label>
+                        <label class="fw-bold small text-uppercase mb-1 text-primary">🔗 VINCULAR A ORDEN DE CARGA (OPCIONAL):</label>
                         <select @bind="Nuevo.OrdenCargaId" class="form-select border-primary rounded-0 fw-bold">
                             <option value="">-- REGISTRO GENERAL (SIN VÍNCULO) --</option>
                             @if (OrdenesMensuales != null)
@@ -245,7 +245,7 @@
                                 }
                             }
                         </select>
-                        <small class="text-muted" style="font-size: 0.7rem;">Si gastaste dinero PARA esta recarga (ej: Bencina), selecciónala.</small>
+                        <small class="text-muted" style="font-size: 0.7rem;">Si gastaste dinero PARA esta orden de carga (ej: Bencina), selecciónala.</small>
                     </div>
 
                     <div class="mb-3">
@@ -336,9 +336,9 @@
                         {
                             var isExpanded = IsGroupExpanded(grupo.Id);
                             var iconClass = isExpanded ? "bi-chevron-up" : "bi-chevron-down";
-                            var bgHeader = grupo.EsRecarga ? "bg-warning-subtle" : "bg-white";
-                            var borderHeader = grupo.EsRecarga ? "border-warning" : "border-light";
-                            var textColor = grupo.EsRecarga ? "text-dark" : "text-muted";
+var bgHeader = grupo.EsOrdenCarga ? "bg-warning-subtle" : "bg-white";
+        var borderHeader = grupo.EsOrdenCarga ? "border-warning" : "border-light";
+        var textColor = grupo.EsOrdenCarga ? "text-dark" : "text-muted";
 
                             <div class="border-bottom border-dark bg-white mb-2 shadow-sm">
                                 <!-- HEADER DEL GRUPO (CLICKABLE) -->
@@ -355,7 +355,7 @@
                                         <div>
                                             <div class="d-flex align-items-center gap-2">
                                                 <h6 class="m-0 fw-bold text-uppercase @textColor">@grupo.Titulo</h6>
-                                                @if(grupo.EsRecarga) { <span class="badge bg-dark rounded-0 small">⚡ RECARGA</span> }
+                                                @if(grupo.EsOrdenCarga) { <span class="badge bg-dark rounded-0 small">⚡ ORDEN DE CARGA</span> }
                                             </div>
                                             <small class="text-muted"><i class="bi bi-list-ul me-1"></i>@grupo.Items.Count movimientos</small>
                                         </div>
@@ -781,6 +781,7 @@
                                 <option value="INTERNET">Internet (Planes/Chips)</option>
                                 <option value="COMISIONES">Comisiones Bancarias</option>
                                 <option value="SUELDOS">👥 Sueldos Personal</option>
+                                <option value="GASTOS GENERALES">🏢 Gastos Generales</option>
                                 <option value="OTROS">Otros Gastos Fijos</option>
                             </optgroup>
                         </select>
@@ -926,7 +927,7 @@
         public string Id { get; set; } = ""; // Unique ID for Toggle
         public string Titulo { get; set; } = "";
         public DateTime Fecha { get; set; }
-        public bool EsRecarga { get; set; }
+        public bool EsOrdenCarga { get; set; }
         public decimal MontoTotal { get; set; }
         public List<MovimientoCaja> Items { get; set; } = new();
     }
@@ -961,21 +962,21 @@
         var movimientosGenerales = listaBase.Where(m => !m.OrdenCargaId.HasValue).ToList();
 
         // 2. Process Linked Items (Grouped by Recharge ID)
-        var gruposRecarga = movimientosVinculados
+        var gruposOrdenCarga = movimientosVinculados
             .GroupBy(m => m.OrdenCargaId!.Value)
             .Select(g => 
             {
                 var orden = OrdenesMensuales.FirstOrDefault(o => o.Id == g.Key);
                 // If order info is missing (maybe from another month?), use first item date
                 var fechaBase = orden?.FechaCreacion ?? g.First().Fecha;
-                var nombre = orden != null ? $"RECARGA: {orden.MaquinaNombre}" : $"RECARGA #{g.Key}";
+                var nombre = orden != null ? $"ORDEN DE CARGA: {orden.MaquinaNombre}" : $"ORDEN DE CARGA #{g.Key}";
                 
                 return new GrupoVisual
                 {
                     Id = $"R-{g.Key}",
                     Titulo = nombre,
                     Fecha = fechaBase,
-                    EsRecarga = true,
+                    EsOrdenCarga = true,
                     Items = g.OrderByDescending(m => m.Fecha).ToList(),
                     MontoTotal = g.Sum(m => m.Monto)
                 };
@@ -989,13 +990,13 @@
                 Id = $"D-{g.Key.Ticks}",
                 Titulo = g.Key.ToString("dddd, dd MMMM").ToUpper(),
                 Fecha = g.Key,
-                EsRecarga = false,
+                EsOrdenCarga = false,
                 Items = g.OrderByDescending(m => m.Fecha).ToList(),
                 MontoTotal = g.Sum(m => m.Monto)
             });
 
         // 4. Merge and Sort
-        GruposVisuales = gruposRecarga.Concat(gruposFecha)
+        GruposVisuales = gruposOrdenCarga.Concat(gruposFecha)
             .OrderByDescending(g => g.Fecha)
             .ToList();
             

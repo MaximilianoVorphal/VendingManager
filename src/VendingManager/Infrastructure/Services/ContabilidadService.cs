@@ -72,7 +72,7 @@ public class ContabilidadService : IContabilidadService
                 Descripcion = $"Retiro para rendición #{rendicionId}: {request.Descripcion}",
                 Monto = -request.Monto,
                 Tipo = "RETIRO",
-                Categoria = "OTROS",
+                Categoria = "RETIRO_CAPITAL",
                 Trabajador = request.Trabajador,
                 RendicionId = rendicionId
             };
