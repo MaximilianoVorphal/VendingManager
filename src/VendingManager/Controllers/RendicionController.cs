@@ -297,9 +297,11 @@ public class RendicionController(
 
     [HttpGet("compras-no-vinculadas")]
     public async Task<ActionResult<List<CompraDto>>> GetComprasNoVinculadas(
-        [FromServices] ICompraService compraService)
+        [FromServices] ICompraService compraService,
+        [FromQuery] string? proveedor = null,
+        [FromQuery] string? numeroDocumento = null)
     {
-        var compras = await compraService.GetComprasNoVinculadasAsync();
+        var compras = await compraService.GetComprasNoVinculadasAsync(proveedor, numeroDocumento);
         var dto = compras.Select(c => new CompraDto
         {
             Id = c.Id,
@@ -317,9 +319,11 @@ public class RendicionController(
 
     [HttpGet("gastos-no-vinculados")]
     public async Task<ActionResult<List<MovimientoCajaDto>>> GetGastosNoVinculados(
-        [FromServices] ICajaService cajaService)
+        [FromServices] ICajaService cajaService,
+        [FromQuery] DateTime? fechaDesde = null,
+        [FromQuery] DateTime? fechaHasta = null)
     {
-        var gastos = await cajaService.GetGastosNoVinculadosAsync();
+        var gastos = await cajaService.GetGastosNoVinculadosAsync(fechaDesde, fechaHasta);
         var dto = gastos.Select(g => new MovimientoCajaDto
         {
             Id = g.Id,

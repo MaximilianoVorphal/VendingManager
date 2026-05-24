@@ -145,6 +145,132 @@ public class ContabilidadController(IContabilidadService contabilidadService) : 
         }
     }
 
+    // ========== Edit Endpoints ==========
+
+    [HttpPut("compra/{id}")]
+    public async Task<ActionResult<CompraDto>> UpdateCompra(
+        int id,
+        [FromBody] UpdateCompraRequest request,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            var dto = await _service.UpdateCompraAsync(id, request, ct);
+            return Ok(dto);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(ex.Message);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
+    [HttpPut("gasto/{id}")]
+    public async Task<ActionResult<MovimientoCajaDto>> UpdateGasto(
+        int id,
+        [FromBody] UpdateGastoRequest request,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            var dto = await _service.UpdateGastoAsync(id, request, ct);
+            return Ok(dto);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(ex.Message);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
+    // ========== AccountingPeriod Endpoints ==========
+
+    [HttpGet("periodos")]
+    public async Task<ActionResult<List<AccountingPeriodDto>>> GetPeriodos(
+        [FromQuery] DateTime? desde,
+        [FromQuery] DateTime? hasta,
+        CancellationToken ct = default)
+    {
+        var periodos = await _service.GetPeriodosAsync(desde, hasta, ct);
+        return Ok(periodos);
+    }
+
+    [HttpGet("periodos/{id}")]
+    public async Task<ActionResult<AccountingPeriodFullDto>> GetPeriodoFull(
+        int id,
+        CancellationToken ct = default)
+    {
+        var periodo = await _service.GetPeriodoFullAsync(id, ct);
+        if (periodo == null)
+            return NotFound($"Período {id} no encontrado.");
+
+        return Ok(periodo);
+    }
+
+    [HttpPost("periodos")]
+    public async Task<ActionResult<AccountingPeriodDto>> CreatePeriodo(
+        [FromBody] CreatePeriodoRequest request,
+        CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(request.Name))
+            return BadRequest("El nombre del período es obligatorio.");
+
+        try
+        {
+            var dto = await _service.CreatePeriodoAsync(request, ct);
+            return CreatedAtAction(nameof(GetPeriodoFull), new { id = dto.Id }, dto);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
+    [HttpPut("periodos/{id}")]
+    public async Task<ActionResult<AccountingPeriodDto>> UpdatePeriodo(
+        int id,
+        [FromBody] UpdatePeriodoRequest request,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            var dto = await _service.UpdatePeriodoAsync(id, request, ct);
+            return Ok(dto);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(ex.Message);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
+    [HttpPost("periodos/{id}/cerrar")]
+    public async Task<IActionResult> ClosePeriodo(int id, CancellationToken ct = default)
+    {
+        try
+        {
+            await _service.ClosePeriodoAsync(id, ct);
+            return Ok(new { message = "Período cerrado exitosamente." });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(ex.Message);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
     private static TransferenciaDto MapToDto(VendingManager.Core.Entities.Transferencia t)
     {
         return new TransferenciaDto
@@ -156,6 +282,7 @@ public class ContabilidadController(IContabilidadService contabilidadService) : 
             Trabajador = t.Trabajador ?? string.Empty,
             Estado = t.Estado,
             RendicionId = t.RendicionId,
+            PeriodoId = t.PeriodoId,
             MovimientoCajaId = t.MovimientoCajaId,
             Compras = t.Compras?.Select(c => new CompraDto
             {

@@ -114,6 +114,7 @@ public class TransferenciaDto
     public string Trabajador { get; set; } = string.Empty;
     public Shared.Enums.TransferenciaEstado Estado { get; set; }
     public int? RendicionId { get; set; }
+    public int? PeriodoId { get; set; }
     public int? MovimientoCajaId { get; set; }
     public List<CompraDto> Compras { get; set; } = new();
 }

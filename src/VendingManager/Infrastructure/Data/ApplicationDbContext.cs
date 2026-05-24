@@ -36,6 +36,7 @@ namespace VendingManager.Infrastructure.Data
         public DbSet<ProductoCosto> ProductoCostos { get; set; } = null!;
         public DbSet<Transferencia> Transferencias { get; set; } = null!;
         public DbSet<Rendicion> Rendiciones { get; set; } = null!;
+        public DbSet<AccountingPeriod> AccountingPeriods { get; set; } = null!;
         public DbSet<TransferenciaHistory> TransferenciasHistory { get; set; } = null!;
         public DbSet<RendicionHistory> RendicionesHistory { get; set; } = null!;
 
@@ -99,9 +100,23 @@ namespace VendingManager.Infrastructure.Data
                     .WithMany()
                     .HasForeignKey(t => t.MovimientoCajaId)
                     .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(t => t.AccountingPeriod)
+                    .WithMany(p => p.Transferencias)
+                    .HasForeignKey(t => t.PeriodoId)
+                    .OnDelete(DeleteBehavior.SetNull);
                 e.HasMany(t => t.Compras)
                     .WithOne(c => c.Transferencia)
                     .HasForeignKey(c => c.TransferenciaId)
+                    .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            // AccountingPeriod: enum as int
+            modelBuilder.Entity<AccountingPeriod>(e =>
+            {
+                e.Property(p => p.Estado).HasConversion<int>();
+                e.HasMany(p => p.Transferencias)
+                    .WithOne(t => t.AccountingPeriod)
+                    .HasForeignKey(t => t.PeriodoId)
                     .OnDelete(DeleteBehavior.SetNull);
             });
 

@@ -121,6 +121,55 @@
             </div>
         </div>
         <div class="card-body p-0">
+            @if (EditingCompraId > 0)
+            {
+                @* Inline edit row for compra *@
+                var compra = Compras.FirstOrDefault(c => c.Id == EditingCompraId);
+                if (compra != null)
+                {
+                    <div class="row g-2 p-2 bg-warning-subtle border-bottom border-dark align-items-center">
+                        <div class="col-md-12 mb-2">
+                            <span class="fw-bold small">EDITANDO COMPRA #@EditingCompraId — @compra.Proveedor</span>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="fw-bold small text-muted">PROVEEDOR</label>
+                            <input type="text" class="form-control form-control-sm border-dark rounded-0" @bind="EditCompraProveedor" />
+                        </div>
+                        <div class="col-md-2">
+                            <label class="fw-bold small text-muted">Nº DOCUMENTO</label>
+                            <input type="text" class="form-control form-control-sm border-dark rounded-0" @bind="EditCompraNumeroDocumento" />
+                        </div>
+                        <div class="col-md-2">
+                            <label class="fw-bold small text-muted">FECHA</label>
+                            <input type="date" class="form-control form-control-sm border-dark rounded-0" @bind="EditCompraFecha" />
+                        </div>
+                        <div class="col-md-2">
+                            <label class="fw-bold small text-muted">TIPO</label>
+                            <select class="form-select form-select-sm border-dark rounded-0" @bind="EditCompraTipo">
+                                <option value="MERCADERIA">MERCADERIA</option>
+                                <option value="GASTO_GENERAL">GASTO GENERAL</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3 d-flex align-items-end gap-1">
+                            <button class="btn btn-success btn-sm rounded-0 fw-bold" @onclick="GuardarEdicionCompra" disabled="@EditCompraGuardando">
+                                @if (EditCompraGuardando)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-1"></span>
+                                }
+                                <i class="bi bi-check-lg"></i> GUARDAR
+                            </button>
+                            <button class="btn btn-outline-dark btn-sm rounded-0 fw-bold" @onclick="CancelarEdicionCompra">
+                                CANCELAR
+                            </button>
+                        </div>
+                        @if (!string.IsNullOrEmpty(ErrorEditCompra))
+                        {
+                            <div class="col-12 text-danger fw-bold small">@ErrorEditCompra</div>
+                        }
+                    </div>
+                }
+            }
+
             @if (Compras.Any())
             {
                 <table class="table table-hover table-bordered border-dark m-0 align-middle">
@@ -130,14 +179,15 @@
                             <th>FECHA</th>
                             <th>Nº DOCUMENTO</th>
                             <th>PROVEEDOR</th>
+                            <th>TIPO</th>
                             <th style="width: 130px;">TOTAL</th>
-                            <th style="width: 100px;">ACCIÓN</th>
+                            <th style="width: 120px;">ACCIÓN</th>
                         </tr>
                     </thead>
                     <tbody class="fw-bold" style="font-size: 0.85rem;">
                         @foreach (var c in Compras)
                         {
-                            <tr>
+                            <tr class="@(EditingCompraId == c.Id ? "table-warning" : "")">
                                 <td class="text-center">
                                     @if (!string.IsNullOrEmpty(c.FacturaImagenPath))
                                     {
@@ -155,13 +205,21 @@
                                 <td>@c.FechaCompra.ToString("dd/MM/yyyy")</td>
                                 <td class="font-monospace">@(string.IsNullOrEmpty(c.NumeroDocumento) ? "S/N" : c.NumeroDocumento)</td>
                                 <td>@c.Proveedor</td>
+                                <td><span class="badge bg-secondary rounded-0 small">@c.TipoFactura</span></td>
                                 <td class="text-end font-monospace text-danger">-$@c.MontoTotal.ToString("N0")</td>
                                 <td class="text-center">
-                                    <button class="btn btn-sm btn-outline-danger rounded-0 fw-bold"
-                                            title="Desvincular compra"
-                                            @onclick="() => DesvincularCompraClick(c.Id)">
-                                        <i class="bi bi-unlink"></i> DESVINCULAR
-                                    </button>
+                                    <div class="d-flex gap-1 justify-content-center">
+                                        <button class="btn btn-sm btn-outline-warning rounded-0 fw-bold border-dark"
+                                                title="Editar compra"
+                                                @onclick="() => IniciarEdicionCompra(c)">
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-danger rounded-0 fw-bold"
+                                                title="Desvincular compra"
+                                                @onclick="() => DesvincularCompraClick(c.Id)">
+                                            <i class="bi bi-unlink"></i>
+                                        </button>
+                                    </div>
                                 </td>
                             </tr>
                         }
@@ -185,6 +243,58 @@
             </div>
         </div>
         <div class="card-body p-0">
+            @if (EditingGastoId > 0)
+            {
+                @* Inline edit row for gasto *@
+                var gasto = Gastos.FirstOrDefault(g => g.Id == EditingGastoId);
+                if (gasto != null)
+                {
+                    <div class="row g-2 p-2 bg-warning-subtle border-bottom border-dark align-items-center">
+                        <div class="col-md-12 mb-2">
+                            <span class="fw-bold small">EDITANDO GASTO #@EditingGastoId — @gasto.Descripcion</span>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="fw-bold small text-muted">DESCRIPCIÓN</label>
+                            <input type="text" class="form-control form-control-sm border-dark rounded-0" @bind="EditGastoDescripcion" />
+                        </div>
+                        <div class="col-md-2">
+                            <label class="fw-bold small text-muted">MONTO</label>
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text bg-dark text-white border-dark rounded-0">$</span>
+                                <input type="number" class="form-control border-dark rounded-0 font-monospace text-end"
+                                       @bind="EditGastoMonto" min="0" />
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="fw-bold small text-muted">CATEGORÍA</label>
+                            <select class="form-select form-select-sm border-dark rounded-0" @bind="EditGastoCategoria">
+                                <option value="MERCADERIA">MERCADERIA</option>
+                                <option value="GASTOS GENERALES">GASTOS GENERALES</option>
+                                <option value="LOGISTICA">LOGISTICA</option>
+                                <option value="MANTENIMIENTO">MANTENIMIENTO</option>
+                                <option value="GENERAL">GENERAL</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4 d-flex align-items-end gap-1">
+                            <button class="btn btn-success btn-sm rounded-0 fw-bold" @onclick="GuardarEdicionGasto" disabled="@EditGastoGuardando">
+                                @if (EditGastoGuardando)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-1"></span>
+                                }
+                                <i class="bi bi-check-lg"></i> GUARDAR
+                            </button>
+                            <button class="btn btn-outline-dark btn-sm rounded-0 fw-bold" @onclick="CancelarEdicionGasto">
+                                CANCELAR
+                            </button>
+                        </div>
+                        @if (!string.IsNullOrEmpty(ErrorEditGasto))
+                        {
+                            <div class="col-12 text-danger fw-bold small">@ErrorEditGasto</div>
+                        }
+                    </div>
+                }
+            }
+
             @if (Gastos.Any())
             {
                 <table class="table table-hover table-bordered border-dark m-0 align-middle">
@@ -194,23 +304,30 @@
                             <th>CATEGORÍA</th>
                             <th>DESCRIPCIÓN</th>
                             <th style="width: 130px;">MONTO</th>
-                            <th style="width: 100px;">ACCIÓN</th>
+                            <th style="width: 120px;">ACCIÓN</th>
                         </tr>
                     </thead>
                     <tbody class="fw-bold" style="font-size: 0.85rem;">
                         @foreach (var g in Gastos)
                         {
-                            <tr>
+                            <tr class="@(EditingGastoId == g.Id ? "table-warning" : "")">
                                 <td>@g.Fecha.ToString("dd/MM/yyyy")</td>
                                 <td><span class="badge bg-secondary rounded-0">@g.Categoria</span></td>
                                 <td>@g.Descripcion</td>
                                 <td class="text-end font-monospace text-danger">-$@Math.Abs(g.Monto).ToString("N0")</td>
                                 <td class="text-center">
-                                    <button class="btn btn-sm btn-outline-danger rounded-0 fw-bold"
-                                            title="Desvincular gasto"
-                                            @onclick="() => DesvincularGastoClick(g.Id)">
-                                        <i class="bi bi-unlink"></i> DESVINCULAR
-                                    </button>
+                                    <div class="d-flex gap-1 justify-content-center">
+                                        <button class="btn btn-sm btn-outline-warning rounded-0 fw-bold border-dark"
+                                                title="Editar gasto"
+                                                @onclick="() => IniciarEdicionGasto(g)">
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-danger rounded-0 fw-bold"
+                                                title="Desvincular gasto"
+                                                @onclick="() => DesvincularGastoClick(g.Id)">
+                                            <i class="bi bi-unlink"></i>
+                                        </button>
+                                    </div>
                                 </td>
                             </tr>
                         }
@@ -226,10 +343,7 @@
 
     @* Navigation buttons *@
     <div class="d-flex gap-3 justify-content-between">
-        <button class="btn btn-outline-dark rounded-0 fw-bold px-4"
-                @onclick="() => OnAvanzar.InvokeAsync()">
-            <i class="bi bi-check me-2"></i>CUADRAR Y CONTINUAR
-        </button>
+        @* Placeholder for future batch actions *@
     </div>
 </div>
 
@@ -241,9 +355,27 @@
     [Parameter] public EventCallback OnItemUpdated { get; set; }
     [Parameter] public EventCallback OnAvanzar { get; set; }
 
+    // ===== Transferencia (monto) edit state =====
     private int EditingTransferenciaId { get; set; }
     private decimal EditingMonto { get; set; }
     private string? ErrorEditando { get; set; }
+
+    // ===== Compra edit state =====
+    private int EditingCompraId { get; set; }
+    private string EditCompraProveedor { get; set; } = string.Empty;
+    private string EditCompraNumeroDocumento { get; set; } = string.Empty;
+    private DateTime EditCompraFecha { get; set; } = DateTime.Today;
+    private string EditCompraTipo { get; set; } = "MERCADERIA";
+    private bool EditCompraGuardando { get; set; }
+    private string? ErrorEditCompra { get; set; }
+
+    // ===== Gasto edit state =====
+    private int EditingGastoId { get; set; }
+    private string EditGastoDescripcion { get; set; } = string.Empty;
+    private decimal EditGastoMonto { get; set; }
+    private string EditGastoCategoria { get; set; } = "GENERAL";
+    private bool EditGastoGuardando { get; set; }
+    private string? ErrorEditGasto { get; set; }
 
     private decimal GetTransferenciasTotal() => Transferencias.Sum(t => t.Monto);
     private decimal GetComprasTotal() => Compras.Sum(c => c.MontoTotal);
@@ -293,6 +425,145 @@
         EditingTransferenciaId = 0;
         EditingMonto = 0;
         ErrorEditando = null;
+    }
+
+    // ===== Compra inline edit =====
+
+    private void IniciarEdicionCompra(CompraDto c)
+    {
+        EditingCompraId = c.Id;
+        EditCompraProveedor = c.Proveedor;
+        EditCompraNumeroDocumento = c.NumeroDocumento ?? string.Empty;
+        EditCompraFecha = c.FechaCompra;
+        EditCompraTipo = c.TipoFactura;
+        ErrorEditCompra = null;
+        EditCompraGuardando = false;
+    }
+
+    private async Task GuardarEdicionCompra()
+    {
+        if (EditingCompraId <= 0) return;
+
+        try
+        {
+            EditCompraGuardando = true;
+            ErrorEditCompra = null;
+
+            var request = new UpdateCompraRequest
+            {
+                Proveedor = EditCompraProveedor,
+                NumeroDocumento = EditCompraNumeroDocumento,
+                Fecha = EditCompraFecha,
+                Tipo = EditCompraTipo
+            };
+
+            var response = await Http.PutAsJsonAsync($"api/contabilidad/compra/{EditingCompraId}", request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var updated = await response.Content.ReadFromJsonAsync<CompraDto>();
+                if (updated != null)
+                {
+                    var idx = Compras.FindIndex(c => c.Id == EditingCompraId);
+                    if (idx >= 0)
+                        Compras[idx] = updated;
+                }
+
+                EditingCompraId = 0;
+                EditCompraGuardando = false;
+                StateHasChanged();
+                await OnItemUpdated.InvokeAsync();
+            }
+            else
+            {
+                ErrorEditCompra = await response.Content.ReadAsStringAsync();
+                EditCompraGuardando = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            ErrorEditCompra = $"Error: {ex.Message}";
+            EditCompraGuardando = false;
+        }
+    }
+
+    private void CancelarEdicionCompra()
+    {
+        EditingCompraId = 0;
+        EditCompraProveedor = string.Empty;
+        EditCompraNumeroDocumento = string.Empty;
+        EditCompraFecha = DateTime.Today;
+        EditCompraTipo = "MERCADERIA";
+        ErrorEditCompra = null;
+        EditCompraGuardando = false;
+    }
+
+    // ===== Gasto inline edit =====
+
+    private void IniciarEdicionGasto(MovimientoCajaDto g)
+    {
+        EditingGastoId = g.Id;
+        EditGastoDescripcion = g.Descripcion;
+        EditGastoMonto = Math.Abs(g.Monto);
+        EditGastoCategoria = g.Categoria;
+        ErrorEditGasto = null;
+        EditGastoGuardando = false;
+    }
+
+    private async Task GuardarEdicionGasto()
+    {
+        if (EditingGastoId <= 0) return;
+
+        try
+        {
+            EditGastoGuardando = true;
+            ErrorEditGasto = null;
+
+            var request = new UpdateGastoRequest
+            {
+                Descripcion = EditGastoDescripcion,
+                Monto = EditGastoMonto,
+                Categoria = EditGastoCategoria
+            };
+
+            var response = await Http.PutAsJsonAsync($"api/contabilidad/gasto/{EditingGastoId}", request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var updated = await response.Content.ReadFromJsonAsync<MovimientoCajaDto>();
+                if (updated != null)
+                {
+                    var idx = Gastos.FindIndex(g => g.Id == EditingGastoId);
+                    if (idx >= 0)
+                        Gastos[idx] = updated;
+                }
+
+                EditingGastoId = 0;
+                EditGastoGuardando = false;
+                StateHasChanged();
+                await OnItemUpdated.InvokeAsync();
+            }
+            else
+            {
+                ErrorEditGasto = await response.Content.ReadAsStringAsync();
+                EditGastoGuardando = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            ErrorEditGasto = $"Error: {ex.Message}";
+            EditGastoGuardando = false;
+        }
+    }
+
+    private void CancelarEdicionGasto()
+    {
+        EditingGastoId = 0;
+        EditGastoDescripcion = string.Empty;
+        EditGastoMonto = 0;
+        EditGastoCategoria = "GENERAL";
+        ErrorEditGasto = null;
+        EditGastoGuardando = false;
     }
 
     private async Task DesvincularTransferenciaClick(int transferenciaId)
