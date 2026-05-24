@@ -3,14 +3,13 @@ FROM mcr.microsoft.com/playwright/python:v1.40.0-jammy
 
 WORKDIR /app
 
-# Instalar dependencias de Python explícitamente y actualizar pip
+# Layer 1: Dependencias base — cambia solo cuando actualizás pip packages
+# Esto mantiene cacheados Chromium y las libs aunque cambie el código
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir playwright fastapi uvicorn google-genai python-multipart pillow
+    pip install --no-cache-dir playwright fastapi uvicorn google-genai python-multipart pillow && \
+    playwright install chromium
 
-# Asegurar instalación de navegadores (aunque la imagen base los traiga, esto repara links rotos)
-RUN playwright install chromium
-
-# Copiar los scripts al contenedor
+# Layer 2: Código — se invalida solo cuando tocás los scripts
 COPY download_ourvend_report_alt.py .
 COPY scraper_api.py .
 COPY gemini_ocr.py .
@@ -21,5 +20,5 @@ RUN mkdir -p downloads
 # Exponer el puerto de la API
 EXPOSE 8000
 
-# Comando de inicio: Ejecutar la API usando uvicorn directamente para mejor rendimiento/logs
+# Comando de inicio
 CMD ["uvicorn", "scraper_api:app", "--host", "0.0.0.0", "--port", "8000"]
