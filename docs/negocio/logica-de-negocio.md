@@ -66,7 +66,7 @@ Responde a la pregunta: **"¿Cuánto gané?"**
 
 ---
 
-### 📒 CONTABILIDAD (justificar en qué usaste la plata)
+### 📒 CONCILIACIÓN (justificar en qué usaste la plata)
 
 El modelo nuevo, basado en **períodos contables** (reemplaza el modelo viejo de rendiciones por trabajador).
 
@@ -103,12 +103,12 @@ Transferencia ──→ Movimiento Caja (RETIRO) + Período Contable
 Stock ──→ Máquinas (Slots) ──→ Templates Recarga ──→ Análisis Stockout
 ```
 
-### Relación Caja ↔ Contabilidad
+### Relación Caja ↔ Conciliación
 
 Cuando creás una **Transferencia** en Contabilidad, automáticamente se genera un **Movimiento de Caja** tipo RETIRO:
 
 ```
-Contabilidad                          Caja
+Conciliación                        Caja
 ─────────────                         ────
 Transferencia $100.000  ──→  RETIRO -$100.000
 Compra $80.000 (productos)
@@ -172,10 +172,10 @@ Planificación de ciclos de reposición. Capturan el estado inicial de cada slot
 | Página | Para qué |
 |--------|----------|
 | **Home** | Dashboard: ventas diarias/semanales/mensuales, stock crítico |
-| **Caja** | Tesorería: KPIs, movimientos del mes, estado de resultados |
+| **Caja** | Tesorería: KPIs, movimientos del mes, estado de resultados, gastos fijos |
 | **Compras** | Historial y gestión de facturas |
 | **Nueva Compra** | Registrar factura con escaneo IA |
-| **Contabilidad** | Períodos contables: transferencias, compras, gastos, cierre |
+| **Conciliación** | Períodos contables: transferencias, compras, gastos, cierre |
 | **Rendiciones** | Modelo viejo de conciliación (por trabajador) |
 | **Inventario** | Stock en bodega, costos promedio |
 | **Gestión de Máquinas** | Máquinas y sus slots |
@@ -217,9 +217,9 @@ Planificación de ciclos de reposición. Capturan el estado inicial de cada slot
          │  Análisis de stockout │
          └───────────────────────┘
 
-   CONCILIACIÓN (modelo nuevo):
+   CONCILIACIÓN (modelo nuevo por período):
    Período Contable → Transferencias → Compras + Gastos → Cuadre
 
-   CONCILIACIÓN (modelo viejo):
+   CONCILIACIÓN (modelo viejo por trabajador):
    Rendición → Transferencias → Compras + Gastos → Cuadre
 ```
