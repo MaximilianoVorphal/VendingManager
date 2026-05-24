@@ -539,14 +539,28 @@ public class ContabilidadService : IContabilidadService
         if (period.Estado == AccountingPeriodEstado.Cerrado)
             throw new InvalidOperationException("El período ya está cerrado.");
 
-        // Validate: all transfers must be Conciliado
+        // Auto-conciliate transfers that have linked compras or gastos
+        foreach (var t in period.Transferencias)
+        {
+            if (t.Estado != TransferenciaEstado.Conciliado)
+            {
+                var hasLinkedItems = t.Compras.Count > 0
+                    || (t.Rendicion?.Gastos?.Count > 0);
+                if (hasLinkedItems)
+                {
+                    t.Estado = TransferenciaEstado.Conciliado;
+                }
+            }
+        }
+
+        // Validate: all transfers must be Conciliado after auto-conciliation
         var nonConciliated = period.Transferencias
             .Where(t => t.Estado != TransferenciaEstado.Conciliado)
             .ToList();
 
         if (nonConciliated.Count != 0)
             throw new InvalidOperationException(
-                $"No se puede cerrar el período. Hay {nonConciliated.Count} transferencia(s) no conciliada(s).");
+                $"No se puede cerrar el período. Hay {nonConciliated.Count} transferencia(s) no conciliada(s). Vinculá compras o gastos a cada transferencia antes de cerrar.");
 
         period.Estado = AccountingPeriodEstado.Cerrado;
         await _periodRepository.UpdateAsync(period, ct);
