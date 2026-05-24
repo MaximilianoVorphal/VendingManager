@@ -126,6 +126,7 @@ builder.Services.AddScoped<IContabilidadService, ContabilidadService>();
 builder.Services.AddScoped<IExcelExportService, ExcelExportService>();
 builder.Services.AddScoped<IVentaRepository, VentaRepository>();
 builder.Services.AddScoped<IMaquinaRepository, MaquinaRepository>();
+builder.Services.AddScoped<IAccountingPeriodRepository, AccountingPeriodRepository>();
 builder.Services.AddHttpClient<IFacturaOcrService, FacturaOcrService>();
 builder.Services.AddHttpClient<IRecargaOcrService, RecargaOcrService>();
 // Servicios en segundo plano (Background Workers)
