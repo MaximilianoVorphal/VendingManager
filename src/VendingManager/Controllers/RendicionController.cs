@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using VendingManager.Core.Entities;
 using VendingManager.Core.Interfaces;
+using VendingManager.Infrastructure.Data;
 using VendingManager.Shared.DTOs;
 
 namespace VendingManager.Controllers;
@@ -11,7 +13,8 @@ namespace VendingManager.Controllers;
 [Route("api/[controller]")]
 public class RendicionController(
     IRendicionService rendicionService,
-    ITransferenciaService transferenciaService) : ControllerBase
+    ITransferenciaService transferenciaService,
+    ApplicationDbContext context) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<IEnumerable<RendicionDto>>> GetRendiciones()
@@ -340,5 +343,44 @@ public class RendicionController(
             GastoRecurrenteId = g.GastoRecurrenteId
         }).ToList();
         return Ok(dto);
+    }
+
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> DeleteRendicion(int id)
+    {
+        var rendicion = await rendicionService.GetByIdAsync(id);
+        if (rendicion == null)
+            return NotFound($"Rendición {id} no encontrada.");
+
+        // 1. Unlink compras from this rendicion's transferencias
+        var transferencias = await context.Transferencias
+            .Where(t => t.RendicionId == id)
+            .Include(t => t.Compras)
+            .ToListAsync();
+
+        foreach (var t in transferencias)
+        {
+            foreach (var c in t.Compras)
+                c.TransferenciaId = null;
+        }
+
+        // 2. Delete MovimientosCaja linked to this rendicion or its transferencias
+        var movimientos = await context.MovimientosCaja
+            .Where(m => m.RendicionId == id)
+            .ToListAsync();
+        context.MovimientosCaja.RemoveRange(movimientos);
+
+        // 3. Unlink transferencias from AccountingPeriods
+        foreach (var t in transferencias)
+            t.PeriodoId = null;
+
+        // 4. Delete transferencias
+        context.Transferencias.RemoveRange(transferencias);
+
+        // 5. Delete rendicion
+        context.Rendiciones.Remove(rendicion);
+
+        await context.SaveChangesAsync();
+        return Ok(new { message = $"Rendición {id} y sus {transferencias.Count} transferencias eliminadas." });
     }
 }
