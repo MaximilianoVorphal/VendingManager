@@ -82,20 +82,12 @@
 
             var request = new TransferenciaConMovimientoRequest
             {
-                RendicionId = RendicionId > 0 ? RendicionId : 0,
+                RendicionId = RendicionId,
                 Trabajador = _trabajadorLocal,
                 Fecha = Form.Fecha,
                 Monto = Form.Monto,
                 Descripcion = Form.Descripcion
             };
-
-            // If RendicionId was not passed, we need to determine it
-            if (request.RendicionId == 0)
-            {
-                Error = "No hay una rendición activa. Creá un período contable primero.";
-                Enviando = false;
-                return;
-            }
 
             var response = await Http.PostAsJsonAsync("api/contabilidad/transferencia-con-movimiento", request);
             if (response.IsSuccessStatusCode)
