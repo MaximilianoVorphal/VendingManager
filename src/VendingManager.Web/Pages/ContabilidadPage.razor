@@ -381,12 +381,12 @@
         Navigation.NavigateTo("/caja");
     }
 
-    private async Task SeleccionarPeriodo(int periodoId)
+    private async Task SeleccionarPeriodo(int periodoId, bool keepMessages = false)
     {
         try
         {
             Error = null;
-            SuccessMessage = null;
+            if (!keepMessages) SuccessMessage = null;
             ShowTransferenciaForm = false;
             ShowCompraForm = false;
             ShowGastoForm = false;
@@ -486,7 +486,7 @@
     {
         if (State.PeriodoActivo != null)
         {
-            await SeleccionarPeriodo(State.PeriodoActivo.Id);
+            await SeleccionarPeriodo(State.PeriodoActivo.Id, keepMessages: true);
         }
     }
 
