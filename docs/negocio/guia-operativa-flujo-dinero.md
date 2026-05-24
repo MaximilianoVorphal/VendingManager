@@ -114,6 +114,38 @@ VENTAS                              $2.500.000
 
 Ejemplo: si compraste $800.000 en mercadería este mes pero solo vendiste $500.000 de costo, el saldo de caja bajó $800.000 pero el EBIDTA solo refleja los $500.000 de costo de venta. Los otros $300.000 están en la bodega como inventario.
 
+### Ejemplo concreto: comprar hoy, vender mañana
+
+Comprás $500.000 en papas fritas el 28 de junio. Las máquinas las venden recién en julio.
+
+**Junio — P&L**
+```
+VENTAS                              $2.000.000
+− COSTO DE VENTA                    $  900.000   ← costo de lo vendido en junio
+= MARGEN BRUTO                      $1.100.000
+− Gastos Variables                   $  350.000
+− Gastos Fijos                       $  600.000
+= EBIDTA                             $  150.000
+─────────────────────────────────────────────────
+Gastos Mercadería (informativo)      $  500.000   ← las papas que compraste, no descuenta
+```
+
+Las papas de $500.000 **no tocaron el EBIDTA**. Están en la bodega como inventario. Lo único que bajó fue el saldo de caja (saliste de esa plata).
+
+**Julio — P&L** (cuando se venden esas papas)
+```
+VENTAS                              $2.300.000   ← incluye la venta de las papas
+− COSTO DE VENTA                    $1.100.000   ← AHORA entra el costo de esas papas
+= MARGEN BRUTO                      $1.200.000
+− Gastos Variables                   $  350.000
+− Gastos Fijos                       $  600.000
+= EBIDTA                             $  250.000
+```
+
+Recién en julio, cuando el producto se vendió, su costo impacta en el EBIDTA. Es el principio de **devengado**: el gasto se reconoce cuando el producto se vende, no cuando se compra.
+
+**En criollo**: la plata que ponés en mercadería no es un gasto — es un intercambio (plata → inventario). El gasto real ocurre cuando el producto sale de la máquina y ya no lo tenés más.
+
 ---
 
 ## Orden correcto de trabajo
