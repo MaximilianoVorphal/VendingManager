@@ -20,8 +20,6 @@ public class ContabilidadController(IContabilidadService contabilidadService) : 
     {
         if (request.Monto <= 0)
             return BadRequest("El monto debe ser mayor a cero.");
-        if (string.IsNullOrWhiteSpace(request.Trabajador))
-            return BadRequest("El nombre del trabajador es obligatorio.");
 
         try
         {

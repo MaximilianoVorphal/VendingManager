@@ -220,16 +220,14 @@
                 </div>
                 <div class="card-body bg-light">
                     @{
-                        // For period-based transfers, use the period's first transferencia's Trabajador or period's Trabajador
+                        // For period-based transfers, use the period's Trabajador
                         var trabajador = State.PeriodoActivoFull.Transferencias.FirstOrDefault()?.Trabajador
                                         ?? State.PeriodoActivo?.Trabajador
                                         ?? string.Empty;
-                        // Use the first rendicion from the first transferencia, or default
-                        var rendicionId = State.PeriodoActivoFull.Transferencias.FirstOrDefault()?.RendicionId ?? 0;
                     }
                     <TransferenciaForm OnTransferenciaCreated="OnTransferenciaCreada"
                                        Trabajador="@trabajador"
-                                       RendicionId="@rendicionId" />
+                                       RendicionId="@(_periodRendicionId ?? 0)" />
                 </div>
             </div>
         }
@@ -249,12 +247,11 @@
                         var compraTrabajador = State.PeriodoActivoFull.Transferencias.FirstOrDefault()?.Trabajador
                                                ?? State.PeriodoActivo?.Trabajador
                                                ?? string.Empty;
-                        var compraRendicionId = State.PeriodoActivoFull.Transferencias.FirstOrDefault()?.RendicionId ?? 0;
                     }
                     <CompraForm OnCompraCreated="OnCompraCreada"
                                 Trabajador="@compraTrabajador"
                                 Transferencias="@State.Transferencias"
-                                RendicionId="@compraRendicionId" />
+                                RendicionId="@(_periodRendicionId ?? 0)" />
                 </div>
             </div>
         }
@@ -270,11 +267,8 @@
                     </button>
                 </div>
                 <div class="card-body bg-light">
-                    @{
-                        var gastoRendicionId = State.PeriodoActivoFull.Transferencias.FirstOrDefault()?.RendicionId ?? 0;
-                    }
                     <GastoForm OnGastoCreated="OnGastoCreado"
-                               RendicionId="@gastoRendicionId" />
+                               RendicionId="@(_periodRendicionId ?? 0)" />
                 </div>
             </div>
         }
@@ -337,6 +331,9 @@
     private bool ShowCompraForm { get; set; }
     private bool ShowGastoForm { get; set; }
 
+    // Auto-created rendicion ID for the active period
+    private int? _periodRendicionId { get; set; }
+
     protected override async Task OnInitializedAsync()
     {
         if (QueryPeriodoId.HasValue)
@@ -396,6 +393,7 @@
             ShowTransferenciaForm = false;
             ShowCompraForm = false;
             ShowGastoForm = false;
+            _periodRendicionId = null; // reset — will be auto-created when needed
 
             // Find the basic DTO
             State.PeriodoActivo = State.Periodos.FirstOrDefault(p => p.Id == periodoId);
@@ -496,25 +494,75 @@
         }
     }
 
-    private void MostrarFormTransferencia()
+    private async Task MostrarFormTransferencia()
     {
+        // Ensure a rendicion exists for this period
+        await EnsureRendicionForPeriod();
+
         ShowTransferenciaForm = true;
         ShowCompraForm = false;
         ShowGastoForm = false;
     }
 
-    private void MostrarFormCompra()
+    private async Task MostrarFormCompra()
     {
+        // Ensure a rendicion exists for this period
+        await EnsureRendicionForPeriod();
+
         ShowCompraForm = true;
         ShowTransferenciaForm = false;
         ShowGastoForm = false;
     }
 
-    private void MostrarFormGasto()
+    private async Task MostrarFormGasto()
     {
+        // Ensure a rendicion exists for this period
+        await EnsureRendicionForPeriod();
+
         ShowGastoForm = true;
         ShowTransferenciaForm = false;
         ShowCompraForm = false;
+    }
+
+    private async Task EnsureRendicionForPeriod()
+    {
+        if (State.PeriodoActivo == null) return;
+        if (_periodRendicionId.HasValue) return;
+
+        // Check if any transfers already exist for this period
+        var existingRendicionId = State.PeriodoActivoFull?.Transferencias.FirstOrDefault()?.RendicionId;
+        if (existingRendicionId.HasValue && existingRendicionId > 0)
+        {
+            _periodRendicionId = existingRendicionId;
+            return;
+        }
+
+        // Auto-create a rendicion for this period
+        try
+        {
+            var createReq = new CreateRendicionRequest
+            {
+                Trabajador = State.PeriodoActivo.Trabajador ?? "General",
+                FechaInicio = State.PeriodoActivo.FechaInicio,
+                Observaciones = $"Período: {State.PeriodoActivo.Name}"
+            };
+
+            var response = await Http.PostAsJsonAsync("api/rendicion", createReq);
+            if (response.IsSuccessStatusCode)
+            {
+                var rendicion = await response.Content.ReadFromJsonAsync<RendicionDto>();
+                _periodRendicionId = rendicion?.Id;
+                Error = null;
+            }
+            else
+            {
+                Error = "No se pudo crear la rendición para este período.";
+            }
+        }
+        catch (Exception ex)
+        {
+            Error = $"Error al crear rendición: {ex.Message}";
+        }
     }
 
     private async Task OnTransferenciaCreada(TransferenciaDto t)
