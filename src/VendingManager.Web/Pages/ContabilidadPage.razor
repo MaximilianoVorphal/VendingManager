@@ -387,9 +387,12 @@
         {
             Error = null;
             if (!keepMessages) SuccessMessage = null;
-            ShowTransferenciaForm = false;
-            ShowCompraForm = false;
-            ShowGastoForm = false;
+            if (!keepMessages)
+            {
+                ShowTransferenciaForm = false;
+                ShowCompraForm = false;
+                ShowGastoForm = false;
+            }
 
             // Find the basic DTO
             State.PeriodoActivo = State.Periodos.FirstOrDefault(p => p.Id == periodoId);
