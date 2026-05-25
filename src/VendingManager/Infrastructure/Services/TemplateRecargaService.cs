@@ -381,7 +381,7 @@ public class TemplateRecargaService : ITemplateRecargaService
                 NumeroSlot = c.NumeroSlot,
                 ProductoId = c.ProductoId,
                 ProductoNombre = c.Producto != null ? c.Producto.Nombre : "",
-                CantidadInicial = c.StockActual,
+                CantidadInicial = Math.Max(0, c.StockActual),
                 CapacidadSlot = c.CapacidadMaxima,
                 Estado = c.ProductoId == null ? EstadoSlot.Pendiente : EstadoSlot.Lleno
             })
