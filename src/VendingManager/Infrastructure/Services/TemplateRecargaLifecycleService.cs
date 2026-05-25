@@ -45,7 +45,7 @@ public class TemplateRecargaLifecycleService : ITemplateRecargaLifecycleService
 
         template.Estado = EstadoTemplate.Terminado;
 
-        await _context.SaveChangesAsync();
+        await SyncSlotsToConfiguracionInternalAsync(template);
 
         _logger.LogInformation(
             "[Terminar] Template {TemplateId} transitioned to Terminado",
