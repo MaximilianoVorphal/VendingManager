@@ -13,4 +13,5 @@ public interface ICompraService
     Task<string> SaveFacturaImagenAsync(int compraId, IFormFile file);
     string ResolveFacturaPhysicalPath(string relativePath);
     Task<IEnumerable<Compra>> GetComprasNoVinculadasAsync(string? proveedor = null, string? numeroDocumento = null);
+    Task<ReconstruirCostosResult> ReconstruirProductoCostosAsync();
 }
