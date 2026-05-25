@@ -24,6 +24,17 @@
                 <button class="btn btn-dark rounded-0 fw-bold shadow animate__animated animate__fadeIn" @onclick='() => Navigation.NavigateTo("/compras/nueva")'>
                     <i class="bi bi-plus-lg me-2"></i>NUEVA COMPRA
                 </button>
+                <button class="btn btn-danger rounded-0 fw-bold border-dark" @onclick="ConfirmarReconstruirCostos" disabled="@EjecutandoReconstruccion">
+                    @if (EjecutandoReconstruccion)
+                    {
+                        <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                    }
+                    else
+                    {
+                        <i class="bi bi-database-fill-gear me-2"></i>
+                    }
+                    RECONSTRUIR COSTOS
+                </button>
             </div>
         </div>
     </div>
@@ -277,6 +288,39 @@
     </div>
 }
 
+<!-- MODAL RECONSTRUIR COSTOS -->
+@if (MostrarModalReconstruccion)
+{
+    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content rounded-0 border-2 border-dark shadow-lg">
+                <div class="modal-header bg-warning text-dark rounded-0 border-bottom border-dark">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-database-fill-gear me-2"></i>RECONSTRUIR COSTOS</h5>
+                    <button type="button" class="btn-close" @onclick="CancelarReconstruccion"></button>
+                </div>
+                <div class="modal-body p-4 text-center">
+                    <p class="fs-5 fw-bold">Se van a reconstruir todos los costos históricos desde las compras. ¿Confirmás?</p>
+                    <p class="text-muted small">Esta operación eliminará todos los registros de ProductoCosto y los recreará desde cero.</p>
+                </div>
+                <div class="modal-footer bg-light rounded-0">
+                    <button type="button" class="btn btn-outline-dark rounded-0 fw-bold" @onclick="CancelarReconstruccion" disabled="@EjecutandoReconstruccion">CANCELAR</button>
+                    <button type="button" class="btn btn-warning rounded-0 border-dark fw-bold px-4" @onclick="EjecutarReconstruccionCostos" disabled="@EjecutandoReconstruccion">
+                        @if (EjecutandoReconstruccion)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                        }
+                        else
+                        {
+                            <i class="bi bi-check-circle me-2"></i>
+                        }
+                        SÍ, RECONSTRUIR
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     private List<CompraDto> ListaCompras = new();
     private bool Cargando = true;
@@ -344,6 +388,11 @@
     // Modal Eliminar
     private CompraDto? CompraAEliminar;
     private bool ProcesandoEliminacion = false;
+
+    // Modal Reconstruir Costos
+    private bool MostrarModalReconstruccion = false;
+    private bool EjecutandoReconstruccion = false;
+    private ReconstruirCostosResult? ResultadoReconstruccion;
 
     private async Task ConfirmarEliminacion(CompraDto compra)
     {
@@ -419,6 +468,50 @@
         {
             ProcesandoPago = false;
             if(CompraSeleccionada != null) await CerrarModalDetalles();
+        }
+    }
+
+    private async Task ConfirmarReconstruirCostos()
+    {
+        await JS.InvokeVoidAsync("modalScrollLock.lock");
+        MostrarModalReconstruccion = true;
+        Error = null;
+        MensajeExito = null;
+    }
+
+    private async Task CancelarReconstruccion()
+    {
+        await JS.InvokeVoidAsync("modalScrollLock.unlock");
+        MostrarModalReconstruccion = false;
+    }
+
+    private async Task EjecutarReconstruccionCostos()
+    {
+        try
+        {
+            EjecutandoReconstruccion = true;
+            var response = await Http.PostAsync("api/compras/reconstruir-costos", null);
+
+            if (response.IsSuccessStatusCode)
+            {
+                ResultadoReconstruccion = await response.Content.ReadFromJsonAsync<ReconstruirCostosResult>();
+                MensajeExito = $"Costos reconstruidos: {ResultadoReconstruccion?.ProductosProcesados} productos, " +
+                    $"{ResultadoReconstruccion?.ComprasReprocesadas} compras, " +
+                    $"{ResultadoReconstruccion?.RegistrosProductoCostoCreados} costos creados.";
+                await CancelarReconstruccion();
+            }
+            else
+            {
+                Error = "Error al reconstruir costos: " + await response.Content.ReadAsStringAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            Error = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            EjecutandoReconstruccion = false;
         }
     }
 }
