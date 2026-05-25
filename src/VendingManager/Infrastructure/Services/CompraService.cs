@@ -411,4 +411,91 @@ public class CompraService : ICompraService
             .ThenByDescending(c => c.Id)
             .ToListAsync();
     }
+
+    public async Task<ReconstruirCostosResult> ReconstruirProductoCostosAsync()
+    {
+        using var transaction = await _context.Database.BeginTransactionAsync();
+        try
+        {
+            // 1. Delete all ProductoCosto
+            var allCostos = await _context.ProductoCostos.ToListAsync();
+            _context.ProductoCostos.RemoveRange(allCostos);
+
+            // 2. Reset all Producto to zero
+            var allProductos = await _context.Productos.ToListAsync();
+            foreach (var p in allProductos)
+            {
+                p.StockBodega = 0;
+                p.CostoPromedio = 0;
+            }
+
+            // 3. Load Compras ordered by date ASC
+            var compras = await _context.Compras
+                .Include(c => c.Detalles)
+                .OrderBy(c => c.FechaCompra)
+                .ToListAsync();
+
+            int registrosCreados = 0;
+            int detallesSinProducto = 0;
+            var productosAfectados = new HashSet<int>();
+
+            // 4. Replay each compra
+            foreach (var compra in compras)
+            {
+                foreach (var detalle in compra.Detalles)
+                {
+                    if (detalle.ProductoId.HasValue)
+                    {
+                        var producto = allProductos.First(p => p.Id == detalle.ProductoId.Value);
+                        productosAfectados.Add(producto.Id);
+
+                        // CPP recalculation
+                        decimal valorActual = producto.StockBodega * producto.CostoPromedio;
+                        decimal valorNuevo = detalle.Cantidad * detalle.CostoUnitario;
+                        int nuevoStock = producto.StockBodega + detalle.Cantidad;
+
+                        if (nuevoStock > 0)
+                            producto.CostoPromedio = (valorActual + valorNuevo) / nuevoStock;
+                        producto.StockBodega = nuevoStock;
+
+                        // Close open ProductoCosto for this product
+                        var openRow = _context.ProductoCostos.Local
+                            .FirstOrDefault(pc => pc.ProductoId == producto.Id && pc.FechaHasta == null);
+                        if (openRow != null)
+                            openRow.FechaHasta = compra.FechaCompra;
+
+                        // Create new ProductoCosto
+                        _context.ProductoCostos.Add(new ProductoCosto
+                        {
+                            ProductoId = producto.Id,
+                            Costo = detalle.CostoUnitario,
+                            FechaDesde = compra.FechaCompra,
+                            FechaHasta = null
+                        });
+                        registrosCreados++;
+                    }
+                    else
+                    {
+                        detallesSinProducto++;
+                    }
+                }
+            }
+
+            await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
+
+            return new ReconstruirCostosResult
+            {
+                ProductosProcesados = productosAfectados.Count,
+                ComprasReprocesadas = compras.Count,
+                RegistrosProductoCostoCreados = registrosCreados,
+                DetallesSinProducto = detallesSinProducto
+            };
+        }
+        catch (Exception)
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
+    }
 }

@@ -223,4 +223,18 @@ public class ComprasController(ICompraService compraService, IFacturaOcrService 
 
         return PhysicalFile(Path.GetFullPath(filePath), contentType);
     }
+
+    [HttpPost("reconstruir-costos")]
+    public async Task<ActionResult<ReconstruirCostosResult>> ReconstruirCostos()
+    {
+        try
+        {
+            var resultado = await compraService.ReconstruirProductoCostosAsync();
+            return Ok(resultado);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, $"Error al reconstruir costos: {ex.Message}");
+        }
+    }
 }
