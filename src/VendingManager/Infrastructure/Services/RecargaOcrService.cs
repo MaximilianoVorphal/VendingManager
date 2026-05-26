@@ -52,7 +52,8 @@ namespace VendingManager.Infrastructure.Services
             using var stream = imageFile.OpenReadStream();
             using var streamContent = new StreamContent(stream);
 
-            streamContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(imageFile.ContentType);
+            var mimeType = ResolveMimeType(imageFile.FileName, imageFile.ContentType);
+            streamContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(mimeType);
             content.Add(streamContent, "file", imageFile.FileName);
 
             var requestUri = $"{_scraperServiceUrl}/api/ocr/recarga";
@@ -299,6 +300,24 @@ namespace VendingManager.Infrastructure.Services
             }
 
             return d[len1, len2];
+        }
+
+        private static string ResolveMimeType(string fileName, string? contentType)
+        {
+            if (!string.IsNullOrEmpty(contentType))
+                return contentType;
+
+            var ext = Path.GetExtension(fileName)?.ToLowerInvariant();
+            return ext switch
+            {
+                ".jpg" or ".jpeg" or ".jpge" => "image/jpeg",
+                ".png" => "image/png",
+                ".webp" => "image/webp",
+                ".bmp" => "image/bmp",
+                ".gif" => "image/gif",
+                ".pdf" => "application/pdf",
+                _ => "application/octet-stream"
+            };
         }
     }
 }
