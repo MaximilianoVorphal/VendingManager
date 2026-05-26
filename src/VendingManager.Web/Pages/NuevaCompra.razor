@@ -465,7 +465,8 @@
             // 3. Enviar a OCR con los bytes en memoria
             using var content = new MultipartFormDataContent();
             var byteContent = new ByteArrayContent(fileBytes);
-            byteContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(file.ContentType);
+            var mimeType = ResolveMimeType(file.Name, file.ContentType);
+            byteContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(mimeType);
             content.Add(byteContent, "file", file.Name);
 
             var response = await Http.PostAsync("api/compras/upload-factura", content);
@@ -531,6 +532,26 @@
         FacturaFile = null;
         FacturaPreviewUrl = null;
         FacturaPreviewData = null;
+    }
+
+    // Resuelve el MIME type: si el ContentType viene vacío (ej: extensión no reconocida),
+    // lo infiere de la extensión del archivo.
+    private static string ResolveMimeType(string fileName, string? contentType)
+    {
+        if (!string.IsNullOrEmpty(contentType))
+            return contentType;
+
+        var ext = Path.GetExtension(fileName)?.ToLowerInvariant();
+        return ext switch
+        {
+            ".jpg" or ".jpeg" or ".jpge" => "image/jpeg",
+            ".png" => "image/png",
+            ".webp" => "image/webp",
+            ".bmp" => "image/bmp",
+            ".gif" => "image/gif",
+            ".pdf" => "application/pdf",
+            _ => "application/octet-stream"
+        };
     }
 
     // Clase auxiliar para la UI
