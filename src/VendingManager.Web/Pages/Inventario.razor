@@ -34,6 +34,10 @@
                     <button @onclick="DescargarCatalogo" style="display: none;"></button>
                 </label>
 
+                <button class="btn btn-outline-info rounded-0 fw-bold shadow me-1" @onclick='() => NavManager.NavigateTo("/inventario/ean")'>
+                    <i class="bi bi-upc-scan me-2"></i>CATÁLOGO EAN
+                </button>
+
                 <label class="btn btn-dark rounded-0 fw-bold shadow">
                     <i class="bi bi-file-earmark-excel me-2"></i>IMPORTAR
                     <InputFile OnChange="@SubirCatalogo" style="display: none;" accept=".xls,.xlsx" />
