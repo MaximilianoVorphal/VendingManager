@@ -26,7 +26,7 @@ public class PurchasingServiceTests : IDisposable
 
         var vendingConfig = new VendingConfig
         {
-            CajaStartDate = new DateTime(2025, 12, 18),
+            CajaStartDate = new DateTime(2026, 1, 1),
             TransbankFee = 80,
             RotacionStockMinimoDias = 30,
             RotacionUmbralCritico = 7,

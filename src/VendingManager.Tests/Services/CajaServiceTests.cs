@@ -34,7 +34,7 @@ public class CajaServiceTests : IDisposable
 
         var vendingConfig = new VendingConfig
         {
-            CajaStartDate = new DateTime(2025, 12, 18),
+            CajaStartDate = new DateTime(2026, 1, 1),
             TransbankFee = 80,
             RotacionStockMinimoDias = 30,
             RotacionUmbralCritico = 7
@@ -185,14 +185,14 @@ public class CajaServiceTests : IDisposable
 
         // Seed previous month venta for SaldoAnterior
         var prevVenta = TestDataHelpers.CreateVenta(
-            fechaLocal: new DateTime(2025, 12, 20),
+            fechaLocal: new DateTime(2026, 1, 15),
             precioVenta: 500m,
             costoVenta: 200m,
             pagado: true,
             maquinaId: 1
         );
-        prevVenta.FechaHora = new DateTime(2025, 12, 20);
-        prevVenta.FechaLocal = new DateTime(2025, 12, 20);
+        prevVenta.FechaHora = new DateTime(2026, 1, 15);
+        prevVenta.FechaLocal = new DateTime(2026, 1, 15);
         _context.Ventas.Add(prevVenta);
 
         await _context.SaveChangesAsync();
@@ -202,7 +202,7 @@ public class CajaServiceTests : IDisposable
 
         // Assert
         result.Should().NotBeNull();
-        result.SaldoAnterior.Should().Be(500m); // From December
+        result.SaldoAnterior.Should().Be(500m); // From January
         result.IngresosVentas.Should().Be(0m);
         result.GastosOperativos.Should().Be(0m);
         result.SaldoFinal.Should().Be(500m); // Just saldo anterior, no activity
