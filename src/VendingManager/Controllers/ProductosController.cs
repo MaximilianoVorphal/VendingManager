@@ -7,7 +7,10 @@ namespace VendingManager.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class ProductosController(IInventarioService inventarioService, IAuditService auditService) : ControllerBase
+    public class ProductosController(
+        IInventarioService inventarioService,
+        IAuditService auditService,
+        IProductoEANRepository eanRepo) : ControllerBase
     {
         public async Task<ActionResult<IEnumerable<Producto>>> GetProductos()
         {
@@ -132,5 +135,122 @@ namespace VendingManager.Controllers
             await auditService.RegistrarAccionAsync(User.Identity?.Name ?? "Desconocido", "Eliminar Producto", $"Producto eliminado: {producto.Nombre} (ID: {id})");
             return NoContent();
         }
+
+        // ─── EAN Catalog Endpoints ─────────────────────────────────────────────
+
+        /// <summary>List all EAN mappings (with product name).</summary>
+        [HttpGet("ean")]
+        public async Task<ActionResult<IEnumerable<ProductoEanDto>>> GetEanMappings()
+        {
+            var mappings = await eanRepo.GetAllAsync();
+            var result = mappings.Select(MapToDto).ToList();
+            return Ok(result);
+        }
+
+        /// <summary>Get a single EAN mapping by its Id.</summary>
+        [HttpGet("ean/{id:int}")]
+        public async Task<ActionResult<ProductoEanDto>> GetEanMapping(int id)
+        {
+            var mappings = await eanRepo.GetAllAsync();
+            var entity = mappings.FirstOrDefault(e => e.Id == id);
+            if (entity == null) return NotFound();
+            return Ok(MapToDto(entity));
+        }
+
+        /// <summary>Create a new EAN mapping.</summary>
+        [HttpPost("ean")]
+        public async Task<ActionResult<ProductoEanDto>> CreateEanMapping([FromBody] CreateProductoEanRequestDto dto)
+        {
+            if (string.IsNullOrWhiteSpace(dto.EAN))
+                return BadRequest("EAN code is required.");
+
+            // Check for duplicate
+            var existing = await eanRepo.GetByEanAsync(dto.EAN.Trim());
+            if (existing != null)
+                return Conflict(new { message = $"EAN '{dto.EAN}' already exists (Id={existing.Id})." });
+
+            var entity = new ProductoEAN
+            {
+                EAN = dto.EAN.Trim(),
+                SKU = dto.SKU?.Trim(),
+                ProductoId = dto.ProductoId,
+                PackSize = dto.PackSize,
+                Proveedor = dto.Proveedor?.Trim(),
+                DescripcionProveedor = dto.DescripcionProveedor?.Trim(),
+                CreatedAt = DateTime.UtcNow,
+                LastSeenAt = DateTime.UtcNow
+            };
+
+            await eanRepo.AddAsync(entity);
+
+            // Reload with Producto navigation for the response
+            var reloaded = (await eanRepo.GetAllAsync()).FirstOrDefault(e => e.Id == entity.Id);
+            return CreatedAtAction(nameof(GetEanMapping), new { id = entity.Id }, MapToDto(reloaded ?? entity));
+        }
+
+        /// <summary>Update an existing EAN mapping.</summary>
+        [HttpPut("ean/{id:int}")]
+        public async Task<IActionResult> UpdateEanMapping(int id, [FromBody] CreateProductoEanRequestDto dto)
+        {
+            var entity = (await eanRepo.GetAllAsync()).FirstOrDefault(e => e.Id == id);
+            if (entity == null) return NotFound();
+
+            if (!string.IsNullOrWhiteSpace(dto.EAN))
+            {
+                // Check for duplicate if EAN is being changed
+                var dup = await eanRepo.GetByEanAsync(dto.EAN.Trim());
+                if (dup != null && dup.Id != id)
+                    return Conflict(new { message = $"EAN '{dto.EAN}' is already assigned to another mapping (Id={dup.Id})." });
+                entity.EAN = dto.EAN.Trim();
+            }
+
+            if (dto.SKU != null) entity.SKU = dto.SKU.Trim();
+            if (dto.ProductoId.HasValue) entity.ProductoId = dto.ProductoId;
+            if (dto.PackSize.HasValue) entity.PackSize = dto.PackSize;
+            if (dto.Proveedor != null) entity.Proveedor = dto.Proveedor.Trim();
+            if (dto.DescripcionProveedor != null) entity.DescripcionProveedor = dto.DescripcionProveedor.Trim();
+            entity.LastSeenAt = DateTime.UtcNow;
+
+            await eanRepo.UpdateAsync(entity);
+            return NoContent();
+        }
+
+        /// <summary>Delete an EAN mapping.</summary>
+        [HttpDelete("ean/{id:int}")]
+        public async Task<IActionResult> DeleteEanMapping(int id)
+        {
+            var entity = (await eanRepo.GetAllAsync()).FirstOrDefault(e => e.Id == id);
+            if (entity == null) return NotFound();
+
+            await eanRepo.DeleteAsync(id);
+            await auditService.RegistrarAccionAsync(
+                User.Identity?.Name ?? "Desconocido",
+                "Eliminar EAN",
+                $"EAN eliminado: {entity.EAN} (ProductoId: {entity.ProductoId})");
+            return NoContent();
+        }
+
+        /// <summary>Get all EANs for a specific product.</summary>
+        [HttpGet("{id:int}/ean")]
+        public async Task<ActionResult<IEnumerable<ProductoEanDto>>> GetEansByProducto(int id)
+        {
+            var mappings = await eanRepo.GetAllAsync();
+            var result = mappings.Where(e => e.ProductoId == id).Select(MapToDto).ToList();
+            return Ok(result);
+        }
+
+        private static ProductoEanDto MapToDto(ProductoEAN entity) => new()
+        {
+            Id = entity.Id,
+            EAN = entity.EAN,
+            SKU = entity.SKU,
+            ProductoId = entity.ProductoId,
+            ProductoNombre = entity.Producto?.Nombre,
+            PackSize = entity.PackSize,
+            Proveedor = entity.Proveedor,
+            DescripcionProveedor = entity.DescripcionProveedor,
+            CreatedAt = entity.CreatedAt,
+            LastSeenAt = entity.LastSeenAt
+        };
     }
 }
