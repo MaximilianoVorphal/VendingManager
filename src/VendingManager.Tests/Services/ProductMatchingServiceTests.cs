@@ -1,7 +1,9 @@
 namespace VendingManager.Tests.Services;
 
+using Moq;
 using VendingManager.Core.Interfaces;
 using VendingManager.Infrastructure.Data;
+using VendingManager.Infrastructure.Data.Repositories;
 using VendingManager.Infrastructure.Services;
 
 public class ProductMatchingServiceTests : IDisposable
@@ -13,7 +15,8 @@ public class ProductMatchingServiceTests : IDisposable
     {
         _context = CreateContext();
         SeedCatalog();
-        _service = new ProductMatchingService(_context);
+        var eanRepo = new ProductoEANRepository(_context);
+        _service = new ProductMatchingService(_context, eanRepo);
     }
 
     public void Dispose()
@@ -222,7 +225,7 @@ public class ProductMatchingServiceTests : IDisposable
     public async Task MatchAsync_TieBreaking_ByOverlap_SelectsHigherOverlap()
     {
         // Set threshold bajo para que scores de 0.5 pasen y se pueda verificar el tie-breaker
-        var tieService = new ProductMatchingService(_context, threshold: 0.4);
+        var tieService = new ProductMatchingService(_context, new ProductoEANRepository(_context), threshold: 0.4);
 
         _context.Productos.Add(new Producto
         {
@@ -268,13 +271,13 @@ public class ProductMatchingServiceTests : IDisposable
         _context.SaveChanges();
 
         // With 0.6 threshold → should match (0.666 >= 0.6)
-        var defaultService = new ProductMatchingService(_context, threshold: 0.6);
+        var defaultService = new ProductMatchingService(_context, new ProductoEANRepository(_context), threshold: 0.6);
         var defaultResult = await defaultService.MatchAsync("Coca Lata");
         defaultResult.Producto.Should().NotBeNull();
         defaultResult.Producto!.Id.Should().Be(10);
 
         // With 0.8 threshold → should NOT match (0.666 < 0.8)
-        var strictService = new ProductMatchingService(_context, threshold: 0.8);
+        var strictService = new ProductMatchingService(_context, new ProductoEANRepository(_context), threshold: 0.8);
         var strictResult = await strictService.MatchAsync("Coca Lata");
         strictResult.Producto.Should().BeNull();
         strictResult.SugerirCreacion.Should().BeTrue();
