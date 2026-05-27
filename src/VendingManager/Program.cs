@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Scalar.AspNetCore;
 using Serilog;
 using Serilog.Events;
@@ -111,6 +112,7 @@ builder.Services.AddDbContext<ApplicationDbContext>((sp, options) =>
 {
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"));
     options.AddInterceptors(sp.GetRequiredService<AuditSaveChangesInterceptor>());
+    options.ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning));
 });
 
 // 2.1 Configuration — VendingConfig
