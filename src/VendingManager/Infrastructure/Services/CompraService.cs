@@ -174,7 +174,7 @@ public class CompraService : ICompraService
             _context.DetallesCompra.RemoveRange(compra.Detalles);
             compra.Detalles = request.Detalles.Select(d => new DetalleCompra
             {
-                ProductoId = d.ProductoId,
+                ProductoId = d.ProductoId > 0 ? d.ProductoId : null,
                 DescripcionItem = d.DescripcionItem,
                 Cantidad = d.Cantidad,
                 CostoUnitario = d.CostoUnitario,
