@@ -52,6 +52,8 @@ public class RegistrarDetalleCompraRequestDto
     public bool EsPendiente { get; set; }
     public string? Ean { get; set; }
     public string? Sku { get; set; }
+    /// <summary>Cantidad de unidades por pack (null = unitario). Se usa para el aprendizaje EAN.</summary>
+    public int? PackSize { get; set; }
 }
 
 public class ActualizarCompraRequestDto

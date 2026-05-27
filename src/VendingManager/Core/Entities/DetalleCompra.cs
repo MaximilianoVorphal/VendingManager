@@ -31,4 +31,8 @@ public class DetalleCompra
 
     /// <summary>SKU del proveedor extraído del OCR, para aprendizaje automático al guardar.</summary>
     public string? Sku { get; set; }
+
+    /// <summary>Cantidad de unidades por pack (no mapeado a DB). Solo se usa en el flujo de creación para aprendizaje EAN.</summary>
+    [NotMapped]
+    public int? PackSize { get; set; }
 }

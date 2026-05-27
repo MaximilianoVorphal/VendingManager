@@ -210,6 +210,18 @@
                                                             </button>
                                                         </div>
                                                     }
+                                                    @if (!string.IsNullOrEmpty(d.Ean))
+                                                    {
+                                                        <div class="d-flex align-items-center gap-2 mt-1">
+                                                            <span class="badge bg-dark text-white rounded-0 small font-monospace" title="EAN del OCR">@d.Ean</span>
+                                                            <div class="input-group input-group-sm" style="max-width: 140px;">
+                                                                <span class="input-group-text bg-light border-dark rounded-0 small text-muted">Pack</span>
+                                                                <input type="number" class="form-control form-control-sm border-dark rounded-0 text-center font-monospace" 
+                                                                       @bind="d.PackSize" @bind:event="oninput" min="1" placeholder="1" 
+                                                                       title="Cantidad de unidades por pack (ej: 6 si el EAN es de un pack de 6 bebidas)" />
+                                                            </div>
+                                                        </div>
+                                                    }
                                                 }
                                                 else
                                                 {
@@ -352,7 +364,10 @@
                     DescripcionItem = d.DescripcionItem ?? d.ProductoNombre ?? "",
                     Cantidad = d.Cantidad,
                     CostoUnitario = d.CostoUnitario,
-                    EsPendiente = d.EsPendiente
+                    EsPendiente = d.EsPendiente,
+                    Ean = d.Ean,
+                    Sku = d.Sku,
+                    PackSize = null
                 }).ToList();
 
                 // Cargar EANs de los productos en el detalle
@@ -484,7 +499,10 @@
                 DescripcionItem = d.DescripcionItem,
                 Cantidad = d.Cantidad,
                 CostoUnitario = d.CostoUnitario,
-                EsPendiente = d.EsPendiente
+                EsPendiente = d.EsPendiente,
+                Ean = d.Ean,
+                Sku = d.Sku,
+                PackSize = d.PackSize
             }).ToList();
 
             var response = await Http.PutAsJsonAsync($"api/compras/{Id}", factura);
@@ -549,5 +567,8 @@
         public int Cantidad { get; set; }
         public decimal CostoUnitario { get; set; }
         public bool EsPendiente { get; set; }
+        public string? Ean { get; set; }
+        public string? Sku { get; set; }
+        public int? PackSize { get; set; }
     }
 }
