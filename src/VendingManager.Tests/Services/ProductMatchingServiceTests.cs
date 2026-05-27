@@ -318,4 +318,89 @@ public class ProductMatchingServiceTests : IDisposable
         result.Producto.Should().NotBeNull();
         result.Producto!.Id.Should().Be(1);
     }
+
+    // ─── EAN Step 0 (PR 3) ─────────────────────────────────────────────────
+
+    [Fact]
+    public async Task MatchAsync_EanFound_ReturnsEanMatch()
+    {
+        // Arrange: seed a ProductoEAN mapping for product 1
+        _context.ProductoEANs.Add(new ProductoEAN
+        {
+            EAN = "7791234567890",
+            ProductoId = 1,
+            PackSize = 1,
+            CreatedAt = DateTime.UtcNow,
+            LastSeenAt = DateTime.UtcNow
+        });
+        _context.SaveChanges();
+
+        // Act: match by EAN (productName is null-ish, but EAN is provided)
+        var result = await _service.MatchAsync("", "7791234567890", null, null);
+
+        // Assert: EAN match with full confidence, fuzzy skipped
+        result.Should().NotBeNull();
+        result.Producto.Should().NotBeNull();
+        result.Producto!.Id.Should().Be(1);
+        result.Confidence.Should().Be(1.0);
+        result.MatchMethod.Should().Be(MatchMethod.Ean);
+        result.SugerirCreacion.Should().BeFalse();
+        result.ProductoEAN.Should().NotBeNull();
+        result.ProductoEAN!.EAN.Should().Be("7791234567890");
+    }
+
+    [Fact]
+    public async Task MatchAsync_EanNotFound_FallsThroughToFuzzy()
+    {
+        // Act: unknown EAN should fall through to tokenized matching
+        var result = await _service.MatchAsync("Coca Cola Lata 350cc", "7799999999999", null, null);
+
+        // Assert: EAN not found → falls through to tokenized match
+        result.Should().NotBeNull();
+        result.Producto.Should().NotBeNull();
+        result.Producto!.Id.Should().Be(1);
+        result.MatchMethod.Should().Be(MatchMethod.Tokenized);
+        result.ProductoEAN.Should().BeNull();
+    }
+
+    // ─── SaveMappingAsync (PR 3) ──────────────────────────────────────────
+
+    [Fact]
+    public async Task SaveMappingAsync_CreatesNewMapping()
+    {
+        // Act: save mapping for a new EAN
+        await _service.SaveMappingAsync("7798888888888", 2, packSize: 6);
+
+        // Assert: record was created
+        var saved = _context.ProductoEANs.FirstOrDefault(e => e.EAN == "7798888888888");
+        saved.Should().NotBeNull();
+        saved!.ProductoId.Should().Be(2);
+        saved.PackSize.Should().Be(6);
+        saved.LastSeenAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5));
+    }
+
+    [Fact]
+    public async Task SaveMappingAsync_UpdatesExistingMapping()
+    {
+        // Arrange: seed an existing mapping
+        _context.ProductoEANs.Add(new ProductoEAN
+        {
+            EAN = "7791234567890",
+            ProductoId = 1,
+            PackSize = 1,
+            CreatedAt = DateTime.UtcNow,
+            LastSeenAt = DateTime.UtcNow.AddDays(-30)
+        });
+        _context.SaveChanges();
+
+        // Act: update the mapping — change ProductoId and PackSize
+        await _service.SaveMappingAsync("7791234567890", 2, packSize: 12);
+
+        // Assert: record updated
+        var updated = _context.ProductoEANs.FirstOrDefault(e => e.EAN == "7791234567890");
+        updated.Should().NotBeNull();
+        updated!.ProductoId.Should().Be(2);
+        updated.PackSize.Should().Be(12);
+        updated.LastSeenAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5));
+    }
 }
