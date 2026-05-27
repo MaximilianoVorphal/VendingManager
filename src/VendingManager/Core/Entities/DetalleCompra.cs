@@ -25,4 +25,10 @@ public class DetalleCompra
     public decimal Subtotal { get; set; } = 0;
 
     public bool EsPendiente { get; set; } = false;
+
+    /// <summary>Código EAN extraído del OCR, para aprendizaje automático al guardar.</summary>
+    public string? Ean { get; set; }
+
+    /// <summary>SKU del proveedor extraído del OCR, para aprendizaje automático al guardar.</summary>
+    public string? Sku { get; set; }
 }
