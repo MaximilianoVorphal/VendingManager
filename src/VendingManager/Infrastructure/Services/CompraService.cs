@@ -50,6 +50,9 @@ public class CompraService : ICompraService
 
     public async Task<Compra> RegistrarCompraAsync(Compra compra)
     {
+        // 0. Desglosar packs manuales: si el usuario indicó PackSize > 1, convertir packs a unidades.
+        DesglosarPacks(compra.Detalles);
+
         // 1. Recalcular el Costo Promedio y sumar Stock en Bodega (solo si hay producto)
         foreach (var detalle in compra.Detalles)
         {
@@ -198,6 +201,9 @@ public class CompraService : ICompraService
                 PackSize = d.PackSize
             }).ToList();
 
+            // 3b. Desglosar packs manuales antes de aplicar impacto
+            DesglosarPacks(compra.Detalles);
+
             // 4. Aplicar el impacto nuevo y registrar ProductoCosto
             foreach (var detalle in compra.Detalles)
             {
@@ -319,6 +325,26 @@ public class CompraService : ICompraService
         {
             await transaction.RollbackAsync();
             throw;
+        }
+    }
+
+    /// <summary>
+    /// Convierte packs en unidades individuales: si un detalle tiene PackSize > 1,
+    /// multiplica la cantidad y divide el costo unitario. El subtotal se mantiene.
+    /// Solo aplica a items no pendientes.
+    /// </summary>
+    private static void DesglosarPacks(IEnumerable<DetalleCompra> detalles)
+    {
+        foreach (var detalle in detalles)
+        {
+            if (detalle.EsPendiente) continue;
+            if (detalle.PackSize is > 1)
+            {
+                var subtotal = detalle.Cantidad * detalle.CostoUnitario;
+                detalle.Cantidad = detalle.Cantidad * detalle.PackSize.Value;
+                detalle.CostoUnitario = subtotal / detalle.Cantidad;
+                detalle.Subtotal = subtotal;
+            }
         }
     }
 
