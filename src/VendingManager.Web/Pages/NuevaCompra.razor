@@ -411,7 +411,9 @@
                 EsPendiente = d.EsPendiente,
                 Ean = d.Ean,
                 Sku = d.Sku,
-                PackSize = d.PackSize
+                // Solo pasar PackSize si es manual (no auto-detectado por OCR).
+                // Los packs auto-detectados ya fueron desglosados por FacturaOcrService.
+                PackSize = d.RequiereConfirmacionPack ? null : d.PackSize
             }).ToList();
 
             var response = await Http.PostAsJsonAsync("api/compras", factura);
