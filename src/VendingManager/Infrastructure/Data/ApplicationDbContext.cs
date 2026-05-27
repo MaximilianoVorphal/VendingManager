@@ -39,6 +39,7 @@ namespace VendingManager.Infrastructure.Data
         public DbSet<AccountingPeriod> AccountingPeriods { get; set; } = null!;
         public DbSet<TransferenciaHistory> TransferenciasHistory { get; set; } = null!;
         public DbSet<RendicionHistory> RendicionesHistory { get; set; } = null!;
+        public DbSet<ProductoEAN> ProductoEANs { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -131,6 +132,45 @@ namespace VendingManager.Infrastructure.Data
                 e.HasMany(r => r.Gastos)
                     .WithOne(m => m.Rendicion)
                     .HasForeignKey(m => m.RendicionId)
+                    .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            // ProductoEAN: catálogo EAN/SKU con índice único y FK nullable a Producto
+            modelBuilder.Entity<ProductoEAN>(entity =>
+            {
+                entity.ToTable("ProductoEAN");
+
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.EAN)
+                    .HasMaxLength(13)
+                    .IsRequired();
+
+                entity.Property(e => e.SKU)
+                    .HasMaxLength(50);
+
+                entity.Property(e => e.Proveedor)
+                    .HasMaxLength(200);
+
+                entity.Property(e => e.DescripcionProveedor)
+                    .HasMaxLength(500);
+
+                entity.Property(e => e.CreatedAt)
+                    .HasColumnType("datetime2");
+
+                entity.Property(e => e.LastSeenAt)
+                    .HasColumnType("datetime2");
+
+                // Índice único por EAN (permite upsert por código de barras)
+                entity.HasIndex(e => e.EAN)
+                    .IsUnique()
+                    .HasDatabaseName("IX_ProductoEAN_EAN");
+
+                // FK nullable a Producto — si el producto se elimina, el mapeo
+                // se desvincula pero no se pierde (la fila sigue existiendo)
+                entity.HasOne(e => e.Producto)
+                    .WithMany()
+                    .HasForeignKey(e => e.ProductoId)
                     .OnDelete(DeleteBehavior.SetNull);
             });
         }
