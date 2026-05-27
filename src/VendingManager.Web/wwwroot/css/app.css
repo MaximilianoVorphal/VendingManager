@@ -784,3 +784,13 @@ html {
 .pending-row:hover {
     background-color: #fff3cc !important;
 }
+
+/* PACK ROW (items desglosados de packs EAN) */
+.pack-row {
+    background-color: #fef3cd !important;
+    border-left: 4px solid #ffc107 !important;
+}
+
+.pack-row:hover {
+    background-color: #ffe69c !important;
+}

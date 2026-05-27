@@ -151,7 +151,9 @@
                                 <tbody class="fw-bold" style="font-size: 0.9rem;">
                                     @foreach (var d in detalles)
                                     {
-                                        <tr class="@(d.EsPendiente ? "pending-row" : "")">
+                                        var rowClass = d.EsPendiente ? "pending-row" : "";
+                                        rowClass += d.RequiereConfirmacionPack ? " pack-row" : "";
+                                        <tr class="@rowClass">
                                             <td>
                                                 @if (factura.TipoFactura == "MERCADERIA")
                                                 {
@@ -178,6 +180,12 @@
                                                 else
                                                 {
                                                     <input type="text" class="form-control form-control-sm border-dark rounded-0" @bind="d.DescripcionItem" placeholder="Descripción del gasto..." />
+                                                }
+                                                @if (d.RequiereConfirmacionPack && d.PackSize > 1)
+                                                {
+                                                    <div class="small text-warning-emphasis fw-bold mt-1">
+                                                        📦 Pack de @d.PackSize detectado → @d.Cantidad unidades, $@d.CostoUnitario.ToString("N0") c/u
+                                                    </div>
                                                 }
                                             </td>
                                             <td>
@@ -514,7 +522,10 @@
                             ProductoNombre = nombreProd,
                             DescripcionItem = nombreProd,
                             Cantidad = item.Cantidad > 0 ? (int)Math.Round(item.Cantidad) : 1,
-                            CostoUnitario = item.CostoUnitario
+                            CostoUnitario = item.CostoUnitario,
+                            Ean = item.Ean,
+                            Sku = item.Sku,
+                            RequiereConfirmacionPack = item.RequiereConfirmacionPack
                         });
                     }
                 }
@@ -588,5 +599,17 @@
         public int Cantidad { get; set; }
         public decimal CostoUnitario { get; set; }
         public bool EsPendiente { get; set; }
+
+        // Pack / EAN info
+        public string? Ean { get; set; }
+        public string? Sku { get; set; }
+        public int? PackSize { get; set; }
+        public bool RequiereConfirmacionPack { get; set; }
+
+        /// <summary>Formatted string for pack confirmation UI.</summary>
+        public string PackInfoText =>
+            RequiereConfirmacionPack && PackSize > 1
+                ? $"📦 Pack de {PackSize} detectado → {Cantidad} unidades, ${CostoUnitario:N0} c/u"
+                : string.Empty;
     }
 }
