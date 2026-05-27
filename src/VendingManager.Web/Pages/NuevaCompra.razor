@@ -186,6 +186,12 @@
                                                     <div class="small text-warning-emphasis fw-bold mt-1">
                                                         📦 Pack de @d.PackSize detectado → @d.Cantidad unidades, $@d.CostoUnitario.ToString("N0") c/u
                                                     </div>
+                                                    <div class="form-check mt-1">
+                                                        <input class="form-check-input border-warning" type="checkbox" @bind="d.PackConfirmado" id="pack-confirm-@d.GetHashCode()" />
+                                                        <label class="form-check-label small text-warning-emphasis fw-bold" for="pack-confirm-@d.GetHashCode()">
+                                                            ✅ Confirmar pack
+                                                        </label>
+                                                    </div>
                                                 }
                                             </td>
                                             <td>
@@ -217,7 +223,7 @@
                         </div>
                         
                         <div class="d-grid mt-4">
-                            <button class="btn btn-success btn-lg rounded-0 border-dark fw-bold shadow-sm" @onclick="GuardarCompra" disabled="@Guardando">
+                            <button class="btn btn-success btn-lg rounded-0 border-dark fw-bold shadow-sm" @onclick="GuardarCompra" disabled="@(Guardando || detalles.Any(d => d.RequiereConfirmacionPack && !d.PackConfirmado))">
                                 @if (Guardando)
                                 {
                                     <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
@@ -367,6 +373,12 @@
             return;
         }
 
+        if (detalles.Any(d => d.RequiereConfirmacionPack && !d.PackConfirmado))
+        {
+            MensajeError = "Debe confirmar los packs detectados antes de guardar.";
+            return;
+        }
+
         Guardando = true;
 
         try
@@ -378,7 +390,9 @@
                 DescripcionItem = d.DescripcionItem,
                 Cantidad = d.Cantidad,
                 CostoUnitario = d.CostoUnitario,
-                EsPendiente = d.EsPendiente
+                EsPendiente = d.EsPendiente,
+                Ean = d.Ean,
+                Sku = d.Sku
             }).ToList();
 
             var response = await Http.PostAsJsonAsync("api/compras", factura);
@@ -525,7 +539,8 @@
                             CostoUnitario = item.CostoUnitario,
                             Ean = item.Ean,
                             Sku = item.Sku,
-                            RequiereConfirmacionPack = item.RequiereConfirmacionPack
+                            RequiereConfirmacionPack = item.RequiereConfirmacionPack,
+                            PackConfirmado = !item.RequiereConfirmacionPack
                         });
                     }
                 }
@@ -605,6 +620,7 @@
         public string? Sku { get; set; }
         public int? PackSize { get; set; }
         public bool RequiereConfirmacionPack { get; set; }
+        public bool PackConfirmado { get; set; } = true;
 
         /// <summary>Formatted string for pack confirmation UI.</summary>
         public string PackInfoText =>
