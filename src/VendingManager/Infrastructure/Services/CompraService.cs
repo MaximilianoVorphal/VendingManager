@@ -106,13 +106,15 @@ public class CompraService : ICompraService
         }
         await _context.SaveChangesAsync();
 
-        // 4. Aprendizaje EAN: para cada detalle con EAN + ProductoId, persistir el mapeo
+        // 4. Aprendizaje EAN: para cada detalle CONFIRMADO con EAN + ProductoId, persistir el mapeo.
+        //    Items pendientes no generan aprendizaje porque el producto puede cambiar o no confirmarse.
         foreach (var detalle in compra.Detalles.Where(d =>
-            !string.IsNullOrEmpty(d.Ean) && d.ProductoId.HasValue))
+            !string.IsNullOrEmpty(d.Ean) && d.ProductoId.HasValue && !d.EsPendiente))
         {
             await _productMatchingService.SaveMappingAsync(
                 detalle.Ean!,
-                detalle.ProductoId!.Value);
+                detalle.ProductoId!.Value,
+                detalle.PackSize);
         }
 
         // 5. Registrar Movimiento en Caja automáticamente si la compra fue pagada
@@ -190,7 +192,10 @@ public class CompraService : ICompraService
                 Cantidad = d.Cantidad,
                 CostoUnitario = d.CostoUnitario,
                 Subtotal = d.Cantidad * d.CostoUnitario,
-                EsPendiente = d.EsPendiente
+                EsPendiente = d.EsPendiente,
+                Ean = d.Ean,
+                Sku = d.Sku,
+                PackSize = d.PackSize
             }).ToList();
 
             // 4. Aplicar el impacto nuevo y registrar ProductoCosto
@@ -265,13 +270,15 @@ public class CompraService : ICompraService
 
             await _context.SaveChangesAsync();
 
-            // 7. Aprendizaje EAN: para cada detalle con EAN + ProductoId, persistir el mapeo
+            // 7. Aprendizaje EAN: para cada detalle CONFIRMADO con EAN + ProductoId, persistir el mapeo.
+            //    Items pendientes no generan aprendizaje porque el producto puede cambiar o no confirmarse.
             foreach (var detalle in compra.Detalles.Where(d =>
-                !string.IsNullOrEmpty(d.Ean) && d.ProductoId.HasValue))
+                !string.IsNullOrEmpty(d.Ean) && d.ProductoId.HasValue && !d.EsPendiente))
             {
                 await _productMatchingService.SaveMappingAsync(
                     detalle.Ean!,
-                    detalle.ProductoId!.Value);
+                    detalle.ProductoId!.Value,
+                    detalle.PackSize);
             }
 
             await transaction.CommitAsync();

@@ -176,6 +176,18 @@
                                                             </button>
                                                         </div>
                                                     }
+                                                    @if (!string.IsNullOrEmpty(d.Ean))
+                                                    {
+                                                        <div class="d-flex align-items-center gap-2 mt-1">
+                                                            <span class="badge bg-dark text-white rounded-0 small font-monospace" title="EAN detectado por OCR">@d.Ean</span>
+                                                            <div class="input-group input-group-sm" style="max-width: 140px;">
+                                                                <span class="input-group-text bg-light border-dark rounded-0 small text-muted">Pack</span>
+                                                                <input type="number" class="form-control form-control-sm border-dark rounded-0 text-center font-monospace" 
+                                                                       @bind="d.PackSize" @bind:event="oninput" min="1" placeholder="1" 
+                                                                       title="Cantidad de unidades por pack (ej: 6 si el EAN es de un pack de 6 bebidas)" />
+                                                            </div>
+                                                        </div>
+                                                    }
                                                 }
                                                 else
                                                 {
@@ -392,7 +404,8 @@
                 CostoUnitario = d.CostoUnitario,
                 EsPendiente = d.EsPendiente,
                 Ean = d.Ean,
-                Sku = d.Sku
+                Sku = d.Sku,
+                PackSize = d.PackSize
             }).ToList();
 
             var response = await Http.PostAsJsonAsync("api/compras", factura);
@@ -539,6 +552,7 @@
                             CostoUnitario = item.CostoUnitario,
                             Ean = item.Ean,
                             Sku = item.Sku,
+                            PackSize = item.PackSize,
                             RequiereConfirmacionPack = item.RequiereConfirmacionPack,
                             PackConfirmado = !item.RequiereConfirmacionPack
                         });

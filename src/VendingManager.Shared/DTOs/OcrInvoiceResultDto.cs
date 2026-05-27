@@ -72,5 +72,9 @@ namespace VendingManager.Shared.DTOs
         /// <summary>Indica que el item es un pack y se desglosó en múltiples unidades. El UI debe mostrar confirmación.</summary>
         [JsonPropertyName("requiere_confirmacion_pack")]
         public bool RequiereConfirmacionPack { get; set; }
+
+        /// <summary>Cantidad de unidades por pack (ej: 6 = pack de 6). Solo tiene valor cuando es un pack detectado.</summary>
+        [JsonPropertyName("pack_size")]
+        public int? PackSize { get; set; }
     }
 }

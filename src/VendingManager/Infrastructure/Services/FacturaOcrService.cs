@@ -81,6 +81,7 @@ namespace VendingManager.Infrastructure.Services
                             item.CostoUnitario = item.Subtotal / newCantidad;
                             item.Cantidad = newCantidad;
                             item.RequiereConfirmacionPack = true;
+                            item.PackSize = packSize;
                         }
                     }
 
