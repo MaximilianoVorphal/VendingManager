@@ -41,43 +41,87 @@ def _parse_json(text: str, label: str) -> dict:
 def extract_invoice_data(image_path: str) -> dict:
     """
     Extracts invoice data from an image using Gemini.
-    Returns a dictionary structured with the invoice items.
+    Returns a dictionary structured with the invoice items and tax information.
     """
     prompt = """
 Analiza esta imagen que corresponde a una factura, boleta o ticket de supermercado de Chile (ej: Alvi, Acuenta, Mayorista, Distribuidoras).
 Extrae la información y retorna ÚNICAMENTE un objeto JSON válido con la siguiente estructura estricta, sin texto adicional ni formateos como ```json:
 
+Sigue estos 3 pasos de razonamiento para analizar el documento:
+
+PASO 1 — Identificar tipo de documento y base de precios:
+- ¿Es "Factura Electrónica" o "Boleta"? Revisa el encabezado del documento.
+- Si ves "Factura Electrónica", "RUT proveedor" o IVA desglosado en el pie → es FACTURA (precios NETOS + IVA)
+- Si ves solo precios por producto y un total final sin desglose de IVA → es BOLETA (precios BRUTOS con IVA incluido)
+- Guarda en 'tipo_documento': "FACTURA" o "BOLETA"
+
+PASO 2 — Extraer resumen de impuestos del pie del documento:
+- Busca en la parte inferior del documento la sección de resumen de impuestos.
+- Extrae: 'total_neto' (suma neta antes de impuestos), 'total_iva' (19% del neto si aplica), 'total_ila' (si aparece, generalmente 10% o 18% sobre ciertos productos)
+- Estos son totales a nivel de factura, NO por item.
+- Si el documento es BOLETA, estos campos deben ir como null.
+
+PASO 3 — Clasificación de impuestos por item:
+Para CADA item en la lista, identifica el tipo de producto para determinar los impuestos:
+
+- Bebidas azucaradas (Coca-Cola, Fanta, Sprite, Pepsi, etc.) → IVA + ILA 18%
+- Bebidas zero/light (Coca-Cola Zero, Sprite Zero, etc.) → IVA + ILA 10%
+- Abarrotes (papas, galletas, arroz, fideos, etc.) → IVA solo (ILA 0%)
+- Agua mineral sin gas → IVA solo
+- Otros productos → IVA solo (por defecto)
+
+Para CADA item:
+- 'tiene_iva': true si el producto lleva IVA (casi todos los productos en Chile)
+- 'tiene_ila': true solo si es bebida azucarada o zero/light
+- 'tipo_ila': "18" para azucaradas, "10" para zero/light, null si no aplica
+- Si es FACTURA: calcula 'neto_unitario' (precio antes de IVA e ILA)
+- 'costo_unitario' es el PRECIO FINAL pagado por unidad (con TODOS los impuestos incluidos)
+- 'subtotal' = cantidad * costo_unitario
+
+CRÍTICO — Invariantes que DEBES cumplir SIEMPRE:
+1. 'costo_unitario' SIEMPRE debe ser el precio final pagado (IVA + ILA incluidos)
+2. 'subtotal' DEBE ser exactamente (cantidad * costo_unitario)
+3. La SUMA de todos los subtotales DEBE coincidir con 'monto_total'
+4. Si es FACTURA: costo_unitario = neto × 1.19 (si solo IVA) o neto × 1.19 × 1.18 (si IVA + ILA 18%) o neto × 1.19 × 1.10 (si IVA + ILA 10%)
+5. Si es BOLETA (precios ya brutos): neto_unitario se calcula al revés: costo_unitario / 1.19 para productos solo IVA, más complejo si tiene ILA
+
 Reglas IMPORTANTES para los NÚMEROS en el JSON:
-1. Usa el punto (.) SOLO para los decimales. No uses separadores de miles. (ej: 10.080 -> 10080, 840,336 -> 840.336).
-2. Usa SIEMPRE VALORES CON IMPUESTOS (IVA) INCLUIDOS (Bruto). Si la factura detalla el valor de los productos de forma NETA (sin impuestos) y suma el IVA solo al final de la cuenta, DEBES agregar matemáticamente el porcentaje o margen de impuesto (ej: +19% IVA) al "costo_unitario" de cada producto para que refleje fielmente el costo real pagado con impuestos por unidad.
-3. VERIFICACIÓN MATEMÁTICA: La suma de todos los "subtotal" de todos los items en la lista DEBE COINCIDIR o cuadrar casi exactamente con el "monto_total" final de la factura (Monto Final a Pagar con impuestos). Ajusta los decimales o agrega el impuesto si notas que la suma es inferior al monto total cobrado.
-4. El "subtotal" por item DEBE ser estrictamente igual a (cantidad * costo_unitario). NUNCA devuelvas 0 si el producto fue efectivamente cobrado.
-5. REGLA ESPECIAL PARA COMBUSTIBLE (bencina, petróleo, diésel, gasolina, COPEC, Shell, Petrobras, Enex): NO intentes desglosar la compra en cantidad × costo_unitario. El litraje y precio por litro tienen decimales que al multiplicar generan diferencias con el total real. En estos casos usa un ÚNICO item con:
+1. Usa el punto (.) SOLO para los decimales. No uses separadores de miles.
+2. VERIFICACIÓN MATEMÁTICA: La suma de todos los "subtotal" DEBE coincidir exactamente con el "monto_total".
+3. REGLA ESPECIAL PARA COMBUSTIBLE (bencina, petróleo, diésel, gasolina, COPEC, Shell, Petrobras, Enex): NO intentes desglosar. Usa un ÚNICO item con:
    - "producto": "Combustible"
    - "cantidad": 1
-   - "costo_unitario": monto_total (el total pagado, IVA incluido)
+   - "costo_unitario": monto_total
    - "subtotal": monto_total
-   Así el monto_total coincidirá exactamente con el subtotal sin errores de redondeo.
+   (no aplican impuestos especiales ni neto)
 
 Formato requerido:
 {
   "proveedor": "Nombre del proveedor o tienda (Ej: ALVI, EL MOLINO, VICTOR ROJAS)",
   "numero_documento": "Numero de factura o ticket",
-  "fecha": "Fecha de la factura ESTRICTAMENTE en formato AAAA-MM-DD (año de 4 dígitos, mes de 2 dígitos, día de 2 dígitos). NUNCA uses formatos como DD-MM-AA, DD/MM/AAAA ni barras. Si la fecha en la boleta está en otro formato, CONVIÉRTELA a AAAA-MM-DD. Ejemplos: 2026-02-21 para 21 de febrero de 2026, 2025-12-07 para 7 de diciembre de 2025.",
+  "fecha": "Fecha ESTRICTAMENTE en formato AAAA-MM-DD. NUNCA uses formatos como DD-MM-AA ni barras.",
+  "tipo_documento": "FACTURA",
   "monto_total": 0.0,
+  "total_neto": 0.0,
+  "total_iva": 0.0,
+  "total_ila": 0.0,
   "items": [
     {
       "producto": "Nombre descriptivo (Ej: COCA COLA LATA 350 CC)",
       "cantidad": 0,
+      "neto_unitario": 0.0,
       "costo_unitario": 0.0,
       "subtotal": 0.0,
-      "ean": "Código de barras EAN del producto si es visible (opcional, usualmente 13 dígitos, ej: 7791234567890)",
-      "sku": "SKU o código interno del proveedor si es visible (opcional)"
+      "tiene_iva": true,
+      "tiene_ila": true,
+      "tipo_ila": "18",
+      "ean": "Código de barras EAN (opcional, 13 dígitos)",
+      "sku": "SKU o código interno (opcional)"
     }
   ]
 }
 
-NOTA sobre ean y sku: Estos campos son OPCIONALES. Si el producto NO muestra un código de barras o SKU visible, los campos deben omitirse o ir como null. NO inventes ni alucines códigos. Si ves un código de barras (generalmente 13 dígitos, a veces 8 o 12), inclúyelo en 'ean'.
+NOTA sobre ean y sku: Son OPCIONALES. NO inventes ni alucines códigos. Si ves un código de barras (generalmente 13 dígitos), inclúyelo en 'ean'.
 """
     text = _call_gemini(prompt, image_path)
     return _parse_json(text, "invoice")
