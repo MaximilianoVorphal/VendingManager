@@ -115,7 +115,8 @@ public class ComprasController(ICompraService compraService, IFacturaOcrService 
                 Subtotal = d.Cantidad * d.CostoUnitario,
                 EsPendiente = d.EsPendiente,
                 Ean = d.Ean,
-                Sku = d.Sku
+                Sku = d.Sku,
+                PackSize = d.PackSize
             }).ToList()
         };
 
