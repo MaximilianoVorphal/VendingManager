@@ -38,5 +38,11 @@ namespace VendingManager.Shared.DTOs
         
         [JsonPropertyName("sugerir_creacion")]
         public bool SugerirCreacion { get; set; }
+
+        [JsonPropertyName("ean")]
+        public string? Ean { get; set; }
+
+        [JsonPropertyName("sku")]
+        public string? Sku { get; set; }
     }
 }
