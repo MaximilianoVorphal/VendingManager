@@ -773,3 +773,14 @@ html {
         display: flex !important;
     }
 }
+
+/* =========================================
+   PENDING ROW (items pendientes en facturas)
+   ========================================= */
+.pending-row {
+    background-color: #fff9e6 !important;
+}
+
+.pending-row:hover {
+    background-color: #fff3cc !important;
+}

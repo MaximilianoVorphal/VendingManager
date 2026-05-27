@@ -144,13 +144,14 @@
                                         <th style="width: 100px;">CANT <i class="bi bi-hash"></i></th>
                                         <th style="width: 150px;">PRECIO <i class="bi bi-currency-dollar"></i></th>
                                         <th style="width: 130px;">SUBTOTAL</th>
+                                        <th style="width: 90px;" class="text-center">PEND. <i class="bi bi-clock"></i></th>
                                         <th style="width: 50px;"></th>
                                     </tr>
                                 </thead>
                                 <tbody class="fw-bold" style="font-size: 0.9rem;">
                                     @foreach (var d in detalles)
                                     {
-                                        <tr>
+                                        <tr class="@(d.EsPendiente ? "pending-row" : "")">
                                             <td>
                                                 @if (factura.TipoFactura == "MERCADERIA")
                                                 {
@@ -190,6 +191,11 @@
                                             </td>
                                             <td class="text-end text-success font-monospace fs-6">
                                                 @((d.Cantidad * d.CostoUnitario).ToString("C0"))
+                                            </td>
+                                            <td class="text-center">
+                                                <div class="form-check form-switch d-flex justify-content-center m-0 p-0">
+                                                    <input class="form-check-input m-0" type="checkbox" @bind="d.EsPendiente" title="Dejar pendiente" />
+                                                </div>
                                             </td>
                                             <td class="text-center">
                                                 <button class="btn btn-sm btn-outline-danger border-dark rounded-0" @onclick="() => EliminarDetalle(d)">
@@ -322,7 +328,7 @@
 
     private decimal CalcularTotal()
     {
-        return detalles.Sum(d => d.Cantidad * d.CostoUnitario);
+        return detalles.Where(d => !d.EsPendiente).Sum(d => d.Cantidad * d.CostoUnitario);
     }
 
     private async Task GuardarCompra()
@@ -341,7 +347,7 @@
             return;
         }
 
-        if (factura.TipoFactura == "MERCADERIA" && detalles.Any(d => d.ProductoId == 0 || d.ProductoId == null))
+        if (factura.TipoFactura == "MERCADERIA" && detalles.Any(d => !d.EsPendiente && (d.ProductoId == 0 || d.ProductoId == null)))
         {
             MensajeError = "Debe asignar un producto del sistema a cada ítem (selecciónelos en los recuadros amarillos).";
             return;
@@ -363,7 +369,8 @@
                 ProductoId = d.ProductoId,
                 DescripcionItem = d.DescripcionItem,
                 Cantidad = d.Cantidad,
-                CostoUnitario = d.CostoUnitario
+                CostoUnitario = d.CostoUnitario,
+                EsPendiente = d.EsPendiente
             }).ToList();
 
             var response = await Http.PostAsJsonAsync("api/compras", factura);
@@ -580,5 +587,6 @@
         public string DescripcionItem { get; set; } = string.Empty;
         public int Cantidad { get; set; }
         public decimal CostoUnitario { get; set; }
+        public bool EsPendiente { get; set; }
     }
 }
