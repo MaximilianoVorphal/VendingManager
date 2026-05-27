@@ -193,7 +193,18 @@
                                                     else
                                                     {
                                                         <div class="d-flex align-items-center justify-content-between">
-                                                            <span>@d.ProductoNombre</span>
+                                                            <span>
+                                                                @d.ProductoNombre
+                                                                @if (d.ProductoId.HasValue && EansPorProducto.ContainsKey(d.ProductoId.Value))
+                                                                {
+                                                                    var eans = EansPorProducto[d.ProductoId.Value];
+                                                                    <span class="badge bg-info text-dark ms-1 border border-dark rounded-1" 
+                                                                          title="@BuildEanTooltip(eans)" 
+                                                                          style="cursor: help;">
+                                                                        @eans.Count EANs ⓘ
+                                                                    </span>
+                                                                }
+                                                            </span>
                                                             <button class="btn btn-sm btn-link text-dark p-0 ms-2" @onclick="() => d.ProductoId = null">
                                                                 <i class="bi bi-pencil-square"></i>
                                                             </button>
@@ -266,6 +277,7 @@
     private RegistrarCompraRequestDto factura = new();
     private List<ProductoSimpleDto> ProductosDisponibles = new();
     private List<DetalleUI> detalles = new();
+    private Dictionary<int, List<ProductoEanDto>> EansPorProducto = new();
 
     private int productoSeleccionadoId = 0;
     private string descripcionGastoLibre = "";
@@ -284,6 +296,19 @@
     {
         get => factura.FechaCompra;
         set => factura.FechaCompra = value;
+    }
+
+    private string BuildEanTooltip(IEnumerable<ProductoEanDto> eans)
+    {
+        var lines = new List<string>();
+        foreach (var ean in eans)
+        {
+            var provider = string.IsNullOrEmpty(ean.Proveedor) ? "GENERAL" : ean.Proveedor;
+            lines.Add($"{provider} → {ean.EAN}");
+            if (!string.IsNullOrEmpty(ean.SKU))
+                lines.Add($"SKU: {ean.SKU}");
+        }
+        return string.Join("\n", lines);
     }
 
     private void ClearFacturaPreview()
@@ -329,6 +354,26 @@
                     CostoUnitario = d.CostoUnitario,
                     EsPendiente = d.EsPendiente
                 }).ToList();
+
+                // Cargar EANs de los productos en el detalle
+                var productoIds = detalles
+                    .Where(d => d.ProductoId.HasValue && d.ProductoId.Value > 0)
+                    .Select(d => d.ProductoId!.Value)
+                    .Distinct()
+                    .ToList();
+                foreach (var pid in productoIds)
+                {
+                    try
+                    {
+                        var eans = await Http.GetFromJsonAsync<List<ProductoEanDto>>($"api/productos/{pid}/ean");
+                        if (eans != null && eans.Count > 0)
+                            EansPorProducto[pid] = eans;
+                    }
+                    catch
+                    {
+                        // EAN data is non-critical — silently ignore
+                    }
+                }
             }
         }
         catch (Exception ex)
