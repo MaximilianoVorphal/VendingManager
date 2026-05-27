@@ -178,7 +178,8 @@ public class CompraService : ICompraService
                 DescripcionItem = d.DescripcionItem,
                 Cantidad = d.Cantidad,
                 CostoUnitario = d.CostoUnitario,
-                Subtotal = d.Cantidad * d.CostoUnitario
+                Subtotal = d.Cantidad * d.CostoUnitario,
+                EsPendiente = d.EsPendiente
             }).ToList();
 
             // 4. Aplicar el impacto nuevo y registrar ProductoCosto
