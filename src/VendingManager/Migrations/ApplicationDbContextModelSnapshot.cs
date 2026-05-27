@@ -325,6 +325,11 @@ namespace VendingManager.Migrations
                     b.Property<string>("DescripcionItem")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<bool>("EsPendiente")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
                     b.Property<int?>("ProductoId")
                         .HasColumnType("int");
 
