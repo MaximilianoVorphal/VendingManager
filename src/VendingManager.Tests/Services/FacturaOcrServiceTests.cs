@@ -19,8 +19,9 @@ public class FacturaOcrServiceTests
     {
         _mockMatcher = new Mock<IProductMatchingService>();
         // Default: no match (each test can override)
+        // Note: now uses the 4-param overload with EAN/SKU context
         _mockMatcher
-            .Setup(m => m.MatchAsync(It.IsAny<string>()))
+            .Setup(m => m.MatchAsync(It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>()))
             .ReturnsAsync(new ProductMatchResult
             {
                 Producto = null,
@@ -28,6 +29,11 @@ public class FacturaOcrServiceTests
                 SugerirCreacion = true,
                 MatchMethod = MatchMethod.None
             });
+
+        // Default: save mapping is a no-op
+        _mockMatcher
+            .Setup(m => m.SaveMappingAsync(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int?>()))
+            .Returns(Task.CompletedTask);
 
         _mockHttpHandler = new MockHttpMessageHandler();
         _mockHttpHandler.SetDefaultResponse(new HttpResponseMessage
@@ -50,7 +56,7 @@ public class FacturaOcrServiceTests
     {
         // Arrange
         _mockMatcher
-            .Setup(m => m.MatchAsync("Coca Cola"))
+            .Setup(m => m.MatchAsync("Coca Cola", null, null, "Test"))
             .ReturnsAsync(new ProductMatchResult
             {
                 Producto = new Producto { Id = 42, Nombre = "Coca Cola" },
@@ -70,23 +76,13 @@ public class FacturaOcrServiceTests
         result.Items[0].ProductoIdMatch.Should().Be(42);
         result.Items[0].SugerirCreacion.Should().BeFalse();
 
-        _mockMatcher.Verify(m => m.MatchAsync("Coca Cola"), Times.Once);
+        _mockMatcher.Verify(m => m.MatchAsync("Coca Cola", null, null, "Test"), Times.Once);
     }
 
     [Fact]
     public async Task ExtractInvoiceDataAsync_WithoutMatch_SetsSugerirCreacionTrue()
     {
-        // Arrange
-        _mockMatcher
-            .Setup(m => m.MatchAsync(It.IsAny<string>()))
-            .ReturnsAsync(new ProductMatchResult
-            {
-                Producto = null,
-                Confidence = 0.0,
-                SugerirCreacion = true,
-                MatchMethod = MatchMethod.None
-            });
-
+        // Arrange — uses default setup from constructor (no match)
         var file = CreateMockFile("test.jpg", "image/jpeg");
 
         // Act
@@ -109,16 +105,6 @@ public class FacturaOcrServiceTests
             Content = new StringContent("{\"proveedor\":\"Test\",\"items\":[{\"producto\":null,\"cantidad\":1,\"costo_unitario\":500,\"subtotal\":500}]}")
         });
 
-        _mockMatcher
-            .Setup(m => m.MatchAsync(It.IsAny<string>()))
-            .ReturnsAsync(new ProductMatchResult
-            {
-                Producto = null,
-                Confidence = 0.0,
-                SugerirCreacion = true,
-                MatchMethod = MatchMethod.None
-            });
-
         var file = CreateMockFile("test.jpg", "image/jpeg");
 
         // Act
@@ -127,8 +113,10 @@ public class FacturaOcrServiceTests
         // Assert
         result.Should().NotBeNull();
         result.Items.Should().HaveCount(1);
-        // Should NOT call the matcher for null product names
-        _mockMatcher.Verify(m => m.MatchAsync(It.IsAny<string>()), Times.Never);
+        // Should NOT call the matcher for null product names and no EAN/SKU
+        _mockMatcher.Verify(
+            m => m.MatchAsync(It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>()),
+            Times.Never);
     }
 
     // ─── HTTP Error Response ──────────────────────────────────────────────
@@ -165,7 +153,7 @@ public class FacturaOcrServiceTests
         // Assert
         result.Should().NotBeNull();
         result.Items.Should().HaveCount(1);
-        _mockMatcher.Verify(m => m.MatchAsync("Coca Cola"), Times.Once);
+        _mockMatcher.Verify(m => m.MatchAsync("Coca Cola", null, null, "Test"), Times.Once);
     }
 
     private static IFormFile CreateMockFile(string fileName, string contentType)
