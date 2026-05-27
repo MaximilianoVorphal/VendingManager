@@ -44,5 +44,9 @@ namespace VendingManager.Shared.DTOs
 
         [JsonPropertyName("sku")]
         public string? Sku { get; set; }
+
+        /// <summary>Indica que el item es un pack y se desglosó en múltiples unidades. El UI debe mostrar confirmación.</summary>
+        [JsonPropertyName("requiere_confirmacion_pack")]
+        public bool RequiereConfirmacionPack { get; set; }
     }
 }
