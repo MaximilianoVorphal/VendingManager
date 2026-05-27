@@ -28,6 +28,8 @@ public class DetalleCompraDto
     public decimal CostoUnitario { get; set; }
     public decimal Subtotal { get; set; }
     public bool EsPendiente { get; set; }
+    public string? Ean { get; set; }
+    public string? Sku { get; set; }
 }
 
 public class RegistrarCompraRequestDto
@@ -48,6 +50,8 @@ public class RegistrarDetalleCompraRequestDto
     public int Cantidad { get; set; }
     public decimal CostoUnitario { get; set; }
     public bool EsPendiente { get; set; }
+    public string? Ean { get; set; }
+    public string? Sku { get; set; }
 }
 
 public class ActualizarCompraRequestDto
