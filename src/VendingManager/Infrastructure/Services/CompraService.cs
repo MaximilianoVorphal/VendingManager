@@ -13,12 +13,14 @@ public class CompraService : ICompraService
     private readonly ApplicationDbContext _context;
     private readonly IWebHostEnvironment _env;
     private readonly IOptions<VendingConfig> _config;
+    private readonly IProductMatchingService _productMatchingService;
 
-    public CompraService(ApplicationDbContext context, IWebHostEnvironment env, IOptions<VendingConfig> config)
+    public CompraService(ApplicationDbContext context, IWebHostEnvironment env, IOptions<VendingConfig> config, IProductMatchingService productMatchingService)
     {
         _context = context;
         _env = env;
         _config = config;
+        _productMatchingService = productMatchingService;
     }
 
     public async Task<IEnumerable<Compra>> GetComprasAsync(int? count = null)
@@ -104,7 +106,16 @@ public class CompraService : ICompraService
         }
         await _context.SaveChangesAsync();
 
-        // 4. Registrar Movimiento en Caja automáticamente si la compra fue pagada
+        // 4. Aprendizaje EAN: para cada detalle con EAN + ProductoId, persistir el mapeo
+        foreach (var detalle in compra.Detalles.Where(d =>
+            !string.IsNullOrEmpty(d.Ean) && d.ProductoId.HasValue))
+        {
+            await _productMatchingService.SaveMappingAsync(
+                detalle.Ean!,
+                detalle.ProductoId!.Value);
+        }
+
+        // 5. Registrar Movimiento en Caja automáticamente si la compra fue pagada
         if (compra.Estado == "PAGADA" && compra.PagadaCaja)
         {
             var movimiento = new MovimientoCaja
@@ -253,6 +264,16 @@ public class CompraService : ICompraService
             }
 
             await _context.SaveChangesAsync();
+
+            // 7. Aprendizaje EAN: para cada detalle con EAN + ProductoId, persistir el mapeo
+            foreach (var detalle in compra.Detalles.Where(d =>
+                !string.IsNullOrEmpty(d.Ean) && d.ProductoId.HasValue))
+            {
+                await _productMatchingService.SaveMappingAsync(
+                    detalle.Ean!,
+                    detalle.ProductoId!.Value);
+            }
+
             await transaction.CommitAsync();
             return compra;
         }

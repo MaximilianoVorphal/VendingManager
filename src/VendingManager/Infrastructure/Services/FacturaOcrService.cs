@@ -86,15 +86,8 @@ namespace VendingManager.Infrastructure.Services
 
                     item.SugerirCreacion = matchResult.SugerirCreacion;
 
-                    // Learning: si el item tiene EAN y se matcheó, persiste la relación
-                    // para que futuras OCR scans automaticen el matching.
-                    if (!string.IsNullOrEmpty(item.Ean) && matchResult.Producto != null)
-                    {
-                        await _productMatchingService.SaveMappingAsync(
-                            item.Ean,
-                            matchResult.Producto.Id,
-                            matchResult.ProductoEAN?.PackSize);
-                    }
+                    // Learning eliminado de aquí — ahora se hace en CompraService.RegistrarCompraAsync
+                    // y ActualizarCompraAsync, después de que el usuario confirma la compra.
                 }
             }
 
