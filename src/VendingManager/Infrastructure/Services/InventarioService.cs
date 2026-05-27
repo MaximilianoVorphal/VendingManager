@@ -33,15 +33,16 @@ namespace VendingManager.Infrastructure.Services
 
         public async Task UpdateProductoAsync(int id, Producto producto, DateTime? recalculateFrom = null, DateTime? recalculateTo = null)
         {
-            // Nota: En el Controller se verifica id != producto.Id. Aquí asumimos que la validación está hecha o la verificamos.
-            _context.Entry(producto).State = EntityState.Modified;
+            // Buscar la entidad ya trackeada para evitar conflicto de instancias duplicadas
+            var tracked = await _context.Productos.FindAsync(id);
+            if (tracked == null)
+                throw new KeyNotFoundException($"Producto {id} no encontrado.");
+
+            // Pisar valores desde el DTO sin cambiar la instancia trackeada
+            _context.Entry(tracked).CurrentValues.SetValues(producto);
 
             if (recalculateFrom.HasValue)
             {
-                // Recalcular CostoVenta para ventas >= recalculateFrom
-                // Necesitamos obtener las ventas que involucran este producto.
-                // Asumimos que Venta tiene ProductoId y queremos actualizar CostoVenta basado en el NUEVO producto.CostoPromedio
-                
                 var query = _context.Ventas
                     .Where(v => v.ProductoId == id && v.FechaLocal >= recalculateFrom.Value);
 
@@ -54,7 +55,7 @@ namespace VendingManager.Infrastructure.Services
 
                 foreach (var venta in ventasAfectadas)
                 {
-                    venta.CostoVenta = producto.CostoPromedio;
+                    venta.CostoVenta = tracked.CostoPromedio;
                 }
             }
 
