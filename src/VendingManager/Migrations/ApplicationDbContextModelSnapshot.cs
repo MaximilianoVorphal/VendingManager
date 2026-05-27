@@ -326,7 +326,6 @@ namespace VendingManager.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<bool>("EsPendiente")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
                         .HasDefaultValue(false);
 
