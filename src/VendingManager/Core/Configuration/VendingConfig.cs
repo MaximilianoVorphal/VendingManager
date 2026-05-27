@@ -2,7 +2,7 @@ namespace VendingManager.Core.Configuration;
 
 public class VendingConfig
 {
-    public DateTime CajaStartDate { get; set; } = new DateTime(2025, 12, 18);
+    public DateTime CajaStartDate { get; set; } = new DateTime(2026, 1, 1);
 
     public int TransbankFee { get; set; } = 80;
 
