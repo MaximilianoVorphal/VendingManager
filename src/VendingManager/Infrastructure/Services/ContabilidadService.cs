@@ -128,10 +128,11 @@ public class ContabilidadService : IContabilidadService
                     DescripcionItem = d.DescripcionItem,
                     Cantidad = d.Cantidad,
                     CostoUnitario = d.CostoUnitario,
-                    Subtotal = d.Cantidad * d.CostoUnitario
+                    Subtotal = d.Cantidad * d.CostoUnitario,
+                    EsPendiente = d.EsPendiente
                 }).ToList()
             };
-            compra.MontoTotal = compra.Detalles.Sum(d => d.Subtotal);
+            compra.MontoTotal = compra.Detalles.Where(d => !d.EsPendiente).Sum(d => d.Subtotal);
 
             _context.Compras.Add(compra);
             await _context.SaveChangesAsync(ct);
@@ -144,7 +145,7 @@ public class ContabilidadService : IContabilidadService
             }
 
             // 4. Update Producto stock + CostoPromedio (CPP formula from CompraService)
-            foreach (var detalle in compra.Detalles.Where(d => d.ProductoId.HasValue))
+            foreach (var detalle in compra.Detalles.Where(d => d.ProductoId.HasValue && !d.EsPendiente))
             {
                 var producto = await _context.Productos.FindAsync(new object[] { detalle.ProductoId!.Value }, ct);
                 if (producto != null)
@@ -162,7 +163,7 @@ public class ContabilidadService : IContabilidadService
             }
 
             // 5. Insert ProductoCosto rows (close open rows, create new)
-            foreach (var item in compra.Detalles.Where(d => d.ProductoId.HasValue).GroupBy(d => d.ProductoId))
+            foreach (var item in compra.Detalles.Where(d => d.ProductoId.HasValue && !d.EsPendiente).GroupBy(d => d.ProductoId))
             {
                 var productoId = item.Key!.Value;
                 var costoUnitario = item.First().CostoUnitario;
@@ -414,8 +415,8 @@ public class ContabilidadService : IContabilidadService
                 }).ToList();
             }
 
-            // Recalculate total
-            compra.MontoTotal = compra.Detalles.Sum(d => d.Subtotal);
+            // Recalculate total (exclude pending items)
+            compra.MontoTotal = compra.Detalles.Where(d => !d.EsPendiente).Sum(d => d.Subtotal);
 
             _context.Compras.Update(compra);
             await _context.SaveChangesAsync(ct);
@@ -590,7 +591,8 @@ public class ContabilidadService : IContabilidadService
                 DescripcionItem = d.DescripcionItem,
                 Cantidad = d.Cantidad,
                 CostoUnitario = d.CostoUnitario,
-                Subtotal = d.Subtotal
+                Subtotal = d.Subtotal,
+                EsPendiente = d.EsPendiente
             }).ToList() ?? new()
         };
     }
@@ -666,16 +668,17 @@ public class ContabilidadService : IContabilidadService
                 PagadaCaja = c.PagadaCaja,
                 FacturaImagenPath = c.FacturaImagenPath,
                 TransferenciaId = c.TransferenciaId,
-                Detalles = c.Detalles?.Select(d => new DetalleCompraDto
-                {
-                    Id = d.Id,
-                    CompraId = d.CompraId,
-                    ProductoId = d.ProductoId,
-                    DescripcionItem = d.DescripcionItem,
-                    Cantidad = d.Cantidad,
-                    CostoUnitario = d.CostoUnitario,
-                    Subtotal = d.Subtotal
-                }).ToList() ?? new()
+                    Detalles = c.Detalles?.Select(d => new DetalleCompraDto
+                    {
+                        Id = d.Id,
+                        CompraId = d.CompraId,
+                        ProductoId = d.ProductoId,
+                        DescripcionItem = d.DescripcionItem,
+                        Cantidad = d.Cantidad,
+                        CostoUnitario = d.CostoUnitario,
+                        Subtotal = d.Subtotal,
+                        EsPendiente = d.EsPendiente
+                    }).ToList() ?? new()
             }).ToList() ?? new()
         }).ToList() ?? new();
 

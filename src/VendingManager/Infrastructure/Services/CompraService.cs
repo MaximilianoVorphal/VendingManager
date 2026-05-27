@@ -51,6 +51,7 @@ public class CompraService : ICompraService
         // 1. Recalcular el Costo Promedio y sumar Stock en Bodega (solo si hay producto)
         foreach (var detalle in compra.Detalles)
         {
+            if (detalle.EsPendiente) continue;
             if (detalle.ProductoId.HasValue)
             {
                 var producto = await _context.Productos.FindAsync(detalle.ProductoId.Value);
@@ -81,7 +82,7 @@ public class CompraService : ICompraService
         await _context.SaveChangesAsync(); // Genera compra.Id
 
         // 3. Insertar ProductoCosto rows para cada detalle
-        foreach (var detalle in compra.Detalles.Where(d => d.ProductoId.HasValue))
+        foreach (var detalle in compra.Detalles.Where(d => d.ProductoId.HasValue && !d.EsPendiente))
         {
             // Cerrar filas abiertas anteriores para este producto
             var productoId = detalle.ProductoId!.Value;
@@ -183,6 +184,7 @@ public class CompraService : ICompraService
             // 4. Aplicar el impacto nuevo y registrar ProductoCosto
             foreach (var detalle in compra.Detalles)
             {
+                if (detalle.EsPendiente) continue;
                 if (detalle.ProductoId.HasValue)
                 {
                     var producto = await _context.Productos.FindAsync(detalle.ProductoId.Value);
@@ -201,7 +203,7 @@ public class CompraService : ICompraService
 
             // Insertar ProductoCosto rows: cerrar filas abiertas y crear nuevas
             var productoCostosToInsert = compra.Detalles
-                .Where(d => d.ProductoId.HasValue)
+                .Where(d => d.ProductoId.HasValue && !d.EsPendiente)
                 .Select(d => new { d.ProductoId, d.CostoUnitario })
                 .Distinct()
                 .ToList();
@@ -227,7 +229,7 @@ public class CompraService : ICompraService
                 });
             }
             
-            compra.MontoTotal = compra.Detalles.Sum(d => d.Subtotal);
+            compra.MontoTotal = compra.Detalles.Where(d => !d.EsPendiente).Sum(d => d.Subtotal);
 
             // 6. Sincronizar Movimiento de Caja
             var movimiento = await _context.MovimientosCaja.FirstOrDefaultAsync(m => m.CompraId == id);
@@ -295,6 +297,7 @@ public class CompraService : ICompraService
     {
         foreach (var detalle in detalles)
         {
+            if (detalle.EsPendiente) continue;
             if (detalle.ProductoId.HasValue)
             {
                 var producto = await _context.Productos.FindAsync(detalle.ProductoId.Value);
@@ -444,6 +447,7 @@ public class CompraService : ICompraService
             {
                 foreach (var detalle in compra.Detalles)
                 {
+                    if (detalle.EsPendiente) continue;
                     if (detalle.ProductoId.HasValue)
                     {
                         var producto = allProductos.First(p => p.Id == detalle.ProductoId.Value);
