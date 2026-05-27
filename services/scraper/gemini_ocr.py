@@ -70,10 +70,14 @@ Formato requerido:
       "producto": "Nombre descriptivo (Ej: COCA COLA LATA 350 CC)",
       "cantidad": 0,
       "costo_unitario": 0.0,
-      "subtotal": 0.0
+      "subtotal": 0.0,
+      "ean": "Código de barras EAN del producto si es visible (opcional, usualmente 13 dígitos, ej: 7791234567890)",
+      "sku": "SKU o código interno del proveedor si es visible (opcional)"
     }
   ]
 }
+
+NOTA sobre ean y sku: Estos campos son OPCIONALES. Si el producto NO muestra un código de barras o SKU visible, los campos deben omitirse o ir como null. NO inventes ni alucines códigos. Si ves un código de barras (generalmente 13 dígitos, a veces 8 o 12), inclúyelo en 'ean'.
 """
     text = _call_gemini(prompt, image_path)
     return _parse_json(text, "invoice")
