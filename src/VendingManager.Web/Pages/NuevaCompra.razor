@@ -565,6 +565,44 @@
                             PackConfirmado = !item.RequiereConfirmacionPack
                         });
                     }
+
+                    // Detectar automáticamente boletas de gasto simple (bencina, peaje, etc.)
+                    // Si ningún item matcheó un producto del catálogo, probablemente no es mercadería.
+                    var tieneMatches = result.Items.Any(i => i.ProductoIdMatch.HasValue && i.ProductoIdMatch.Value > 0);
+                    if (!tieneMatches && result.Items.Count <= 1)
+                    {
+                        factura.TipoFactura = "GASTO_GENERAL";
+                        // Si el OCR detectó un único item, usarlo como descripción del gasto
+                        if (result.Items.Count == 1)
+                        {
+                            var unico = result.Items[0];
+                            if (!string.IsNullOrEmpty(unico.Producto))
+                            {
+                                foreach (var d in detalles)
+                                {
+                                    d.DescripcionItem = unico.Producto;
+                                    d.ProductoNombre = unico.Producto;
+                                }
+                            }
+                        }
+                    }
+
+                    // Si no hay items pero sí hay monto, crear un gasto genérico con el total
+                    if (detalles.Count == 0 && result.MontoTotal > 0)
+                    {
+                        var descripcion = string.IsNullOrEmpty(result.Proveedor) 
+                            ? "Gasto general" 
+                            : result.Proveedor;
+                        detalles.Add(new DetalleUI
+                        {
+                            ProductoId = null,
+                            ProductoNombre = descripcion,
+                            DescripcionItem = descripcion,
+                            Cantidad = 1,
+                            CostoUnitario = result.MontoTotal
+                        });
+                        factura.TipoFactura = "GASTO_GENERAL";
+                    }
                 }
             }
             else
