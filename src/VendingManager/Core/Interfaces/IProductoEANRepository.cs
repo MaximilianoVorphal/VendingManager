@@ -10,6 +10,9 @@ public interface IProductoEANRepository
     /// <summary>Busca un mapeo por código EAN exacto.</summary>
     Task<ProductoEAN?> GetByEanAsync(string ean, CancellationToken ct = default);
 
+    /// <summary>Busca un mapeo por SKU de proveedor (opcionalmente filtrado por proveedor).</summary>
+    Task<ProductoEAN?> GetBySkuAndProveedorAsync(string sku, string? proveedor = null, CancellationToken ct = default);
+
     /// <summary>Obtiene todos los mapeos EAN registrados.</summary>
     Task<IReadOnlyList<ProductoEAN>> GetAllAsync(CancellationToken ct = default);
 

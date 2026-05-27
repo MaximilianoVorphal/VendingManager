@@ -13,6 +13,18 @@ public class ProductoEANRepository(ApplicationDbContext context) : IProductoEANR
             .FirstOrDefaultAsync(e => e.EAN == ean, ct);
     }
 
+    public async Task<ProductoEAN?> GetBySkuAndProveedorAsync(string sku, string? proveedor = null, CancellationToken ct = default)
+    {
+        var query = context.ProductoEANs
+            .Include(e => e.Producto)
+            .Where(e => e.SKU == sku);
+
+        if (!string.IsNullOrEmpty(proveedor))
+            query = query.Where(e => e.Proveedor == proveedor);
+
+        return await query.FirstOrDefaultAsync(ct);
+    }
+
     public async Task<IReadOnlyList<ProductoEAN>> GetAllAsync(CancellationToken ct = default)
     {
         return await context.ProductoEANs
