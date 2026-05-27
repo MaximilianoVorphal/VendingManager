@@ -38,7 +38,8 @@ public class ComprasController(ICompraService compraService, IFacturaOcrService 
                     DescripcionItem = d.DescripcionItem,
                     Cantidad = d.Cantidad,
                     CostoUnitario = d.CostoUnitario,
-                    Subtotal = d.Subtotal
+                    Subtotal = d.Subtotal,
+                    EsPendiente = d.EsPendiente
                 }).ToList()
             }).ToList();
 
@@ -67,18 +68,19 @@ public class ComprasController(ICompraService compraService, IFacturaOcrService 
             TipoFactura = c.TipoFactura,
             PagadaCaja = c.PagadaCaja,
             FacturaImagenPath = c.FacturaImagenPath,
-            Detalles = c.Detalles.Select(d => new DetalleCompraDto
-            {
-                Id = d.Id,
-                CompraId = d.CompraId,
-                ProductoId = d.ProductoId,
-                ProductoNombre = d.Producto?.Nombre,
-                DescripcionItem = d.DescripcionItem,
-                Cantidad = d.Cantidad,
-                CostoUnitario = d.CostoUnitario,
-                Subtotal = d.Subtotal
-            }).ToList()
-        };
+                Detalles = c.Detalles.Select(d => new DetalleCompraDto
+                {
+                    Id = d.Id,
+                    CompraId = d.CompraId,
+                    ProductoId = d.ProductoId,
+                    ProductoNombre = d.Producto?.Nombre,
+                    DescripcionItem = d.DescripcionItem,
+                    Cantidad = d.Cantidad,
+                    CostoUnitario = d.CostoUnitario,
+                    Subtotal = d.Subtotal,
+                    EsPendiente = d.EsPendiente
+                }).ToList()
+            };
 
         return Ok(dto);
     }
@@ -106,12 +108,13 @@ public class ComprasController(ICompraService compraService, IFacturaOcrService 
                 DescripcionItem = d.DescripcionItem,
                 Cantidad = d.Cantidad,
                 CostoUnitario = d.CostoUnitario,
-                Subtotal = d.Cantidad * d.CostoUnitario
+                Subtotal = d.Cantidad * d.CostoUnitario,
+                EsPendiente = d.EsPendiente
             }).ToList()
         };
 
-        // Recalcular monto total de la factura
-        nuevaCompra.MontoTotal = nuevaCompra.Detalles.Sum(d => d.Subtotal);
+        // Recalcular monto total de la factura (excluir items pendientes)
+        nuevaCompra.MontoTotal = nuevaCompra.Detalles.Where(d => !d.EsPendiente).Sum(d => d.Subtotal);
 
         var guardada = await compraService.RegistrarCompraAsync(nuevaCompra);
         
