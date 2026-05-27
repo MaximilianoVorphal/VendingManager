@@ -411,6 +411,7 @@ public class ContabilidadService : IContabilidadService
                     DescripcionItem = d.DescripcionItem,
                     Cantidad = d.Cantidad,
                     CostoUnitario = d.CostoUnitario,
+                    EsPendiente = d.EsPendiente,
                     Subtotal = d.Cantidad * d.CostoUnitario
                 }).ToList();
             }
