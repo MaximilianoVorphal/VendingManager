@@ -52,12 +52,18 @@ Reglas IMPORTANTES para los NÚMEROS en el JSON:
 2. Usa SIEMPRE VALORES CON IMPUESTOS (IVA) INCLUIDOS (Bruto). Si la factura detalla el valor de los productos de forma NETA (sin impuestos) y suma el IVA solo al final de la cuenta, DEBES agregar matemáticamente el porcentaje o margen de impuesto (ej: +19% IVA) al "costo_unitario" de cada producto para que refleje fielmente el costo real pagado con impuestos por unidad.
 3. VERIFICACIÓN MATEMÁTICA: La suma de todos los "subtotal" de todos los items en la lista DEBE COINCIDIR o cuadrar casi exactamente con el "monto_total" final de la factura (Monto Final a Pagar con impuestos). Ajusta los decimales o agrega el impuesto si notas que la suma es inferior al monto total cobrado.
 4. El "subtotal" por item DEBE ser estrictamente igual a (cantidad * costo_unitario). NUNCA devuelvas 0 si el producto fue efectivamente cobrado.
+5. REGLA ESPECIAL PARA COMBUSTIBLE (bencina, petróleo, diésel, gasolina, COPEC, Shell, Petrobras, Enex): NO intentes desglosar la compra en cantidad × costo_unitario. El litraje y precio por litro tienen decimales que al multiplicar generan diferencias con el total real. En estos casos usa un ÚNICO item con:
+   - "producto": "Combustible"
+   - "cantidad": 1
+   - "costo_unitario": monto_total (el total pagado, IVA incluido)
+   - "subtotal": monto_total
+   Así el monto_total coincidirá exactamente con el subtotal sin errores de redondeo.
 
 Formato requerido:
 {
   "proveedor": "Nombre del proveedor o tienda (Ej: ALVI, EL MOLINO, VICTOR ROJAS)",
   "numero_documento": "Numero de factura o ticket",
-  "fecha": "Fecha formato YYYY-MM-DD",
+  "fecha": "Fecha de la factura ESTRICTAMENTE en formato AAAA-MM-DD (año de 4 dígitos, mes de 2 dígitos, día de 2 dígitos). NUNCA uses formatos como DD-MM-AA, DD/MM/AAAA ni barras. Si la fecha en la boleta está en otro formato, CONVIÉRTELA a AAAA-MM-DD. Ejemplos: 2026-02-21 para 21 de febrero de 2026, 2025-12-07 para 7 de diciembre de 2025.",
   "monto_total": 0.0,
   "items": [
     {

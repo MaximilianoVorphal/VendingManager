@@ -480,7 +480,7 @@
                     if (!string.IsNullOrEmpty(result.Proveedor)) factura.Proveedor = result.Proveedor;
                     if (!string.IsNullOrEmpty(result.NumeroDocumento)) factura.NumeroDocumento = result.NumeroDocumento;
 
-                    if (DateTime.TryParse(result.Fecha, out DateTime dtOut))
+                    if (TryParseFechaChile(result.Fecha, out DateTime dtOut))
                     {
                         factura.FechaCompra = dtOut;
                     }
@@ -552,6 +552,24 @@
             ".pdf" => "application/pdf",
             _ => "application/octet-stream"
         };
+    }
+
+    /// <summary>
+    /// Parsea fechas en formato chileno/ISO sin ambigüedad día↔año.
+    /// Prioriza dd-MM-yyyy y dd/MM/yyyy, luego intenta ISO 8601.
+    /// </summary>
+    private static bool TryParseFechaChile(string? fecha, out DateTime result)
+    {
+        result = default;
+        if (string.IsNullOrWhiteSpace(fecha)) return false;
+
+        // Formatos en orden de prioridad (el más común en boletas chilenas primero)
+        string[] formats = { "dd-MM-yyyy", "dd/MM/yyyy", "dd-MM-yy", "dd/MM/yy",
+                             "yyyy-MM-dd", "yyyy/MM/dd", "d-M-yyyy", "d/M/yyyy" };
+
+        return DateTime.TryParseExact(fecha.Trim(), formats,
+            System.Globalization.CultureInfo.InvariantCulture,
+            System.Globalization.DateTimeStyles.None, out result);
     }
 
     // Clase auxiliar para la UI

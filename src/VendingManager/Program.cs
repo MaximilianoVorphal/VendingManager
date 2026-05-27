@@ -12,8 +12,25 @@ using VendingManager.Web;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.RateLimiting;
 using System.Threading.RateLimiting;
+using System.Globalization;
 using VendingManager.Shared.Constants;
 using VendingManager.Web.Middleware;
+
+// Forzar cultura chilena ($ pesos, fechas dd/MM/yyyy)
+// Usamos InvariantCulture como base porque es-CL puede no estar instalada en la imagen Docker
+var culturaChilena = (CultureInfo)CultureInfo.InvariantCulture.Clone();
+culturaChilena.NumberFormat.CurrencySymbol = "$";
+culturaChilena.NumberFormat.CurrencyPositivePattern = 0;       // $n
+culturaChilena.NumberFormat.CurrencyNegativePattern = 1;       // -$n
+culturaChilena.NumberFormat.CurrencyDecimalSeparator = ".";
+culturaChilena.NumberFormat.CurrencyGroupSeparator = ".";
+culturaChilena.NumberFormat.NumberDecimalSeparator = ".";
+culturaChilena.NumberFormat.NumberGroupSeparator = ".";
+culturaChilena.DateTimeFormat.ShortDatePattern = "dd/MM/yyyy";
+culturaChilena.DateTimeFormat.LongDatePattern = "dd/MM/yyyy";
+culturaChilena.DateTimeFormat.ShortTimePattern = "HH:mm";
+CultureInfo.DefaultThreadCurrentCulture = culturaChilena;
+CultureInfo.DefaultThreadCurrentUICulture = culturaChilena;
 
 var builder = WebApplication.CreateBuilder(args);
 
