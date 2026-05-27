@@ -1,0 +1,434 @@
+@page "/inventario/ean"
+@using VendingManager.Shared.DTOs
+@inject HttpClient Http
+@inject NavigationManager Navigation
+
+<PageTitle>CATÁLOGO EAN</PageTitle>
+
+<div class="industrial-wrapper container-fluid px-4 mt-4">
+    <div class="row align-items-center mb-4 border-bottom border-3 border-dark pb-3 g-3">
+        <div class="col-md-8 col-12">
+            <h2 class="m-0 fw-bold text-uppercase" style="letter-spacing: -1px; color: #333;">
+                <i class="bi bi-upc-scan me-2"></i>CATÁLOGO EAN / SKU
+            </h2>
+            <small class="text-muted fw-bold">MAPEO DE CÓDIGOS DE BARRAS A PRODUCTOS</small>
+        </div>
+        <div class="col-md-4 col-12 text-md-end">
+            <button class="btn btn-outline-dark rounded-0 fw-bold shadow-sm" @onclick='() => Navigation.NavigateTo("/inventario")'>
+                <i class="bi bi-arrow-left me-2"></i>VOLVER A BODEGA
+            </button>
+            <button class="btn btn-dark rounded-0 fw-bold ms-2" @onclick="AbrirModalNuevo">
+                <i class="bi bi-plus-lg me-1"></i>NUEVO EAN
+            </button>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(Error))
+    {
+        <div class="alert alert-danger border-dark rounded-0 fw-bold mb-4 shadow-sm fade show">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i> @Error
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(MensajeExito))
+    {
+        <div class="alert alert-success border-dark rounded-0 fw-bold mb-4 shadow-sm fade show">
+            <i class="bi bi-check-circle-fill me-2"></i> @MensajeExito
+        </div>
+    }
+
+    @if (Cargando)
+    {
+        <div class="text-center my-5">
+            <div class="spinner-border text-dark" role="status"></div>
+            <p class="mt-2 fw-bold">Cargando catálogo EAN...</p>
+        </div>
+    }
+    else
+    {
+        <!-- SEARCH BAR -->
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <div class="input-group">
+                    <span class="input-group-text bg-white border-dark rounded-0"><i class="bi bi-search"></i></span>
+                    <input type="text" class="form-control border-dark rounded-0 shadow-sm"
+                           placeholder="Buscar por EAN, SKU o producto..." @bind="SearchTerm" @bind:event="oninput" />
+                </div>
+            </div>
+            <div class="col-md-6 text-md-end pt-2 pt-md-0">
+                <span class="fw-bold small text-muted">@FilteredEans.Count() de @Eans.Count registros</span>
+            </div>
+        </div>
+
+        <div class="card border-2 border-dark rounded-0 shadow">
+            <div class="card-header bg-dark text-white rounded-0 fw-bold d-flex justify-content-between align-items-center">
+                <span>MAPPINGS EAN</span>
+                <span class="badge bg-light text-dark">@Eans.Count REGISTROS</span>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover table-bordered border-dark m-0 align-middle">
+                    <thead class="bg-secondary text-white text-uppercase small font-monospace fw-bold">
+                        <tr>
+                            <th>EAN</th>
+                            <th>SKU</th>
+                            <th>PRODUCTO</th>
+                            <th class="text-center">PACK</th>
+                            <th>PROVEEDOR</th>
+                            <th class="text-center">ACCIONES</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white fw-bold" style="font-size: 0.85rem;">
+                        @if (!FilteredEans.Any())
+                        {
+                            <tr>
+                                <td colspan="6" class="text-center p-4 text-muted">
+                                    @(string.IsNullOrWhiteSpace(SearchTerm) ? "No hay EANs registrados." : $"Sin resultados para \"{SearchTerm}\".")
+                                </td>
+                            </tr>
+                        }
+                        else
+                        {
+                            @foreach (var e in FilteredEans)
+                            {
+                                <tr>
+                                    <td><span class="font-monospace">@e.EAN</span></td>
+                                    <td><span class="font-monospace text-muted">@(e.SKU ?? "—")</span></td>
+                                    <td>
+                                        @if (e.ProductoId.HasValue)
+                                        {
+                                            <span class="text-success">@e.ProductoNombre</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-warning text-dark rounded-0">SIN ASIGNAR</span>
+                                        }
+                                    </td>
+                                    <td class="text-center">
+                                        @if (e.PackSize > 1)
+                                        {
+                                            <span class="badge bg-info text-dark rounded-0">@e.PackSize unids</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">—</span>
+                                        }
+                                    </td>
+                                    <td>@(e.Proveedor ?? "—")</td>
+                                    <td class="text-center">
+                                        <div class="d-flex justify-content-center gap-1">
+                                            <button class="btn btn-sm btn-outline-dark rounded-0 fw-bold" title="Editar" @onclick="() => AbrirModalEditar(e)">
+                                                <i class="bi bi-pencil-square"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-danger rounded-0 fw-bold" title="Eliminar" @onclick="() => ConfirmarEliminar(e)">
+                                                <i class="bi bi-trash-fill"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+</div>
+
+@* ─── MODAL NUEVO / EDITAR ─── *@
+@if (MostrarModal)
+{
+    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5); z-index: 1060; position: fixed; top: 0; left: 0; width: 100%; height: 100%;">
+        <div class="modal-dialog modal-dialog-centered" style="z-index: 1061;">
+            <div class="modal-content rounded-0 border-2 border-dark shadow-lg">
+                <div class="modal-header @(Editando ? "bg-warning text-dark" : "bg-dark text-white") rounded-0 border-bottom border-dark">
+                    <h5 class="modal-title fw-bold">
+                        <i class="bi @(Editando ? "bi-pencil-square" : "bi-plus-circle") me-2"></i>
+                        @(Editando ? "EDITAR EAN" : "NUEVO EAN")
+                    </h5>
+                    <button type="button" class="btn-close @(Editando ? "" : "btn-close-white")" @onclick="CerrarModal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-muted">CÓDIGO EAN *</label>
+                        <input type="text" class="form-control border-dark rounded-0 font-monospace" 
+                               @bind="FormEan" @bind:event="oninput" placeholder="Ej: 7791234567890" 
+                               disabled="@Editando" maxlength="13" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-muted">SKU (proveedor)</label>
+                        <input type="text" class="form-control border-dark rounded-0 font-monospace" 
+                               @bind="FormSku" placeholder="Ej: COCA350-6" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-muted">PRODUCTO ASIGNADO</label>
+                        <select class="form-select border-dark rounded-0" @bind="FormProductoId">
+                            <option value="">— SIN ASIGNAR —</option>
+                            @foreach (var p in ProductosDisponibles)
+                            {
+                                <option value="@p.Id">@p.Nombre</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-muted">TAMAÑO PACK</label>
+                        <input type="number" class="form-control border-dark rounded-0" 
+                               @bind="FormPackSize" @bind:event="oninput" min="1" placeholder="1 = unitario" />
+                        <small class="text-muted">Cantidad de unidades por pack. Dejar vacío o 1 si es unitario.</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-muted">PROVEEDOR</label>
+                        <input type="text" class="form-control border-dark rounded-0" 
+                               @bind="FormProveedor" placeholder="Ej: ALVI, CCU..." />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-muted">DESCRIPCIÓN PROVEEDOR</label>
+                        <input type="text" class="form-control border-dark rounded-0" 
+                               @bind="FormDescripcionProveedor" placeholder="Nombre según proveedor" />
+                    </div>
+                </div>
+                <div class="modal-footer bg-light rounded-0">
+                    <button type="button" class="btn btn-outline-dark rounded-0 fw-bold" @onclick="CerrarModal">CANCELAR</button>
+                    <button type="button" class="btn btn-dark rounded-0 fw-bold px-4" @onclick="GuardarEan" disabled="@Guardando">
+                        @if (Guardando)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                            <span>GUARDANDO...</span>
+                        }
+                        else
+                        {
+                            <i class="bi bi-save-fill me-2"></i>
+                            <span>GUARDAR</span>
+                        }
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@* ─── MODAL CONFIRMAR ELIMINAR ─── *@
+@if (EanAEliminar != null)
+{
+    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5); z-index: 1060; position: fixed; top: 0; left: 0; width: 100%; height: 100%;">
+        <div class="modal-dialog modal-dialog-centered" style="z-index: 1061;">
+            <div class="modal-content rounded-0 border-2 border-dark shadow-lg">
+                <div class="modal-header bg-danger text-white rounded-0 border-bottom border-dark">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-exclamation-triangle-fill me-2"></i>ELIMINAR EAN</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="() => EanAEliminar = null"></button>
+                </div>
+                <div class="modal-body p-4 text-center">
+                    <p class="fs-5 fw-bold">¿Eliminar el EAN <span class="font-monospace text-danger">@EanAEliminar.EAN</span>?</p>
+                    @if (!string.IsNullOrEmpty(EanAEliminar.ProductoNombre))
+                    {
+                        <p class="text-muted">Actualmente mapeado a: <strong>@EanAEliminar.ProductoNombre</strong></p>
+                    }
+                    <p class="text-danger small">Esto no afecta compras existentes, solo elimina el mapeo para futuros escaneos.</p>
+                </div>
+                <div class="modal-footer bg-light rounded-0">
+                    <button type="button" class="btn btn-outline-dark rounded-0 fw-bold" @onclick="() => EanAEliminar = null">CANCELAR</button>
+                    <button type="button" class="btn btn-danger rounded-0 fw-bold px-4" @onclick="EliminarEan" disabled="@Eliminando">
+                        @if (Eliminando)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                        }
+                        SÍ, ELIMINAR
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<ProductoEanDto> Eans = new();
+    private List<ProductoSimpleDto> ProductosDisponibles = new();
+    private bool Cargando = true;
+    private string? Error;
+    private string? MensajeExito;
+    private string SearchTerm = "";
+
+    private IEnumerable<ProductoEanDto> FilteredEans
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(SearchTerm)) return Eans;
+            var term = SearchTerm.ToLower();
+            return Eans.Where(e =>
+                (e.EAN?.ToLower().Contains(term) ?? false) ||
+                (e.SKU?.ToLower().Contains(term) ?? false) ||
+                (e.ProductoNombre?.ToLower().Contains(term) ?? false) ||
+                (e.Proveedor?.ToLower().Contains(term) ?? false));
+        }
+    }
+
+    // Modal state
+    private bool MostrarModal;
+    private bool Editando;
+    private bool Guardando;
+    private string FormEan = "";
+    private string FormSku = "";
+    private string FormProductoId = "";
+    private int? FormPackSize;
+    private string FormProveedor = "";
+    private string FormDescripcionProveedor = "";
+    private int? EditandoId;
+
+    // Delete state
+    private ProductoEanDto? EanAEliminar;
+    private bool Eliminando;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarDatos();
+    }
+
+    private async Task CargarDatos()
+    {
+        try
+        {
+            Cargando = true;
+            Error = null;
+
+            var eans = await Http.GetFromJsonAsync<List<ProductoEanDto>>("api/productos/ean");
+            Eans = eans?.OrderByDescending(e => e.LastSeenAt ?? e.CreatedAt).ToList() ?? new();
+
+            var prods = await Http.GetFromJsonAsync<List<ProductoSimpleDto>>("api/productos");
+            ProductosDisponibles = prods?.OrderBy(p => p.Nombre).ToList() ?? new();
+        }
+        catch (Exception ex)
+        {
+            Error = "Error al cargar: " + ex.Message;
+        }
+        finally
+        {
+            Cargando = false;
+        }
+    }
+
+    private void AbrirModalNuevo()
+    {
+        Editando = false;
+        EditandoId = null;
+        FormEan = "";
+        FormSku = "";
+        FormProductoId = "";
+        FormPackSize = null;
+        FormProveedor = "";
+        FormDescripcionProveedor = "";
+        MostrarModal = true;
+        Error = null;
+        MensajeExito = null;
+    }
+
+    private void AbrirModalEditar(ProductoEanDto ean)
+    {
+        Editando = true;
+        EditandoId = ean.Id;
+        FormEan = ean.EAN;
+        FormSku = ean.SKU ?? "";
+        FormProductoId = ean.ProductoId?.ToString() ?? "";
+        FormPackSize = ean.PackSize;
+        FormProveedor = ean.Proveedor ?? "";
+        FormDescripcionProveedor = ean.DescripcionProveedor ?? "";
+        MostrarModal = true;
+        Error = null;
+        MensajeExito = null;
+    }
+
+    private void CerrarModal()
+    {
+        MostrarModal = false;
+    }
+
+    private async Task GuardarEan()
+    {
+        if (string.IsNullOrWhiteSpace(FormEan))
+        {
+            Error = "El código EAN es obligatorio.";
+            return;
+        }
+
+        Guardando = true;
+        Error = null;
+        MensajeExito = null;
+
+        try
+        {
+            var dto = new CreateProductoEanRequestDto
+            {
+                EAN = FormEan.Trim(),
+                SKU = string.IsNullOrWhiteSpace(FormSku) ? null : FormSku.Trim(),
+                ProductoId = string.IsNullOrWhiteSpace(FormProductoId) ? null : int.Parse(FormProductoId),
+                PackSize = FormPackSize,
+                Proveedor = string.IsNullOrWhiteSpace(FormProveedor) ? null : FormProveedor.Trim(),
+                DescripcionProveedor = string.IsNullOrWhiteSpace(FormDescripcionProveedor) ? null : FormDescripcionProveedor.Trim()
+            };
+
+            HttpResponseMessage response;
+            if (Editando && EditandoId.HasValue)
+            {
+                response = await Http.PutAsJsonAsync($"api/productos/ean/{EditandoId.Value}", dto);
+            }
+            else
+            {
+                response = await Http.PostAsJsonAsync("api/productos/ean", dto);
+            }
+
+            if (response.IsSuccessStatusCode)
+            {
+                MensajeExito = Editando ? "EAN actualizado." : "EAN creado.";
+                CerrarModal();
+                await CargarDatos();
+            }
+            else
+            {
+                var errorBody = await response.Content.ReadAsStringAsync();
+                Error = $"Error: {errorBody}";
+            }
+        }
+        catch (Exception ex)
+        {
+            Error = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            Guardando = false;
+        }
+    }
+
+    private void ConfirmarEliminar(ProductoEanDto ean)
+    {
+        EanAEliminar = ean;
+        Error = null;
+        MensajeExito = null;
+    }
+
+    private async Task EliminarEan()
+    {
+        if (EanAEliminar == null) return;
+
+        Eliminando = true;
+        try
+        {
+            var response = await Http.DeleteAsync($"api/productos/ean/{EanAEliminar.Id}");
+            if (response.IsSuccessStatusCode)
+            {
+                MensajeExito = $"EAN {EanAEliminar.EAN} eliminado.";
+                EanAEliminar = null;
+                await CargarDatos();
+            }
+            else
+            {
+                Error = "Error al eliminar: " + await response.Content.ReadAsStringAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            Error = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            Eliminando = false;
+        }
+    }
+}
