@@ -39,7 +39,9 @@ public class ComprasController(ICompraService compraService, IFacturaOcrService 
                     Cantidad = d.Cantidad,
                     CostoUnitario = d.CostoUnitario,
                     Subtotal = d.Subtotal,
-                    EsPendiente = d.EsPendiente
+                    EsPendiente = d.EsPendiente,
+                    Ean = d.Ean,
+                    Sku = d.Sku
                 }).ToList()
             }).ToList();
 
@@ -78,12 +80,14 @@ public class ComprasController(ICompraService compraService, IFacturaOcrService 
                     Cantidad = d.Cantidad,
                     CostoUnitario = d.CostoUnitario,
                     Subtotal = d.Subtotal,
-                    EsPendiente = d.EsPendiente
+                    EsPendiente = d.EsPendiente,
+                    Ean = d.Ean,
+                    Sku = d.Sku
                 }).ToList()
             };
 
-        return Ok(dto);
-    }
+            return Ok(dto);
+        }
 
     [HttpPost]
     public async Task<ActionResult<CompraDto>> RegistrarCompra(RegistrarCompraRequestDto request)
@@ -109,7 +113,9 @@ public class ComprasController(ICompraService compraService, IFacturaOcrService 
                 Cantidad = d.Cantidad,
                 CostoUnitario = d.CostoUnitario,
                 Subtotal = d.Cantidad * d.CostoUnitario,
-                EsPendiente = d.EsPendiente
+                EsPendiente = d.EsPendiente,
+                Ean = d.Ean,
+                Sku = d.Sku
             }).ToList()
         };
 
