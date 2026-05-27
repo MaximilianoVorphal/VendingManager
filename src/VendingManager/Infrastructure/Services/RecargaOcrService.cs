@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using VendingManager.Core.Interfaces;
+using VendingManager.Core.Utils;
 using VendingManager.Infrastructure.Data;
 using VendingManager.Shared.DTOs;
 using System.Text.Json;
@@ -249,7 +250,7 @@ namespace VendingManager.Infrastructure.Services
 
             foreach (var machineSlot in machineSlots)
             {
-                var distance = LevenshteinDistance(ocrSlot, machineSlot);
+                var distance = StringSimilarity.LevenshteinDistance(ocrSlot, machineSlot);
 
                 if (distance <= 2 && distance < bestDistance)
                 {
@@ -272,34 +273,6 @@ namespace VendingManager.Infrastructure.Services
             }
 
             return null;
-        }
-
-        /// <summary>
-        /// Calcula la distancia de Levenshtein entre dos strings.
-        /// </summary>
-        private static int LevenshteinDistance(string s1, string s2)
-        {
-            var len1 = s1.Length;
-            var len2 = s2.Length;
-            var d = new int[len1 + 1, len2 + 1];
-
-            for (var i = 0; i <= len1; i++)
-                d[i, 0] = i;
-            for (var j = 0; j <= len2; j++)
-                d[0, j] = j;
-
-            for (var i = 1; i <= len1; i++)
-            {
-                for (var j = 1; j <= len2; j++)
-                {
-                    var cost = s1[i - 1] == s2[j - 1] ? 0 : 1;
-                    d[i, j] = Math.Min(
-                        Math.Min(d[i - 1, j] + 1, d[i, j - 1] + 1),
-                        d[i - 1, j - 1] + cost);
-                }
-            }
-
-            return d[len1, len2];
         }
 
         private static string ResolveMimeType(string fileName, string? contentType)

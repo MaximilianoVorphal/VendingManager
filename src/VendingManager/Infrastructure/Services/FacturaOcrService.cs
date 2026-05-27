@@ -1,8 +1,6 @@
 using Microsoft.AspNetCore.Http;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using VendingManager.Core.Interfaces;
-using VendingManager.Infrastructure.Data;
 using VendingManager.Shared.DTOs;
 using System.Text.Json;
 
@@ -11,13 +9,13 @@ namespace VendingManager.Infrastructure.Services
     public class FacturaOcrService : IFacturaOcrService
     {
         private readonly HttpClient _httpClient;
-        private readonly ApplicationDbContext _context;
+        private readonly IProductMatchingService _productMatchingService;
         private readonly string? _scraperServiceUrl;
 
-        public FacturaOcrService(HttpClient httpClient, IConfiguration configuration, ApplicationDbContext context)
+        public FacturaOcrService(HttpClient httpClient, IConfiguration configuration, IProductMatchingService productMatchingService)
         {
             _httpClient = httpClient;
-            _context = context;
+            _productMatchingService = productMatchingService;
             _scraperServiceUrl = configuration["ScraperServiceUrl"];
         }
 
@@ -55,25 +53,18 @@ namespace VendingManager.Infrastructure.Services
 
             if (result != null)
             {
-                // Intentar hacer match de los productos
-                var productosDb = await _context.Productos.ToListAsync();
-                
                 foreach (var item in result.Items)
                 {
                     if (string.IsNullOrWhiteSpace(item.Producto)) continue;
-                    
-                    var queryTerm = item.Producto.ToLower();
-                    
-                    // Lógica muy simple de fuzzy match: Si el nombre en DB contiene parte del nombre sacado o viceversa
-                    var bestMatch = productosDb.FirstOrDefault(p => 
-                        p.Nombre.ToLower().Contains(queryTerm) || 
-                        queryTerm.Contains(p.Nombre.ToLower())
-                    );
-                    
-                    if (bestMatch != null)
+
+                    var matchResult = await _productMatchingService.MatchAsync(item.Producto);
+
+                    if (matchResult.Producto != null)
                     {
-                        item.ProductoIdMatch = bestMatch.Id;
+                        item.ProductoIdMatch = matchResult.Producto.Id;
                     }
+
+                    item.SugerirCreacion = matchResult.SugerirCreacion;
                 }
             }
 

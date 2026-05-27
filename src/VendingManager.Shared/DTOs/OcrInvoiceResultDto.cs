@@ -35,5 +35,8 @@ namespace VendingManager.Shared.DTOs
         public decimal Subtotal { get; set; }
         
         public int? ProductoIdMatch { get; set; }
+        
+        [JsonPropertyName("sugerir_creacion")]
+        public bool SugerirCreacion { get; set; }
     }
 }
