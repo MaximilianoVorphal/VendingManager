@@ -156,6 +156,141 @@ public class FacturaOcrServiceTests
         _mockMatcher.Verify(m => m.MatchAsync("Coca Cola", null, null, "Test"), Times.Once);
     }
 
+    // ─── Pack Unroll (PR 3) ───────────────────────────────────────────────
+
+    [Fact]
+    public async Task ExtractInvoiceDataAsync_WithPackSize_UnrollsQuantityAndCost()
+    {
+        // Arrange: mock match with PackSize=6
+        _mockMatcher
+            .Setup(m => m.MatchAsync("Coca Cola", "7791234567890", null, "Test"))
+            .ReturnsAsync(new ProductMatchResult
+            {
+                Producto = new Producto { Id = 42, Nombre = "Coca Cola" },
+                Confidence = 1.0,
+                SugerirCreacion = false,
+                MatchMethod = MatchMethod.Ean,
+                ProductoEAN = new ProductoEAN
+                {
+                    EAN = "7791234567890",
+                    ProductoId = 42,
+                    PackSize = 6
+                }
+            });
+
+        _mockHttpHandler.SetDefaultResponse(new HttpResponseMessage
+        {
+            StatusCode = System.Net.HttpStatusCode.OK,
+            Content = new StringContent("{\"proveedor\":\"Test\",\"items\":[{\"producto\":\"Coca Cola\",\"ean\":\"7791234567890\",\"cantidad\":1,\"costo_unitario\":6000,\"subtotal\":6000}]}")
+        });
+
+        var file = CreateMockFile("test.jpg", "image/jpeg");
+
+        // Act
+        var result = await _service.ExtractInvoiceDataAsync(file);
+
+        // Assert: pack unrolled 1×6 → 6 units at $1000 each
+        result.Should().NotBeNull();
+        result.Items.Should().HaveCount(1);
+        var item = result.Items[0];
+        item.Cantidad.Should().Be(6);            // 1 × 6
+        item.CostoUnitario.Should().Be(1000);    // 6000 / 6
+        item.RequiereConfirmacionPack.Should().BeTrue();
+        item.ProductoIdMatch.Should().Be(42);
+    }
+
+    [Fact]
+    public async Task ExtractInvoiceDataAsync_PackSizeOne_NoChange()
+    {
+        // Arrange: mock match with PackSize=1 (not a pack)
+        _mockMatcher
+            .Setup(m => m.MatchAsync("Coca Cola", "7791234567890", null, "Test"))
+            .ReturnsAsync(new ProductMatchResult
+            {
+                Producto = new Producto { Id = 42, Nombre = "Coca Cola" },
+                Confidence = 1.0,
+                SugerirCreacion = false,
+                MatchMethod = MatchMethod.Ean,
+                ProductoEAN = new ProductoEAN
+                {
+                    EAN = "7791234567890",
+                    ProductoId = 42,
+                    PackSize = 1
+                }
+            });
+
+        _mockHttpHandler.SetDefaultResponse(new HttpResponseMessage
+        {
+            StatusCode = System.Net.HttpStatusCode.OK,
+            Content = new StringContent("{\"proveedor\":\"Test\",\"items\":[{\"producto\":\"Coca Cola\",\"ean\":\"7791234567890\",\"cantidad\":2,\"costo_unitario\":3000,\"subtotal\":6000}]}")
+        });
+
+        var file = CreateMockFile("test.jpg", "image/jpeg");
+
+        // Act
+        var result = await _service.ExtractInvoiceDataAsync(file);
+
+        // Assert: values unchanged
+        result.Should().NotBeNull();
+        result.Items.Should().HaveCount(1);
+        var item = result.Items[0];
+        item.Cantidad.Should().Be(2);             // unchanged
+        item.CostoUnitario.Should().Be(3000);     // unchanged
+        item.RequiereConfirmacionPack.Should().BeFalse();
+    }
+
+    // ─── EAN Validation (PR 3) ────────────────────────────────────────────
+
+    [Fact]
+    public async Task ExtractInvoiceDataAsync_ValidEan13_Accepted()
+    {
+        // Arrange: mock matcher with valid 13-digit EAN
+        _mockMatcher
+            .Setup(m => m.MatchAsync("Coca Cola", "7791234567890", null, "Test"))
+            .ReturnsAsync(new ProductMatchResult
+            {
+                Producto = new Producto { Id = 42, Nombre = "Coca Cola" },
+                Confidence = 1.0,
+                SugerirCreacion = false,
+                MatchMethod = MatchMethod.Ean
+            });
+
+        _mockHttpHandler.SetDefaultResponse(new HttpResponseMessage
+        {
+            StatusCode = System.Net.HttpStatusCode.OK,
+            Content = new StringContent("{\"proveedor\":\"Test\",\"items\":[{\"producto\":\"Coca Cola\",\"ean\":\"7791234567890\",\"cantidad\":1,\"costo_unitario\":500,\"subtotal\":500}]}")
+        });
+
+        var file = CreateMockFile("test.jpg", "image/jpeg");
+
+        // Act
+        var result = await _service.ExtractInvoiceDataAsync(file);
+
+        // Assert: EAN was passed through to matcher
+        _mockMatcher.Verify(m => m.MatchAsync("Coca Cola", "7791234567890", null, "Test"), Times.Once);
+        result.Items[0].Ean.Should().Be("7791234567890");
+    }
+
+    [Fact]
+    public async Task ExtractInvoiceDataAsync_ShortEan_Rejected()
+    {
+        // Arrange: 3-digit EAN is too short — server discards it
+        _mockHttpHandler.SetDefaultResponse(new HttpResponseMessage
+        {
+            StatusCode = System.Net.HttpStatusCode.OK,
+            Content = new StringContent("{\"proveedor\":\"Test\",\"items\":[{\"producto\":\"Coca Cola\",\"ean\":\"123\",\"cantidad\":1,\"costo_unitario\":500,\"subtotal\":500}]}")
+        });
+
+        var file = CreateMockFile("test.jpg", "image/jpeg");
+
+        // Act
+        var result = await _service.ExtractInvoiceDataAsync(file);
+
+        // Assert: short EAN was discarded → MatchAsync receives null for ean
+        _mockMatcher.Verify(m => m.MatchAsync("Coca Cola", null, It.IsAny<string?>(), "Test"), Times.Once);
+        result.Items[0].Ean.Should().BeNull();
+    }
+
     private static IFormFile CreateMockFile(string fileName, string contentType)
     {
         var stream = new MemoryStream([0x01, 0x02, 0x03, 0x04]);
