@@ -19,4 +19,5 @@ public class UpdateDetalleCompraRequest
     public string? DescripcionItem { get; set; }
     public int Cantidad { get; set; }
     public decimal CostoUnitario { get; set; }
+    public bool EsPendiente { get; set; }
 }
