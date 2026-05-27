@@ -187,6 +187,12 @@
                                                                        title="Cantidad de unidades por pack (ej: 6 si el EAN es de un pack de 6 bebidas)" />
                                                             </div>
                                                         </div>
+                                                        @if (d.PackSize > 1 && !d.RequiereConfirmacionPack)
+                                                        {
+                                                            <div class="small text-info fw-bold mt-1">
+                                                                ↳ Al guardar: @(d.Cantidad * d.PackSize.Value) unids a $@((d.CostoUnitario / d.PackSize.Value).ToString("N0")) c/u
+                                                            </div>
+                                                        }
                                                     }
                                                 }
                                                 else
