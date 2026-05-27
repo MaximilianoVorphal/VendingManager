@@ -23,4 +23,6 @@ public class DetalleCompra
 
     [Column(TypeName = "decimal(18,2)")]
     public decimal Subtotal { get; set; } = 0;
+
+    public bool EsPendiente { get; set; } = false;
 }
