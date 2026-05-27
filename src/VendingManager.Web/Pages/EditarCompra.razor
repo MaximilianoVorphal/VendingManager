@@ -180,10 +180,10 @@
                                             <td>
                                                 @if (factura.TipoFactura == "MERCADERIA")
                                                 {
-                                                    @if (d.ProductoId == 0 || d.ProductoId == null)
+                                                    @if (d.ProductoId == null || d.ProductoId == 0)
                                                     {
                                                         <select class="form-select form-select-sm border-2 border-warning rounded-0 fw-bold bg-light text-dark" @bind="d.ProductoId">
-                                                            <option value="0">⚠️ ASIGNAR ITEM</option>
+                                                            <option value="">⚠️ ASIGNAR ITEM</option>
                                                             @foreach (var p in ProductosDisponibles)
                                                             {
                                                                 <option value="@p.Id">@p.Nombre</option>
@@ -194,7 +194,7 @@
                                                     {
                                                         <div class="d-flex align-items-center justify-content-between">
                                                             <span>@d.ProductoNombre</span>
-                                                            <button class="btn btn-sm btn-link text-dark p-0 ms-2" @onclick="() => d.ProductoId = 0">
+                                                            <button class="btn btn-sm btn-link text-dark p-0 ms-2" @onclick="() => d.ProductoId = null">
                                                                 <i class="bi bi-pencil-square"></i>
                                                             </button>
                                                         </div>
