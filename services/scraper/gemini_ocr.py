@@ -122,6 +122,46 @@ Formato requerido:
 }
 
 NOTA sobre ean y sku: Son OPCIONALES. NO inventes ni alucines códigos. Si ves un código de barras (generalmente 13 dígitos), inclúyelo en 'ean'.
+
+REGLAS DE DESAMBIGÜACIÓN DE MARCAS — Bebidas Chilenas:
+
+1. **Bilz** es una marca INDEPENDIENTE de jugo/gaseosa (CCU). NO la confundas con "Kem". Bilz es burbujeante, sabor frutal, típicamente en latas de 350cc o botellas 500cc.
+2. **Pap** es una marca INDEPENDIENTE de jugo/gaseosa (CCU). NO la confundas con "Kem" ni con "Bilz". Pap es de color naranjo, sabor a papaya.
+3. **Kem** es una marca INDEPENDIENTE de jugo/gaseosa (CCU). NO uses "Kem Lata 350cc" como nombre genérico para otras marcas.
+4. **Coca-Cola** (The Coca-Cola Company) incluye: Coca-Cola (original, zero, light), Sprite, Fanta. NO las confundas con marcas CCU.
+
+Ejemplos correctos vs incorrectos:
+- ✔ "Bilz 500cc" — correcto, marca específica
+- ✔ "Pap Lata 350cc" — correcto, marca específica  
+- ✔ "Kem Lata 350cc" — correcto, marca específica
+- ✔ "Coca-Cola Zero 600cc" — correcto, marca específica
+- ✘ "Kem Lata 350cc" para una Bilz — INCORRECTO, cada marca es distinta
+
+Ejemplos few-shot para bebidas chilenas:
+
+Ejemplo 1 — Bilz 500cc (EL MOLINO):
+```json
+{
+  "proveedor": "EL MOLINO",
+  "items": [{"producto": "Bilz 500cc", "cantidad": 12, "costo_unitario": 890, "subtotal": 10680, "tiene_iva": true, "tiene_ila": true, "tipo_ila": "18"}]
+}
+```
+
+Ejemplo 2 — Pap Lata 350cc:
+```json
+{
+  "proveedor": "DISTRIBUIDORA ABC",
+  "items": [{"producto": "Pap Lata 350cc", "cantidad": 24, "costo_unitario": 650, "subtotal": 15600, "tiene_iva": true, "tiene_ila": true, "tipo_ila": "18"}]
+}
+```
+
+Ejemplo 3 — Coca-Cola Zero 600cc (ILA 10% por ser zero):
+```json
+{
+  "proveedor": "COCA-COLA EMBONOR",
+  "items": [{"producto": "Coca-Cola Zero 600cc", "cantidad": 12, "costo_unitario": 1200, "subtotal": 14400, "tiene_iva": true, "tiene_ila": true, "tipo_ila": "10"}]
+}
+```
 """
     text = _call_gemini(prompt, image_path)
     return _parse_json(text, "invoice")
