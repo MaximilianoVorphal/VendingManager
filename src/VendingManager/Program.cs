@@ -16,6 +16,7 @@ using System.Threading.RateLimiting;
 using System.Globalization;
 using VendingManager.Shared.Constants;
 using VendingManager.Web.Middleware;
+using VendingManager.Web.ModelBinders;
 
 // Forzar cultura chilena ($ pesos, fechas dd/MM/yyyy)
 // Usamos InvariantCulture como base porque es-CL puede no estar instalada en la imagen Docker
@@ -155,7 +156,10 @@ builder.Services.AddHttpClient<VendingManager.Core.Interfaces.IScraperClient, Ve
 builder.Services.AddHostedService<AutomatedReportService>();
 
 // 4. Configuración Blazor
-builder.Services.AddControllers();
+builder.Services.AddControllers(options =>
+{
+    options.ModelBinderProviders.Insert(0, new DateTimeModelBinderProvider());
+});
 builder.Services.AddRazorComponents()
     .AddInteractiveWebAssemblyComponents();
 
