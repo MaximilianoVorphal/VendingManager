@@ -577,11 +577,11 @@ public class CompraService : ICompraService
 
         if (proveedor.Contains("bencina") || proveedor.Contains("copec") || proveedor.Contains("shell") ||
             proveedor.Contains("petrobras") || proveedor.Contains("petro") || proveedor.Contains("gasolin"))
-            return "BENCINA";
+            return "LOGISTICA";
 
         if (proveedor.Contains("peaje") || proveedor.Contains("autopista") || proveedor.Contains("tag") ||
             proveedor.Contains("costanera") || proveedor.Contains("vespucio"))
-            return "PEAJE";
+            return "PEAJES";
 
         return "GASTOS GENERALES";
     }
