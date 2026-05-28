@@ -6,7 +6,7 @@ namespace VendingManager.Shared.DTOs;
 public class ProductoEanDto
 {
     public int Id { get; set; }
-    public string EAN { get; set; } = string.Empty;
+    public string? EAN { get; set; }
     public string? SKU { get; set; }
     public int? ProductoId { get; set; }
     public string? ProductoNombre { get; set; }
@@ -22,7 +22,7 @@ public class ProductoEanDto
 /// </summary>
 public class CreateProductoEanRequestDto
 {
-    public string EAN { get; set; } = string.Empty;
+    public string? EAN { get; set; }
     public string? SKU { get; set; }
     public int? ProductoId { get; set; }
     public int? PackSize { get; set; }
