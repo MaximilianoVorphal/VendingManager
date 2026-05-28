@@ -58,9 +58,21 @@
                         <label class="form-label fw-bold small text-muted">TIPO DE DOCUMENTO</label>
                         <select class="form-select border-dark rounded-0 fw-bold @(factura.TipoFactura == "MERCADERIA" ? "text-success" : "text-primary")" @bind="factura.TipoFactura">
                             <option value="MERCADERIA">🛒 MERCADERÍA (ABASTECIMIENTO)</option>
-                            <option value="GASTO_GENERAL">⛽ GASTO GENERAL (BENCINA, OTROS)</option>
+                            <option value="GASTO_GENERAL">⛽ GASTO GENERAL (BENCINA, PEAJE, OTROS)</option>
                         </select>
                     </div>
+
+                    @if (factura.TipoFactura == "GASTO_GENERAL")
+                    {
+                        <div class="mb-3">
+                            <label class="form-label fw-bold small text-muted">CATEGORÍA DEL GASTO</label>
+                            <select class="form-select border-dark rounded-0 fw-bold" @bind="factura.SubcategoriaGasto">
+                                <option value="">GASTOS GENERALES</option>
+                                <option value="BENCINA">⛽ BENCINA</option>
+                                <option value="PEAJE">🚗 PEAJE / TAG</option>
+                            </select>
+                        </div>
+                    }
 
                     <div class="form-check form-switch pt-2 border-top border-dark mt-3 pt-3">
                         <input class="form-check-input border-dark" type="checkbox" id="pagado" @bind="factura.PagadaCaja" />
@@ -110,10 +122,40 @@
                                     }
                                 </select>
                             </div>
-                            <div class="col-md-6 d-grid">
+                            <div class="col-md-6 d-grid gap-2">
                                 <button class="btn btn-outline-dark rounded-0 fw-bold" @onclick="AgregarProducto" disabled="@(productoSeleccionadoId == 0)">
                                     <i class="bi bi-plus-lg me-1"></i> AÑADIR A LA LISTA
                                 </button>
+                            </div>
+                            <!-- Texto libre: items sin producto del catálogo -->
+                            <div class="col-12 mt-3 pt-3 border-top border-dark">
+                                <label class="form-label fw-bold small text-muted">
+                                    <i class="bi bi-pencil me-1"></i>TEXTO LIBRE (sin vincular a producto)
+                                </label>
+                                <div class="row g-2">
+                                    <div class="col-md-5">
+                                        <input type="text" class="form-control form-control-sm border-dark rounded-0" 
+                                               @bind="textoLibreDescripcion" placeholder="Ej: Maní 2kg, Bolsas plásticas..." />
+                                    </div>
+                                    <div class="col-md-2">
+                                        <input type="number" class="form-control form-control-sm border-dark rounded-0 text-center" 
+                                               @bind="textoLibreCantidad" @bind:event="oninput" min="1" placeholder="Cant." />
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="input-group input-group-sm">
+                                            <span class="input-group-text bg-dark text-white border-dark rounded-0">$</span>
+                                            <input type="number" class="form-control border-dark rounded-0 text-end" 
+                                                   @bind="textoLibrePrecio" @bind:event="oninput" min="0" placeholder="Precio" />
+                                        </div>
+                                    </div>
+                                    <div class="col-md-2 d-grid">
+                                        <button class="btn btn-sm btn-warning rounded-0 fw-bold" 
+                                                @onclick="AgregarTextoLibre" 
+                                                disabled="@(string.IsNullOrWhiteSpace(textoLibreDescripcion) || textoLibreCantidad < 1)">
+                                            <i class="bi bi-plus-lg"></i>
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         }
                         else
@@ -285,6 +327,11 @@
     private int productoSeleccionadoId = 0;
     private string descripcionGastoLibre = "";
     private decimal montoGastoLibre = 0;
+
+    // Texto libre (items sin producto del catálogo)
+    private string textoLibreDescripcion = "";
+    private int textoLibreCantidad = 1;
+    private decimal textoLibrePrecio = 0;
     
     private bool Guardando = false;
     private bool ProcesandoOCR = false;
@@ -353,6 +400,24 @@
         montoGastoLibre = 0;
     }
 
+    private void AgregarTextoLibre()
+    {
+        if (string.IsNullOrWhiteSpace(textoLibreDescripcion) || textoLibreCantidad < 1) return;
+
+        detalles.Add(new DetalleUI
+        {
+            ProductoId = null,
+            ProductoNombre = textoLibreDescripcion,
+            DescripcionItem = textoLibreDescripcion,
+            Cantidad = textoLibreCantidad,
+            CostoUnitario = textoLibrePrecio
+        });
+
+        textoLibreDescripcion = "";
+        textoLibreCantidad = 1;
+        textoLibrePrecio = 0;
+    }
+
     private void EliminarDetalle(DetalleUI d)
     {
         detalles.Remove(d);
@@ -379,9 +444,9 @@
             return;
         }
 
-        if (factura.TipoFactura == "MERCADERIA" && detalles.Any(d => !d.EsPendiente && (d.ProductoId == 0 || d.ProductoId == null)))
+        if (factura.TipoFactura == "MERCADERIA" && detalles.Any(d => !d.EsPendiente && d.ProductoId == null && string.IsNullOrWhiteSpace(d.DescripcionItem)))
         {
-            MensajeError = "Debe asignar un producto del sistema a cada ítem (selecciónelos en los recuadros amarillos).";
+            MensajeError = "Cada ítem debe tener un producto asignado o una descripción (texto libre). Los items sin producto ni descripción no se pueden guardar.";
             return;
         }
 
@@ -533,6 +598,19 @@
                     if (TryParseFechaChile(result.Fecha, out DateTime dtOut))
                     {
                         factura.FechaCompra = dtOut;
+                    }
+
+                    // Auto-detectar subcategoría de gasto desde proveedor
+                    var provLower = (factura.Proveedor ?? "").ToLowerInvariant();
+                    if (provLower.Contains("bencina") || provLower.Contains("copec") || provLower.Contains("shell") ||
+                        provLower.Contains("petrobras") || provLower.Contains("petro") || provLower.Contains("gasolin"))
+                    {
+                        factura.SubcategoriaGasto = "BENCINA";
+                    }
+                    else if (provLower.Contains("peaje") || provLower.Contains("autopista") || provLower.Contains("tag") ||
+                             provLower.Contains("costanera") || provLower.Contains("vespucio"))
+                    {
+                        factura.SubcategoriaGasto = "PEAJE";
                     }
 
                     // Mapear items
