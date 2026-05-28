@@ -143,8 +143,7 @@ namespace VendingManager.Infrastructure.Data
                 entity.HasKey(e => e.Id);
 
                 entity.Property(e => e.EAN)
-                    .HasMaxLength(13)
-                    .IsRequired();
+                    .HasMaxLength(13);
 
                 entity.Property(e => e.SKU)
                     .HasMaxLength(50);
@@ -161,9 +160,10 @@ namespace VendingManager.Infrastructure.Data
                 entity.Property(e => e.LastSeenAt)
                     .HasColumnType("datetime2");
 
-                // Índice único por EAN (permite upsert por código de barras)
+                // Índice único por EAN (filtrado: solo aplica unicidad cuando EAN no es null)
                 entity.HasIndex(e => e.EAN)
                     .IsUnique()
+                    .HasFilter("[EAN] IS NOT NULL")
                     .HasDatabaseName("IX_ProductoEAN_EAN");
 
                 // FK nullable a Producto — si el producto se elimina, el mapeo

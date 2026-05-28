@@ -10,7 +10,7 @@ public class ProductoEAN
     public int Id { get; set; }
 
     /// <summary>Código de barras EAN-8, EAN-12 o EAN-13 (normalizado).</summary>
-    public string EAN { get; set; } = string.Empty;
+    public string? EAN { get; set; }
 
     /// <summary>SKU del proveedor (opcional).</summary>
     public string? SKU { get; set; }

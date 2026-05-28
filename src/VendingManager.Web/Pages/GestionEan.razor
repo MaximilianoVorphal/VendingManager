@@ -324,7 +324,7 @@
     {
         Editando = true;
         EditandoId = ean.Id;
-        FormEan = ean.EAN;
+        FormEan = ean.EAN ?? "";
         FormSku = ean.SKU ?? "";
         FormProductoId = ean.ProductoId?.ToString() ?? "";
         FormPackSize = ean.PackSize;
