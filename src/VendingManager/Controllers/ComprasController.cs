@@ -105,6 +105,7 @@ public class ComprasController(ICompraService compraService, IFacturaOcrService 
             Estado = request.Estado,
             TipoFactura = request.TipoFactura,
             PagadaCaja = request.PagadaCaja,
+            SubcategoriaGasto = request.SubcategoriaGasto,
             UsuarioRegistra = User.Identity?.Name,
             Detalles = request.Detalles.Select(d => new DetalleCompra
             {

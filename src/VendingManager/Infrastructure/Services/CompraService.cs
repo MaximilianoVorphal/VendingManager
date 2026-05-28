@@ -129,7 +129,7 @@ public class CompraService : ICompraService
                 Descripcion = $"Factura/Boleta Nº {compra.NumeroDocumento} - {compra.Proveedor}",
                 Monto = -compra.MontoTotal, // Gasto de dinero
                 Tipo = "GASTO",
-                Categoria = compra.TipoFactura == "MERCADERIA" ? "MERCADERIA" : "GASTOS GENERALES",
+                Categoria = ResolverCategoriaMovimiento(compra),
                 CompraId = compra.Id // FK para trazabilidad bidireccional
             };
             _context.MovimientosCaja.Add(movimiento);
@@ -154,7 +154,7 @@ public class CompraService : ICompraService
                 Descripcion = $"Pago Factura/Boleta Nº {compra.NumeroDocumento} - {compra.Proveedor}",
                 Monto = -compra.MontoTotal,
                 Tipo = "GASTO",
-                Categoria = compra.TipoFactura == "MERCADERIA" ? "MERCADERIA" : "GASTOS GENERALES",
+                Categoria = ResolverCategoriaMovimiento(compra),
                 CompraId = compra.Id // FK para trazabilidad
             };
             _context.MovimientosCaja.Add(movimiento);
@@ -185,6 +185,7 @@ public class CompraService : ICompraService
             compra.Estado = request.Estado;
             compra.TipoFactura = request.TipoFactura;
             compra.PagadaCaja = request.PagadaCaja;
+            compra.SubcategoriaGasto = request.SubcategoriaGasto;
 
             // 3. Reemplazar detalles
             _context.DetallesCompra.RemoveRange(compra.Detalles);
@@ -267,7 +268,7 @@ public class CompraService : ICompraService
                 movimiento.Descripcion = $"Factura/Boleta Nº {compra.NumeroDocumento} - {compra.Proveedor} (Editada)";
                 movimiento.Monto = -compra.MontoTotal;
                 movimiento.Tipo = "GASTO";
-                movimiento.Categoria = compra.TipoFactura == "MERCADERIA" ? "MERCADERIA" : "GASTOS GENERALES";
+                movimiento.Categoria = ResolverCategoriaMovimiento(compra);
             }
             else if (movimiento != null)
             {
@@ -556,5 +557,32 @@ public class CompraService : ICompraService
             await transaction.RollbackAsync();
             throw;
         }
+    }
+
+    /// <summary>
+    /// Resuelve la categoría del movimiento de caja basado en tipo de factura y subcategoría.
+    /// Prioriza SubcategoriaGasto explícita; si no hay, intenta inferir del proveedor.
+    /// </summary>
+    private static string ResolverCategoriaMovimiento(Compra compra)
+    {
+        if (compra.TipoFactura == "MERCADERIA")
+            return "MERCADERIA";
+
+        // Subcategoría explícita (elegida por el usuario en el UI)
+        if (!string.IsNullOrWhiteSpace(compra.SubcategoriaGasto))
+            return compra.SubcategoriaGasto;
+
+        // Inferir del proveedor
+        var proveedor = (compra.Proveedor ?? "").ToLowerInvariant();
+
+        if (proveedor.Contains("bencina") || proveedor.Contains("copec") || proveedor.Contains("shell") ||
+            proveedor.Contains("petrobras") || proveedor.Contains("petro") || proveedor.Contains("gasolin"))
+            return "BENCINA";
+
+        if (proveedor.Contains("peaje") || proveedor.Contains("autopista") || proveedor.Contains("tag") ||
+            proveedor.Contains("costanera") || proveedor.Contains("vespucio"))
+            return "PEAJE";
+
+        return "GASTOS GENERALES";
     }
 }
