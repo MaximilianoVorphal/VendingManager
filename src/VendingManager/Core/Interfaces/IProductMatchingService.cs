@@ -33,6 +33,14 @@ public interface IProductMatchingService
     /// <param name="productoId">ID del producto del catálogo.</param>
     /// <param name="packSize">Cantidad de unidades si es pack (null = unitario).</param>
     Task SaveMappingAsync(string ean, int productoId, int? packSize = null);
+
+    /// <summary>
+    /// Persiste (upsert) la relación SKU + Proveedor → ProductoId para aprendizaje automático.
+    /// </summary>
+    /// <param name="sku">SKU del proveedor.</param>
+    /// <param name="proveedor">Nombre del proveedor para namespacing del SKU.</param>
+    /// <param name="productoId">ID del producto del catálogo.</param>
+    Task SaveSkuMappingAsync(string sku, string proveedor, int productoId);
 }
 
 /// <summary>

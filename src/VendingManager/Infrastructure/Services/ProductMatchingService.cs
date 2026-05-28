@@ -103,6 +103,28 @@ public class ProductMatchingService : IProductMatchingService
         }
     }
 
+    public async Task SaveSkuMappingAsync(string sku, string proveedor, int productoId)
+    {
+        var existing = await _eanRepo.GetBySkuAndProveedorAsync(sku, proveedor);
+        if (existing != null)
+        {
+            existing.ProductoId = productoId;
+            existing.LastSeenAt = DateTime.UtcNow;
+            await _eanRepo.UpdateAsync(existing);
+        }
+        else
+        {
+            await _eanRepo.AddAsync(new ProductoEAN
+            {
+                SKU = sku,
+                Proveedor = proveedor,
+                ProductoId = productoId,
+                LastSeenAt = DateTime.UtcNow,
+                CreatedAt = DateTime.UtcNow
+            });
+        }
+    }
+
     /// <summary>
     /// Internal match: same logic as the original single-param MatchAsync.
     /// </summary>
