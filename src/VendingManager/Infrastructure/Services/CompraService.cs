@@ -120,6 +120,16 @@ public class CompraService : ICompraService
                 detalle.PackSize);
         }
 
+        // 4b. Aprendizaje SKU: para cada detalle CONFIRMADO con SKU + ProductoId, persistir el mapeo.
+        foreach (var detalle in compra.Detalles.Where(d =>
+            !string.IsNullOrEmpty(d.Sku) && d.ProductoId.HasValue && !d.EsPendiente))
+        {
+            await _productMatchingService.SaveSkuMappingAsync(
+                detalle.Sku!,
+                compra.Proveedor,
+                detalle.ProductoId!.Value);
+        }
+
         // 5. Registrar Movimiento en Caja automáticamente si la compra fue pagada
         if (compra.Estado == "PAGADA" && compra.PagadaCaja)
         {
@@ -286,6 +296,16 @@ public class CompraService : ICompraService
                     detalle.Ean!,
                     detalle.ProductoId!.Value,
                     detalle.PackSize);
+            }
+
+            // 7b. Aprendizaje SKU: para cada detalle CONFIRMADO con SKU + ProductoId, persistir el mapeo.
+            foreach (var detalle in compra.Detalles.Where(d =>
+                !string.IsNullOrEmpty(d.Sku) && d.ProductoId.HasValue && !d.EsPendiente))
+            {
+                await _productMatchingService.SaveSkuMappingAsync(
+                    detalle.Sku!,
+                    compra.Proveedor,
+                    detalle.ProductoId!.Value);
             }
 
             await transaction.CommitAsync();
