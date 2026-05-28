@@ -726,17 +726,23 @@
     }
 
     /// <summary>
-    /// Parsea fechas en formato chileno/ISO sin ambigüedad día↔año.
-    /// Prioriza dd-MM-yyyy y dd/MM/yyyy, luego intenta ISO 8601.
+    /// Parsea fechas en formato ISO/chileno sin ambigüedad día↔año.
+    /// Primero ISO 8601 (lo que el prompt pide a Gemini), luego formatos chilenos
+    /// con año de 2 dígitos (evitando el greedy match de dd-MM-yyyy), y finalmente
+    /// formatos chilenos con año de 4 dígitos.
     /// </summary>
     private static bool TryParseFechaChile(string? fecha, out DateTime result)
     {
         result = default;
         if (string.IsNullOrWhiteSpace(fecha)) return false;
 
-        // Formatos en orden de prioridad (el más común en boletas chilenas primero)
-        string[] formats = { "dd-MM-yyyy", "dd/MM/yyyy", "dd-MM-yy", "dd/MM/yy",
-                             "yyyy-MM-dd", "yyyy/MM/dd", "d-M-yyyy", "d/M/yyyy" };
+        // Formatos en orden de prioridad:
+        // 1. ISO (AAAA-MM-DD): lo que el prompt le pide explícitamente a Gemini
+        // 2. Chileno con año 2 dígitos: evita que dd-MM-yyyy agarre "25-05-26" como año 0026
+        // 3. Chileno con año 4 dígitos: solo matchea cuando el año realmente tiene 4 dígitos
+        string[] formats = { "yyyy-MM-dd", "yyyy/MM/dd", "dd-MM-yy", "dd/MM/yy",
+                             "dd-MM-yyyy", "dd/MM/yyyy", "d-M-yy", "d/M/yy",
+                             "d-M-yyyy", "d/M/yyyy" };
 
         return DateTime.TryParseExact(fecha.Trim(), formats,
             System.Globalization.CultureInfo.InvariantCulture,
