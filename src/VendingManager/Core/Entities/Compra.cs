@@ -38,5 +38,9 @@ public class Compra
     public int? TransferenciaId { get; set; }
     public Transferencia? Transferencia { get; set; }
 
+    /// <summary>Subcategoría para gastos: BENCINA, PEAJE, GASTOS GENERALES. No persiste en DB, solo se usa en el flujo de creación.</summary>
+    [NotMapped]
+    public string? SubcategoriaGasto { get; set; }
+
     public List<DetalleCompra> Detalles { get; set; } = new();
 }

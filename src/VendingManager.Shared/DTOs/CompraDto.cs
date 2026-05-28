@@ -40,6 +40,8 @@ public class RegistrarCompraRequestDto
     public string Estado { get; set; } = "PAGADA";
     public string TipoFactura { get; set; } = "MERCADERIA";
     public bool PagadaCaja { get; set; } = true;
+    /// <summary>Subcategoría para GASTO_GENERAL: BENCINA, PEAJE, o vacío para GASTOS GENERALES.</summary>
+    public string? SubcategoriaGasto { get; set; }
     public List<RegistrarDetalleCompraRequestDto> Detalles { get; set; } = new();
 }
 
