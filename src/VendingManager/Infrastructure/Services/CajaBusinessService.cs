@@ -92,7 +92,7 @@ public class CajaBusinessService
         decimal gastosVariablesAbs = Math.Abs(monthGastosVariables);
 
         // GASTOS FIJOS (Estructurales)
-        var categoriesFijos = new[] { "INFRA", "ARRIENDO_POS", "INTERNET", "COMISIONES", "SUELDOS", "GASTOS GENERALES", "OTROS" };
+        var categoriesFijos = new[] { "INFRA", "ARRIENDO_POS", "INTERNET", "COMISIONES", "SUELDOS", "GASTOS GENERALES", "OTROS", "SERVICIOS" };
          var monthGastosFijos = await _context.MovimientosCaja
              .Where(m => m.Fecha >= startOfMonth && m.Fecha <= endOfMonth && m.Fecha >= _config.Value.CajaStartDate && m.Monto < 0 && categoriesFijos.Contains(m.Categoria))
              .SumAsync(m => m.Monto);
