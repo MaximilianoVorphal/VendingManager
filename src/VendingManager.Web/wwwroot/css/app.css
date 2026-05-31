@@ -210,8 +210,7 @@ html {
 
 /* Evitar padding duplicado cuando industrial-wrapper está dentro de main.container-fluid */
 @media (max-width: 767.98px) {
-    main.container-fluid > .industrial-wrapper,
-    main.container-fluid > div > .industrial-wrapper:first-child {
+    main.container-fluid > .industrial-wrapper.container-fluid.px-4 {
         padding-left: 0 !important;
         padding-right: 0 !important;
     }

@@ -385,6 +385,12 @@
 
 /* === MOBILE FULL: all mobile fixes (up to 767.98px) === */
 @media (max-width: 767.98px) {
+    /* Neutralizar padding duplicado de Bootstrap px-4 (tiene !important) */
+    .industrial-wrapper {
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+    }
+
     /* ===========================================
        FIX 1: Header row — stack title + buttons
        =========================================== */
