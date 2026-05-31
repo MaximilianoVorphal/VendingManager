@@ -1,0 +1,83 @@
+/* Inventario.razor — Mobile responsive fixes */
+
+/* Tablets: reduce font */
+@media (max-width: 991.98px) {
+    .industrial-wrapper .industrial-table {
+        font-size: 0.82rem;
+    }
+
+    .industrial-wrapper .industrial-table thead th,
+    .industrial-wrapper .industrial-table tbody td {
+        padding: 0.4rem 0.5rem;
+    }
+
+    .industrial-wrapper .industrial-table thead th {
+        font-size: 0.75rem;
+        white-space: nowrap;
+    }
+}
+
+/* Mobile: hide less important columns, shrink buttons */
+@media (max-width: 575.98px) {
+    .industrial-wrapper .industrial-table {
+        font-size: 0.75rem;
+    }
+
+    /* Hide PROVEEDOR column (index 3) */
+    .industrial-wrapper .industrial-table th:nth-child(3),
+    .industrial-wrapper .industrial-table td:nth-child(3) {
+        display: none;
+    }
+
+    /* Hide COSTO column (index 4) */
+    .industrial-wrapper .industrial-table th:nth-child(4),
+    .industrial-wrapper .industrial-table td:nth-child(4) {
+        display: none;
+    }
+
+    /* Shrink action buttons */
+    .industrial-wrapper .industrial-table .btn-sm {
+        padding: 0.2rem 0.35rem;
+        font-size: 0.7rem;
+    }
+
+    .industrial-wrapper .industrial-table thead th,
+    .industrial-wrapper .industrial-table tbody td {
+        padding: 0.35rem 0.4rem;
+    }
+
+    .industrial-wrapper .industrial-table thead th {
+        font-size: 0.65rem;
+        white-space: nowrap;
+    }
+
+    /* PAGE HEADER: stack vertically on mobile */
+    .industrial-wrapper .industrial-page-header .col-md-7 {
+        margin-top: 0.5rem;
+    }
+
+    .industrial-wrapper .industrial-page-header .d-flex {
+        gap: 0.4rem !important;
+    }
+
+    .industrial-wrapper .industrial-page-header .input-group {
+        max-width: 100% !important;
+    }
+
+    .industrial-wrapper .industrial-page-header .btn {
+        font-size: 0.78rem;
+        padding: 0.35rem 0.6rem;
+    }
+
+    /* Card header: stack */
+    .industrial-wrapper .card-header {
+        flex-direction: column;
+        align-items: flex-start !important;
+        gap: 0.25rem;
+    }
+
+    /* Modal: full-width on mobile */
+    .modal-dialog {
+        margin: 0.5rem;
+    }
+}
