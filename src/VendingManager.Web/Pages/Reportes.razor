@@ -226,8 +226,8 @@
                         style="max-width: 250px; placeholder: #aaa;" 
                         placeholder="🔍 Filtrar producto..." />
                 </div>
-                <div class="table-responsive" style="max-height: 550px; overflow-y: auto;">
-                    <table class="industrial-table table-hover table-bordered border-dark m-0" style="min-width: 600px;">
+                <div class="table-responsive" style="overflow-x: auto; overflow-y: auto; max-height: 550px; -webkit-overflow-scrolling: touch;">
+                    <table class="industrial-table table-hover table-bordered border-dark m-0" style="min-width: 700px;">
                         <thead class="bg-secondary text-white text-uppercase small">
                             <tr>
                                 <th role="button" class="industrial-sortable-header" @onclick='() => OrdenarPor("Fecha")'>

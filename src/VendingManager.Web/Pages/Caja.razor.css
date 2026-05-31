@@ -1,0 +1,69 @@
+/* Caja.razor — Mobile responsive fixes */
+
+/* Tablets */
+@media (max-width: 991.98px) {
+    .industrial-wrapper .month-selector-label {
+        min-width: 140px;
+        font-size: 0.9rem;
+    }
+}
+
+/* Mobile */
+@media (max-width: 575.98px) {
+    /* Stack month selector */
+    .industrial-wrapper .industrial-page-header .col-12 > .d-flex {
+        flex-wrap: wrap;
+        gap: 0.4rem !important;
+    }
+
+    .industrial-wrapper .industrial-page-header .bg-dark {
+        min-width: 120px;
+        font-size: 0.78rem;
+        padding: 0.35rem 0.75rem !important;
+    }
+
+    .industrial-wrapper .industrial-page-header .industrial-btn--sm {
+        padding: 0.3rem 0.5rem;
+        font-size: 0.8rem;
+    }
+
+    /* SUMMARY CARDS: ensure they stack and dont overflow */
+    .industrial-wrapper .d-flex.flex-wrap.gap-3.mb-4 {
+        gap: 0.5rem !important;
+    }
+
+    .industrial-wrapper .d-flex.flex-wrap.gap-3.mb-4 > div {
+        flex: 1 1 100%;
+    }
+
+    .industrial-wrapper .d-flex.flex-wrap.gap-3.mb-4 h3,
+    .industrial-wrapper .d-flex.flex-wrap.gap-3.mb-4 h4 {
+        font-size: 1.3rem;
+    }
+
+    /* Form: full width */
+    .industrial-wrapper .d-flex.flex-wrap.gap-2.mb-3 {
+        flex-direction: column;
+        gap: 0.4rem !important;
+    }
+
+    .industrial-wrapper .btn-group-responsive {
+        flex-wrap: wrap;
+    }
+
+    .industrial-wrapper .btn-group-responsive .btn {
+        flex: 1 1 auto;
+        font-size: 0.75rem;
+        padding: 0.35rem 0.5rem;
+    }
+
+    /* Timeline tables */
+    .industrial-wrapper .table {
+        font-size: 0.7rem;
+    }
+
+    .industrial-wrapper .table td,
+    .industrial-wrapper .table th {
+        padding: 0.3rem 0.35rem;
+    }
+}

@@ -1,0 +1,73 @@
+/* Compras.razor — Mobile responsive fixes */
+
+/* Tablets: smaller font */
+@media (max-width: 991.98px) {
+    .industrial-wrapper .table {
+        font-size: 0.78rem;
+    }
+
+    .industrial-wrapper .table thead th {
+        font-size: 0.7rem;
+        padding: 0.4rem 0.35rem;
+    }
+
+    .industrial-wrapper .table tbody td {
+        padding: 0.35rem 0.4rem;
+    }
+
+    /* Shrink action buttons */
+    .industrial-wrapper .table .btn-sm {
+        font-size: 0.7rem;
+        padding: 0.2rem 0.4rem;
+    }
+}
+
+/* Mobile: hide 3 columns */
+@media (max-width: 575.98px) {
+    /* Hide TIPO column (index 3) */
+    .industrial-wrapper .table th:nth-child(3),
+    .industrial-wrapper .table td:nth-child(3) {
+        display: none;
+    }
+
+    /* Hide Nº DOCUMENTO column (index 4) */
+    .industrial-wrapper .table th:nth-child(4),
+    .industrial-wrapper .table td:nth-child(4) {
+        display: none;
+    }
+
+    /* Hide PEND. column (index 6) */
+    .industrial-wrapper .table th:nth-child(6),
+    .industrial-wrapper .table td:nth-child(6) {
+        display: none;
+    }
+
+    /* Smaller text and padding */
+    .industrial-wrapper .table {
+        font-size: 0.7rem;
+    }
+
+    .industrial-wrapper .table thead th {
+        font-size: 0.6rem;
+        white-space: nowrap;
+        padding: 0.35rem 0.3rem;
+    }
+
+    .industrial-wrapper .table tbody td {
+        padding: 0.3rem 0.35rem;
+    }
+
+    /* Shrink action buttons */
+    .industrial-wrapper .table .btn-sm {
+        font-size: 0.65rem;
+        padding: 0.15rem 0.3rem;
+    }
+
+    /* Stack header elements */
+    .industrial-wrapper .card-header {
+        flex-direction: column;
+        align-items: flex-start !important;
+        gap: 0.25rem;
+        font-size: 0.85rem;
+    }
+}
