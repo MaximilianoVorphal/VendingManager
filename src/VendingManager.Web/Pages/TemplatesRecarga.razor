@@ -756,6 +756,9 @@ private async Task AbrirEdicionVisual(PeriodoFormModel periodo)
         // Colapsar navbar para ganar espacio vertical en pantallas chicas
         Layout?.CollapseNavbar();
         StateHasChanged();
+        // Reset scroll position — DOM structure changes dramatically (main content hidden)
+        // Force body scroll unlock (defensive against stale modal locks)
+        try { await JS.InvokeVoidAsync("eval", "document.body.style.overflow='';window.scrollTo(0,0);"); } catch { }
         await Task.CompletedTask;
     }
 
