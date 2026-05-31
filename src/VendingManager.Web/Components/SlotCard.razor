@@ -1,74 +1,69 @@
 @namespace VendingManager.Web.Components
 
-<div class="slot-card border border-2 border-dark shadow-sm @(_isHighlighted ? "slot-ocr-highlight" : "") @GetProductBgClass()"
-     style="min-height: 160px; transition: all 0.2s;">
+<article class="slot-card @(_isHighlighted ? "slot-card--highlighted" : "") @(Slot.ProductoId.HasValue ? "" : "slot-card--empty")">
     <!-- TOP ROW: Slot number + context menu -->
-    <div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom border-secondary">
-        <div class="d-flex align-items-center">
-            <span class="text-muted fw-bold" style="font-size: 0.7rem;">SLOT</span>
-            <span class="font-monospace fw-bold ms-1" style="font-size: 0.9rem;">@Slot.NumeroSlot</span>
+    <header class="slot-card__header">
+        <div class="slot-card__slot-info">
+            <span class="slot-card__slot-label">SLOT</span>
+            <span class="slot-card__slot-number">@Slot.NumeroSlot</span>
         </div>
         @if (!IsReadOnly)
         {
-            <div class="position-relative" style="display: inline-block;">
-                <button class="btn btn-sm p-0 m-0 lh-1" type="button"
+            <div class="slot-card__menu-wrapper">
+                <button class="slot-card__menu-btn" type="button"
                         @onclick="ToggleMenu" @onclick:stopPropagation="true"
                         title="Opciones">
                     <i class="bi bi-three-dots-vertical fs-5"></i>
                 </button>
                 @if (_menuOpen)
                 {
-                    <div class="dropdown-menu dropdown-menu-end rounded-0 border-dark show"
-                         style="position: absolute; right: 0; top: 100%; z-index: 1050; min-width: 180px; display: block;">
-                        <button class="dropdown-item fw-bold" @onclick="OnChangeProductClicked">
-                            <i class="bi bi-arrow-left-right me-1"></i> Cambiar Producto
+                    <div class="slot-card__dropdown show">
+                        <button class="slot-card__dropdown-item" @onclick="OnChangeProductClicked">
+                            <i class="bi bi-arrow-left-right"></i> Cambiar Producto
                         </button>
-                        <button class="dropdown-item fw-bold text-danger" @onclick="OnEmptySlotClicked">
-                            <i class="bi bi-trash me-1"></i> Vaciar Slot
+                        <button class="slot-card__dropdown-item slot-card__dropdown-item--danger" @onclick="OnEmptySlotClicked">
+                            <i class="bi bi-trash"></i> Vaciar Slot
                         </button>
                     </div>
                 }
             </div>
         }
-    </div>
+    </header>
 
     <!-- MIDDLE ROW: Product name (tappable) + stepper -->
-    <div class="mb-2 flex-grow-1 d-flex align-items-center">
+    <section class="slot-card__body">
         @if (Slot.ProductoId.HasValue && !string.IsNullOrEmpty(Slot.ProductoNombre))
         {
-            <button class="btn btn-outline-dark fw-bold text-start w-60 text-truncate shadow-none rounded-0"
-                    style="height: 44px; white-space: normal; cursor: pointer;"
-                    title="@Slot.ProductoNombre"
-                    @onclick="OnProductNameTapped"
-                    disabled="@IsReadOnly">
-                @Slot.ProductoNombre
-            </button>
+            <div class="slot-card__product-btn"
+                 title="@Slot.ProductoNombre"
+                 @onclick="OnProductNameTapped"
+                 @onclick:stopPropagation="true">
+                <span>@Slot.ProductoNombre</span>
+            </div>
         }
         else
         {
-            <button class="btn btn-outline-secondary fw-bold w-60 text-truncate shadow-none rounded-0"
-                    style="height: 44px; white-space: normal; cursor: pointer;"
-                    title="Sin producto asignado"
-                    @onclick="OnChangeProductClicked"
-                    disabled="@IsReadOnly">
-                <i class="bi bi-plus-lg me-1"></i> SELECCIONAR
-            </button>
+            <div class="slot-card__product-btn slot-card__product-btn--empty"
+                 title="Sin producto asignado"
+                 @onclick="OnChangeProductClicked"
+                 @onclick:stopPropagation="true">
+                <i class="bi bi-plus-lg slot-card__product-icon"></i>
+                <span>SELECCIONAR</span>
+            </div>
         }
 
         <!-- Stepper: right side -->
         @if (!IsReadOnly)
         {
-            <div class="d-flex align-items-center gap-1 ms-auto">
-                <button class="btn btn-dark rounded-0 fw-bold px-2"
-                        style="min-width: 44px; min-height: 44px;"
+            <div class="slot-card__stepper">
+                <button class="stepper-btn"
                         @onclick="OnDecrement"
                         disabled="@(_localQuantity <= 0)"
                         title="Reducir cantidad">
                     <i class="bi bi-dash-lg"></i>
                 </button>
-                <span class="fs-3 fw-bold text-center" style="min-width: 40px;">@_localQuantity</span>
-                <button class="btn btn-dark rounded-0 fw-bold px-2"
-                        style="min-width: 44px; min-height: 44px;"
+                <span class="stepper-qty">@_localQuantity</span>
+                <button class="stepper-btn"
                         @onclick="OnIncrement"
                         disabled="@(_localQuantity >= Slot.CapacidadSlot)"
                         title="Aumentar cantidad">
@@ -78,39 +73,40 @@
         }
         else
         {
-            <span class="fs-3 fw-bold text-center ms-auto me-auto">@_localQuantity</span>
+            <span class="slot-card__qty-readonly">@_localQuantity</span>
         }
-    </div>
+    </section>
 
     <!-- BOTTOM ROW: Capacity text + progress bar -->
-    <div class="mt-auto d-flex align-items-center justify-content-between border-top border-secondary pt-2">
-        <div class="d-flex flex-column w-50 pe-1 border-end border-secondary">
-            <span class="text-muted" style="font-size: 0.6rem; font-weight: 800;">CANT.</span>
-            <span class="fw-bold text-dark text-center d-block" style="height: 22px; font-size: 0.9rem; line-height: 22px;">@_localQuantity</span>
+    <footer class="slot-card__footer">
+        <div class="slot-card__capacity-group">
+            <div class="slot-card__capacity-item slot-card__capacity-item--cant">
+                <span class="slot-card__capacity-label">CANT.</span>
+                <span class="slot-card__capacity-value">@_localQuantity</span>
+            </div>
+            <div class="slot-card__capacity-item slot-card__capacity-item--capac">
+                <span class="slot-card__capacity-label">CAPAC.</span>
+                <span class="slot-card__capacity-value">@Slot.CapacidadSlot</span>
+            </div>
         </div>
-        <div class="d-flex flex-column w-50 ps-1">
-            <span class="text-muted" style="font-size: 0.6rem; font-weight: 800;">CAPAC.</span>
-            <span class="fw-bold text-dark text-center d-block border bg-light"
-                  style="height: 22px; font-size: 0.9rem; line-height: 22px;">@Slot.CapacidadSlot</span>
-        </div>
-    </div>
+    </footer>
 
     <!-- Progress bar -->
-    <div class="mt-2">
-        <div class="progress rounded-0 border border-dark" style="height: 8px;">
-            <div class="progress-bar @GetProgressBarClass()"
-                 role="progressbar"
+    <div class="slot-card__progress-container">
+        <div class="slot-card__progress-track">
+            <div class="slot-card__progress-fill @GetProgressBarClass()"
                  style="width: @GetProgressPercent()%;"
+                 role="progressbar"
                  aria-valuenow="@_localQuantity"
                  aria-valuemin="0"
                  aria-valuemax="@Slot.CapacidadSlot">
             </div>
         </div>
-        <small class="text-muted fw-bold d-block text-center mt-1" style="font-size: 0.65rem;">
+        <small class="slot-card__progress-text">
             @_localQuantity / @Slot.CapacidadSlot
         </small>
     </div>
-</div>
+</article>
 
 @code {
     [Parameter] public TemplatesRecarga.SnapshotSlotFormModel Slot { get; set; } = new();
@@ -221,9 +217,9 @@
 
     private string GetProgressBarClass()
     {
-        if (_localQuantity <= 0) return "bg-danger";
+        if (_localQuantity <= 0) return "slot-card__progress-fill--red";
         var pct = (double)_localQuantity / Slot.CapacidadSlot * 100;
-        return pct > 50 ? "bg-success" : "bg-warning";
+        return pct > 50 ? "slot-card__progress-fill--green" : "slot-card__progress-fill--orange";
     }
 
     private string GetProductBgClass()
