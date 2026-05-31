@@ -63,7 +63,7 @@ html {
 }
 
 /* Ajuste de padding lateral para que no toque los bordes en movil/tablet landscape */
-@media (max-width: var(--bp-lg)) {
+@media (max-width: 992px) {
     .industrial-navbar .container {
         padding-left: 20px;
         padding-right: 20px;
@@ -135,7 +135,7 @@ html {
 /* =========================================
    MEDIA QUERIES (MOBILE OPTIMIZATION)
    ========================================= */
-@media (max-width: var(--bp-lg)) {
+@media (max-width: 992px) {
     /* Tablet/Mobile breakpoint */
 
     .industrial-navbar {
@@ -346,7 +346,7 @@ html {
 }
 
 /* AJUSTES MOBILE PARA DROPDOWN */
-@media (max-width: var(--bp-lg)) {
+@media (max-width: 992px) {
     .industrial-dropdown {
         display: block;
         width: 100%;
@@ -429,7 +429,7 @@ html {
 }
 
 /* TABLE RESPONSIVE STACK */
-@media (max-width: var(--bp-md)) {
+@media (max-width: 767.98px) {
 
     /* Aplicar solo a tablas marcadas explícitamente con esta clase */
     .industrial-stack-table table,
@@ -669,13 +669,13 @@ html {
     gap: clamp(0.5rem, 1.5vw, 1.25rem);
 }
 
-@media (max-width: var(--bp-lg)) {
+@media (max-width: 992px) {
     .industrial-kpi-grid {
         grid-template-columns: repeat(2, 1fr);
     }
 }
 
-@media (max-width: var(--bp-xs)) {
+@media (max-width: 575.98px) {
     .industrial-kpi-grid {
         grid-template-columns: 1fr;
     }
@@ -718,7 +718,7 @@ html {
 }
 
 /* KPI Responsive Font (from Home.razor T2.8) */
-@media (max-width: var(--bp-xl)) {
+@media (max-width: 1199.98px) {
     .kpi-amount {
         font-size: clamp(1.5rem, 4vw, 2.2rem) !important;
         letter-spacing: -1px;
@@ -732,7 +732,7 @@ html {
 /* =========================================
    IPAD-SPECIFIC REFINEMENTS (768px - 1199.98px)
    ========================================= */
-@media (min-width: var(--bp-md)) and (max-width: var(--bp-xl)) {
+@media (min-width: 767.98px) and (max-width: 1199.98px) {
     h1.display-5 { font-size: clamp(1.8rem, 3.5vw, 2.5rem) !important; }
     h1.display-4 { font-size: clamp(2rem, 4vw, 3rem) !important; }
     .card-body { padding: 0.75rem !important; }
@@ -765,7 +765,7 @@ html {
 }
 
 /* iPad landscape (834px+ width): hide hamburger, show full nav */
-@media (min-width: var(--bp-md)) and (max-width: var(--bp-xl)) and (orientation: landscape) {
+@media (min-width: 767.98px) and (max-width: 1199.98px) and (orientation: landscape) {
     .hamburger-btn {
         display: none !important;
     }
