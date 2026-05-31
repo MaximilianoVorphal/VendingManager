@@ -392,7 +392,6 @@
 /* === SLOT EDITOR WRAPPER (inline full-page editing) === */
 .slot-editor-wrapper {
     background-color: #f8f9fa;
-    min-height: calc(100vh - 80px);
 }
 
 /* Sticky footer bar for slot editor — mobile only */
