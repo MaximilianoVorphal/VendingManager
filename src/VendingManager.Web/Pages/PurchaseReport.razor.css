@@ -102,7 +102,7 @@
 /* === BREAKPOINTS RESPONSIVE === */
 
 /* Notebooks 14" — reorganizar controles de filtro */
-@media (max-width: var(--bp-xl)) {
+@media (max-width: 1199.98px) {
     .industrial-wrapper .report-filters {
         padding: 0.75rem;
     }
@@ -130,7 +130,7 @@
 }
 
 /* Tablets y móviles — scroll horizontal de tabla */
-@media (max-width: var(--bp-md)) {
+@media (max-width: 767.98px) {
     .industrial-wrapper .report-header {
         flex-direction: column;
         align-items: flex-start !important;
