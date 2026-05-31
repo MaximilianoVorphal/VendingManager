@@ -208,12 +208,10 @@ html {
     }
 }
 
-/* Mobile: sacar padding horizontal duplicado del wrapper principal */
+/* Mobile: sacar padding horizontal del wrapper principal */
 @media (max-width: 767.98px) {
-    main > div > .industrial-wrapper:only-child,
-    main > .industrial-wrapper {
-        padding-left: 0 !important;
-        padding-right: 0 !important;
+    .industrial-wrapper {
+        padding: clamp(0.75rem, 2vw, 1.5rem) 0 !important;
     }
 }
 }
