@@ -28,7 +28,7 @@
 
     /* Spacing */
     --slot-gap:           12px;
-    --slot-progress-h:    8px;
+    --slot-progress-h:    6px;
     --slot-touch-min:     44px;
     --slot-stepper-gap:   4px;
     --slot-header-pb:     8px;
@@ -90,6 +90,10 @@
     font-weight: 700;
     margin-left: 4px;
     color: var(--slot-color-text-dark);
+}
+
+.slot-card__menu-wrapper {
+    position: relative;
 }
 
 .slot-card__menu-btn {
