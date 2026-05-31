@@ -222,11 +222,6 @@
         return pct > 50 ? "slot-card__progress-fill--green" : "slot-card__progress-fill--orange";
     }
 
-    private string GetProductBgClass()
-    {
-        return Slot.ProductoId.HasValue ? "bg-white" : "bg-warning bg-opacity-25";
-    }
-
     public void Dispose()
     {
         _disposed = true;
