@@ -12,6 +12,8 @@
 @inject NavigationManager NavManager
 @inject IJSRuntime JS
 
+@if (PeriodoEnEdicionVisual == null)
+{
 <div class="industrial-wrapper container-fluid px-4 mt-4">
 
     <!-- HEADER -->
@@ -316,6 +318,7 @@
         </div>
     </div>
 </div>
+}
 }
 
 <!-- EDICIÓN VISUAL DE SLOTS (Full-page inline, no modal) -->
