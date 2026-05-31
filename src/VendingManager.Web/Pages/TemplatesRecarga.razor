@@ -739,7 +739,7 @@
     private string FotoGuiaZoomDisplay =>
         _fotoGuiaZoom.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture);
 
-private Task AbrirEdicionVisual(PeriodoFormModel periodo)
+private async Task AbrirEdicionVisual(PeriodoFormModel periodo)
     {
         PeriodoEnEdicionVisual = periodo;
         // Reset OCR state when opening
@@ -756,10 +756,10 @@ private Task AbrirEdicionVisual(PeriodoFormModel periodo)
         // Colapsar navbar para ganar espacio vertical en pantallas chicas
         Layout?.CollapseNavbar();
         StateHasChanged();
-        return Task.CompletedTask;
+        await Task.CompletedTask;
     }
 
-    private void CerrarEdicionVisual()
+    private async Task CerrarEdicionVisual()
     {
         if (MostrarFotoGuia)
         {
@@ -770,6 +770,7 @@ private Task AbrirEdicionVisual(PeriodoFormModel periodo)
         // Restaurar navbar al salir del editor
         Layout?.ExpandNavbar();
         StateHasChanged();
+        await Task.CompletedTask;
     }
 
     /// <summary>
