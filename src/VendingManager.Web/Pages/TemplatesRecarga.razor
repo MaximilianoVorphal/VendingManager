@@ -755,6 +755,7 @@ private Task AbrirEdicionVisual(PeriodoFormModel periodo)
         // Note: FotoGuiaData/FotoGuiaUrl intentionally preserved across opens for convenience
         // Colapsar navbar para ganar espacio vertical en pantallas chicas
         Layout?.CollapseNavbar();
+        StateHasChanged();
         return Task.CompletedTask;
     }
 
@@ -768,6 +769,7 @@ private Task AbrirEdicionVisual(PeriodoFormModel periodo)
         // Photos kept in memory for convenience across reopens — no revoke here
         // Restaurar navbar al salir del editor
         Layout?.ExpandNavbar();
+        StateHasChanged();
     }
 
     /// <summary>
