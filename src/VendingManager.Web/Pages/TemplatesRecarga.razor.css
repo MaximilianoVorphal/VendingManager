@@ -66,13 +66,6 @@
     z-index: 1055;
 }
 
-/* OCR pre-fill highlight */
-.slot-ocr-highlight {
-    border-color: #198754;
-    box-shadow: 0 0 12px rgba(25, 135, 84, 0.5);
-    background-color: #d1e7dd;
-}
-
 /* === FLOATING ACTION BUTTON (mobile <768px) === */
 .fab-container {
     position: fixed;
@@ -393,5 +386,25 @@
     .modal-lg .industrial-stack-table td {
         padding: 0.3rem 0.5rem;
         white-space: nowrap;
+    }
+}
+
+/* === SLOT EDITOR WRAPPER (inline full-page editing) === */
+.slot-editor-wrapper {
+    background-color: #f8f9fa;
+    min-height: calc(100vh - 80px);
+}
+
+/* Sticky footer bar for slot editor — mobile only */
+@media (max-width: 767.98px) {
+    .slot-editor-footer {
+        position: sticky;
+        bottom: 0;
+        z-index: 1030;
+        background-color: #f8f9fa;
+        border-top: 2px solid #343a40 !important;
+        padding-top: 0.75rem !important;
+        margin-top: 1rem;
+        box-shadow: 0 -2px 8px rgba(0,0,0,0.15);
     }
 }
