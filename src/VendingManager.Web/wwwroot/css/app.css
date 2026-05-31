@@ -208,12 +208,14 @@ html {
     }
 }
 
-/* Evitar padding duplicado cuando industrial-wrapper está dentro de main.container-fluid */
+/* Mobile: sacar padding horizontal duplicado del wrapper principal */
 @media (max-width: 767.98px) {
-    main.container-fluid > .industrial-wrapper.container-fluid.px-4 {
+    main > div > .industrial-wrapper:only-child,
+    main > .industrial-wrapper {
         padding-left: 0 !important;
         padding-right: 0 !important;
     }
+}
 }
 
 /* BLAZOR ERROR UI */
