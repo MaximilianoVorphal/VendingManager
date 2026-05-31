@@ -40,6 +40,13 @@
     border-bottom: 6px solid #555;
 }
 
+/* === SLOT GRID (replaces Bootstrap row row-cols-*) === */
+.slot-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1rem;
+}
+
 /* INVENTORY GRID */
 .inventory-grid {
     display: grid;
