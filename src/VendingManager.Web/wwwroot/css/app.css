@@ -293,55 +293,7 @@ html {
    ========================================= */
 
 .industrial-navbar.navbar-collapsed {
-    padding: 0 !important;
-    margin-bottom: 4px !important;
-    border-bottom-width: 1px !important;
-    z-index: 1000 !important; /* Bajar para que modales (z:1060) queden encima */
-}
-
-.industrial-navbar.navbar-collapsed .container-fluid {
-    padding-top: 0 !important;
-    padding-bottom: 0 !important;
-    height: 34px !important;
-    min-height: 34px !important;
-}
-
-.industrial-navbar.navbar-collapsed .brand-logo {
     display: none !important;
-}
-
-.industrial-navbar.navbar-collapsed .nav-links-container {
-    display: none !important;
-}
-
-.industrial-navbar.navbar-collapsed .hamburger-btn {
-    display: none !important;
-}
-
-/* Flecha de expandir en modo colapsado */
-.navbar-collapsed .collapse-toggle-icon::before {
-    content: "\F282"; /* bi-chevron-down */
-    font-family: "bootstrap-icons";
-    font-style: normal;
-    font-size: 1.2rem;
-}
-
-.industrial-navbar.navbar-collapsed .collapse-hint {
-    display: block !important;
-    position: absolute;
-    left: 12px;
-    top: 50%;
-    transform: translateY(-50%);
-    font-family: 'Consolas', monospace;
-    font-size: 0.7rem;
-    font-weight: bold;
-    color: #888;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-}
-
-.collapse-hint {
-    display: none;
 }
 
 /* AJUSTES MOBILE PARA DROPDOWN */
