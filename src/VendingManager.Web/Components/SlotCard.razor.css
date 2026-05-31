@@ -1,360 +1,188 @@
-/* SlotCard.razor — CSS Isolation (Pure CSS, no Bootstrap) */
+/* SlotCard.razor — CSS Isolation */
 
-/* ============================================================
-   CSS CUSTOM PROPERTIES — Design Tokens
-   ============================================================ */
 .slot-card {
-    /* Colors */
-    --slot-color-bg:           #fff;
-    --slot-color-bg-empty:     #fff3cd;
-    --slot-color-bg-highlight: #d1e7dd;
-    --slot-color-border:       #343a40;
-    --slot-color-border-light: #6c757d;
-    --slot-color-text-muted:   #6c757d;
-    --slot-color-text-dark:    #212529;
-    --slot-color-progress-red:  #dc3545;
-    --slot-color-progress-orng: #ffc107;
-    --slot-color-progress-grn:  #198754;
-    --slot-color-btn-dark:      #343a40;
-    --slot-color-ocr-glow:      rgba(25, 135, 84, 0.5);
-
-    /* Typography */
-    --slot-font-size-slot-label: 0.7rem;
-    --slot-font-size-slot-num:   0.9rem;
-    --slot-font-size-qty:        1.25rem;
-    --slot-font-size-cant:       0.6rem;
-    --slot-font-size-value:      0.9rem;
-    --slot-font-size-progress:   0.65rem;
-
-    /* Spacing */
-    --slot-gap:           12px;
-    --slot-progress-h:    6px;
-    --slot-touch-min:     44px;
-    --slot-stepper-gap:   4px;
-    --slot-header-pb:     8px;
-    --slot-footer-pt:     8px;
-    --slot-btn-px:        8px;
-
-    /* Layout */
+    background-color: #ffffff;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    padding: 12px 16px;
     display: flex;
     flex-direction: column;
-    gap: var(--slot-gap);
-    background-color: var(--slot-color-bg);
-    border: 2px solid var(--slot-color-border);
-    border-radius: 8px;
-    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
-    min-height: 160px;
-    padding: 0;
-    touch-action: manipulation;
-    transition: all 0.2s;
-}
-
-/* Empty slot — soft yellow background */
-.slot-card--empty {
-    background-color: var(--slot-color-bg-empty);
-}
-
-/* OCR highlight — green border + glow */
-.slot-card--highlighted {
-    border-color: var(--slot-color-progress-grn);
-    box-shadow: 0 0 12px var(--slot-color-ocr-glow);
-    background-color: var(--slot-color-bg-highlight);
-}
-
-/* Card hover — subtle lift (existing behavior) */
-.slot-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
-}
-
-/* ============================================================
-   HEADER — Slot number + three-dot menu
-   ============================================================ */
-.slot-card__header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding-bottom: var(--slot-header-pb);
-    border-bottom: 2px solid var(--slot-color-border-light);
-}
-
-.slot-card__slot-label {
-    font-size: var(--slot-font-size-slot-label);
-    font-weight: 700;
-    color: var(--slot-color-text-muted);
-}
-
-.slot-card__slot-number {
-    font-family: monospace;
-    font-size: var(--slot-font-size-slot-num);
-    font-weight: 700;
-    margin-left: 4px;
-    color: var(--slot-color-text-dark);
-}
-
-.slot-card__menu-wrapper {
+    gap: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    transition: all 0.2s ease;
     position: relative;
 }
 
-.slot-card__menu-btn {
+.slot-card.is-empty {
+    background-color: #fef9c3;
+    border-color: #fde047;
+}
+
+.slot-card.is-highlighted {
+    border-color: #10b981;
+    box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.25);
+}
+
+.slot-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.slot-id {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #6b7280;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.btn-menu {
     background: transparent;
     border: none;
-    padding: 4px 8px;
-    min-width: var(--slot-touch-min);
-    min-height: var(--slot-touch-min);
+    font-size: 1.25rem;
+    line-height: 1;
+    color: #4b5563;
     cursor: pointer;
+    padding: 0 4px;
+}
+
+.btn-menu:hover {
+    color: #111827;
+}
+
+.slot-body {
     display: flex;
+    justify-content: space-between;
     align-items: center;
-    justify-content: center;
-    color: var(--slot-color-text-dark);
+    gap: 16px;
 }
 
-.slot-card__menu-btn:hover {
-    background-color: rgba(0, 0, 0, 0.05);
-    border-radius: 4px;
+.product-area {
+    flex-grow: 1;
+    cursor: pointer;
 }
 
-/* ============================================================
-   DROPDOWN MENU — absolute positioned
-   ============================================================ */
-.slot-card__dropdown {
-    position: absolute;
-    right: 0;
-    top: 100%;
-    z-index: 1050;
-    min-width: 180px;
-    background-color: #fff;
-    border: 1px solid var(--slot-color-border);
-    border-radius: 0;
+.product-name {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #111827;
+    line-height: 1.3;
     display: block;
+    word-break: break-word;
 }
 
-.slot-card__dropdown-item {
+.stepper {
     display: flex;
     align-items: center;
-    gap: 4px;
-    padding: 0.5rem 1rem;
-    font-weight: 700;
-    color: var(--slot-color-text-dark);
-    background: transparent;
-    border: none;
-    width: 100%;
-    text-align: left;
-    cursor: pointer;
-}
-
-.slot-card__dropdown-item:hover {
-    background-color: #f8f9fa;
-}
-
-.slot-card__dropdown-item--danger {
-    color: var(--slot-color-progress-red);
-}
-
-.slot-card__dropdown-item--danger:hover {
-    background-color: #fff0f0;
-}
-
-/* ============================================================
-   BODY — Product info (tappable) + stepper
-   ============================================================ */
-.slot-card__body {
-    display: flex;
-    align-items: center;
-    gap: var(--slot-stepper-gap);
-    flex-grow: 1;
-}
-
-/* Tappable product name button */
-.slot-card__product-btn {
-    flex-grow: 1;
-    min-height: var(--slot-touch-min);
-    padding: 0 8px;
-    background: transparent;
-    border: 1px solid var(--slot-color-border);
-    font-weight: 700;
-    text-align: left;
-    cursor: pointer;
-    white-space: normal;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    display: flex;
-    align-items: center;
-    color: var(--slot-color-text-dark);
-    border-radius: 0;
-}
-
-.slot-card__product-btn:hover:not(:disabled) {
-    background-color: #f8f9fa;
-}
-
-.slot-card__product-btn:disabled {
-    cursor: default;
-}
-
-.slot-card__product-btn--empty {
-    border-style: dashed;
-    color: var(--slot-color-text-muted);
-}
-
-.slot-card__product-icon {
-    margin-right: 4px;
-    color: var(--slot-color-text-muted);
-}
-
-/* ============================================================
-   STEPPER — +/- controls with quantity display
-   ============================================================ */
-.slot-card__stepper {
-    display: flex;
-    align-items: center;
-    gap: var(--slot-stepper-gap);
-    margin-left: auto;
-    background: #f8f9fa;
-    border-radius: 4px;
-    padding: 2px;
+    background-color: #f3f4f6;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
     flex-shrink: 0;
 }
 
-.stepper-btn {
-    min-width: var(--slot-touch-min);
-    min-height: var(--slot-touch-min);
-    background: var(--slot-color-btn-dark);
-    color: white;
+.btn-step {
+    background: transparent;
     border: none;
-    font-weight: 700;
-    padding-left: var(--slot-btn-px);
-    padding-right: var(--slot-btn-px);
+    font-size: 1.2rem;
+    padding: 6px 14px;
+    color: #374151;
     cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 0;
+    font-weight: 500;
+    min-width: 44px;
+    min-height: 44px;
 }
 
-.stepper-btn:hover:not(:disabled) {
-    background-color: #23272b;
-}
-
-.stepper-btn:disabled {
-    opacity: 0.4;
+.btn-step:disabled {
+    color: #d1d5db;
     cursor: not-allowed;
 }
 
-.stepper-qty {
-    font-size: var(--slot-font-size-qty);
+.step-number {
+    font-size: 1.1rem;
     font-weight: 700;
+    min-width: 32px;
     text-align: center;
-    min-width: 40px;
-    color: var(--slot-color-text-dark);
+    color: #111827;
 }
 
-/* Read-only quantity display (centered, no stepper) */
-.slot-card__qty-readonly {
-    font-size: var(--slot-font-size-qty);
-    font-weight: 700;
-    text-align: center;
-    margin-left: auto;
-    margin-right: auto;
-    color: var(--slot-color-text-dark);
-}
-
-/* ============================================================
-   FOOTER — Capacity labels + progress bar
-   ============================================================ */
-.slot-card__footer {
+.slot-footer {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    padding-top: var(--slot-footer-pt);
-    border-top: 2px solid var(--slot-color-border-light);
+    gap: 12px;
 }
 
-/* Capacity group (CANT. / CAPAC. labels + values) */
-.slot-card__capacity-group {
-    display: flex;
-    align-items: center;
-    gap: 4px;
+.progress-track {
+    flex-grow: 1;
+    height: 6px;
+    background-color: #e5e7eb;
+    border-radius: 4px;
+    overflow: hidden;
 }
 
-.slot-card__capacity-item {
+.progress-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.3s ease, background-color 0.3s ease;
+}
+
+.fill-good {
+    background-color: #10b981;
+}
+
+.fill-warning {
+    background-color: #f59e0b;
+}
+
+.fill-danger {
+    background-color: #ef4444;
+}
+
+.capacity-text {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #6b7280;
+    min-width: 35px;
+    text-align: right;
+}
+
+/* Dropdown menu */
+.dropdown-menu {
+    position: absolute;
+    top: 40px;
+    right: 8px;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    z-index: 1050;
+    min-width: 160px;
+    padding: 4px;
     display: flex;
     flex-direction: column;
-    align-items: center;
 }
 
-.slot-card__capacity-label {
-    font-size: var(--slot-font-size-cant);
-    font-weight: 800;
-    color: var(--slot-color-text-muted);
-}
-
-.slot-card__capacity-value {
-    font-size: var(--slot-font-size-value);
-    font-weight: 700;
-    color: var(--slot-color-text-dark);
-    height: 22px;
-    line-height: 22px;
-    text-align: center;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.slot-card__capacity-item--cant {
-    padding-right: 4px;
-    border-right: 1px solid var(--slot-color-border-light);
-}
-
-.slot-card__capacity-item--capac {
-    padding-left: 4px;
-}
-
-.slot-card__capacity-item--capac .slot-card__capacity-value {
-    background-color: #f8f9fa;
-    border: 1px solid var(--slot-color-border-light);
-    min-width: 32px;
-}
-
-/* ============================================================
-   PROGRESS BAR
-   ============================================================ */
-.slot-card__progress-container {
-    margin-top: 8px;
-}
-
-.slot-card__progress-track {
-    height: var(--slot-progress-h);
-    flex-grow: 1;
-    border: 1px solid var(--slot-color-border);
-    border-radius: 0;
-    overflow: hidden;
-    background-color: #e9ecef;
-}
-
-.slot-card__progress-fill {
-    height: 100%;
-    transition: width 0.6s ease;
-}
-
-.slot-card__progress-fill--red {
-    background-color: var(--slot-color-progress-red);
-}
-
-.slot-card__progress-fill--orange {
-    background-color: var(--slot-color-progress-orng);
-}
-
-.slot-card__progress-fill--green {
-    background-color: var(--slot-color-progress-grn);
-}
-
-/* Progress text below bar */
-.slot-card__progress-text {
+.dropdown-item {
     display: block;
-    text-align: center;
-    font-size: var(--slot-font-size-progress);
-    font-weight: 700;
-    color: var(--slot-color-text-muted);
-    margin-top: 4px;
+    width: 100%;
+    text-align: left;
+    padding: 8px 12px;
+    border: none;
+    background: transparent;
+    font-size: 0.875rem;
+    color: #374151;
+    cursor: pointer;
+    border-radius: 4px;
+}
+
+.dropdown-item:hover {
+    background-color: #f3f4f6;
+}
+
+.dropdown-item--danger {
+    color: #ef4444;
+}
+
+.dropdown-item--danger:hover {
+    background-color: #fef2f2;
 }
