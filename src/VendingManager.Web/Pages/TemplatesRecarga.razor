@@ -95,7 +95,7 @@
                                     <i class="bi bi-pencil"></i>
                                 </button>
                                 <button class="btn btn-sm btn-outline-danger rounded-0"
-                            @onclick="() => EliminarTemplate(template.Id)" title="Eliminar">
+                            @onclick="() => TemplateAEliminar = template" title="Eliminar">
                                     <i class="bi bi-trash"></i>
                                 </button>
                             </div>
@@ -424,6 +424,42 @@
             }
         }
 
+        <!-- PRODUCT SELECTOR OVERLAY (for slot product change) -->
+        @if (SlotConProductoSelector != null && ListaProductos != null)
+        {
+            <div class="product-selector-overlay" @onclick="CerrarProductoSelector" @onclick:stopPropagation="true">
+                <div class="product-selector-dropdown" @onclick:stopPropagation="true">
+                    <div class="product-selector-header">
+                        <span class="fw-bold text-uppercase small">
+                            <i class="bi bi-box-seam me-2"></i>CAMBIAR PRODUCTO — SLOT @SlotConProductoSelector.NumeroSlot
+                        </span>
+                        <button type="button" class="btn-close" @onclick="CerrarProductoSelector"></button>
+                    </div>
+                    <div class="product-selector-search">
+                        <input type="text" class="form-control form-control-sm border-dark rounded-0"
+                               placeholder="Buscar producto..."
+                               @bind="ProductoSearch"
+                               @bind:event="oninput" />
+                    </div>
+                    <div class="product-selector-list">
+                        @foreach (var prod in ListaProductos.Where(p =>
+                            string.IsNullOrEmpty(ProductoSearch) ||
+                            p.Nombre.Contains(ProductoSearch, StringComparison.OrdinalIgnoreCase)))
+                        {
+                            <button class="product-selector-item @(SlotConProductoSelector.ProductoId == prod.Id ? "active" : "")"
+                                    @onclick="() => SeleccionarProductoParaSlot(prod)">
+                                <span class="fw-bold">@prod.Nombre</span>
+                                @if (SlotConProductoSelector.ProductoId == prod.Id)
+                                {
+                                    <i class="bi bi-check-circle-fill text-success ms-2"></i>
+                                }
+                            </button>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+
         <!-- Sticky footer bar (mobile) / inline footer (desktop) -->
         <div class="slot-editor-footer border-top border-dark mt-4 pt-3 d-flex justify-content-between flex-wrap gap-2 align-items-center">
             <div class="d-flex gap-2 align-items-center">
@@ -686,6 +722,43 @@
     </div>
 }
 
+<!-- MODAL CONFIRMAR ELIMINACIÓN DE TEMPLATE -->
+@if (TemplateAEliminar != null)
+{
+    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5); z-index: 1120; position: fixed; top: 0; left: 0; width: 100%; height: 100%;">
+        <div class="modal-dialog modal-dialog-centered" style="z-index: 1121;">
+            <div class="modal-content rounded-0 border-2 border-dark shadow-lg">
+                <div class="modal-header bg-danger text-white rounded-0 border-bottom border-dark">
+                    <h5 class="modal-title fw-bold text-uppercase">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>ELIMINAR TEMPLATE
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CancelarEliminacion"></button>
+                </div>
+                <div class="modal-body p-4 text-center">
+                    <p class="fs-5 fw-bold">¿Estás seguro de eliminar el template <span class="text-danger">@TemplateAEliminar.Nombre</span>?</p>
+                    <p class="text-muted small">Esta acción eliminará todos los períodos, slots configurados y fotos asociadas.</p>
+                    <p class="text-danger fw-bold small"><i class="bi bi-info-circle-fill me-1"></i>No se puede deshacer.</p>
+                </div>
+                <div class="modal-footer bg-light rounded-0">
+                    <button type="button" class="btn btn-outline-dark rounded-0 fw-bold" @onclick="CancelarEliminacion" disabled="@Eliminando">CANCELAR</button>
+                    <button type="button" class="btn btn-danger rounded-0 border-dark fw-bold px-4" @onclick="EliminarTemplateConfirmado" disabled="@Eliminando">
+                        @if (Eliminando)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                            <text>SÍ, ELIMINANDO...</text>
+                        }
+                        else
+                        {
+                            <i class="bi bi-trash-fill me-2"></i>
+                            <text>SÍ, ELIMINAR</text>
+                        }
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     [CascadingParameter] public MainLayout? Layout { get; set; }
 
@@ -782,52 +855,71 @@ private async Task AbrirEdicionVisual(PeriodoFormModel periodo)
     {
         if (periodoId <= 0 || _currentTemplateId <= 0) return;
 
-        _fotoGuiaLoading = true;
-        _fotoOcrLoading = true;
+        // Check template flags to avoid unnecessary 404 requests (browser console noise)
+        var template = Templates?.FirstOrDefault(t => t.Id == _currentTemplateId);
+        var hasFotoGuia = template?.TieneFotoGuia ?? true;
+        var hasFotoOcr = template?.TieneFotoOcr ?? true;
+
+        if (!hasFotoGuia && !hasFotoOcr) return;
+
+        _fotoGuiaLoading = hasFotoGuia;
+        _fotoOcrLoading = hasFotoOcr;
         StateHasChanged();
 
         try
         {
-            // Parallel GET requests to both photo endpoints for the specific periodo
-            var fotoGuiaTask = Http.GetAsync($"api/TemplateRecarga/{_currentTemplateId}/periodo/{periodoId}/foto-guia");
-            var fotoOcrTask = Http.GetAsync($"api/TemplateRecarga/{_currentTemplateId}/periodo/{periodoId}/foto-ocr");
+            Task<HttpResponseMessage>? fotoGuiaTask = hasFotoGuia
+                ? Http.GetAsync($"api/TemplateRecarga/{_currentTemplateId}/periodo/{periodoId}/foto-guia")
+                : null;
+            Task<HttpResponseMessage>? fotoOcrTask = hasFotoOcr
+                ? Http.GetAsync($"api/TemplateRecarga/{_currentTemplateId}/periodo/{periodoId}/foto-ocr")
+                : null;
 
-            await Task.WhenAll(fotoGuiaTask, fotoOcrTask);
+            if (fotoGuiaTask != null && fotoOcrTask != null)
+                await Task.WhenAll(fotoGuiaTask, fotoOcrTask);
+            else if (fotoGuiaTask != null)
+                await fotoGuiaTask;
+            else if (fotoOcrTask != null)
+                await fotoOcrTask;
 
-            var guiaResp = await fotoGuiaTask;
-            if (guiaResp.IsSuccessStatusCode)
+            if (fotoGuiaTask != null)
             {
-                var bytes = await guiaResp.Content.ReadAsByteArrayAsync();
-                FotoGuiaData = bytes;
-                FotoGuiaUrl = $"data:image/jpeg;base64,{Convert.ToBase64String(bytes)}";
-            }
-            else if (guiaResp.StatusCode == System.Net.HttpStatusCode.NotFound)
-            {
-                // No photo stored — clear existing
-                RevokeFotoGuiaUrl();
-                FotoGuiaData = null;
-            }
-            else
-            {
-                MensajeErrorOcr = "No se pudo cargar la foto guía.";
+                var guiaResp = fotoGuiaTask.Result;
+                if (guiaResp.IsSuccessStatusCode)
+                {
+                    var bytes = await guiaResp.Content.ReadAsByteArrayAsync();
+                    FotoGuiaData = bytes;
+                    FotoGuiaUrl = $"data:image/jpeg;base64,{Convert.ToBase64String(bytes)}";
+                }
+                else if (guiaResp.StatusCode == System.Net.HttpStatusCode.NotFound)
+                {
+                    RevokeFotoGuiaUrl();
+                    FotoGuiaData = null;
+                }
+                else
+                {
+                    MensajeErrorOcr = "No se pudo cargar la foto guía.";
+                }
             }
 
-            var ocrResp = await fotoOcrTask;
-            if (ocrResp.IsSuccessStatusCode)
+            if (fotoOcrTask != null)
             {
-                var bytes = await ocrResp.Content.ReadAsByteArrayAsync();
-                _fotoOcrData = bytes;
-                _fotoOcrUrl = $"data:image/jpeg;base64,{Convert.ToBase64String(bytes)}";
-            }
-            else if (ocrResp.StatusCode == System.Net.HttpStatusCode.NotFound)
-            {
-                // No OCR photo stored
-                _fotoOcrData = null;
-                _fotoOcrUrl = null;
-            }
-            else
-            {
-                MensajeErrorOcr = "No se pudo cargar la foto OCR.";
+                var ocrResp = fotoOcrTask.Result;
+                if (ocrResp.IsSuccessStatusCode)
+                {
+                    var bytes = await ocrResp.Content.ReadAsByteArrayAsync();
+                    _fotoOcrData = bytes;
+                    _fotoOcrUrl = $"data:image/jpeg;base64,{Convert.ToBase64String(bytes)}";
+                }
+                else if (ocrResp.StatusCode == System.Net.HttpStatusCode.NotFound)
+                {
+                    _fotoOcrData = null;
+                    _fotoOcrUrl = null;
+                }
+                else
+                {
+                    MensajeErrorOcr = "No se pudo cargar la foto OCR.";
+                }
             }
         }
         catch (Exception ex)
@@ -1267,6 +1359,14 @@ private async Task AbrirEdicionVisual(PeriodoFormModel periodo)
     private List<PeriodoFormModel> PeriodosActuales = new();
     private List<ProductoSimpleDto>? ListaProductos;
 
+    // Delete confirmation
+    private TemplateRecargaDto? TemplateAEliminar;
+    private bool Eliminando = false;
+
+    // Product selector for slot editing
+    private SnapshotSlotFormModel? SlotConProductoSelector;
+    private string ProductoSearch = "";
+
     protected override async Task OnInitializedAsync()
     {
         await CargarMaquinas();
@@ -1544,10 +1644,29 @@ private async Task AbrirEdicionVisual(PeriodoFormModel periodo)
 
     private void OnChangeProductForSlot(SnapshotSlotFormModel slot)
     {
-        // Parent handler for change product — the actual product selector UI (dropdown in the modal)
-        // is shown inline when PeriodoEnEdicionVisual is active.
-        // For now, trigger product name sync so the selector reflects current selection.
-        ActualizarNombreProducto(slot);
+        SlotConProductoSelector = slot;
+        ProductoSearch = "";
+    }
+
+    private void SeleccionarProductoParaSlot(ProductoSimpleDto producto)
+    {
+        if (SlotConProductoSelector == null) return;
+
+        SlotConProductoSelector.ProductoId = producto.Id;
+        SlotConProductoSelector.ProductoNombre = producto.Nombre;
+        SlotConProductoSelector.Estado = EstadoSlot.Lleno;
+
+        if (SlotConProductoSelector.CantidadInicial <= 0)
+            SlotConProductoSelector.CantidadInicial = 1;
+
+        SlotConProductoSelector = null;
+        ProductoSearch = "";
+    }
+
+    private void CerrarProductoSelector()
+    {
+        SlotConProductoSelector = null;
+        ProductoSearch = "";
     }
 
     private void OnEmptySlot(SnapshotSlotFormModel slot)
@@ -1691,10 +1810,19 @@ private async Task AbrirEdicionVisual(PeriodoFormModel periodo)
         }
     }
 
-    private async Task EliminarTemplate(int id)
+    private void CancelarEliminacion()
     {
+        TemplateAEliminar = null;
+        Eliminando = false;
+    }
+
+    private async Task EliminarTemplateConfirmado()
+    {
+        if (TemplateAEliminar == null) return;
+        var id = TemplateAEliminar.Id;
         MensajeError = "";
         MensajeExito = "";
+        Eliminando = true;
 
         try
         {
@@ -1702,12 +1830,23 @@ private async Task AbrirEdicionVisual(PeriodoFormModel periodo)
             if (response.IsSuccessStatusCode)
             {
                 MensajeExito = "Template eliminado";
+                TemplateAEliminar = null;
                 await CargarTemplates();
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                MensajeError = "Error al eliminar: " + error;
             }
         }
         catch (Exception ex)
         {
             MensajeError = "Error al eliminar: " + ex.Message;
+        }
+        finally
+        {
+            Eliminando = false;
+            TemplateAEliminar = null;
         }
     }
 
