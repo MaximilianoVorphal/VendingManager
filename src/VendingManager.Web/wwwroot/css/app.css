@@ -208,10 +208,10 @@ html {
     }
 }
 
-/* Mobile: sacar padding horizontal del wrapper principal + prevenir overflow */
+/* Mobile: padding uniforme para que el borde de la navbar no quede pegado al filo */
 @media (max-width: 767.98px) {
     .industrial-wrapper {
-        padding: clamp(0.75rem, 2vw, 1.5rem) 0 !important;
+        padding: 0.75rem !important;
         overflow-x: hidden;
     }
 }
@@ -311,19 +311,26 @@ html {
         border-bottom: 1px solid #eee;
     }
 
+    /* ACORDEÓN: barra izquierda + indentación para mostrar jerarquía */
     .industrial-dropdown-content {
         position: static;
         box-shadow: none;
         border: none;
-        border-top: 1px solid #000;
-        border-bottom: 2px solid #000;
-        background-color: #f9f9f9;
+        border-left: 3px solid #000;
+        background-color: #f0f0f0;
         width: 100%;
+        margin: 0;
     }
 
     .industrial-dropdown-content .industrial-link {
-        text-align: center;
-        padding: 12px 0;
+        text-align: left;
+        padding: 10px 0 10px 1.25rem;
+        font-size: 0.85rem;
+        border-bottom: 1px solid #e0e0e0;
+    }
+
+    .industrial-dropdown-content .industrial-link:last-child {
+        border-bottom: none;
     }
 
     .industrial-dropdown-content .industrial-link:hover {
