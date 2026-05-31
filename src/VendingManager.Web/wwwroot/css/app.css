@@ -208,12 +208,12 @@ html {
     }
 }
 
-/* Mobile: sacar padding horizontal del wrapper principal */
+/* Mobile: sacar padding horizontal del wrapper principal + prevenir overflow */
 @media (max-width: 767.98px) {
     .industrial-wrapper {
         padding: clamp(0.75rem, 2vw, 1.5rem) 0 !important;
+        overflow-x: hidden;
     }
-}
 }
 
 /* BLAZOR ERROR UI */
