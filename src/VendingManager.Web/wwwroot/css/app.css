@@ -315,16 +315,7 @@ html {
 }
 
 .industrial-navbar.navbar-collapsed .hamburger-btn {
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    border: none !important;
-    width: 34px !important;
-    height: 34px !important;
-    font-size: 1rem !important;
-    position: absolute;
-    right: 10px;
-    top: 0;
+    display: none !important;
 }
 
 /* Flecha de expandir en modo colapsado */
