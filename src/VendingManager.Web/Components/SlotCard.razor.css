@@ -155,11 +155,20 @@
     border: 1px solid #e5e7eb;
     border-radius: 6px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    z-index: 1050;
+    z-index: 1060;
     min-width: 160px;
     padding: 4px;
     display: flex;
     flex-direction: column;
+}
+
+/* Mobile: ensure dropdown doesn't overflow viewport — open to the left near edges */
+@media (max-width: 480px) {
+    .dropdown-menu {
+        right: auto;
+        left: 0;
+        min-width: 140px;
+    }
 }
 
 .dropdown-item {
