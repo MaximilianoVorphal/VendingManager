@@ -1,0 +1,34 @@
+/* GestionUsuarios.razor — Mobile responsive fixes */
+
+@media (max-width: 575.98px) {
+    /* Stack title and button vertically */
+    .industrial-wrapper > .d-flex.justify-content-between {
+        flex-direction: column;
+        align-items: flex-start !important;
+        gap: 0.5rem;
+    }
+
+    .industrial-wrapper > .d-flex.justify-content-between h1 {
+        font-size: 1.2rem;
+    }
+
+    .industrial-wrapper > .d-flex.justify-content-between .btn {
+        width: 100%;
+    }
+
+    /* Table: smaller padding */
+    .industrial-wrapper .table {
+        font-size: 0.75rem;
+    }
+
+    .industrial-wrapper .table td,
+    .industrial-wrapper .table th {
+        padding: 0.35rem 0.4rem;
+    }
+
+    .industrial-wrapper .table .btn-sm {
+        font-size: 0.7rem;
+        padding: 0.2rem 0.4rem;
+        margin-bottom: 0.2rem;
+    }
+}
