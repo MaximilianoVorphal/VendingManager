@@ -23,13 +23,6 @@
 </div>
 
 @code {
-    /// <summary>
-    /// The currently selected tool: REFILL | EMPTY | SWAP | "" (none)
-    /// </summary>
     [Parameter] public string CurrentTool { get; set; } = "";
-
-    /// <summary>
-    /// Fired when the user selects a different tool.
-    /// </summary>
     [Parameter] public EventCallback<string> OnToolSelected { get; set; }
 }

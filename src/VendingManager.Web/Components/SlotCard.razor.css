@@ -1,0 +1,20 @@
+/* SlotCard.razor — CSS Isolation */
+
+.slot-card {
+    background-color: #fff;
+    touch-action: manipulation;
+}
+
+.slot-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+}
+
+/* OCR pre-fill highlight */
+.slot-ocr-highlight {
+    border-color: #198754;
+    box-shadow: 0 0 12px rgba(25, 135, 84, 0.5);
+    background-color: #d1e7dd;
+}
+
+/* Touch targets for stepper buttons are handled inline via min-width/min-height */

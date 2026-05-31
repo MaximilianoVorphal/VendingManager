@@ -318,206 +318,149 @@
 </div>
 }
 
-<!-- MODAL EDICION VISUAL DE SLOTS -->
+<!-- EDICIÓN VISUAL DE SLOTS (Full-page inline, no modal) -->
 @if (PeriodoEnEdicionVisual != null)
 {
     var maq = ListaMaquinas?.FirstOrDefault(m => m.Id == PeriodoEnEdicionVisual.MaquinaId)?.Nombre ?? "MÁQUINA";
-    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.85); z-index: 1120;">
-        <div class="modal-dialog modal-xl modal-dialog-scrollable">
-            <div class="modal-content border-3 border-dark rounded-0">
-                <div class="modal-header bg-dark text-white rounded-0 border-bottom border-dark">
-                    <h5 class="modal-title fw-bold text-uppercase m-0">
-                        <i class="bi bi-grid-3x3-gap-fill me-2"></i> ESTANTERÍA - @maq
-                    </h5>
-                    <button type="button" class="btn-close btn-close-white" @onclick="CerrarEdicionVisual"></button>
+    <div class="slot-editor-wrapper bg-light p-3 p-md-4" style="position: relative;">
+        <!-- Header -->
+        <div class="d-flex justify-content-between align-items-center mb-4 border-bottom border-3 border-dark pb-3">
+            <h4 class="fw-bold text-uppercase m-0">
+                <i class="bi bi-grid-3x3-gap-fill me-2"></i> ESTANTERÍA — @maq
+            </h4>
+            <button class="btn btn-dark rounded-0 fw-bold" @onclick="CerrarEdicionVisual">
+                <i class="bi bi-arrow-left me-1"></i> VOLVER
+            </button>
+        </div>
+
+        @if (ProcesandoOcr)
+        {
+            <div style="position: absolute; inset: 0; background: rgba(0,0,0,0.6); z-index: 50; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                <div class="spinner-border text-light mb-3" style="width: 3rem; height: 3rem;" role="status"></div>
+                <span class="text-white fw-bold text-uppercase" style="letter-spacing: 2px;">PROCESANDO OCR...</span>
+            </div>
+        }
+        @if (!string.IsNullOrEmpty(MensajeErrorOcr))
+        {
+            <div class="alert alert-danger border-2 border-dark rounded-0 mb-3 small fw-bold">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i> @MensajeErrorOcr
+            </div>
+        }
+        @if (!string.IsNullOrEmpty(MensajeInfoOcr))
+        {
+            <div class="alert alert-info border-2 border-dark rounded-0 mb-3 small fw-bold">
+                <i class="bi bi-info-circle-fill me-2"></i> @MensajeInfoOcr
+            </div>
+        }
+        @{
+            var validSlots = PeriodoEnEdicionVisual.SnapshotSlots.ToList();
+            var shelves = validSlots.GroupBy(s => (int.TryParse(s.NumeroSlot, out var n) ? n - 1 : 0) / 10).OrderBy(g => g.Key);
+        }
+
+        @if (!validSlots.Any())
+        {
+            <div class="text-center py-5">
+                <h5 class="text-muted fw-bold">NO HAY SLOTS CONFIGURADOS</h5>
+                <p class="text-muted small">Esta máquina no tiene slots cargados. Volvé al paso anterior y usá el botón <strong>Slots</strong> para cargarlos desde la configuración de la máquina.</p>
+            </div>
+        }
+        else
+        {
+            <div class="d-flex flex-column gap-4 machine-chassis">
+                @foreach (var shelf in shelves)
+                {
+                    int bgIndex = shelf.Key % 2;
+
+                    <div class="shelf-container p-3 border border-3 border-dark bg-white shadow-sm" style="@(bgIndex == 1 ? "background-color: #fafafa !important;" : "")">
+                        <div class="badge bg-dark text-white rounded-0 px-3 py-2 mb-3 fs-6">PISO @(shelf.Key + 1)</div>
+                        <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-3">
+                            @foreach (var slot in shelf.OrderBy(s => int.TryParse(s.NumeroSlot, out var n) ? n : 999))
+                            {
+                                var estaResaltado = SlotsResaltados.Contains(slot.NumeroSlot);
+                                <div class="col">
+                                    <SlotCard
+                                        Slot="slot"
+                                        IsOcrHighlighted="estaResaltado"
+                                        IsReadOnly="false"
+                                        OnQuantityChanged="(qty) => OnSlotQuantityChanged(slot, qty)"
+                                        OnChangeProductRequested="() => OnChangeProductForSlot(slot)"
+                                        OnEmptySlotRequested="() => OnEmptySlot(slot)" />
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+
+            @if (UltimosSlotsNoCoincidentes.Any())
+            {
+                <div class="mt-4 p-3 border border-2 border-warning bg-warning bg-opacity-10 rounded-0">
+                    <h6 class="fw-bold text-uppercase mb-2">
+                        <i class="bi bi-exclamation-triangle-fill text-warning me-2"></i>
+                        Slots sin coincidencia (@UltimosSlotsNoCoincidentes.Count)
+                    </h6>
+                    <small class="text-muted mb-2 d-block">Estos slots fueron detectados en la foto pero no existen en la máquina. Revisalos manualmente.</small>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-borderless m-0 small">
+                            <thead>
+                                <tr class="text-uppercase text-muted">
+                                    <th>Slot (OCR)</th>
+                                    <th>Cantidad</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var unmatched in UltimosSlotsNoCoincidentes)
+                                {
+                                    <tr>
+                                        <td class="font-monospace fw-bold">@unmatched.SlotNumber</td>
+                                        <td class="fw-bold">@unmatched.Quantity</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
-                <div class="modal-body bg-light p-4" style="position: relative;">
-                    @if (ProcesandoOcr)
+            }
+        }
+
+        <!-- Sticky footer bar (mobile) / inline footer (desktop) -->
+        <div class="slot-editor-footer border-top border-dark mt-4 pt-3 d-flex justify-content-between flex-wrap gap-2 align-items-center">
+            <div class="d-flex gap-2 align-items-center">
+                <InputFile OnChange="HandleOcrPhotoUpload" accept="image/*" class="d-none" id="ocrRecargaFileInput" disabled="@ProcesandoOcr" />
+                <button class="btn btn-success rounded-0 fw-bold border-dark shadow-sm px-3" @onclick="TriggerOcrUpload" disabled="@ProcesandoOcr" title="Fotos legibles tardan ~5s. Asegurate de que los números de slot y cantidades sean claramente visibles. Formatos: JPG, PNG, HEIC. Máx 10MB.">
+                    @if (_fotoOcrLoading)
                     {
-                        <div style="position: absolute; inset: 0; background: rgba(0,0,0,0.6); z-index: 50; display: flex; flex-direction: column; align-items: center; justify-content: center;">
-                            <div class="spinner-border text-light mb-3" style="width: 3rem; height: 3rem;" role="status"></div>
-                            <span class="text-white fw-bold text-uppercase" style="letter-spacing: 2px;">PROCESANDO OCR...</span>
-                        </div>
-                    }
-                    @if (!string.IsNullOrEmpty(MensajeErrorOcr))
-                    {
-                        <div class="alert alert-danger border-2 border-dark rounded-0 mb-3 small fw-bold">
-                            <i class="bi bi-exclamation-triangle-fill me-2"></i> @MensajeErrorOcr
-                        </div>
-                    }
-                    @if (!string.IsNullOrEmpty(MensajeInfoOcr))
-                    {
-                        <div class="alert alert-info border-2 border-dark rounded-0 mb-3 small fw-bold">
-                            <i class="bi bi-info-circle-fill me-2"></i> @MensajeInfoOcr
-                        </div>
-                    }
-                    @{
-                        var validSlots = PeriodoEnEdicionVisual.SnapshotSlots.ToList();
-                        var shelves = validSlots.GroupBy(s => (int.TryParse(s.NumeroSlot, out var n) ? n - 1 : 0) / 10).OrderBy(g => g.Key);
-                    }
-                    
-                    @if (!validSlots.Any())
-                    {
-                        <div class="text-center py-5">
-                            <h5 class="text-muted fw-bold">NO HAY SLOTS CONFIGURADOS</h5>
-                            <p class="text-muted small">Esta máquina no tiene slots cargados. Volvé al paso anterior y usá el botón <strong>Slots</strong> para cargarlos desde la configuración de la máquina.</p>
-                        </div>
+                        <span class="spinner-border spinner-border-sm me-2"></span>
                     }
                     else
                     {
-                        @* CargaToolbar visible when template is Pendiente (loading phase) *@
-                        @if (PeriodoEnEdicionVisual?.Id > 0 && TemplateIdEdicion > 0)
+                        <i class="bi bi-camera-fill me-2"></i>
+                    }SUBIR FOTO RECARGA
+                </button>
+                @if (string.IsNullOrEmpty(FotoGuiaUrl))
+                {
+                    <InputFile OnChange="HandleFotoGuiaUpload" accept="image/*" class="d-none" id="fotoGuiaFileInput" />
+                    <button class="btn btn-outline-secondary rounded-0 fw-bold px-3" @onclick="TriggerFotoGuiaUpload" title="Cargar foto de referencia (productos)">
+                        @if (_fotoGuiaLoading)
                         {
-                            var templateEnEdicion = Templates?.FirstOrDefault(t => t.Id == TemplateIdEdicion);
-                            if (templateEnEdicion != null && templateEnEdicion.Estado == EstadoTemplate.Pendiente)
-                            {
-                                <CargaToolbar CurrentTool="@_currentTool" OnToolSelected="OnToolSelected" />
-                            }
-                        }
-
-                        <div class="d-flex flex-column gap-4 machine-chassis">
-                            @foreach (var shelf in shelves)
-                            {
-                                int bgIndex = shelf.Key % 2;
-
-                                <div class="shelf-container p-3 border border-3 border-dark bg-white shadow-sm" style="@(bgIndex == 1 ? "background-color: #fafafa !important;" : "")">
-                                    <div class="badge bg-dark text-white rounded-0 px-3 py-2 mb-3 fs-6">PISO @(shelf.Key + 1)</div>
-                                    <div class="inventory-grid">
-                                        @foreach (var slot in shelf.OrderBy(s => int.TryParse(s.NumeroSlot, out var n) ? n : 999))
-                                        {
-                                            var estaResaltado = SlotsResaltados.Contains(slot.NumeroSlot);
-                                            string productColorClass = slot.ProductoId.HasValue ? "bg-white" : "bg-warning bg-opacity-25";
-
-                                            <div class="slot-unit p-2 border border-2 border-dark d-flex flex-column shadow-sm @productColorClass @(estaResaltado ? "slot-ocr-highlight" : "")" style="min-height: 140px; transition: all 0.2s;">
-                                                <div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom border-secondary">
-                                                    <div class="d-flex align-items-center">
-                                                        <span class="text-muted fw-bold me-1" style="font-size:0.7rem;">SLOT</span>
-                                                        <span class="font-monospace fw-bold" style="font-size: 0.9rem;">@slot.NumeroSlot</span>
-                                                    </div>
-                                                    <button class="btn btn-sm text-danger p-0 m-0 lh-1" @onclick="() => PeriodoEnEdicionVisual?.SnapshotSlots.Remove(slot)" title="Eliminar Slot">
-                                                        <i class="bi bi-x-circle-fill fs-5"></i>
-                                                    </button>
-                                                </div>
-                                                
-                                                <div class="mb-2 flex-grow-1 d-flex align-items-center position-relative">
-                                                    <select class="form-select form-select-sm border-dark shadow-none fw-bold text-start product-select"
-                                                        style="height: 100%; white-space: normal; cursor: pointer; padding: 2px;"
-                                                        @bind="slot.ProductoId" @bind:after="() => OnProductoChanged(slot)">
-                                                        <option value="">-- SELECCIONAR --</option>
-                                                        @if (ListaProductos != null)
-                                                        {
-                                                            @foreach (var prod in ListaProductos)
-                                                            {
-                                                                <option value="@prod.Id">@prod.Nombre</option>
-                                                            }
-                                                        }
-                                                    </select>
-                                                    @if (slot.Sincronizando)
-                                                    {
-                                                        <div class="position-absolute top-0 end-0 p-1">
-                                                            <div class="spinner-border spinner-border-sm text-dark" role="status"></div>
-                                                        </div>
-                                                    }
-                                                </div>
-                                                
-                                                <div class="mt-auto d-flex align-items-center justify-content-between border-top border-secondary pt-2">
-                                                    <div class="d-flex flex-column w-50 pe-1 border-end border-secondary">
-                                                        <span class="text-muted" style="font-size:0.6rem; font-weight: 800;">CANT.</span>
-                                                        <input type="number" class="form-control form-control-sm text-center border-dark p-0 fw-bold"
-                                                            style="height: 22px; font-size:0.85rem;" min="0" max="100" @bind="slot.CantidadInicial" title="Cantidad Inicial" />
-                                                    </div>
-                                                    <div class="d-flex flex-column w-50 ps-1">
-                                                        <span class="text-muted" style="font-size:0.6rem; font-weight: 800;">CAPAC.</span>
-                                                        <span class="fw-bold text-dark text-center d-block border bg-light" style="height: 22px; font-size: 0.9rem; line-height: 22px;">5</span>
-                                                    </div>
-                                                </div>
-                                                <div class="mt-2">
-                                                    <select class="form-select form-select-sm border-dark shadow-none fw-bold text-center @GetEstadoSlotCssClass(slot.Estado)"
-                                                        style="height: 2rem; font-size: 0.7rem;"
-                                                        @bind="slot.Estado" @bind:after="() => OnSlotEstadoChanged(slot)">
-                                                        <option value="@EstadoSlot.Vacio">Vacío</option>
-                                                        <option value="@EstadoSlot.Pendiente">Pendiente</option>
-                                                        <option value="@EstadoSlot.Lleno">Lleno</option>
-                                                    </select>
-                                                </div>
-                                            </div>
-                                        }
-                                    </div>
-                                </div>
-                            }
-                        </div>
-
-                        @if (UltimosSlotsNoCoincidentes.Any())
-                        {
-                            <div class="mt-4 p-3 border border-2 border-warning bg-warning bg-opacity-10 rounded-0">
-                                <h6 class="fw-bold text-uppercase mb-2">
-                                    <i class="bi bi-exclamation-triangle-fill text-warning me-2"></i>
-                                    Slots sin coincidencia (@UltimosSlotsNoCoincidentes.Count)
-                                </h6>
-                                <small class="text-muted mb-2 d-block">Estos slots fueron detectados en la foto pero no existen en la máquina. Revisalos manualmente.</small>
-                                <div class="table-responsive">
-                                    <table class="table table-sm table-borderless m-0 small">
-                                        <thead>
-                                            <tr class="text-uppercase text-muted">
-                                                <th>Slot (OCR)</th>
-                                                <th>Cantidad</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            @foreach (var unmatched in UltimosSlotsNoCoincidentes)
-                                            {
-                                                <tr>
-                                                    <td class="font-monospace fw-bold">@unmatched.SlotNumber</td>
-                                                    <td class="fw-bold">@unmatched.Quantity</td>
-                                                </tr>
-                                            }
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        }
-                    }
-                </div>
-                <div class="modal-footer bg-light border-top border-dark rounded-0 px-4 py-3 d-flex justify-content-between flex-wrap gap-2">
-                    <div class="d-flex gap-2 align-items-center">
-                        
-                        <InputFile OnChange="HandleOcrPhotoUpload" accept="image/*" class="d-none" id="ocrRecargaFileInput" disabled="@ProcesandoOcr" />
-                        <button class="btn btn-success rounded-0 fw-bold border-dark shadow-sm px-3" @onclick="TriggerOcrUpload" disabled="@ProcesandoOcr" title="Fotos legibles tardan ~5s. Asegurate de que los números de slot y cantidades sean claramente visibles. Formatos: JPG, PNG, HEIC. Máx 10MB.">
-                            @if (_fotoOcrLoading)
-                            {
-                                <span class="spinner-border spinner-border-sm me-2"></span>
-                            }
-                            else
-                            {
-                                <i class="bi bi-camera-fill me-2"></i>
-                            }SUBIR FOTO RECARGA
-                        </button>
-                        @if (string.IsNullOrEmpty(FotoGuiaUrl))
-                        {
-                            <InputFile OnChange="HandleFotoGuiaUpload" accept="image/*" class="d-none" id="fotoGuiaFileInput" />
-                            <button class="btn btn-outline-secondary rounded-0 fw-bold px-3" @onclick="TriggerFotoGuiaUpload" title="Cargar foto de referencia (productos)">
-                                @if (_fotoGuiaLoading)
-                                {
-                                    <span class="spinner-border spinner-border-sm me-2"></span>
-                                }
-                                else
-                                {
-                                    <i class="bi bi-image me-1"></i>
-                                }FOTO GUÍA
-                            </button>
+                            <span class="spinner-border spinner-border-sm me-2"></span>
                         }
                         else
                         {
-                            <button class="btn btn-outline-info rounded-0 fw-bold px-3" @onclick="MostrarFotoGuiaModal" title="Ver foto guía">
-                                <i class="bi bi-eye me-1"></i>VER FOTO GUÍA
-                            </button>
-                        }
-                    </div>
-                    <button type="button" class="btn btn-success px-3 px-md-5 py-2 fw-bold rounded-0 shadow-sm border-2 border-dark text-uppercase" @onclick="CerrarEdicionVisual">
-                        <i class="bi bi-save me-2"></i> GUARDAR CAMBIOS Y VOLVER
+                            <i class="bi bi-image me-1"></i>
+                        }FOTO GUÍA
                     </button>
-                </div>
+                }
+                else
+                {
+                    <button class="btn btn-outline-info rounded-0 fw-bold px-3" @onclick="MostrarFotoGuiaModal" title="Ver foto guía">
+                        <i class="bi bi-eye me-1"></i>VER FOTO GUÍA
+                    </button>
+                }
             </div>
+            <button type="button" class="btn btn-success px-3 px-md-5 py-2 fw-bold rounded-0 shadow-sm border-2 border-dark text-uppercase" @onclick="CerrarEdicionVisual">
+                <i class="bi bi-save me-2"></i> GUARDAR CAMBIOS Y VOLVER
+            </button>
         </div>
     </div>
 }
@@ -777,9 +720,6 @@
     // Tracks the template being edited for photo upload targets
     private int _currentTemplateId = 0;
 
-    // CargaToolbar tool selection (REFILL | EMPTY | SWAP | "")
-    private string _currentTool = "";
-
     // === Defensive scroll lock helpers (guard against missing JS) ===
     private async Task LockScroll() {
         try { await JS.InvokeVoidAsync("modalScrollLock.lock"); } catch { }
@@ -796,11 +736,9 @@
     private string FotoGuiaZoomDisplay =>
         _fotoGuiaZoom.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture);
 
-    private async Task AbrirEdicionVisual(PeriodoFormModel periodo)
+private async Task AbrirEdicionVisual(PeriodoFormModel periodo)
     {
-        await LockScroll();
         PeriodoEnEdicionVisual = periodo;
-        _currentTool = ""; // Reset tool selection when opening visual editor
         // Reset OCR state when opening
         ProcesandoOcr = false;
         MensajeErrorOcr = "";
@@ -818,7 +756,6 @@
 
     private async Task CerrarEdicionVisual()
     {
-        await UnlockScroll();
         if (MostrarFotoGuia)
         {
             MostrarFotoGuia = false;
@@ -1592,10 +1529,29 @@
         }
     }
 
+    private void OnSlotQuantityChanged(SnapshotSlotFormModel slot, int quantity)
+    {
+        slot.CantidadInicial = quantity;
+    }
+
+    private void OnChangeProductForSlot(SnapshotSlotFormModel slot)
+    {
+        // Parent handler for change product — the actual product selector UI (dropdown in the modal)
+        // is shown inline when PeriodoEnEdicionVisual is active.
+        // For now, trigger product name sync so the selector reflects current selection.
+        ActualizarNombreProducto(slot);
+    }
+
+    private void OnEmptySlot(SnapshotSlotFormModel slot)
+    {
+        slot.ProductoId = null;
+        slot.ProductoNombre = "";
+        slot.CantidadInicial = 0;
+        slot.Estado = EstadoSlot.Vacio;
+    }
+
     private Task OnToolSelected(string tool)
     {
-        _currentTool = tool;
-        StateHasChanged();
         return Task.CompletedTask;
     }
 
