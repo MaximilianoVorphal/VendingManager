@@ -838,8 +838,13 @@ private async Task AbrirEdicionVisual(PeriodoFormModel periodo)
         _fotoGuiaZoom = 1.0;
         _fotoGuiaPanX = 0;
         _fotoGuiaPanY = 0;
+        // Clear photo state before loading new periodo — prevents stale photo leakage
+        RevokeFotoGuiaUrl();
+        FotoGuiaData = null;
+        _fotoOcrUrl = null;
+        _fotoOcrData = null;
         // Load photos for this specific periodo
-        _ = LoadFotosForPeriodo(periodo.Id);
+        await LoadFotosForPeriodo(periodo.Id);
         // Note: FotoGuiaData/FotoGuiaUrl intentionally preserved across opens for convenience
         // Colapsar navbar para ganar espacio vertical en pantallas chicas
         Layout?.CollapseNavbar();
@@ -874,10 +879,11 @@ private async Task AbrirEdicionVisual(PeriodoFormModel periodo)
     {
         if (periodoId <= 0 || _currentTemplateId <= 0) return;
 
-        // Check template flags to avoid unnecessary 404 requests (browser console noise)
+        // Check periodo-level flags to avoid unnecessary 404 requests (browser console noise)
         var template = Templates?.FirstOrDefault(t => t.Id == _currentTemplateId);
-        var hasFotoGuia = template?.TieneFotoGuia ?? true;
-        var hasFotoOcr = template?.TieneFotoOcr ?? true;
+        var periodo = template?.Periodos.FirstOrDefault(p => p.Id == periodoId);
+        var hasFotoGuia = periodo?.TieneFotoGuia ?? true;
+        var hasFotoOcr = periodo?.TieneFotoOcr ?? true;
 
         if (!hasFotoGuia && !hasFotoOcr) return;
 
@@ -2136,8 +2142,6 @@ private async Task AbrirEdicionVisual(PeriodoFormModel periodo)
         public int CantidadSlotsPendientes => Periodos
             .SelectMany(p => p.SnapshotSlots)
             .Count(s => s.Estado == EstadoSlot.Pendiente);
-        public bool TieneFotoGuia { get; set; }
-        public bool TieneFotoOcr { get; set; }
     }
 
     public class PeriodoRecargaDto
@@ -2149,6 +2153,8 @@ private async Task AbrirEdicionVisual(PeriodoFormModel periodo)
         public DateTime FechaRecarga { get; set; }
         public DateTime FechaFin { get; set; }
         public List<SnapshotSlotDto> SnapshotSlots { get; set; } = new();
+        public bool TieneFotoGuia { get; set; }
+        public bool TieneFotoOcr { get; set; }
     }
 
     public class SnapshotSlotDto
