@@ -838,11 +838,14 @@ private async Task AbrirEdicionVisual(PeriodoFormModel periodo)
         if (MostrarFotoGuia)
         {
             MostrarFotoGuia = false;
+            await UnlockScroll();
         }
         PeriodoEnEdicionVisual = null;
         // Photos kept in memory for convenience across reopens — no revoke here
         // Restaurar navbar al salir del editor
         Layout?.ExpandNavbar();
+        // Defensive: ensure scroll is never left locked
+        try { await JS.InvokeVoidAsync("eval", "document.body.style.overflow='';"); } catch { }
         StateHasChanged();
         await Task.CompletedTask;
     }
@@ -1174,6 +1177,7 @@ private async Task AbrirEdicionVisual(PeriodoFormModel periodo)
     {
         // Close the modal first
         MostrarFotoGuia = false;
+        await UnlockScroll();
 
         // Clear local state
         RevokeFotoGuiaUrl();
