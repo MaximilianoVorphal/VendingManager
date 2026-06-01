@@ -11,6 +11,7 @@
 @inject Microsoft.Extensions.Logging.ILogger<TemplatesRecarga> Logger
 @inject NavigationManager NavManager
 @inject IJSRuntime JS
+@implements IDisposable
 
 @if (PeriodoEnEdicionVisual == null)
 {
@@ -1421,9 +1422,28 @@ private async Task AbrirEdicionVisual(PeriodoFormModel periodo)
 
     protected override async Task OnInitializedAsync()
     {
+        NavManager.LocationChanged += OnLocationChanged;
         await CargarMaquinas();
         await CargarProductos();
         await CargarTemplates();
+    }
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        // If user navigates away via browser back/forward while in slot editor,
+        // restore the navbar since CerrarEdicionVisual won't be called
+        if (PeriodoEnEdicionVisual != null)
+        {
+            PeriodoEnEdicionVisual = null;
+            Layout?.ExpandNavbar();
+            try { JS.InvokeVoidAsync("eval", "document.body.style.overflow='';"); } catch { }
+            StateHasChanged();
+        }
+    }
+
+    public void Dispose()
+    {
+        NavManager.LocationChanged -= OnLocationChanged;
     }
 
     private async Task CargarMaquinas()
