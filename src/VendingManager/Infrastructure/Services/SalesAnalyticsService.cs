@@ -309,6 +309,7 @@ public class SalesAnalyticsService : ISalesAnalyticsService
                 .ToDictionary(
                     g => g.Key,
                     g => g.OrderByDescending(pc => pc.FechaDesde)
+                          .DistinctBy(pc => pc.FechaDesde.Date)
                           .ToDictionary(pc => pc.FechaDesde.Date, pc => pc.Costo)
                 );
 
@@ -695,6 +696,7 @@ public class SalesAnalyticsService : ISalesAnalyticsService
                 .ToDictionary(
                     g => g.Key,
                     g => g.OrderByDescending(pc => pc.FechaDesde)
+                          .DistinctBy(pc => pc.FechaDesde.Date)
                           .ToDictionary(pc => pc.FechaDesde.Date, pc => pc.Costo)
                 );
 
