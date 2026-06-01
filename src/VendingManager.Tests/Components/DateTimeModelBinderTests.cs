@@ -180,16 +180,15 @@ public class DateTimeModelBinderTests
     }
 
     [Fact]
-    public async Task BindModelAsync_NullableDateTime_NullValue_ReturnsNull()
+    public async Task BindModelAsync_NullableDateTime_NoValue_ReturnsEarly()
     {
         var modelState = new ModelStateDictionary();
         var binder = new DateTimeModelBinder();
-        var ctx = CreateContext("fecha", null, typeof(DateTime?), modelState);
+        var ctx = CreateContextNoValue("fecha", typeof(DateTime?), modelState);
 
         await binder.BindModelAsync(ctx.Object);
 
-        Assert.True(ctx.Object.Result.IsModelSet);
-        Assert.Null(ctx.Object.Result.Model);
+        Assert.False(ctx.Object.Result.IsModelSet);
     }
 
     // ===== Moq helpers =====
@@ -223,11 +222,31 @@ public class DateTimeModelBinderTests
     }
 
     private static Mock<ModelBindingContext> CreateContext(
-        string modelName, string rawValue, Type modelType, ModelStateDictionary modelState)
+        string modelName, string? rawValue, Type modelType, ModelStateDictionary modelState)
     {
         var valueProvider = new Mock<IValueProvider>();
         valueProvider.Setup(v => v.GetValue(modelName))
             .Returns(new ValueProviderResult(rawValue));
+
+        var metadata = new EmptyModelMetadataProvider().GetMetadataForType(modelType);
+
+        var ctx = new Mock<ModelBindingContext>();
+        ctx.SetupAllProperties();
+        ctx.Setup(c => c.ModelName).Returns(modelName);
+        ctx.Setup(c => c.ModelMetadata).Returns(metadata);
+        ctx.Setup(c => c.ValueProvider).Returns(valueProvider.Object);
+        ctx.Object.ModelState = modelState;
+        ctx.Object.Result = ModelBindingResult.Failed();
+
+        return ctx;
+    }
+
+    private static Mock<ModelBindingContext> CreateContextNoValue(
+        string modelName, Type modelType, ModelStateDictionary modelState)
+    {
+        var valueProvider = new Mock<IValueProvider>();
+        valueProvider.Setup(v => v.GetValue(modelName))
+            .Returns(ValueProviderResult.None);
 
         var metadata = new EmptyModelMetadataProvider().GetMetadataForType(modelType);
 
