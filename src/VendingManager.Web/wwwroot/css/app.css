@@ -159,7 +159,7 @@ html {
         flex-direction: column;
         width: 100%;
         position: absolute;
-        top: 100%;
+        top: calc(100% + 2px);
         left: 0;
         background-color: #ffffff;
         border: 2px solid #000;
@@ -226,6 +226,12 @@ html {
     main.container-fluid {
         padding-left: 0.75rem !important;
         padding-right: 0.75rem !important;
+    }
+
+    /* Login layout: mantener padding para que el card no toque los bordes */
+    .login-container {
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
     }
 }
 
