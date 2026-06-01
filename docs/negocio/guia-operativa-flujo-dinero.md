@@ -47,10 +47,11 @@ Guía práctica paso a paso. Qué hacer, en qué orden, y qué esperás ver en c
    → Sube el stock de bodega y actualiza costo promedio
    → Aparece en Caja como GASTO MERCADERIA (línea informativa)
 
-   PASO 3 — GASTO (boletas)
-   → Bencina, peaje, insumos que pagó el trabajador
-   → Categorías rápidas: BENCINA, PEAJE, INSUMOS, MANTENCIÓN, OTRO
-   → Aparece en Caja como GASTO, dentro de GastosFijos
+    PASO 3 — GASTO (boletas)
+    → Bencina, peaje, insumos que pagó el trabajador
+    → Al elegir GASTO GENERAL, podés subcategorizar: LOGÍSTICA (bencina), PEAJES (tag), o GASTOS GENERALES (genérico)
+    → El OCR lo auto-detecta según el proveedor (Copec → LOGÍSTICA, Autopista → PEAJES)
+    → Aparece en Caja como GASTO, dentro de GastosFijos
 
    PASO 4 — CUADRAR
    → Transferido - Compras - Gastos = Diferencia
@@ -75,6 +76,7 @@ Guía práctica paso a paso. Qué hacer, en qué orden, y qué esperás ver en c
 | **Mantención** | GASTO → GastosVariables (MANTENCION) | ✅ Sí |
 | **Sueldo del trabajador** | GASTO → GastosFijos (SUELDOS) | ✅ Sí |
 | **Arriendo / Internet** | GASTO → GastosFijos | ✅ Sí |
+| **Servicios (agua, luz)** | GASTO → GastosFijos (SERVICIOS) | ✅ Sí |
 
 ---
 
