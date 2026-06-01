@@ -36,8 +36,11 @@ Responde a la pregunta: **"¿Cuánta plata tengo?"**
 | COMISIONES | GASTO | Comisiones bancarias |
 | MERMA | GASTO | Productos vencidos, rotos, robados |
 | SUELDOS | GASTO | Sueldos de personal (fijo mensual) |
+| SERVICIOS | GASTO | Servicios contratados (agua, luz, telefonía fija) |
 | APORTE | INGRESO | Capital que vos ponés |
 | RETIRO | EGRESO | Retiro de utilidades del dueño |
+
+> **Subcategorías**: cuando registrás una factura de tipo **GASTO GENERAL**, el sistema te permite elegir entre `LOGISTICA` (bencina/fletes), `PEAJES` (peajes/tag) o `GASTOS GENERALES` (genérico) como subcategoría. El proveedor se auto-detecta desde el OCR (Copec → LOGISTICA, Autopista → PEAJES).
 
 ---
 
@@ -131,9 +134,11 @@ Las ventas alimentan el **KPI de Ingresos** en Caja y son el punto de partida de
 
 Cada factura de proveedor. Puede ser:
 - **MERCADERÍA**: productos para vender → aumenta stock de bodega, recalcula costo promedio
-- **GASTO GENERAL**: bencina, peajes, etc → genera movimiento en Caja
+- **GASTO GENERAL**: bencina, peajes, etc → genera movimiento en Caja (con subcategoría opcional)
 
 Se puede escanear con IA (OCR) para lectura automática. Se puede vincular a transferencias y períodos contables.
+
+Cada detalle de compra puede marcarse como **pendiente** (`EsPendiente`): el item queda registrado pero no descuenta de stock ni actualiza costo promedio hasta que se edite y se desmarque como pendiente. Útil cuando el producto todavía no llegó físicamente pero ya tenés la factura.
 
 ### 3. Stock / Inventario
 
