@@ -159,9 +159,56 @@ public class DateTimeModelBinderTests
         }
     }
 
+    [Fact]
+    public async Task BindModelAsync_NullableDateTime_ValidISODate_ReturnsDateTime()
+    {
+        await RunBindAndAssertNullable("fecha", "2026-05-02", typeof(DateTime?),
+            result => Assert.Equal(new DateTime(2026, 5, 2), result));
+    }
+
+    [Fact]
+    public async Task BindModelAsync_NullableDateTime_EmptyValue_ReturnsNull()
+    {
+        var modelState = new ModelStateDictionary();
+        var binder = new DateTimeModelBinder();
+        var ctx = CreateContext("fecha", "", typeof(DateTime?), modelState);
+
+        await binder.BindModelAsync(ctx.Object);
+
+        Assert.True(ctx.Object.Result.IsModelSet);
+        Assert.Null(ctx.Object.Result.Model);
+    }
+
+    [Fact]
+    public async Task BindModelAsync_NullableDateTime_NullValue_ReturnsNull()
+    {
+        var modelState = new ModelStateDictionary();
+        var binder = new DateTimeModelBinder();
+        var ctx = CreateContext("fecha", null, typeof(DateTime?), modelState);
+
+        await binder.BindModelAsync(ctx.Object);
+
+        Assert.True(ctx.Object.Result.IsModelSet);
+        Assert.Null(ctx.Object.Result.Model);
+    }
+
     // ===== Moq helpers =====
 
     private static Task RunBindAndAssert(
+        string modelName, string rawValue, Type modelType, Action<object?> assert)
+    {
+        var modelState = new ModelStateDictionary();
+        var binder = new DateTimeModelBinder();
+        var ctx = CreateContext(modelName, rawValue, modelType, modelState);
+
+        binder.BindModelAsync(ctx.Object).GetAwaiter().GetResult();
+
+        Assert.True(ctx.Object.Result.IsModelSet);
+        assert(ctx.Object.Result.Model);
+        return Task.CompletedTask;
+    }
+
+    private static Task RunBindAndAssertNullable(
         string modelName, string rawValue, Type modelType, Action<object?> assert)
     {
         var modelState = new ModelStateDictionary();

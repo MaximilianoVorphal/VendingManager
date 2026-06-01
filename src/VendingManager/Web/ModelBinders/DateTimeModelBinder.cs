@@ -23,7 +23,7 @@ public sealed class DateTimeModelBinder : IModelBinder
 
         var rawValue = valueProviderResult.FirstValue;
 
-        var isNullable = bindingContext.ModelMetadata.UnderlyingOrModelType == typeof(DateTime?);
+        var isNullable = bindingContext.ModelMetadata.IsNullableValueType;
         var formats = isNullable ? IsoNullableFormats : IsoFormats;
         var targetType = isNullable ? typeof(DateTime?) : typeof(DateTime);
 
