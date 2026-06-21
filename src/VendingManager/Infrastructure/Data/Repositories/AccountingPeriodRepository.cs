@@ -44,6 +44,7 @@ public class AccountingPeriodRepository(ApplicationDbContext context) : IAccount
             .Include(p => p.Transferencias)
                 .ThenInclude(t => t.Rendicion)
                     .ThenInclude(r => r!.Gastos)
+            .Include(p => p.Devoluciones)
             .FirstOrDefaultAsync(p => p.Id == id, ct);
     }
 
