@@ -5,6 +5,7 @@
 @using VendingManager.Web.Components.Contabilidad
 @inject HttpClient Http
 @inject NavigationManager Navigation
+@inject IJSRuntime JS
 
 <PageTitle>CONCILIACIÓN</PageTitle>
 
@@ -96,9 +97,17 @@
                                             @onclick="() => SeleccionarPeriodo(p.Id)">
                                         <div class="d-flex w-100 justify-content-between align-items-center">
                                             <span class="small">@p.Name</span>
-                                            <span class="badge @(p.Estado == AccountingPeriodEstado.Abierto ? "bg-success" : "bg-secondary") rounded-0">
-                                                @(p.Estado == AccountingPeriodEstado.Abierto ? "ABIERTO" : "CERRADO")
-                                            </span>
+                                            <div class="d-flex align-items-center gap-2">
+                                                <span class="badge @(p.Estado == AccountingPeriodEstado.Abierto ? "bg-success" : "bg-secondary") rounded-0">
+                                                    @(p.Estado == AccountingPeriodEstado.Abierto ? "ABIERTO" : "CERRADO")
+                                                </span>
+                                                <button class="btn btn-sm btn-outline-danger rounded-0 p-1 lh-1 border-0"
+                                                        @onclick="() => ConfirmarEliminarPeriodo(p)"
+                                                        @onclick:stopPropagation
+                                                        title="Eliminar período (desvincula transferencias y devoluciones)">
+                                                    <i class="bi bi-trash3" style="font-size: 0.8rem;"></i>
+                                                </button>
+                                            </div>
                                         </div>
                                         <small class="d-block text-muted" style="font-size: 0.7rem;">
                                             @p.FechaInicio.ToString("dd/MM/yyyy") - @p.FechaFin.ToString("dd/MM/yyyy")
@@ -484,6 +493,55 @@
             else
             {
                 Error = "Error al cerrar período: " + await response.Content.ReadAsStringAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            Error = $"Error: {ex.Message}";
+        }
+    }
+
+    private async Task ConfirmarEliminarPeriodo(AccountingPeriodDto periodo)
+    {
+        var confirmado = await JS.InvokeAsync<bool>("confirm",
+            $"¿Eliminar el período \"{periodo.Name}\"?\n\n" +
+            $"Las transferencias y devoluciones vinculadas se DESVINCULARÁN (PeriodoId = null) " +
+            "pero NO se eliminarán.\n" +
+            "Los movimientos de caja NO se modifican.\n\n" +
+            "¿Estás seguro? Esta operación no se puede deshacer.");
+
+        if (confirmado)
+        {
+            await EjecutarEliminarPeriodo(periodo.Id, periodo.Name);
+        }
+    }
+
+    private async Task EjecutarEliminarPeriodo(int periodoId, string periodoName)
+    {
+        try
+        {
+            Error = null;
+            SuccessMessage = null;
+            var response = await Http.DeleteAsync($"api/contabilidad/periodos/{periodoId}");
+            if (response.IsSuccessStatusCode)
+            {
+                SuccessMessage = $"Período \"{periodoName}\" eliminado.";
+                // Clear active period if it was the deleted one
+                if (State.PeriodoActivo?.Id == periodoId)
+                {
+                    State.PeriodoActivo = null;
+                    State.PeriodoActivoFull = null;
+                }
+                await CargarPeriodos();
+            }
+            else if ((int)response.StatusCode == 404)
+            {
+                await CargarPeriodos();
+                Error = "El período ya no existe.";
+            }
+            else
+            {
+                Error = "Error al eliminar período: " + await response.Content.ReadAsStringAsync();
             }
         }
         catch (Exception ex)
