@@ -11,6 +11,7 @@ public class CompraDto
     public string TipoFactura { get; set; } = "MERCADERIA";
     public bool PagadaCaja { get; set; } = true;
     public string? FacturaImagenPath { get; set; }
+    public bool Verificada { get; set; } = false;
     public int? TransferenciaId { get; set; }
     public bool TienePendientes => Detalles?.Any(d => d.EsPendiente) ?? false;
     public int PendientesCount => Detalles?.Count(d => d.EsPendiente) ?? 0;
