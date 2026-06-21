@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace VendingManager.Shared.DTOs;
 
 /// <summary>
@@ -27,6 +29,7 @@ public class RegistrarDevolucionRequest
     public int? RendicionId { get; set; }
 
     /// <summary>Worker returning the money.</summary>
+    [Required]
     public string Trabajador { get; set; } = string.Empty;
 
     /// <summary>Amount being returned. Must be positive and ≤ SaldoADevolver.</summary>

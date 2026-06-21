@@ -669,7 +669,11 @@ public class ContabilidadService : IContabilidadService
             if (request.PeriodoId.HasValue)
             {
                 var period = await _context.AccountingPeriods
-                    .Include(p => p.Transferencias) // needed for Devoluciones check via direct query
+                    .Include(p => p.Transferencias)
+                        .ThenInclude(t => t.Compras)
+                    .Include(p => p.Transferencias)
+                        .ThenInclude(t => t.Rendicion)
+                            .ThenInclude(r => r!.Gastos)
                     .FirstOrDefaultAsync(p => p.Id == request.PeriodoId.Value, ct)
                     ?? throw new KeyNotFoundException($"Período {request.PeriodoId.Value} no encontrado.");
 
@@ -678,17 +682,40 @@ public class ContabilidadService : IContabilidadService
                         "No se puede registrar una devolución para un período cerrado.");
 
                 // Idempotency: only one Devolucion per open period
-                var existing = await _context.Devoluciones
+                var existingAny = await _context.Devoluciones
                     .AnyAsync(d => d.PeriodoId == request.PeriodoId.Value, ct);
-                if (existing)
+                if (existingAny)
                     throw new InvalidOperationException(
                         "Ya existe una devolución registrada para este período. Solo se permite una devolución por período en esta versión.");
+
+                // Guard: Monto must not exceed SaldoADevolver for the period
+                // (mirror of ClosePeriodoAsync gate 3 — single saldo definition, gastos included)
+                var periodoTotalTransferido = period.Transferencias.Sum(t => t.Monto);
+                var periodoTotalCompras = period.Transferencias
+                    .SelectMany(t => t.Compras)
+                    .Sum(c => c.MontoTotal);
+                var periodoTotalGastos = period.Transferencias
+                    .Where(t => t.Rendicion != null)
+                    .SelectMany(t => t.Rendicion!.Gastos)
+                    .DistinctBy(g => g.Id)
+                    .Sum(g => Math.Abs(g.Monto));
+                var periodoDiferencia = periodoTotalTransferido - periodoTotalCompras - periodoTotalGastos;
+                var periodoDevuelto = await _context.Devoluciones
+                    .Where(d => d.PeriodoId == request.PeriodoId.Value)
+                    .SumAsync(d => d.Monto, ct);
+                var saldoDisponible = periodoDiferencia - periodoDevuelto;
+                if (request.Monto > saldoDisponible)
+                    throw new InvalidOperationException(
+                        $"El monto de la devolución (${request.Monto:N2}) supera el saldo a devolver disponible (${saldoDisponible:N2}).");
             }
 
             // Validate target rendición is open (when provided)
             if (request.RendicionId.HasValue)
             {
                 var rendicion = await _context.Rendiciones
+                    .Include(r => r.Transferencias)
+                        .ThenInclude(t => t.Compras)
+                    .Include(r => r.Gastos)
                     .FirstOrDefaultAsync(r => r.Id == request.RendicionId.Value, ct)
                     ?? throw new KeyNotFoundException($"Rendición {request.RendicionId.Value} no encontrada.");
 
@@ -702,6 +729,22 @@ public class ContabilidadService : IContabilidadService
                 if (existing)
                     throw new InvalidOperationException(
                         "Ya existe una devolución registrada para esta rendición. Solo se permite una devolución por rendición en esta versión.");
+
+                // Guard: Monto must not exceed SaldoADevolver for the rendición
+                // (mirror of RendicionService.CerrarAsync gate 3 — single saldo definition)
+                var rendTotalTransferido = rendicion.Transferencias.Sum(t => t.Monto);
+                var rendTotalCompras = rendicion.Transferencias
+                    .SelectMany(t => t.Compras)
+                    .Sum(c => c.MontoTotal);
+                var rendTotalGastos = rendicion.Gastos?.Sum(g => Math.Abs(g.Monto)) ?? 0m;
+                var rendDiferencia = rendTotalTransferido - rendTotalCompras - rendTotalGastos;
+                var rendDevuelto = await _context.Devoluciones
+                    .Where(d => d.RendicionId == request.RendicionId.Value)
+                    .SumAsync(d => d.Monto, ct);
+                var rendSaldoDisponible = rendDiferencia - rendDevuelto;
+                if (request.Monto > rendSaldoDisponible)
+                    throw new InvalidOperationException(
+                        $"El monto de la devolución (${request.Monto:N2}) supera el saldo a devolver disponible (${rendSaldoDisponible:N2}).");
             }
 
             // 1. Create the Devolucion row
