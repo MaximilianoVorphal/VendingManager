@@ -40,6 +40,7 @@ namespace VendingManager.Infrastructure.Data
         public DbSet<TransferenciaHistory> TransferenciasHistory { get; set; } = null!;
         public DbSet<RendicionHistory> RendicionesHistory { get; set; } = null!;
         public DbSet<ProductoEAN> ProductoEANs { get; set; } = null!;
+        public DbSet<Devolucion> Devoluciones { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -133,6 +134,27 @@ namespace VendingManager.Infrastructure.Data
                     .WithOne(m => m.Rendicion)
                     .HasForeignKey(m => m.RendicionId)
                     .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            // Devolucion: nullable FKs with NoAction to avoid multiple-cascade-path errors on SQL Server
+            modelBuilder.Entity<Devolucion>(e =>
+            {
+                e.Property(d => d.Monto).HasColumnType("decimal(18,2)");
+
+                e.HasOne(d => d.Rendicion)
+                    .WithMany()
+                    .HasForeignKey(d => d.RendicionId)
+                    .OnDelete(DeleteBehavior.NoAction);
+
+                e.HasOne(d => d.AccountingPeriod)
+                    .WithMany()
+                    .HasForeignKey(d => d.PeriodoId)
+                    .OnDelete(DeleteBehavior.NoAction);
+
+                e.HasOne(d => d.MovimientoCaja)
+                    .WithMany()
+                    .HasForeignKey(d => d.MovimientoCajaId)
+                    .OnDelete(DeleteBehavior.NoAction);
             });
 
             // ProductoEAN: catálogo EAN/SKU con índice único y FK nullable a Producto
