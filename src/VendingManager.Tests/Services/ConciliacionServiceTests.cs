@@ -995,4 +995,199 @@ public class ConciliacionServiceTests : IDisposable
         dto!.Devuelto.Should().Be(400m);
         dto.SaldoADevolver.Should().Be(dto.Diferencia - 400m);
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // DeletePeriodoAsync — unlink, no cascade
+    // ═══════════════════════════════════════════════════════════════════════
+
+    [Fact]
+    public async Task DeletePeriodoAsync_DeletesPeriodWithNoLinkedData()
+    {
+        // Arrange
+        var period = new AccountingPeriod
+        {
+            Name = "DeleteTest Empty",
+            FechaInicio = DateTime.Today.AddDays(-10),
+            FechaFin = DateTime.Today,
+            Estado = AccountingPeriodEstado.Abierto
+        };
+        _context.AccountingPeriods.Add(period);
+        await _context.SaveChangesAsync();
+        var periodId = period.Id;
+
+        // Act
+        await _contabilidadService.DeletePeriodoAsync(periodId);
+
+        // Assert — period is gone
+        _context.ChangeTracker.Clear();
+        var deleted = await _context.AccountingPeriods.FindAsync(periodId);
+        deleted.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task DeletePeriodoAsync_UnlinksTransferenciasWithoutDeleting()
+    {
+        // Arrange — period with linked transferencias
+        var period = new AccountingPeriod
+        {
+            Name = "DeleteTest Trans",
+            FechaInicio = DateTime.Today.AddDays(-10),
+            FechaFin = DateTime.Today,
+            Estado = AccountingPeriodEstado.Abierto
+        };
+        _context.AccountingPeriods.Add(period);
+        await _context.SaveChangesAsync();
+
+        var transferencia1 = new Transferencia
+        {
+            Fecha = DateTime.Today,
+            Monto = 500m,
+            Trabajador = "Worker A",
+            Estado = TransferenciaEstado.EnUso,
+            PeriodoId = period.Id
+        };
+        var transferencia2 = new Transferencia
+        {
+            Fecha = DateTime.Today,
+            Monto = 300m,
+            Trabajador = "Worker B",
+            Estado = TransferenciaEstado.Pendiente,
+            PeriodoId = period.Id
+        };
+        _context.Transferencias.AddRange(transferencia1, transferencia2);
+        await _context.SaveChangesAsync();
+        var t1Id = transferencia1.Id;
+        var t2Id = transferencia2.Id;
+
+        // Act
+        await _contabilidadService.DeletePeriodoAsync(period.Id);
+
+        // Assert — transferencias still exist but are unlinked
+        _context.ChangeTracker.Clear();
+        var t1 = await _context.Transferencias.FindAsync(t1Id);
+        var t2 = await _context.Transferencias.FindAsync(t2Id);
+        t1.Should().NotBeNull();
+        t1!.PeriodoId.Should().BeNull();
+        t2.Should().NotBeNull();
+        t2!.PeriodoId.Should().BeNull();
+
+        // Period is gone
+        var deleted = await _context.AccountingPeriods.FindAsync(period.Id);
+        deleted.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task DeletePeriodoAsync_UnlinksDevolucionesWithoutDeletingOrTouchingMovimientoCaja()
+    {
+        // Arrange — period with linked devoluciones that have MovimientoCajaId
+        var period = new AccountingPeriod
+        {
+            Name = "DeleteTest Dev",
+            FechaInicio = DateTime.Today.AddDays(-10),
+            FechaFin = DateTime.Today,
+            Estado = AccountingPeriodEstado.Abierto
+        };
+        _context.AccountingPeriods.Add(period);
+        await _context.SaveChangesAsync();
+
+        // Create MovimientoCaja first (simulating the APORTE posted when devolucion was created)
+        var movimiento = new MovimientoCaja
+        {
+            Fecha = DateTime.Today,
+            Descripcion = "Devolucion test",
+            Monto = 200m,
+            Tipo = "APORTE",
+            Categoria = "DEVOLUCION_RENDICION"
+        };
+        _context.MovimientosCaja.Add(movimiento);
+        await _context.SaveChangesAsync();
+        var movId = movimiento.Id;
+
+        var devolucion = new Devolucion
+        {
+            Monto = 200m,
+            Fecha = DateTime.Today,
+            Trabajador = "Worker C",
+            PeriodoId = period.Id,
+            MovimientoCajaId = movId
+        };
+        _context.Devoluciones.Add(devolucion);
+        await _context.SaveChangesAsync();
+        var devId = devolucion.Id;
+
+        // Act
+        await _contabilidadService.DeletePeriodoAsync(period.Id);
+
+        // Assert — devolucion still exists but is unlinked from period
+        _context.ChangeTracker.Clear();
+        var dev = await _context.Devoluciones.FindAsync(devId);
+        dev.Should().NotBeNull();
+        dev!.PeriodoId.Should().BeNull();
+
+        // MovimientoCajaId is NOT touched
+        dev.MovimientoCajaId.Should().Be(movId);
+
+        // MovimientoCaja still exists
+        var mov = await _context.MovimientosCaja.FindAsync(movId);
+        mov.Should().NotBeNull();
+
+        // Period is gone
+        var deleted = await _context.AccountingPeriods.FindAsync(period.Id);
+        deleted.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task DeletePeriodoAsync_ThrowsKeyNotFoundException()
+    {
+        // Act & Assert
+        await Assert.ThrowsAsync<KeyNotFoundException>(() =>
+            _contabilidadService.DeletePeriodoAsync(9999));
+    }
+
+    [Fact]
+    public async Task DeletePeriodoAsync_DoesNotTouchMovimientoCajaCount()
+    {
+        // Arrange
+        var period = new AccountingPeriod
+        {
+            Name = "DeleteTest MC",
+            FechaInicio = DateTime.Today.AddDays(-10),
+            FechaFin = DateTime.Today,
+            Estado = AccountingPeriodEstado.Abierto
+        };
+        _context.AccountingPeriods.Add(period);
+        await _context.SaveChangesAsync();
+
+        var transferencia = new Transferencia
+        {
+            Fecha = DateTime.Today,
+            Monto = 500m,
+            Trabajador = "Worker D",
+            Estado = TransferenciaEstado.EnUso,
+            PeriodoId = period.Id,
+            MovimientoCajaId = 1
+        };
+        _context.Transferencias.Add(transferencia);
+
+        // Unrelated MovimientoCaja (should never be deleted)
+        var mc = new MovimientoCaja
+        {
+            Fecha = DateTime.Today,
+            Descripcion = "Unrelated movement",
+            Monto = 1000m,
+            Tipo = "INGRESO",
+            Categoria = "VENTAS"
+        };
+        _context.MovimientosCaja.Add(mc);
+        await _context.SaveChangesAsync();
+
+        var initialCount = await _context.MovimientosCaja.CountAsync();
+
+        // Act
+        await _contabilidadService.DeletePeriodoAsync(period.Id);
+
+        // Assert — MovimientoCaja count unchanged
+        var finalCount = await _context.MovimientosCaja.CountAsync();
+        finalCount.Should().Be(initialCount);
+    }
 }
