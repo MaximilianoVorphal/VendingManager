@@ -186,4 +186,41 @@ public class ContabilidadPageStateTests
         };
         state.CanCuadrar.Should().BeFalse();
     }
+
+    [Fact]
+    public void CanCuadrar_WhenPeriodHasNoTransferencias_ReturnsFalse()
+    {
+        // Empty period: saldo is 0 and the verify checks pass vacuously, but
+        // there is nothing to reconcile — must NOT be cuadrable.
+        var state = new ContabilidadPageState
+        {
+            PeriodoActivoFull = new AccountingPeriodFullDto
+            {
+                Id = 1,
+                Name = "Empty Period",
+                FechaInicio = DateTime.Today,
+                FechaFin = DateTime.Today.AddMonths(1),
+                Estado = AccountingPeriodEstado.Abierto,
+                TotalTransferido = 0m,
+                TotalCompras = 0m,
+                TotalGastos = 0m,
+                Devuelto = 0m,
+                Transferencias = new List<TransferenciaDto>()
+            }
+        };
+        state.CanCuadrar.Should().BeFalse();
+    }
+
+    [Fact]
+    public void CanCuadrar_WhenSaldoADevolverNegative_ReturnsFalse()
+    {
+        // Over-returned: Diferencia 1000, Devuelto 1500 → SaldoADevolver = -500.
+        var state = new ContabilidadPageState
+        {
+            PeriodoActivoFull = MakeFullDto(monto: 1000m, devuelto: 1500m,
+                transVerificada: true, compras: 0)
+        };
+        state.SaldoADevolver.Should().Be(-500m);
+        state.CanCuadrar.Should().BeFalse();
+    }
 }
