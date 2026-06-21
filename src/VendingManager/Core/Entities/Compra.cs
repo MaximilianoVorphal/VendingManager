@@ -31,6 +31,12 @@ public class Compra
     // Ruta relativa a la imagen de la factura/boleta (ej: /uploads/compras/facturas/{guid}.jpg)
     public string? FacturaImagenPath { get; set; }
 
+    /// <summary>
+    /// Indicates whether the compra comprobante has been verified by the owner.
+    /// Defaults to false; historic rows are explicitly unverified after migration.
+    /// </summary>
+    public bool Verificada { get; set; } = false;
+
     [MaxLength(200)]
     public string? Trabajador { get; set; }
 
