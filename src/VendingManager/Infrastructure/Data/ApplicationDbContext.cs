@@ -147,7 +147,7 @@ namespace VendingManager.Infrastructure.Data
                     .OnDelete(DeleteBehavior.NoAction);
 
                 e.HasOne(d => d.AccountingPeriod)
-                    .WithMany()
+                    .WithMany(p => p.Devoluciones)
                     .HasForeignKey(d => d.PeriodoId)
                     .OnDelete(DeleteBehavior.NoAction);
 

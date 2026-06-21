@@ -186,6 +186,7 @@ public class RendicionService : IRendicionService
     {
         var rendicion = await _context.Rendiciones
             .Include(r => r.Transferencias)
+                .ThenInclude(t => t.Compras)
             .Include(r => r.Gastos)
             .FirstOrDefaultAsync(r => r.Id == rendicionId);
 
@@ -201,13 +202,19 @@ public class RendicionService : IRendicionService
             .Sum(g => Math.Abs(g.Monto));
         var diferencia = transferido - totalCompras - totalGastos;
 
+        // TASK-10: wire Devuelto from this rendicion's Devoluciones
+        var devuelto = await _context.Devoluciones
+            .Where(d => d.RendicionId == rendicionId)
+            .SumAsync(d => d.Monto);
+
         return new RendicionResumenDto
         {
             RendicionId = rendicionId,
             Transferido = transferido,
             TotalCompras = totalCompras,
             TotalGastos = totalGastos,
-            Diferencia = diferencia
+            Diferencia = diferencia,
+            Devuelto = devuelto
         };
     }
 }
