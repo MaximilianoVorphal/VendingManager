@@ -273,6 +273,30 @@ public class ContabilidadController(
         }
     }
 
+    // ========== Delete AccountingPeriod ==========
+
+    /// <summary>
+    /// Deletes an AccountingPeriod. Unlinks Transferencias and Devoluciones
+    /// (sets PeriodoId = null) but does NOT cascade delete or touch MovimientoCaja.
+    /// </summary>
+    [HttpDelete("periodos/{id}")]
+    public async Task<IActionResult> DeletePeriodo(int id, CancellationToken ct = default)
+    {
+        try
+        {
+            await _service.DeletePeriodoAsync(id, ct);
+            return NoContent();
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(ex.Message);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
     // ========== Slice 2: Comprobante upload endpoints (TASK-11) ==========
 
     /// <summary>Upload a comprobante image for a Transferencia. Mirrors ComprasController {id}/factura.</summary>
