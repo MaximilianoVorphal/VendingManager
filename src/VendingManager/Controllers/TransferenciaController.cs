@@ -89,6 +89,8 @@ public class TransferenciaController(ITransferenciaService transferenciaService)
             Estado = t.Estado,
             RendicionId = t.RendicionId,
             MovimientoCajaId = t.MovimientoCajaId,
+            Verificada = t.Verificada,
+            ComprobanteImagenPath = t.ComprobanteImagenPath,
             Compras = t.Compras?.Select(c => new CompraDto
             {
                 Id = c.Id,
@@ -99,7 +101,8 @@ public class TransferenciaController(ITransferenciaService transferenciaService)
                 Estado = c.Estado,
                 TipoFactura = c.TipoFactura,
                 PagadaCaja = c.PagadaCaja,
-                TransferenciaId = c.TransferenciaId
+                TransferenciaId = c.TransferenciaId,
+                Verificada = c.Verificada
             }).ToList() ?? new()
         };
     }
@@ -116,6 +119,8 @@ public class TransferenciaDto
     public int? RendicionId { get; set; }
     public int? PeriodoId { get; set; }
     public int? MovimientoCajaId { get; set; }
+    public bool Verificada { get; set; } = false;
+    public string? ComprobanteImagenPath { get; set; }
     public List<CompraDto> Compras { get; set; } = new();
 }
 
