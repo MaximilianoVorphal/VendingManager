@@ -19,6 +19,13 @@ public interface IContabilidadService
     Task<AccountingPeriodDto> UpdatePeriodoAsync(int id, UpdatePeriodoRequest req, CancellationToken ct = default);
     Task ClosePeriodoAsync(int id, CancellationToken ct = default);
 
+    /// <summary>
+    /// Deletes an AccountingPeriod by unlinking its Transferencias and Devoluciones
+    /// (setting PeriodoId = null) without cascading deletes. Does NOT touch MovimientoCaja.
+    /// Throws KeyNotFoundException if the period does not exist.
+    /// </summary>
+    Task DeletePeriodoAsync(int id, CancellationToken ct = default);
+
     // Edit methods
     Task<CompraDto> UpdateCompraAsync(int compraId, UpdateCompraRequest req, CancellationToken ct = default);
     Task<MovimientoCajaDto> UpdateGastoAsync(int gastoId, UpdateGastoRequest req, CancellationToken ct = default);
