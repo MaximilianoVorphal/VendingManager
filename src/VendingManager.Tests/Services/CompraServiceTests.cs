@@ -21,6 +21,8 @@ public class CompraServiceTests : IDisposable
         _context = TestDataHelpers.CreateInMemoryContext($"CompraServiceTestDb_{Guid.NewGuid()}");
 
         _mockEnv = new Mock<IWebHostEnvironment>();
+        _mockEnv.SetupGet(e => e.WebRootPath).Returns("/tmp/wwwroot");
+        _mockEnv.SetupGet(e => e.ContentRootPath).Returns("/tmp");
 
         var vendingConfig = new VendingConfig();
         _config = Options.Create(vendingConfig);
@@ -30,7 +32,8 @@ public class CompraServiceTests : IDisposable
             .Setup(m => m.SaveMappingAsync(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int?>()))
             .Returns(Task.CompletedTask);
 
-        _service = new CompraService(_context, _mockEnv.Object, _config, _mockProductMatching.Object);
+        var uploadProvider = new DefaultUploadPathProvider(_mockEnv.Object, _config);
+        _service = new CompraService(_context, _mockProductMatching.Object, uploadProvider);
     }
 
     public void Dispose()
