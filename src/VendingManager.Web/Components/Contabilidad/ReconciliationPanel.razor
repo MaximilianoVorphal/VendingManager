@@ -42,37 +42,64 @@
                     <span class="text-muted fw-bold text-uppercase small" style="font-size: 0.7rem;">GASTOS</span>
                     <span class="text-danger fw-bold font-monospace">-$@TotalGastos.ToString("N0")</span>
                 </div>
+                @if (Devuelto > 0)
+                {
+                    <div class="d-flex justify-content-between align-items-center py-2 border-bottom border-dark">
+                        <span class="text-muted fw-bold text-uppercase small" style="font-size: 0.7rem;">DEVUELTO</span>
+                        <span class="text-info fw-bold font-monospace">-$@Devuelto.ToString("N0")</span>
+                    </div>
+                }
             </div>
 
-            @* Diferencia *@
-            <div class="@(DiferenciaClass) p-3 rounded-0 border border-dark text-center mb-3">
+            @* Diferencia + SaldoADevolver *@
+            <div class="@(DiferenciaClass) p-3 rounded-0 border border-dark text-center mb-2">
                 <small class="text-uppercase fw-bold d-block mb-1" style="font-size: 0.65rem;">DIFERENCIA</small>
                 <span class="fw-bold font-monospace fs-5">$@Diferencia.ToString("N0")</span>
-                @if (Diferencia == 0)
-                {
-                    <div class="mt-1">
-                        <span class="badge bg-success rounded-0 fw-bold">
-                            <i class="bi bi-check-circle-fill me-1"></i>CUADRADO
-                        </span>
-                    </div>
-                }
-                else if (Diferencia > 0)
-                {
-                    <div class="mt-1">
-                        <span class="badge bg-warning text-dark rounded-0 fw-bold">
-                            DIFERENCIA POSITIVA
-                        </span>
-                    </div>
-                }
-                else
-                {
-                    <div class="mt-1">
-                        <span class="badge bg-danger rounded-0 fw-bold">
-                            DIFERENCIA NEGATIVA
-                        </span>
-                    </div>
-                }
             </div>
+            @if (Devuelto > 0 || SaldoADevolver != Diferencia)
+            {
+                <div class="@(SaldoADevolverClass) p-3 rounded-0 border border-dark text-center mb-3">
+                    <small class="text-uppercase fw-bold d-block mb-1" style="font-size: 0.65rem;">SALDO A DEVOLVER</small>
+                    <span class="fw-bold font-monospace fs-4">$@SaldoADevolver.ToString("N0")</span>
+                    @if (SaldoADevolver == 0)
+                    {
+                        <div class="mt-1">
+                            <span class="badge bg-success rounded-0 fw-bold">
+                                <i class="bi bi-check-circle-fill me-1"></i>SALDO CERO
+                            </span>
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="mb-3">
+                    @if (Diferencia == 0)
+                    {
+                        <div class="text-center">
+                            <span class="badge bg-success rounded-0 fw-bold">
+                                <i class="bi bi-check-circle-fill me-1"></i>CUADRADO
+                            </span>
+                        </div>
+                    }
+                    else if (Diferencia > 0)
+                    {
+                        <div class="text-center">
+                            <span class="badge bg-warning text-dark rounded-0 fw-bold">
+                                DIFERENCIA POSITIVA
+                            </span>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="text-center">
+                            <span class="badge bg-danger rounded-0 fw-bold">
+                                DIFERENCIA NEGATIVA
+                            </span>
+                        </div>
+                    }
+                </div>
+            }
 
             @* Counts *@
             <div class="row g-2 mb-3">
@@ -101,7 +128,8 @@
             {
                 <button class="btn btn-warning rounded-0 fw-bold w-100 py-2 mb-2"
                         @onclick="() => OnCerrar.InvokeAsync()"
-                        disabled="@Cerrando">
+                        disabled="@(Cerrando || !CanCuadrar)"
+                        title="@(CanCuadrar ? "Cerrar período" : "Verificá todos los comprobantes y devolvé el saldo antes de cerrar")">
                     @if (Cerrando)
                     {
                         <span class="spinner-border spinner-border-sm me-2"></span>
@@ -112,6 +140,19 @@
                     }
                     CERRAR PERÍODO
                 </button>
+                @if (!CanCuadrar)
+                {
+                    <div class="small text-muted fw-bold text-center" style="font-size: 0.65rem;">
+                        @if (SaldoADevolver > 0)
+                        {
+                            <span><i class="bi bi-exclamation-triangle-fill me-1 text-warning"></i>Saldo pendiente a devolver</span>
+                        }
+                        else
+                        {
+                            <span><i class="bi bi-exclamation-triangle-fill me-1 text-warning"></i>Comprobantes sin verificar</span>
+                        }
+                    </div>
+                }
             }
         }
         else
@@ -140,6 +181,9 @@
     private decimal TotalCompras => State?.TotalCompras ?? 0;
     private decimal TotalGastos => State?.TotalGastos ?? 0;
     private decimal Diferencia => State?.Diferencia ?? 0;
+    private decimal Devuelto => State?.Devuelto ?? 0;
+    private decimal SaldoADevolver => State?.SaldoADevolver ?? 0;
+    private bool CanCuadrar => State?.CanCuadrar ?? false;
 
     private int TransferenciasCount => State?.Transferencias.Count ?? 0;
     private int ComprasCount
@@ -161,6 +205,16 @@
         {
             if (Diferencia == 0) return "bg-success text-white";
             if (Diferencia > 0) return "bg-warning text-dark";
+            return "bg-danger text-white";
+        }
+    }
+
+    private string SaldoADevolverClass
+    {
+        get
+        {
+            if (SaldoADevolver == 0) return "bg-success text-white";
+            if (SaldoADevolver > 0) return "bg-warning text-dark";
             return "bg-danger text-white";
         }
     }
