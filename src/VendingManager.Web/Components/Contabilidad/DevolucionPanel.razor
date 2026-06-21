@@ -39,7 +39,7 @@
                     <span class="text-muted fw-bold text-uppercase" style="font-size: 0.72rem;">
                         <i class="bi bi-cart4 me-1"></i>COMPRAS + GASTOS
                     </span>
-                    <span class="font-monospace fw-bold text-danger">-$@(State.TotalCompras + State.TotalGastos).ToString("N0")</span>
+                    <span class="font-monospace fw-bold text-danger">-$@((State.TotalCompras + State.TotalGastos).ToString("N0"))</span>
                 </div>
                 @if (State.Devuelto > 0)
                 {
