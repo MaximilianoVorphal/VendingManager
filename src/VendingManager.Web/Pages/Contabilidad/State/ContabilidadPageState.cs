@@ -29,6 +29,42 @@ public class ContabilidadPageState
     public decimal TotalGastos => PeriodoActivoFull?.TotalGastos ?? PeriodoActivo?.TotalGastos ?? 0;
     public decimal Diferencia => PeriodoActivoFull?.Diferencia ?? PeriodoActivo?.Diferencia ?? 0;
 
+    /// <summary>Sum of all registered Devoluciones for the active period.</summary>
+    public decimal Devuelto => PeriodoActivoFull?.Devuelto ?? PeriodoActivo?.Devuelto ?? 0;
+
+    /// <summary>Outstanding balance to return. Derived: Diferencia − Devuelto.</summary>
+    public decimal SaldoADevolver => PeriodoActivoFull?.SaldoADevolver ?? PeriodoActivo?.SaldoADevolver ?? 0;
+
+    /// <summary>
+    /// True when all comprobantes are verified AND SaldoADevolver == 0.
+    /// Gates the cuadrar/close action on the UI.
+    /// </summary>
+    public bool CanCuadrar
+    {
+        get
+        {
+            if (PeriodoActivoFull == null) return false;
+
+            // Nothing to reconcile if there are no transferencias — an empty
+            // period must not be vacuously "cuadrable".
+            if (PeriodoActivoFull.Transferencias.Count == 0) return false;
+
+            if (SaldoADevolver != 0) return false;
+
+            // All transferencias must be verified
+            if (PeriodoActivoFull.Transferencias.Any(t => !t.Verificada))
+                return false;
+
+            // All compras (across all transferencias) must be verified
+            if (PeriodoActivoFull.Transferencias
+                    .SelectMany(t => t.Compras)
+                    .Any(c => !c.Verificada))
+                return false;
+
+            return true;
+        }
+    }
+
     public List<TransferenciaDto> Transferencias => PeriodoActivoFull?.Transferencias ?? new();
     public List<MovimientoCajaDto> Gastos => PeriodoActivoFull?.Gastos ?? new();
 

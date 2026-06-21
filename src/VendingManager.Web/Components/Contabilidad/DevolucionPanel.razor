@@ -1,0 +1,256 @@
+@using VendingManager.Web.Pages.Contabilidad.State
+@using VendingManager.Shared.DTOs
+@using VendingManager.Shared.Enums
+@inject HttpClient Http
+
+@* Saldo breakdown + Registrar Devolución action. *@
+
+<div class="card border-2 border-dark rounded-0 shadow mb-4">
+    <div class="card-header bg-dark text-white rounded-0 fw-bold py-2 d-flex align-items-center">
+        <i class="bi bi-cash-coin me-2"></i>SALDO A DEVOLVER
+        @if (State?.SaldoADevolver == 0 && State.PeriodoActivoFull != null)
+        {
+            <span class="badge bg-success rounded-0 ms-auto fw-bold">SALDO CERO</span>
+        }
+        else if (State?.SaldoADevolver > 0)
+        {
+            <span class="badge bg-warning text-dark rounded-0 ms-auto fw-bold">PENDIENTE</span>
+        }
+    </div>
+    <div class="card-body bg-light p-3">
+        @if (State?.PeriodoActivoFull == null)
+        {
+            <div class="text-center text-muted p-3">
+                <i class="bi bi-inbox display-6 mb-2 d-block"></i>
+                <p class="fw-bold small">Seleccioná un período para ver el saldo.</p>
+            </div>
+        }
+        else
+        {
+            @* ===== Saldo Breakdown ===== *@
+            <div class="mb-3">
+                <div class="d-flex justify-content-between align-items-center py-2 border-bottom border-dark">
+                    <span class="text-muted fw-bold text-uppercase" style="font-size: 0.72rem;">
+                        <i class="bi bi-bank me-1"></i>TRANSFERIDO
+                    </span>
+                    <span class="font-monospace fw-bold text-success">+$@State.TotalTransferido.ToString("N0")</span>
+                </div>
+                <div class="d-flex justify-content-between align-items-center py-2 border-bottom border-dark">
+                    <span class="text-muted fw-bold text-uppercase" style="font-size: 0.72rem;">
+                        <i class="bi bi-cart4 me-1"></i>COMPRAS + GASTOS
+                    </span>
+                    <span class="font-monospace fw-bold text-danger">-$@(State.TotalCompras + State.TotalGastos).ToString("N0")</span>
+                </div>
+                @if (State.Devuelto > 0)
+                {
+                    <div class="d-flex justify-content-between align-items-center py-2 border-bottom border-dark">
+                        <span class="text-muted fw-bold text-uppercase" style="font-size: 0.72rem;">
+                            <i class="bi bi-arrow-return-left me-1"></i>DEVUELTO
+                        </span>
+                        <span class="font-monospace fw-bold text-info">-$@State.Devuelto.ToString("N0")</span>
+                    </div>
+                }
+                <div class="d-flex justify-content-between align-items-center py-2 @(SaldoClass) rounded-0 px-2 mt-2">
+                    <span class="fw-bold text-uppercase" style="font-size: 0.75rem;">SALDO A DEVOLVER</span>
+                    <span class="font-monospace fw-bold fs-5">$@State.SaldoADevolver.ToString("N0")</span>
+                </div>
+            </div>
+
+            @* ===== Registrar Devolución form ===== *@
+            @if (State.PeriodoActivo?.Estado == AccountingPeriodEstado.Abierto)
+            {
+                @if (State.SaldoADevolver > 0)
+                {
+                    @if (!ShowForm)
+                    {
+                        <div class="d-grid">
+                            <button class="btn btn-warning rounded-0 fw-bold"
+                                    @onclick="() => ShowForm = true">
+                                <i class="bi bi-cash-coin me-2"></i>REGISTRAR DEVOLUCIÓN
+                            </button>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="border border-dark rounded-0 bg-white p-3">
+                            <div class="fw-bold text-uppercase small mb-3">
+                                <i class="bi bi-cash-coin me-1"></i>REGISTRAR DEVOLUCIÓN
+                            </div>
+
+                            <div class="mb-2">
+                                <label class="fw-bold small text-uppercase mb-1 text-muted">TRABAJADOR</label>
+                                <input type="text"
+                                       class="form-control form-control-sm border-dark rounded-0"
+                                       @bind="RequestTrabajador"
+                                       placeholder="Nombre del trabajador" />
+                            </div>
+
+                            <div class="mb-2">
+                                <label class="fw-bold small text-uppercase mb-1 text-muted">
+                                    MONTO (máx. $@State.SaldoADevolver.ToString("N0"))
+                                </label>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text bg-dark text-white border-dark rounded-0">$</span>
+                                    <input type="number"
+                                           class="form-control border-dark rounded-0 font-monospace text-end"
+                                           @bind="RequestMonto"
+                                           min="1"
+                                           max="@State.SaldoADevolver"
+                                           step="1" />
+                                </div>
+                            </div>
+
+                            <div class="mb-2">
+                                <label class="fw-bold small text-uppercase mb-1 text-muted">FECHA</label>
+                                <input type="date"
+                                       class="form-control form-control-sm border-dark rounded-0"
+                                       @bind="RequestFecha" />
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="fw-bold small text-uppercase mb-1 text-muted">OBSERVACIONES (opcional)</label>
+                                <input type="text"
+                                       class="form-control form-control-sm border-dark rounded-0"
+                                       @bind="RequestObservaciones"
+                                       placeholder="Descripción opcional" />
+                            </div>
+
+                            @if (!string.IsNullOrEmpty(FormError))
+                            {
+                                <div class="alert alert-danger border-dark rounded-0 py-2 fw-bold small mb-2">
+                                    <i class="bi bi-exclamation-triangle-fill me-1"></i>@FormError
+                                </div>
+                            }
+
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-dark rounded-0 fw-bold flex-grow-1"
+                                        @onclick="RegistrarDevolucion"
+                                        disabled="@Guardando">
+                                    @if (Guardando)
+                                    {
+                                        <span class="spinner-border spinner-border-sm me-2"></span>
+                                    }
+                                    else
+                                    {
+                                        <i class="bi bi-check-circle me-2"></i>
+                                    }
+                                    CONFIRMAR DEVOLUCIÓN
+                                </button>
+                                <button class="btn btn-outline-secondary rounded-0 fw-bold"
+                                        @onclick="CancelarForm"
+                                        disabled="@Guardando">
+                                    CANCELAR
+                                </button>
+                            </div>
+                        </div>
+                    }
+                }
+                else
+                {
+                    <div class="text-center p-2">
+                        <span class="badge bg-success rounded-0 fw-bold py-2 px-3">
+                            <i class="bi bi-check-circle-fill me-1"></i>SALDO DEVUELTO
+                        </span>
+                    </div>
+                }
+            }
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public ContabilidadPageState? State { get; set; }
+    [Parameter] public EventCallback OnUpdated { get; set; }
+
+    private bool ShowForm { get; set; }
+    private bool Guardando { get; set; }
+    private string RequestTrabajador { get; set; } = string.Empty;
+    private decimal RequestMonto { get; set; }
+    private DateTime RequestFecha { get; set; } = DateTime.Today;
+    private string? RequestObservaciones { get; set; }
+    private string? FormError { get; set; }
+
+    private string SaldoClass
+    {
+        get
+        {
+            if (State?.SaldoADevolver == 0) return "bg-success text-white";
+            if (State?.SaldoADevolver > 0) return "bg-warning text-dark";
+            return "bg-danger text-white";
+        }
+    }
+
+    protected override void OnParametersSet()
+    {
+        // Pre-fill trabajador from the active period if available
+        if (string.IsNullOrEmpty(RequestTrabajador))
+            RequestTrabajador = State?.PeriodoActivo?.Trabajador ?? string.Empty;
+
+        // Pre-fill monto with SaldoADevolver
+        if (RequestMonto == 0 && State != null)
+            RequestMonto = State.SaldoADevolver;
+    }
+
+    private void CancelarForm()
+    {
+        ShowForm = false;
+        FormError = null;
+    }
+
+    private async Task RegistrarDevolucion()
+    {
+        FormError = null;
+
+        if (string.IsNullOrWhiteSpace(RequestTrabajador))
+        {
+            FormError = "El nombre del trabajador es obligatorio.";
+            return;
+        }
+        if (RequestMonto <= 0)
+        {
+            FormError = "El monto debe ser mayor a cero.";
+            return;
+        }
+        if (State?.SaldoADevolver > 0 && RequestMonto > State.SaldoADevolver)
+        {
+            FormError = $"El monto no puede superar el saldo a devolver (${State.SaldoADevolver.ToString("N0")}).";
+            return;
+        }
+
+        try
+        {
+            Guardando = true;
+
+            var request = new RegistrarDevolucionRequest
+            {
+                PeriodoId = State?.PeriodoActivo?.Id,
+                Trabajador = RequestTrabajador,
+                Monto = RequestMonto,
+                Fecha = RequestFecha,
+                Observaciones = RequestObservaciones
+            };
+
+            var response = await Http.PostAsJsonAsync("api/contabilidad/devolucion", request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                ShowForm = false;
+                RequestMonto = 0;
+                RequestObservaciones = null;
+                await OnUpdated.InvokeAsync();
+            }
+            else
+            {
+                FormError = await response.Content.ReadAsStringAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            FormError = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            Guardando = false;
+        }
+    }
+}
