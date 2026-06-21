@@ -53,6 +53,18 @@ public class Transferencia
     public List<Compra> Compras { get; set; } = new();
 
     /// <summary>
+    /// Relative path to the transfer comprobante image.
+    /// Mirrors Compra.FacturaImagenPath semantics.
+    /// </summary>
+    public string? ComprobanteImagenPath { get; set; }
+
+    /// <summary>
+    /// Indicates whether the transfer comprobante has been verified by the owner.
+    /// Defaults to false; historic rows are explicitly unverified after migration.
+    /// </summary>
+    public bool Verificada { get; set; } = false;
+
+    /// <summary>
     /// Concurrency token para optimistic concurrency.
     /// </summary>
     [Timestamp]
