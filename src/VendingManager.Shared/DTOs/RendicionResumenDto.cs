@@ -18,4 +18,15 @@ public class RendicionResumenDto
 
     /// <summary>Transferido - (TotalCompras + TotalGastos).</summary>
     public decimal Diferencia { get; set; }
+
+    /// <summary>
+    /// Sum of all Devolucion.Monto for this rendicion. Set by the service mapper.
+    /// </summary>
+    public decimal Devuelto { get; set; }
+
+    /// <summary>
+    /// Outstanding balance to be returned. Derived from the single Diferencia source.
+    /// SaldoADevolver = Diferencia − Devuelto.
+    /// </summary>
+    public decimal SaldoADevolver => Diferencia - Devuelto;
 }
