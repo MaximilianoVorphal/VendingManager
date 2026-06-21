@@ -233,4 +233,22 @@ public class ConciliacionControllerTests
         // Assert
         result.Result.Should().BeOfType<NotFoundObjectResult>();
     }
+
+    // ── FIX-4 (WARNING-3): 409 concurrency mapping ───────────────────────
+
+    [Fact]
+    public async Task VerificarTransferencia_DbUpdateConcurrencyException_Returns409()
+    {
+        // Arrange — mock MarcarTransferenciaVerificadaAsync to throw concurrency exception
+        _mockService
+            .Setup(s => s.MarcarTransferenciaVerificadaAsync(1, true, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException(
+                "Row version conflict", new List<Microsoft.EntityFrameworkCore.Update.IUpdateEntry>()));
+
+        // Act
+        var result = await _controller.VerificarTransferencia(1);
+
+        // Assert
+        result.Should().BeOfType<ConflictObjectResult>();
+    }
 }

@@ -342,6 +342,7 @@ public class ConciliacionServiceTests : IDisposable
     {
         // Arrange
         var period = await CreateOpenPeriodAsync();
+        await CreateTransferenciaForPeriodAsync(period.Id);
         var request = new RegistrarDevolucionRequest
         {
             PeriodoId = period.Id,
@@ -374,6 +375,7 @@ public class ConciliacionServiceTests : IDisposable
     {
         // Arrange
         var period = await CreateOpenPeriodAsync();
+        await CreateTransferenciaForPeriodAsync(period.Id);
         var expectedFecha = new DateTime(2026, 5, 10);
         var request = new RegistrarDevolucionRequest
         {
@@ -396,6 +398,7 @@ public class ConciliacionServiceTests : IDisposable
     {
         // Arrange — first devolucion
         var period = await CreateOpenPeriodAsync();
+        await CreateTransferenciaForPeriodAsync(period.Id);
         var first = new RegistrarDevolucionRequest
         {
             PeriodoId = period.Id,
@@ -493,6 +496,17 @@ public class ConciliacionServiceTests : IDisposable
         _context.Rendiciones.Add(rendicion);
         await _context.SaveChangesAsync();
 
+        var rendTransfer = new Transferencia
+        {
+            Fecha = DateTime.Today,
+            Monto = 1000m,
+            Trabajador = "Worker B",
+            Estado = TransferenciaEstado.EnUso,
+            RendicionId = rendicion.Id
+        };
+        _context.Transferencias.Add(rendTransfer);
+        await _context.SaveChangesAsync();
+
         var request = new RegistrarDevolucionRequest
         {
             RendicionId = rendicion.Id,
@@ -508,6 +522,27 @@ public class ConciliacionServiceTests : IDisposable
         dto.RendicionId.Should().Be(rendicion.Id);
         var devolucion = await _context.Devoluciones.FindAsync(dto.Id);
         devolucion!.MovimientoCajaId.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task RegistrarDevolucionAsync_MontoExceedsSaldo_ThrowsInvalidOperation()
+    {
+        // Arrange — 1000 transferido, 400 in compras → SaldoADevolver = 600
+        var period = await CreateOpenPeriodAsync();
+        var t = await CreateTransferenciaForPeriodAsync(period.Id);
+        await CreateCompraForTransferenciaAsync(t.Id);
+
+        var request = new RegistrarDevolucionRequest
+        {
+            PeriodoId = period.Id,
+            Trabajador = "Juan",
+            Monto = 700m, // exceeds SaldoADevolver of 600
+            Fecha = DateTime.Today
+        };
+
+        // Act & Assert
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _contabilidadService.RegistrarDevolucionAsync(request));
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -678,5 +713,286 @@ public class ConciliacionServiceTests : IDisposable
         // Assert
         resumen.Devuelto.Should().Be(150m);
         resumen.SaldoADevolver.Should().Be(resumen.Diferencia - 150m);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // FIX-1 (CRITICAL-1): RendicionService.CerrarAsync must mirror the three
+    // close-gate preconditions from ContabilidadService.ClosePeriodoAsync.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    private async Task<Rendicion> CreateOpenRendicionWithTransferenciaAndCompraAsync(
+        bool transVerificada = false, bool compraVerificada = false)
+    {
+        var rendicion = new Rendicion
+        {
+            Trabajador = "Worker FIX1",
+            FechaInicio = DateTime.Today,
+            Estado = RendicionEstado.Abierta
+        };
+        _context.Rendiciones.Add(rendicion);
+        await _context.SaveChangesAsync();
+
+        var transferencia = new Transferencia
+        {
+            Fecha = DateTime.Today,
+            Monto = 1000m,
+            Trabajador = "Worker FIX1",
+            Estado = TransferenciaEstado.Conciliado, // conciliado so existing check passes
+            RendicionId = rendicion.Id,
+            Verificada = transVerificada
+        };
+        _context.Transferencias.Add(transferencia);
+        await _context.SaveChangesAsync();
+
+        var compra = new Compra
+        {
+            Proveedor = "Prov FIX1",
+            FechaCompra = DateTime.Today,
+            MontoTotal = 1000m, // equal to transferencia → Diferencia = 0
+            TransferenciaId = transferencia.Id,
+            Verificada = compraVerificada
+        };
+        _context.Compras.Add(compra);
+        await _context.SaveChangesAsync();
+
+        return rendicion;
+    }
+
+    [Fact]
+    public async Task CerrarAsync_UnverifiedTransferencia_ThrowsInvalidOperation()
+    {
+        // Arrange — transferencia Verificada=false, compra Verificada=true, SaldoADevolver=0
+        var rendicion = await CreateOpenRendicionWithTransferenciaAndCompraAsync(
+            transVerificada: false, compraVerificada: true);
+
+        // Act & Assert
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _rendicionService.CerrarAsync(rendicion.Id));
+        ex.Message.Should().Contain("transferencia");
+    }
+
+    [Fact]
+    public async Task CerrarAsync_UnverifiedCompra_ThrowsInvalidOperation()
+    {
+        // Arrange — transferencia Verificada=true, compra Verificada=false, SaldoADevolver=0
+        var rendicion = await CreateOpenRendicionWithTransferenciaAndCompraAsync(
+            transVerificada: true, compraVerificada: false);
+
+        // Act & Assert
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _rendicionService.CerrarAsync(rendicion.Id));
+        ex.Message.Should().Contain("compra");
+    }
+
+    [Fact]
+    public async Task CerrarAsync_SaldoADevolverNonZero_ThrowsInvalidOperation()
+    {
+        // Arrange — both verified but Monto > MontoTotal → SaldoADevolver > 0
+        var rendicion = new Rendicion
+        {
+            Trabajador = "Worker FIX1B",
+            FechaInicio = DateTime.Today,
+            Estado = RendicionEstado.Abierta
+        };
+        _context.Rendiciones.Add(rendicion);
+        await _context.SaveChangesAsync();
+
+        var transferencia = new Transferencia
+        {
+            Fecha = DateTime.Today,
+            Monto = 1000m,
+            Trabajador = "Worker FIX1B",
+            Estado = TransferenciaEstado.Conciliado,
+            RendicionId = rendicion.Id,
+            Verificada = true
+        };
+        _context.Transferencias.Add(transferencia);
+        await _context.SaveChangesAsync();
+
+        var compra = new Compra
+        {
+            Proveedor = "Prov FIX1B",
+            FechaCompra = DateTime.Today,
+            MontoTotal = 600m, // 1000 - 600 = 400 saldo
+            TransferenciaId = transferencia.Id,
+            Verificada = true
+        };
+        _context.Compras.Add(compra);
+        await _context.SaveChangesAsync();
+        // No devolucion → SaldoADevolver = 400 ≠ 0
+
+        // Act & Assert
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _rendicionService.CerrarAsync(rendicion.Id));
+        ex.Message.Should().Contain("saldo");
+    }
+
+    [Fact]
+    public async Task CerrarAsync_AllVerifiedAndSaldoZero_Succeeds()
+    {
+        // Arrange — all verified, transferencia == compra (SaldoADevolver = 0)
+        var rendicion = await CreateOpenRendicionWithTransferenciaAndCompraAsync(
+            transVerificada: true, compraVerificada: true);
+
+        // Act — should not throw
+        var act = async () => await _rendicionService.CerrarAsync(rendicion.Id);
+        await act.Should().NotThrowAsync();
+
+        // Assert
+        _context.ChangeTracker.Clear();
+        var closed = await _context.Rendiciones.FindAsync(rendicion.Id);
+        closed!.Estado.Should().Be(RendicionEstado.Cerrada);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // FIX-2 (WARNING-2): RegistrarDevolucionAsync must reject Monto > SaldoADevolver.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    [Fact]
+    public async Task RegistrarDevolucionAsync_MontoExceedsSaldoADevolver_ThrowsInvalidOperation()
+    {
+        // Arrange — period with Transferencia=500, Compra=200 → Diferencia=300 (SaldoADevolver=300)
+        var period = new AccountingPeriod
+        {
+            Name = "FIX2 Period",
+            FechaInicio = DateTime.Today,
+            FechaFin = DateTime.Today.AddMonths(1),
+            Estado = AccountingPeriodEstado.Abierto
+        };
+        _context.AccountingPeriods.Add(period);
+        await _context.SaveChangesAsync();
+
+        var t = new Transferencia
+        {
+            Fecha = DateTime.Today,
+            Monto = 500m,
+            Trabajador = "Worker FIX2",
+            Estado = TransferenciaEstado.EnUso,
+            PeriodoId = period.Id
+        };
+        _context.Transferencias.Add(t);
+
+        var c = new Compra
+        {
+            Proveedor = "Prov FIX2",
+            FechaCompra = DateTime.Today,
+            MontoTotal = 200m,
+            TransferenciaId = t.Id
+        };
+        _context.Compras.Add(c);
+        await _context.SaveChangesAsync();
+
+        // SaldoADevolver = 500 - 200 = 300; request Monto = 600 (exceeds)
+        var request = new RegistrarDevolucionRequest
+        {
+            PeriodoId = period.Id,
+            Trabajador = "Worker FIX2",
+            Monto = 600m, // > 300
+            Fecha = DateTime.Today
+        };
+
+        // Act & Assert
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _contabilidadService.RegistrarDevolucionAsync(request));
+        ex.Message.Should().Contain("saldo");
+    }
+
+    [Fact]
+    public async Task RegistrarDevolucionAsync_MontoEqualsSaldoADevolver_Succeeds()
+    {
+        // Arrange — Diferencia = 300, request Monto = 300 (exactly equal → allowed)
+        var period = new AccountingPeriod
+        {
+            Name = "FIX2 Period B",
+            FechaInicio = DateTime.Today,
+            FechaFin = DateTime.Today.AddMonths(1),
+            Estado = AccountingPeriodEstado.Abierto
+        };
+        _context.AccountingPeriods.Add(period);
+        await _context.SaveChangesAsync();
+
+        var t = new Transferencia
+        {
+            Fecha = DateTime.Today,
+            Monto = 500m,
+            Trabajador = "Worker FIX2B",
+            Estado = TransferenciaEstado.EnUso,
+            PeriodoId = period.Id
+        };
+        _context.Transferencias.Add(t);
+
+        var c = new Compra
+        {
+            Proveedor = "Prov FIX2B",
+            FechaCompra = DateTime.Today,
+            MontoTotal = 200m,
+            TransferenciaId = t.Id
+        };
+        _context.Compras.Add(c);
+        await _context.SaveChangesAsync();
+
+        // SaldoADevolver = 300; request Monto = 300 (exactly at limit)
+        var request = new RegistrarDevolucionRequest
+        {
+            PeriodoId = period.Id,
+            Trabajador = "Worker FIX2B",
+            Monto = 300m,
+            Fecha = DateTime.Today
+        };
+
+        // Act — should succeed
+        var act = async () => await _contabilidadService.RegistrarDevolucionAsync(request);
+        await act.Should().NotThrowAsync();
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // FIX-3 (WARNING-1): List endpoint SaldoADevolver must reflect Devoluciones.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    [Fact]
+    public async Task GetPeriodosAsync_SaldoADevolver_ReflectsDevoluciones()
+    {
+        // Arrange — period with Transferencia=1000, Compra=600 → Diferencia=400.
+        // Register a Devolucion of 400 → SaldoADevolver on list should be 0, not 400.
+        var period = new AccountingPeriod
+        {
+            Name = "FIX3 Period",
+            FechaInicio = DateTime.Today.AddDays(-5),
+            FechaFin = DateTime.Today.AddMonths(1),
+            Estado = AccountingPeriodEstado.Abierto
+        };
+        _context.AccountingPeriods.Add(period);
+        await _context.SaveChangesAsync();
+
+        var t = new Transferencia
+        {
+            Fecha = DateTime.Today,
+            Monto = 1000m,
+            Trabajador = "Worker FIX3",
+            Estado = TransferenciaEstado.EnUso,
+            PeriodoId = period.Id
+        };
+        _context.Transferencias.Add(t);
+
+        var devolucion = new Devolucion
+        {
+            Monto = 400m,
+            Fecha = DateTime.Today,
+            Trabajador = "Worker FIX3",
+            PeriodoId = period.Id
+        };
+        _context.Devoluciones.Add(devolucion);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var list = await _contabilidadService.GetPeriodosAsync(
+            desde: DateTime.Today.AddDays(-10),
+            hasta: DateTime.Today.AddMonths(2));
+
+        // Assert — Devuelto should be 400, not 0
+        var dto = list.FirstOrDefault(p => p.Id == period.Id);
+        dto.Should().NotBeNull();
+        dto!.Devuelto.Should().Be(400m);
+        dto.SaldoADevolver.Should().Be(dto.Diferencia - 400m);
     }
 }
