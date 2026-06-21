@@ -44,6 +44,11 @@ public class ContabilidadPageState
         get
         {
             if (PeriodoActivoFull == null) return false;
+
+            // Nothing to reconcile if there are no transferencias — an empty
+            // period must not be vacuously "cuadrable".
+            if (PeriodoActivoFull.Transferencias.Count == 0) return false;
+
             if (SaldoADevolver != 0) return false;
 
             // All transferencias must be verified
