@@ -480,7 +480,32 @@ public class ContabilidadService : IContabilidadService
         DateTime? desde, DateTime? hasta, CancellationToken ct = default)
     {
         var periods = await _periodRepository.GetByDateRangeAsync(desde, hasta, ct);
-        return periods.Select(MapToDto).ToList();
+        var dtos = periods.Select(MapToDto).ToList();
+
+        if (dtos.Count == 0)
+            return dtos;
+
+        // WARNING-1 fix: aggregate Devoluciones.Sum per period in ONE extra query (no N+1).
+        // GetByDateRangeAsync does not Include Devoluciones, so MapToDto always yields Devuelto=0.
+        // We merge the sums here so SaldoADevolver on the list is correct.
+        var periodIds = dtos.Select(d => d.Id).ToList();
+        var devueltoByPeriodo = await _context.Devoluciones
+            .Where(d => d.PeriodoId != null && periodIds.Contains(d.PeriodoId!.Value))
+            .GroupBy(d => d.PeriodoId!.Value)
+            .Select(g => new { PeriodoId = g.Key, Total = g.Sum(d => d.Monto) })
+            .ToListAsync(ct);
+
+        if (devueltoByPeriodo.Count > 0)
+        {
+            var lookup = devueltoByPeriodo.ToDictionary(x => x.PeriodoId, x => x.Total);
+            foreach (var dto in dtos)
+            {
+                if (lookup.TryGetValue(dto.Id, out var total))
+                    dto.Devuelto = total;
+            }
+        }
+
+        return dtos;
     }
 
     public async Task<AccountingPeriodFullDto?> GetPeriodoFullAsync(
@@ -870,8 +895,8 @@ public class ContabilidadService : IContabilidadService
             TotalTransferido = totalTransfers,
             TotalCompras = totalCompras,
             TotalGastos = totalGastos,
-            // Devuelto is populated by callers that query Devoluciones directly (GetPeriodoFullAsync)
-            // List endpoint leaves it at 0 (SaldoADevolver = Diferencia) to avoid N+1 queries
+            // Devuelto defaults to nav-prop sum if loaded; GetPeriodosAsync overrides
+            // via a single aggregate query (WARNING-1 fix). GetPeriodoFullAsync sets it directly.
             Devuelto = p.Devoluciones?.Sum(d => d.Monto) ?? 0
         };
     }

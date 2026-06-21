@@ -277,7 +277,13 @@
         @* ====== MAIN DATA SECTIONS ====== *@
         @if (State.PeriodoActivoFull != null)
         {
-            @* CuadrarView for detailed tables *@
+            @* ── Side-by-side comprobantes verification ── *@
+            <ComprobantesPanel State="@State" OnUpdated="RecargarPeriodoActivo" />
+
+            @* ── Saldo breakdown + Registrar Devolución ── *@
+            <DevolucionPanel State="@State" OnUpdated="RecargarPeriodoActivo" />
+
+            @* ── Detailed tables (read-only audit) ── *@
             <CuadrarView Transferencias="@State.Transferencias"
                          Compras="@State.Compras"
                          Gastos="@State.Gastos"
