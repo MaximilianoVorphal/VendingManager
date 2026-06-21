@@ -536,8 +536,8 @@
             }
             else if ((int)response.StatusCode == 404)
             {
-                Error = "El período ya no existe.";
                 await CargarPeriodos();
+                Error = "El período ya no existe.";
             }
             else
             {
