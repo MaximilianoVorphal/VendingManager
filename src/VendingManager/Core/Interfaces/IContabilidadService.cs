@@ -22,4 +22,19 @@ public interface IContabilidadService
     // Edit methods
     Task<CompraDto> UpdateCompraAsync(int compraId, UpdateCompraRequest req, CancellationToken ct = default);
     Task<MovimientoCajaDto> UpdateGastoAsync(int gastoId, UpdateGastoRequest req, CancellationToken ct = default);
+
+    // Slice 2: Verification methods (TASK-08)
+    /// <summary>Sets Transferencia.Verificada to the given value. Respects RowVersion concurrency.</summary>
+    Task MarcarTransferenciaVerificadaAsync(int transferenciaId, bool verificada, CancellationToken ct = default);
+
+    /// <summary>Sets Compra.Verificada to the given value.</summary>
+    Task MarcarCompraVerificadaAsync(int compraId, bool verificada, CancellationToken ct = default);
+
+    // Slice 2: Devolución registration (TASK-09)
+    /// <summary>
+    /// Registers a Devolucion and posts one positive (cash-in) MovimientoCaja atomically.
+    /// Validates: Monto > 0, period/rendición open, no prior Devolucion for same period/rendicion.
+    /// Requires at least one of PeriodoId / RendicionId.
+    /// </summary>
+    Task<DevolucionDto> RegistrarDevolucionAsync(RegistrarDevolucionRequest request, CancellationToken ct = default);
 }

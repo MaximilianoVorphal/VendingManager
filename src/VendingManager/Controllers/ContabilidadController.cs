@@ -6,12 +6,16 @@ using VendingManager.Shared.DTOs;
 
 namespace VendingManager.Controllers;
 
+
 [Authorize]
 [ApiController]
 [Route("api/[controller]")]
-public class ContabilidadController(IContabilidadService contabilidadService) : ControllerBase
+public class ContabilidadController(
+    IContabilidadService contabilidadService,
+    ITransferenciaService transferenciaService) : ControllerBase
 {
     private readonly IContabilidadService _service = contabilidadService;
+    private readonly ITransferenciaService _transferenciaService = transferenciaService;
 
     [HttpPost("transferencia-con-movimiento")]
     public async Task<ActionResult<TransferenciaDto>> CrearTransferenciaConMovimiento(
@@ -269,6 +273,183 @@ public class ContabilidadController(IContabilidadService contabilidadService) : 
         }
     }
 
+    // ========== Slice 2: Comprobante upload endpoints (TASK-11) ==========
+
+    /// <summary>Upload a comprobante image for a Transferencia. Mirrors ComprasController {id}/factura.</summary>
+    [HttpPost("transferencia/{id}/comprobante")]
+    public async Task<IActionResult> UploadComprobanteTransferencia(int id, IFormFile file, CancellationToken ct = default)
+    {
+        try
+        {
+            if (file == null || file.Length == 0)
+                return BadRequest("No se proporcionó ningún archivo.");
+
+            var path = await _transferenciaService.SaveComprobanteImagenAsync(id, file);
+            return Ok(new { Path = path });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(ex.Message);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return Conflict("Otro usuario modificó esta transferencia. Recargá la página.");
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(500, $"Error de permisos al guardar la imagen: {ex.Message}");
+        }
+        catch (IOException ex)
+        {
+            return StatusCode(500, $"Error de E/S al guardar la imagen: {ex.Message}");
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, $"Error guardando imagen: {ex.GetType().Name} - {ex.Message}");
+        }
+    }
+
+    /// <summary>Retrieve the comprobante image for a Transferencia. Mirrors ComprasController GET {id}/factura.</summary>
+    [HttpGet("transferencia/{id}/comprobante")]
+    public async Task<IActionResult> GetComprobanteTransferencia(int id, CancellationToken ct = default)
+    {
+        var transferencia = await _transferenciaService.GetByIdAsync(id);
+        if (transferencia == null)
+            return NotFound($"Transferencia {id} no encontrada.");
+
+        if (string.IsNullOrEmpty(transferencia.ComprobanteImagenPath))
+            return NotFound("Esta transferencia no tiene comprobante de imagen.");
+
+        var filePath = _transferenciaService.ResolveComprobantePhysicalPath(transferencia.ComprobanteImagenPath);
+        if (!System.IO.File.Exists(filePath))
+            return NotFound("Archivo de imagen no encontrado en disco.");
+
+        var contentType = transferencia.ComprobanteImagenPath.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)
+            ? "application/pdf"
+            : "image/" + Path.GetExtension(transferencia.ComprobanteImagenPath).TrimStart('.').ToLowerInvariant();
+
+        return PhysicalFile(Path.GetFullPath(filePath), contentType);
+    }
+
+    // ========== Slice 2: Verification endpoints (TASK-11) ==========
+
+    /// <summary>Mark a Transferencia as verified. POST = verify, handles RowVersion concurrency → 409.</summary>
+    [HttpPost("transferencia/{id}/verificar")]
+    public async Task<IActionResult> VerificarTransferencia(int id, CancellationToken ct = default)
+    {
+        try
+        {
+            await _service.MarcarTransferenciaVerificadaAsync(id, true, ct);
+            return NoContent();
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(ex.Message);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return Conflict("Otro usuario modificó esta transferencia. Recargá la página.");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
+    /// <summary>Mark a Transferencia as unverified (toggle off).</summary>
+    [HttpPost("transferencia/{id}/desverificar")]
+    public async Task<IActionResult> DesverificarTransferencia(int id, CancellationToken ct = default)
+    {
+        try
+        {
+            await _service.MarcarTransferenciaVerificadaAsync(id, false, ct);
+            return NoContent();
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(ex.Message);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return Conflict("Otro usuario modificó esta transferencia. Recargá la página.");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
+    /// <summary>Mark a Compra as verified.</summary>
+    [HttpPost("compra/{id}/verificar")]
+    public async Task<IActionResult> VerificarCompra(int id, CancellationToken ct = default)
+    {
+        try
+        {
+            await _service.MarcarCompraVerificadaAsync(id, true, ct);
+            return NoContent();
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(ex.Message);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
+    /// <summary>Mark a Compra as unverified (toggle off).</summary>
+    [HttpPost("compra/{id}/desverificar")]
+    public async Task<IActionResult> DesverificarCompra(int id, CancellationToken ct = default)
+    {
+        try
+        {
+            await _service.MarcarCompraVerificadaAsync(id, false, ct);
+            return NoContent();
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(ex.Message);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
+    // ========== Slice 2: Devolución endpoint (TASK-11) ==========
+
+    /// <summary>Register a Devolucion and post its inverse cash-in MovimientoCaja atomically.</summary>
+    [HttpPost("devolucion")]
+    public async Task<ActionResult<DevolucionDto>> RegistrarDevolucion(
+        [FromBody] RegistrarDevolucionRequest request,
+        CancellationToken ct = default)
+    {
+        if (request.PeriodoId == null && request.RendicionId == null)
+            return BadRequest("Debe especificar al menos un PeriodoId o RendicionId.");
+
+        if (request.Monto <= 0)
+            return BadRequest("El monto debe ser mayor a cero.");
+
+        try
+        {
+            var dto = await _service.RegistrarDevolucionAsync(request, ct);
+            return CreatedAtAction(nameof(RegistrarDevolucion), new { id = dto.Id }, dto);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(ex.Message);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
     private static TransferenciaDto MapToDto(VendingManager.Core.Entities.Transferencia t)
     {
         return new TransferenciaDto
@@ -282,6 +463,8 @@ public class ContabilidadController(IContabilidadService contabilidadService) : 
             RendicionId = t.RendicionId,
             PeriodoId = t.PeriodoId,
             MovimientoCajaId = t.MovimientoCajaId,
+            Verificada = t.Verificada,
+            ComprobanteImagenPath = t.ComprobanteImagenPath,
             Compras = t.Compras?.Select(c => new CompraDto
             {
                 Id = c.Id,
@@ -292,7 +475,8 @@ public class ContabilidadController(IContabilidadService contabilidadService) : 
                 Estado = c.Estado,
                 TipoFactura = c.TipoFactura,
                 PagadaCaja = c.PagadaCaja,
-                TransferenciaId = c.TransferenciaId
+                TransferenciaId = c.TransferenciaId,
+                Verificada = c.Verificada
             }).ToList() ?? new()
         };
     }

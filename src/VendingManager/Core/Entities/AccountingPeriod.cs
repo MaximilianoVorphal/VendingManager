@@ -46,4 +46,9 @@ public class AccountingPeriod
     /// Transferencias vinculadas a este período contable.
     /// </summary>
     public List<Transferencia> Transferencias { get; set; } = new();
+
+    /// <summary>
+    /// Devoluciones registradas para este período contable.
+    /// </summary>
+    public List<Devolucion> Devoluciones { get; set; } = new();
 }
