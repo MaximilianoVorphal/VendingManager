@@ -1,0 +1,407 @@
+@using VendingManager.Web.Pages.Contabilidad.State
+@using VendingManager.Shared.DTOs
+@using VendingManager.Shared.Enums
+@inject HttpClient Http
+
+@* Side-by-side comprobantes: LEFT = Transferencia card(s), RIGHT = Compra/Gasto cards. *@
+
+<div class="card border-2 border-dark rounded-0 shadow mb-4">
+    <div class="card-header bg-dark text-white rounded-0 fw-bold py-2 d-flex align-items-center gap-2">
+        <i class="bi bi-file-earmark-check me-1"></i>
+        VERIFICACIÓN DE COMPROBANTES
+        @if (State?.PeriodoActivoFull != null)
+        {
+            var totalTransf = State.Transferencias.Count;
+            var verifiedTransf = State.Transferencias.Count(t => t.Verificada);
+            var allCompras = State.Compras;
+            var verifiedCompras = allCompras.Count(c => c.Verificada);
+
+            <span class="badge @(verifiedTransf == totalTransf && totalTransf > 0 ? "bg-success" : "bg-warning text-dark") rounded-0 ms-auto">
+                TRANSF. @verifiedTransf/@totalTransf
+            </span>
+            <span class="badge @(verifiedCompras == allCompras.Count ? "bg-success" : "bg-warning text-dark") rounded-0">
+                COMPRAS @verifiedCompras/@allCompras.Count
+            </span>
+        }
+    </div>
+    <div class="card-body bg-light p-3">
+        @if (State?.PeriodoActivoFull == null)
+        {
+            <div class="text-center text-muted p-4">
+                <i class="bi bi-inbox display-6 mb-2 d-block"></i>
+                <p class="fw-bold small">Seleccioná un período para verificar comprobantes.</p>
+            </div>
+        }
+        else
+        {
+            <div class="row g-3">
+                @* ===== LEFT: Transferencia cards ===== *@
+                <div class="col-md-6">
+                    <div class="d-flex align-items-center mb-2">
+                        <span class="fw-bold text-uppercase small text-muted me-auto">
+                            <i class="bi bi-bank me-1"></i>TRANSFERENCIAS
+                        </span>
+                    </div>
+
+                    @foreach (var t in State.Transferencias)
+                    {
+                        <div class="card border border-dark rounded-0 mb-3 @(t.Verificada ? "border-success" : "")">
+                            <div class="card-header py-2 d-flex align-items-center gap-2
+                                        @(t.Verificada ? "bg-success text-white" : "bg-secondary text-white")">
+                                <i class="bi bi-bank me-1"></i>
+                                <span class="fw-bold small">$@t.Monto.ToString("N0")</span>
+                                <small class="text-white-50 ms-1">@t.Fecha.ToString("dd/MM/yy")</small>
+                                <span class="ms-auto">
+                                    @if (t.Verificada)
+                                    {
+                                        <i class="bi bi-check-circle-fill text-white" title="Verificada"></i>
+                                    }
+                                    else
+                                    {
+                                        <i class="bi bi-circle text-white-50" title="Sin verificar"></i>
+                                    }
+                                </span>
+                            </div>
+                            <div class="card-body p-2">
+                                @* Photo / upload area *@
+                                <div class="mb-2">
+                                    @if (!string.IsNullOrEmpty(t.ComprobanteImagenPath))
+                                    {
+                                        <a href="api/contabilidad/transferencia/@t.Id/comprobante" target="_blank"
+                                           class="d-block text-center">
+                                            <img src="api/contabilidad/transferencia/@t.Id/comprobante"
+                                                 class="img-fluid border border-dark rounded-0"
+                                                 style="max-height: 120px; object-fit: cover; width: 100%;"
+                                                 alt="Comprobante transferencia" />
+                                        </a>
+                                    }
+                                    else
+                                    {
+                                        <div class="border border-dashed border-secondary rounded-0 p-3 text-center text-muted bg-white">
+                                            <i class="bi bi-cloud-upload display-6 mb-1 d-block"></i>
+                                            <small class="fw-bold">Sin comprobante</small>
+                                        </div>
+                                    }
+                                </div>
+
+                                @* Upload input *@
+                                @if (State.PeriodoActivo?.Estado == AccountingPeriodEstado.Abierto)
+                                {
+                                    <div class="mb-2">
+                                        <InputFile OnChange="(e) => OnComprobanteFileSelected(e, t.Id)"
+                                                   accept=".jpg,.jpeg,.png,.pdf"
+                                                   class="form-control form-control-sm border-dark rounded-0" />
+                                        @if (UploadingId == t.Id)
+                                        {
+                                            <div class="mt-1">
+                                                <span class="spinner-border spinner-border-sm me-1"></span>
+                                                <small>Subiendo...</small>
+                                            </div>
+                                        }
+                                    </div>
+                                }
+
+                                @* Verify toggle *@
+                                <div class="d-grid">
+                                    @if (t.Verificada)
+                                    {
+                                        <button class="btn btn-sm btn-outline-success rounded-0 fw-bold"
+                                                @onclick="() => DesverificarTransferencia(t.Id)"
+                                                disabled="@(State.PeriodoActivo?.Estado != AccountingPeriodEstado.Abierto || VerifyingId == t.Id)">
+                                            @if (VerifyingId == t.Id)
+                                            {
+                                                <span class="spinner-border spinner-border-sm me-1"></span>
+                                            }
+                                            else
+                                            {
+                                                <i class="bi bi-check-circle-fill me-1"></i>
+                                            }
+                                            VERIFICADA
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <button class="btn btn-sm btn-outline-dark rounded-0 fw-bold"
+                                                @onclick="() => VerificarTransferencia(t.Id)"
+                                                disabled="@(State.PeriodoActivo?.Estado != AccountingPeriodEstado.Abierto || VerifyingId == t.Id)">
+                                            @if (VerifyingId == t.Id)
+                                            {
+                                                <span class="spinner-border spinner-border-sm me-1"></span>
+                                            }
+                                            else
+                                            {
+                                                <i class="bi bi-circle me-1"></i>
+                                            }
+                                            VERIFICAR
+                                        </button>
+                                    }
+                                </div>
+
+                                @if (VerifyError != null && VerifyingId == t.Id)
+                                {
+                                    <small class="text-danger fw-bold">@VerifyError</small>
+                                }
+                            </div>
+                        </div>
+                    }
+
+                    @if (!State.Transferencias.Any())
+                    {
+                        <div class="text-center text-muted p-3 border border-dark rounded-0 bg-white">
+                            <small class="fw-bold">No hay transferencias en este período.</small>
+                        </div>
+                    }
+                </div>
+
+                @* ===== RIGHT: Compras/Gastos cards ===== *@
+                <div class="col-md-6">
+                    <div class="d-flex align-items-center mb-2">
+                        <span class="fw-bold text-uppercase small text-muted me-auto">
+                            <i class="bi bi-receipt me-1"></i>COMPRAS / BOLETAS
+                        </span>
+                    </div>
+
+                    @foreach (var c in State.Compras)
+                    {
+                        <div class="card border border-dark rounded-0 mb-2 @(c.Verificada ? "border-success" : "")">
+                            <div class="card-body py-2 px-3 d-flex align-items-center gap-2">
+                                @* Thumbnail *@
+                                <div style="width: 48px; flex-shrink: 0;">
+                                    @if (!string.IsNullOrEmpty(c.FacturaImagenPath))
+                                    {
+                                        <a href="api/compras/@c.Id/factura" target="_blank">
+                                            <img src="api/compras/@c.Id/factura"
+                                                 class="img-thumbnail border-dark rounded-0"
+                                                 style="width: 48px; height: 48px; object-fit: cover;"
+                                                 alt="Factura" />
+                                        </a>
+                                    }
+                                    else
+                                    {
+                                        <div class="border border-secondary text-center text-muted rounded-0"
+                                             style="width: 48px; height: 48px; line-height: 48px; font-size: 1.2rem;">
+                                            <i class="bi bi-file-earmark-x"></i>
+                                        </div>
+                                    }
+                                </div>
+
+                                @* Info *@
+                                <div class="flex-grow-1 overflow-hidden">
+                                    <div class="fw-bold small text-truncate">@c.Proveedor</div>
+                                    <div class="d-flex gap-2 align-items-center">
+                                        <span class="font-monospace text-danger small fw-bold">-$@c.MontoTotal.ToString("N0")</span>
+                                        <span class="badge bg-secondary rounded-0" style="font-size: 0.6rem;">@c.TipoFactura</span>
+                                    </div>
+                                </div>
+
+                                @* Verify tick *@
+                                <div>
+                                    @if (c.Verificada)
+                                    {
+                                        <button class="btn btn-sm btn-success rounded-0 fw-bold"
+                                                title="Marcada como verificada — clic para desverificar"
+                                                @onclick="() => DesverificarCompra(c.Id)"
+                                                disabled="@(State.PeriodoActivo?.Estado != AccountingPeriodEstado.Abierto || CompraVerifyingId == c.Id)">
+                                            @if (CompraVerifyingId == c.Id)
+                                            {
+                                                <span class="spinner-border spinner-border-sm"></span>
+                                            }
+                                            else
+                                            {
+                                                <i class="bi bi-check-circle-fill"></i>
+                                            }
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <button class="btn btn-sm btn-outline-dark rounded-0 fw-bold"
+                                                title="Marcar como verificada"
+                                                @onclick="() => VerificarCompra(c.Id)"
+                                                disabled="@(State.PeriodoActivo?.Estado != AccountingPeriodEstado.Abierto || CompraVerifyingId == c.Id)">
+                                            @if (CompraVerifyingId == c.Id)
+                                            {
+                                                <span class="spinner-border spinner-border-sm"></span>
+                                            }
+                                            else
+                                            {
+                                                <i class="bi bi-circle"></i>
+                                            }
+                                        </button>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    }
+
+                    @* Gastos (read-only, no verify flag in this slice) *@
+                    @if (State.Gastos.Any())
+                    {
+                        <div class="mt-2">
+                            <div class="fw-bold text-uppercase small text-muted mb-2">
+                                <i class="bi bi-fuel-pump me-1"></i>GASTOS
+                            </div>
+                            @foreach (var g in State.Gastos)
+                            {
+                                <div class="card border border-secondary rounded-0 mb-1 bg-white">
+                                    <div class="card-body py-1 px-2 d-flex align-items-center gap-2">
+                                        <span class="badge bg-secondary rounded-0 small">@g.Categoria</span>
+                                        <span class="flex-grow-1 small text-truncate text-muted">@g.Descripcion</span>
+                                        <span class="font-monospace text-danger small fw-bold">-$@Math.Abs(g.Monto).ToString("N0")</span>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+
+                    @if (!State.Compras.Any() && !State.Gastos.Any())
+                    {
+                        <div class="text-center text-muted p-3 border border-dark rounded-0 bg-white">
+                            <small class="fw-bold">No hay compras ni gastos en este período.</small>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            @if (!string.IsNullOrEmpty(ActionError))
+            {
+                <div class="alert alert-danger border-dark rounded-0 fw-bold mt-3 py-2">
+                    <i class="bi bi-exclamation-triangle-fill me-1"></i> @ActionError
+                </div>
+            }
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public ContabilidadPageState? State { get; set; }
+    [Parameter] public EventCallback OnUpdated { get; set; }
+
+    private int VerifyingId { get; set; }
+    private int CompraVerifyingId { get; set; }
+    private int UploadingId { get; set; }
+    private string? VerifyError { get; set; }
+    private string? ActionError { get; set; }
+
+    private async Task VerificarTransferencia(int id)
+    {
+        await ToggleTransferenciaVerificada(id, true);
+    }
+
+    private async Task DesverificarTransferencia(int id)
+    {
+        await ToggleTransferenciaVerificada(id, false);
+    }
+
+    private async Task ToggleTransferenciaVerificada(int id, bool verificada)
+    {
+        try
+        {
+            VerifyingId = id;
+            VerifyError = null;
+            ActionError = null;
+
+            var endpoint = verificada
+                ? $"api/contabilidad/transferencia/{id}/verificar"
+                : $"api/contabilidad/transferencia/{id}/desverificar";
+
+            var response = await Http.PostAsync(endpoint, null);
+
+            if (response.IsSuccessStatusCode)
+            {
+                await OnUpdated.InvokeAsync();
+            }
+            else if (response.StatusCode == System.Net.HttpStatusCode.Conflict)
+            {
+                VerifyError = "Conflicto de concurrencia. Recargá la página.";
+            }
+            else
+            {
+                ActionError = $"Error al verificar transferencia: {await response.Content.ReadAsStringAsync()}";
+            }
+        }
+        catch (Exception ex)
+        {
+            ActionError = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            VerifyingId = 0;
+        }
+    }
+
+    private async Task VerificarCompra(int id)
+    {
+        await ToggleCompraVerificada(id, true);
+    }
+
+    private async Task DesverificarCompra(int id)
+    {
+        await ToggleCompraVerificada(id, false);
+    }
+
+    private async Task ToggleCompraVerificada(int id, bool verificada)
+    {
+        try
+        {
+            CompraVerifyingId = id;
+            ActionError = null;
+
+            var endpoint = verificada
+                ? $"api/contabilidad/compra/{id}/verificar"
+                : $"api/contabilidad/compra/{id}/desverificar";
+
+            var response = await Http.PostAsync(endpoint, null);
+
+            if (response.IsSuccessStatusCode)
+            {
+                await OnUpdated.InvokeAsync();
+            }
+            else
+            {
+                ActionError = $"Error al verificar compra: {await response.Content.ReadAsStringAsync()}";
+            }
+        }
+        catch (Exception ex)
+        {
+            ActionError = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            CompraVerifyingId = 0;
+        }
+    }
+
+    private async Task OnComprobanteFileSelected(InputFileChangeEventArgs e, int transferenciaId)
+    {
+        try
+        {
+            UploadingId = transferenciaId;
+            ActionError = null;
+
+            var file = e.File;
+            using var content = new MultipartFormDataContent();
+            var stream = file.OpenReadStream(maxAllowedSize: 5 * 1024 * 1024);
+            content.Add(new StreamContent(stream), "file", file.Name);
+
+            var response = await Http.PostAsync(
+                $"api/contabilidad/transferencia/{transferenciaId}/comprobante", content);
+
+            if (response.IsSuccessStatusCode)
+            {
+                await OnUpdated.InvokeAsync();
+            }
+            else
+            {
+                ActionError = $"Error al subir comprobante: {await response.Content.ReadAsStringAsync()}";
+            }
+        }
+        catch (Exception ex)
+        {
+            ActionError = $"Error al subir archivo: {ex.Message}";
+        }
+        finally
+        {
+            UploadingId = 0;
+        }
+    }
+}
