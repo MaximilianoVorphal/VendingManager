@@ -489,7 +489,13 @@ public class ContabilidadService : IContabilidadService
         var period = await _periodRepository.GetFullByIdAsync(id, ct);
         if (period == null) return null;
 
+        // TASK-10: query Devuelto directly to avoid Include nav-property edge cases
+        var devuelto = await _context.Devoluciones
+            .Where(d => d.PeriodoId == id)
+            .SumAsync(d => d.Monto, ct);
+
         var dto = MapToFullDto(period);
+        dto.Devuelto = devuelto;
         return dto;
     }
 
@@ -541,6 +547,47 @@ public class ContabilidadService : IContabilidadService
         if (period.Estado == AccountingPeriodEstado.Cerrado)
             throw new InvalidOperationException("El período ya está cerrado.");
 
+        // TASK-10 close-gate — MUST fire BEFORE the existing Conciliado check.
+
+        // Gate 1: all linked Transferencias must be Verificada
+        var unverifiedTransferencias = period.Transferencias
+            .Where(t => !t.Verificada)
+            .ToList();
+        if (unverifiedTransferencias.Count != 0)
+            throw new InvalidOperationException(
+                $"No se puede cerrar el período. Hay {unverifiedTransferencias.Count} transferencia(s) sin verificar. " +
+                $"Verificá todos los comprobantes antes de cerrar.");
+
+        // Gate 2: all linked Compras must be Verificada
+        var unverifiedCompras = period.Transferencias
+            .SelectMany(t => t.Compras)
+            .Where(c => !c.Verificada)
+            .ToList();
+        if (unverifiedCompras.Count != 0)
+            throw new InvalidOperationException(
+                $"No se puede cerrar el período. Hay {unverifiedCompras.Count} compra(s) sin verificar. " +
+                $"Verificá todos los comprobantes antes de cerrar.");
+
+        // Gate 3: SaldoADevolver must be 0
+        var totalTransferido = period.Transferencias.Sum(t => t.Monto);
+        var totalCompras = period.Transferencias.SelectMany(t => t.Compras).Sum(c => c.MontoTotal);
+        var totalGastos = period.Transferencias
+            .Where(t => t.Rendicion != null)
+            .SelectMany(t => t.Rendicion!.Gastos)
+            .DistinctBy(g => g.Id)
+            .Sum(g => Math.Abs(g.Monto));
+        // Query Devoluciones directly to avoid nav-property inclusion edge cases
+        var devuelto = await _context.Devoluciones
+            .Where(d => d.PeriodoId == id)
+            .SumAsync(d => d.Monto, ct);
+        var diferencia = totalTransferido - totalCompras - totalGastos;
+        var saldoADevolver = diferencia - devuelto;
+
+        if (saldoADevolver != 0)
+            throw new InvalidOperationException(
+                $"No se puede cerrar el período. El saldo a devolver es ${saldoADevolver:N2}. " +
+                $"Registrá una devolución antes de cerrar.");
+
         // Auto-conciliate transfers that have linked compras or gastos
         foreach (var t in period.Transferencias)
         {
@@ -566,6 +613,147 @@ public class ContabilidadService : IContabilidadService
 
         period.Estado = AccountingPeriodEstado.Cerrado;
         await _periodRepository.UpdateAsync(period, ct);
+    }
+
+    // ========== Slice 2: Verification (TASK-08) ==========
+
+    public async Task MarcarTransferenciaVerificadaAsync(
+        int transferenciaId,
+        bool verificada,
+        CancellationToken ct = default)
+    {
+        var transferencia = await _context.Transferencias
+            .FirstOrDefaultAsync(t => t.Id == transferenciaId, ct)
+            ?? throw new KeyNotFoundException($"Transferencia {transferenciaId} no encontrada.");
+
+        transferencia.Verificada = verificada;
+        _context.Transferencias.Update(transferencia);
+        await _context.SaveChangesAsync(ct);
+    }
+
+    public async Task MarcarCompraVerificadaAsync(
+        int compraId,
+        bool verificada,
+        CancellationToken ct = default)
+    {
+        var compra = await _context.Compras
+            .FirstOrDefaultAsync(c => c.Id == compraId, ct)
+            ?? throw new KeyNotFoundException($"Compra {compraId} no encontrada.");
+
+        compra.Verificada = verificada;
+        _context.Compras.Update(compra);
+        await _context.SaveChangesAsync(ct);
+    }
+
+    // ========== Slice 2: Devolución (TASK-09) ==========
+
+    public async Task<DevolucionDto> RegistrarDevolucionAsync(
+        RegistrarDevolucionRequest request,
+        CancellationToken ct = default)
+    {
+        // Validate: at least one target must be specified
+        if (request.PeriodoId == null && request.RendicionId == null)
+            throw new InvalidOperationException(
+                "Debe especificar al menos un PeriodoId o RendicionId para la devolución.");
+
+        // Validate Monto
+        if (request.Monto <= 0)
+            throw new InvalidOperationException("El monto de la devolución debe ser mayor a cero.");
+
+        await using var transaction = await _context.Database
+            .BeginTransactionAsync(IsolationLevel.ReadCommitted, ct);
+
+        try
+        {
+            // Validate target period is open (when provided)
+            if (request.PeriodoId.HasValue)
+            {
+                var period = await _context.AccountingPeriods
+                    .Include(p => p.Transferencias) // needed for Devoluciones check via direct query
+                    .FirstOrDefaultAsync(p => p.Id == request.PeriodoId.Value, ct)
+                    ?? throw new KeyNotFoundException($"Período {request.PeriodoId.Value} no encontrado.");
+
+                if (period.Estado == AccountingPeriodEstado.Cerrado)
+                    throw new InvalidOperationException(
+                        "No se puede registrar una devolución para un período cerrado.");
+
+                // Idempotency: only one Devolucion per open period
+                var existing = await _context.Devoluciones
+                    .AnyAsync(d => d.PeriodoId == request.PeriodoId.Value, ct);
+                if (existing)
+                    throw new InvalidOperationException(
+                        "Ya existe una devolución registrada para este período. Solo se permite una devolución por período en esta versión.");
+            }
+
+            // Validate target rendición is open (when provided)
+            if (request.RendicionId.HasValue)
+            {
+                var rendicion = await _context.Rendiciones
+                    .FirstOrDefaultAsync(r => r.Id == request.RendicionId.Value, ct)
+                    ?? throw new KeyNotFoundException($"Rendición {request.RendicionId.Value} no encontrada.");
+
+                if (rendicion.Estado == RendicionEstado.Cerrada)
+                    throw new InvalidOperationException(
+                        "No se puede registrar una devolución para una rendición cerrada.");
+
+                // Idempotency: only one Devolucion per open rendicion
+                var existing = await _context.Devoluciones
+                    .AnyAsync(d => d.RendicionId == request.RendicionId.Value, ct);
+                if (existing)
+                    throw new InvalidOperationException(
+                        "Ya existe una devolución registrada para esta rendición. Solo se permite una devolución por rendición en esta versión.");
+            }
+
+            // 1. Create the Devolucion row
+            var devolucion = new Devolucion
+            {
+                Monto = request.Monto,
+                Fecha = request.Fecha,
+                Trabajador = request.Trabajador,
+                PeriodoId = request.PeriodoId,
+                RendicionId = request.RendicionId,
+                Observaciones = request.Observaciones
+            };
+            _context.Devoluciones.Add(devolucion);
+            await _context.SaveChangesAsync(ct);
+
+            // 2. Create the inverse (positive) MovimientoCaja: money returned to caja
+            var movimiento = new MovimientoCaja
+            {
+                Fecha = request.Fecha,
+                Descripcion = $"Devolución rendición/período: saldo devuelto por {request.Trabajador}",
+                Monto = Math.Abs(request.Monto), // positive = money back into caja
+                Tipo = "APORTE",
+                Categoria = "DEVOLUCION_RENDICION",
+                Trabajador = request.Trabajador,
+                RendicionId = request.RendicionId
+            };
+            _context.MovimientosCaja.Add(movimiento);
+            await _context.SaveChangesAsync(ct);
+
+            // 3. Link Devolucion → MovimientoCaja
+            devolucion.MovimientoCajaId = movimiento.Id;
+            _context.Devoluciones.Update(devolucion);
+            await _context.SaveChangesAsync(ct);
+
+            await transaction.CommitAsync(ct);
+
+            return new DevolucionDto
+            {
+                Id = devolucion.Id,
+                Monto = devolucion.Monto,
+                Fecha = devolucion.Fecha,
+                Trabajador = devolucion.Trabajador,
+                PeriodoId = devolucion.PeriodoId,
+                RendicionId = devolucion.RendicionId,
+                Observaciones = devolucion.Observaciones
+            };
+        }
+        catch
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
     }
 
     // ========== Mapping Helpers ==========
@@ -638,7 +826,10 @@ public class ContabilidadService : IContabilidadService
             Trabajador = p.Trabajador,
             TotalTransferido = totalTransfers,
             TotalCompras = totalCompras,
-            TotalGastos = totalGastos
+            TotalGastos = totalGastos,
+            // Devuelto is populated by callers that query Devoluciones directly (GetPeriodoFullAsync)
+            // List endpoint leaves it at 0 (SaldoADevolver = Diferencia) to avoid N+1 queries
+            Devuelto = p.Devoluciones?.Sum(d => d.Monto) ?? 0
         };
     }
 
@@ -657,6 +848,9 @@ public class ContabilidadService : IContabilidadService
             RendicionId = t.RendicionId,
             PeriodoId = t.PeriodoId,
             MovimientoCajaId = t.MovimientoCajaId,
+            // TASK-10: wire Verificada + ComprobanteImagenPath
+            Verificada = t.Verificada,
+            ComprobanteImagenPath = t.ComprobanteImagenPath,
             Compras = t.Compras?.Select(c => new CompraDto
             {
                 Id = c.Id,
@@ -669,17 +863,19 @@ public class ContabilidadService : IContabilidadService
                 PagadaCaja = c.PagadaCaja,
                 FacturaImagenPath = c.FacturaImagenPath,
                 TransferenciaId = c.TransferenciaId,
-                    Detalles = c.Detalles?.Select(d => new DetalleCompraDto
-                    {
-                        Id = d.Id,
-                        CompraId = d.CompraId,
-                        ProductoId = d.ProductoId,
-                        DescripcionItem = d.DescripcionItem,
-                        Cantidad = d.Cantidad,
-                        CostoUnitario = d.CostoUnitario,
-                        Subtotal = d.Subtotal,
-                        EsPendiente = d.EsPendiente
-                    }).ToList() ?? new()
+                // TASK-10: wire Verificada on Compra
+                Verificada = c.Verificada,
+                Detalles = c.Detalles?.Select(d => new DetalleCompraDto
+                {
+                    Id = d.Id,
+                    CompraId = d.CompraId,
+                    ProductoId = d.ProductoId,
+                    DescripcionItem = d.DescripcionItem,
+                    Cantidad = d.Cantidad,
+                    CostoUnitario = d.CostoUnitario,
+                    Subtotal = d.Subtotal,
+                    EsPendiente = d.EsPendiente
+                }).ToList() ?? new()
             }).ToList() ?? new()
         }).ToList() ?? new();
 
