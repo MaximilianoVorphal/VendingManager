@@ -640,6 +640,44 @@ public class ContabilidadService : IContabilidadService
         await _periodRepository.UpdateAsync(period, ct);
     }
 
+    // ========== Delete AccountingPeriod ==========
+
+    public async Task DeletePeriodoAsync(int id, CancellationToken ct = default)
+    {
+        await using var transaction = await _context.Database
+            .BeginTransactionAsync(IsolationLevel.ReadCommitted, ct);
+
+        try
+        {
+            var period = await _context.AccountingPeriods
+                .Include(p => p.Transferencias)
+                .Include(p => p.Devoluciones)
+                .FirstOrDefaultAsync(p => p.Id == id, ct)
+                ?? throw new KeyNotFoundException($"Período {id} no encontrado.");
+
+            // Unlink Transferencias (set PeriodoId = null, do NOT delete)
+            foreach (var t in period.Transferencias)
+            {
+                t.PeriodoId = null;
+            }
+
+            // Unlink Devoluciones (set PeriodoId = null, do NOT touch MovimientoCajaId)
+            foreach (var d in period.Devoluciones)
+            {
+                d.PeriodoId = null;
+            }
+
+            _context.AccountingPeriods.Remove(period);
+            await _context.SaveChangesAsync(ct);
+            await transaction.CommitAsync(ct);
+        }
+        catch
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
+    }
+
     // ========== Slice 2: Verification (TASK-08) ==========
 
     public async Task MarcarTransferenciaVerificadaAsync(
