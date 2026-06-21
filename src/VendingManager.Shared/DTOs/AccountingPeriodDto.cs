@@ -17,6 +17,17 @@ public class AccountingPeriodDto
     public decimal TotalCompras { get; set; }
     public decimal TotalGastos { get; set; }
     public decimal Diferencia => TotalTransferido - TotalCompras - TotalGastos;
+
+    /// <summary>
+    /// Sum of all Devolucion.Monto for this period. Set by the service mapper.
+    /// </summary>
+    public decimal Devuelto { get; set; }
+
+    /// <summary>
+    /// Outstanding balance to be returned. Derived from the single Diferencia source.
+    /// SaldoADevolver = Diferencia − Devuelto.
+    /// </summary>
+    public decimal SaldoADevolver => Diferencia - Devuelto;
 }
 
 /// <summary>

@@ -13,5 +13,7 @@ public class TransferenciaDto
     public int? RendicionId { get; set; }
     public int? PeriodoId { get; set; }
     public int? MovimientoCajaId { get; set; }
+    public bool Verificada { get; set; } = false;
+    public string? ComprobanteImagenPath { get; set; }
     public List<CompraDto> Compras { get; set; } = new();
 }
