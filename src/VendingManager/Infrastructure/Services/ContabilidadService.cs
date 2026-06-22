@@ -65,25 +65,6 @@ public class ContabilidadService : IContabilidadService
             _context.Transferencias.Add(transferencia);
             await _context.SaveChangesAsync(ct);
 
-            // 3. Create linked MovimientoCaja (RETIRO = money leaving caja)
-            var movimiento = new MovimientoCaja
-            {
-                Fecha = request.Fecha,
-                Descripcion = $"Retiro para rendición #{rendicionId}: {request.Descripcion}",
-                Monto = -request.Monto,
-                Tipo = "RETIRO",
-                Categoria = "RETIRO_CAPITAL",
-                Trabajador = request.Trabajador,
-                RendicionId = rendicionId
-            };
-            _context.MovimientosCaja.Add(movimiento);
-            await _context.SaveChangesAsync(ct);
-
-            // 4. Wire Transferencia → MovimientoCaja
-            transferencia.MovimientoCajaId = movimiento.Id;
-            _context.Transferencias.Update(transferencia);
-            await _context.SaveChangesAsync(ct);
-
             await transaction.CommitAsync(ct);
             return transferencia;
         }
@@ -339,21 +320,6 @@ public class ContabilidadService : IContabilidadService
 
             transferencia.Monto = nuevoMonto;
             _context.Transferencias.Update(transferencia);
-
-            // Update linked MovimientoCaja.Monto if exists
-            if (transferencia.MovimientoCajaId.HasValue)
-            {
-                var movimiento = await _context.MovimientosCaja
-                    .FirstOrDefaultAsync(m => m.Id == transferencia.MovimientoCajaId.Value, ct);
-                if (movimiento != null)
-                {
-                    // Keep the sign convention: MovimientoCaja.Monto is negative (money out)
-                    // so we mirror the absolute value with negative sign
-                    movimiento.Monto = -Math.Abs(nuevoMonto);
-                    _context.MovimientosCaja.Update(movimiento);
-                }
-            }
-
             await _context.SaveChangesAsync(ct);
             await transaction.CommitAsync(ct);
         }
@@ -895,14 +861,11 @@ public class ContabilidadService : IContabilidadService
     }
 
     /// <summary>
-    /// Categorías de MovimientoCaja que son la contracara contable de una transferencia
-    /// o de una devolución (movimiento de capital), NO un gasto real del fondo rendido.
-    /// Se excluyen de los totales y de la lista de gastos de la rendición para evitar el
-    /// doble conteo (el RETIRO_CAPITAL es la misma plata que la transferencia que lo originó).
+    /// Categorías de MovimientoCaja que son movimientos estructurales de capital (no gastos reales).
+    /// Se excluyen de los totales y de la lista de gastos de la rendición.
     /// </summary>
     private static readonly HashSet<string> CategoriasEstructurales = new(StringComparer.OrdinalIgnoreCase)
     {
-        "RETIRO_CAPITAL",
         "DEVOLUCION_RENDICION"
     };
 
