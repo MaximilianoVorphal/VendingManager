@@ -302,9 +302,11 @@ public class RendicionController(
     public async Task<ActionResult<List<CompraDto>>> GetComprasNoVinculadas(
         [FromServices] ICompraService compraService,
         [FromQuery] string? proveedor = null,
-        [FromQuery] string? numeroDocumento = null)
+        [FromQuery] string? numeroDocumento = null,
+        [FromQuery] DateTime? desde = null,
+        [FromQuery] DateTime? hasta = null)
     {
-        var compras = await compraService.GetComprasNoVinculadasAsync(proveedor, numeroDocumento);
+        var compras = await compraService.GetComprasNoVinculadasAsync(proveedor, numeroDocumento, desde, hasta);
         var dto = compras.Select(c => new CompraDto
         {
             Id = c.Id,
