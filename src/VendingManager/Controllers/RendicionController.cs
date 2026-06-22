@@ -17,9 +17,11 @@ public class RendicionController(
     ApplicationDbContext context) : ControllerBase
 {
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<RendicionDto>>> GetRendiciones()
+    public async Task<ActionResult<IEnumerable<RendicionDto>>> GetRendiciones(
+        [FromQuery] DateTime? desde = null,
+        [FromQuery] DateTime? hasta = null)
     {
-        var rendiciones = await rendicionService.GetAllAsync();
+        var rendiciones = await rendicionService.GetAllAsync(desde, hasta);
         var dto = rendiciones.Select(r => MapToDto(r)).ToList();
         return Ok(dto);
     }

@@ -4,24 +4,21 @@
 
 <div class="card border-2 border-dark rounded-0 shadow mb-3">
     <div class="card-body bg-light p-0">
-        @if (PeriodoActivo != null)
+        @if (RendicionActiva != null)
         {
             <div class="d-flex flex-wrap align-items-stretch">
 
-                @* Period info *@
+                @* Rendicion info *@
                 <div class="p-3 border-end border-dark d-flex flex-column justify-content-center" style="min-width: 180px;">
-                    <div class="fw-bold text-uppercase small">@PeriodoActivo.Name</div>
+                    <div class="fw-bold text-uppercase small">@RendicionActiva.Trabajador</div>
                     <div class="small fw-bold font-monospace text-muted mt-1">
-                        @PeriodoActivo.FechaInicio.ToString("dd/MM/yy") → @PeriodoActivo.FechaFin.ToString("dd/MM/yy")
+                        @RendicionActiva.FechaInicio.ToString("dd/MM/yyyy")
                     </div>
-                    @if (!string.IsNullOrEmpty(PeriodoActivo.Trabajador))
-                    {
-                        <div class="mt-1">
-                            <span class="badge bg-secondary rounded-0">
-                                <i class="bi bi-person me-1"></i>@PeriodoActivo.Trabajador
-                            </span>
-                        </div>
-                    }
+                    <div class="mt-1">
+                        <span class="badge @(RendicionActiva.Estado == RendicionEstado.Abierta ? "bg-success" : "bg-secondary") rounded-0">
+                            @(RendicionActiva.Estado == RendicionEstado.Abierta ? "ABIERTA" : "CERRADA")
+                        </span>
+                    </div>
                 </div>
 
                 @* Transferido *@
@@ -71,14 +68,14 @@
                     </div>
                 </div>
 
-                @* Cerrar período *@
+                @* Cerrar rendición *@
                 @if (MostrarCerrar)
                 {
                     <div class="p-3 d-flex flex-column justify-content-center" style="min-width: 200px;">
                         <button class="btn btn-warning rounded-0 fw-bold py-2"
                                 @onclick="() => OnCerrar.InvokeAsync()"
                                 disabled="@(Cerrando || !CanCuadrar)"
-                                title="@(CanCuadrar ? "Cerrar período" : "Verificá todos los comprobantes y devolvé el saldo antes de cerrar")">
+                                title="@(CanCuadrar ? "Cerrar rendición" : "Verificá todos los comprobantes y devolvé el saldo antes de cerrar")">
                             @if (Cerrando)
                             {
                                 <span class="spinner-border spinner-border-sm me-2"></span>
@@ -87,7 +84,7 @@
                             {
                                 <i class="bi bi-lock-fill me-2"></i>
                             }
-                            CERRAR PERÍODO
+                            CERRAR
                         </button>
                         @if (!CanCuadrar)
                         {
@@ -110,7 +107,7 @@
         {
             <div class="text-center text-muted p-3">
                 <i class="bi bi-inbox me-2"></i>
-                <span class="fw-bold small">Seleccioná un período para ver el resumen.</span>
+                <span class="fw-bold small">Seleccioná una transferencia para ver el resumen.</span>
             </div>
         }
     </div>
@@ -120,7 +117,7 @@
     [Parameter] public ContabilidadPageState? State { get; set; }
     [Parameter] public EventCallback OnCerrar { get; set; }
 
-    private AccountingPeriodDto? PeriodoActivo => State?.PeriodoActivo;
+    private RendicionDto? RendicionActiva => State?.RendicionActiva;
     private decimal TotalTransferido => State?.TotalTransferido ?? 0;
     private decimal TotalCompras => State?.TotalCompras ?? 0;
     private decimal TotalGastos => State?.TotalGastos ?? 0;
@@ -129,7 +126,7 @@
     private decimal SaldoADevolver => State?.SaldoADevolver ?? 0;
     private bool CanCuadrar => State?.CanCuadrar ?? false;
 
-    private bool MostrarCerrar => PeriodoActivo?.Estado == AccountingPeriodEstado.Abierto;
+    private bool MostrarCerrar => RendicionActiva?.Estado == RendicionEstado.Abierta;
     private bool Cerrando { get; set; }
 
     private string DiferenciaClass
