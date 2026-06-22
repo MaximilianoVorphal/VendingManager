@@ -9,7 +9,7 @@
 
 <PageTitle>CONCILIACIÓN</PageTitle>
 
-<div class="container-fluid px-4 mt-4">
+<div class="container-fluid px-4" style="height: 100%; display: flex; flex-direction: column; padding-top: 0.75rem;">
 
     @* ====== HEADER ====== *@
     <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3 border-bottom border-3 border-dark pb-2">
@@ -159,9 +159,10 @@
         <ReconciliationPanel State="@State" OnCerrar="CerrarRendicion" />
 
         @* ====== WORK AREA: tabbed ====== *@
+        <div style="flex: 1; min-height: 0; display: flex; flex-direction: column; margin-top: 0.75rem;">
         @if (State.RendicionActivaFull != null)
         {
-            <div class="card border-2 border-dark rounded-0 shadow">
+            <div class="card border-2 border-dark rounded-0 shadow" style="flex: 1; display: flex; flex-direction: column; min-height: 0;">
                 <div class="card-header bg-dark rounded-0 p-0">
                     <div class="d-flex">
                         <button class="btn rounded-0 fw-bold text-uppercase flex-fill py-2 @TabClass("CUADRE")"
@@ -178,7 +179,7 @@
                         </button>
                     </div>
                 </div>
-                <div class="card-body bg-light p-3" style="max-height: calc(100vh - 350px); overflow-y: auto;">
+                <div class="card-body bg-light p-3" style="flex: 1; overflow-y: auto; min-height: 0;">
                     @switch (TabActivo)
                     {
                         case "COMPROBANTES":
@@ -213,6 +214,7 @@
                 <p class="fw-bold text-muted">Seleccioná una transferencia para ver su justificación.</p>
             </div>
         }
+        </div>@* end work-area flex wrapper *@
     }
 </div>
 
