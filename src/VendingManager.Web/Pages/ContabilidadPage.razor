@@ -595,7 +595,7 @@
     {
         SuccessMessage = $"Transferencia ${t.Monto.ToString("N0")} registrada.";
         Error = null;
-        // Stay on the modal to allow multiple transfers per period (partial deliveries)
+        await CerrarFormularios();
         await RecargarPeriodoActivo();
     }
 
