@@ -104,9 +104,17 @@
                                                 @onclick="() => SeleccionarRendicion(r.Id)">
                                             <div class="d-flex w-100 justify-content-between align-items-center">
                                                 <span class="font-monospace small">$@monto.ToString("N0")</span>
-                                                <span class="badge @(r.Estado == RendicionEstado.Abierta ? "bg-success" : "bg-secondary") rounded-0">
-                                                    @(r.Estado == RendicionEstado.Abierta ? "ABIERTA" : "CERRADA")
-                                                </span>
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <span class="badge @(r.Estado == RendicionEstado.Abierta ? "bg-success" : "bg-secondary") rounded-0">
+                                                        @(r.Estado == RendicionEstado.Abierta ? "ABIERTA" : "CERRADA")
+                                                    </span>
+                                                    <button class="btn btn-sm btn-outline-danger rounded-0 p-1 lh-1 border-0"
+                                                            @onclick="() => ConfirmarEliminarRendicion(r)"
+                                                            @onclick:stopPropagation
+                                                            title="Eliminar transferencia (desvincula compras y elimina movimientos)">
+                                                        <i class="bi bi-trash3" style="font-size: 0.8rem;"></i>
+                                                    </button>
+                                                </div>
                                             </div>
                                             <small class="d-block @(State.RendicionActiva?.Id == r.Id ? "text-white-50" : "text-muted")" style="font-size: 0.7rem;">
                                                 @r.Trabajador — @r.FechaInicio.ToString("dd/MM/yyyy")
@@ -391,6 +399,51 @@
         if (State.RendicionActiva != null)
         {
             await SeleccionarRendicion(State.RendicionActiva.Id, keepMessages: true);
+        }
+    }
+
+    private async Task ConfirmarEliminarRendicion(RendicionDto rendicion)
+    {
+        var monto = rendicion.Transferencias.Sum(t => t.Monto).ToString("N0");
+        var confirmado = await JS.InvokeAsync<bool>("confirm",
+            $"¿Eliminar la transferencia de ${monto} ({rendicion.Trabajador} — {rendicion.FechaInicio:dd/MM/yyyy})?\n\n" +
+            "Las compras vinculadas se DESVINCULARÁN y los movimientos de caja se ELIMINARÁN.\n\n" +
+            "¿Estás seguro? Esta operación no se puede deshacer.");
+
+        if (confirmado)
+            await EjecutarEliminarRendicion(rendicion.Id);
+    }
+
+    private async Task EjecutarEliminarRendicion(int rendicionId)
+    {
+        try
+        {
+            Error = null;
+            SuccessMessage = null;
+            var response = await Http.DeleteAsync($"api/rendicion/{rendicionId}");
+            if (response.IsSuccessStatusCode)
+            {
+                SuccessMessage = "Transferencia eliminada.";
+                if (State.RendicionActiva?.Id == rendicionId)
+                {
+                    State.RendicionActiva = null;
+                    State.RendicionActivaFull = null;
+                }
+                await CargarRendiciones();
+            }
+            else if ((int)response.StatusCode == 404)
+            {
+                await CargarRendiciones();
+                Error = "La transferencia ya no existe.";
+            }
+            else
+            {
+                Error = "Error al eliminar: " + await response.Content.ReadAsStringAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            Error = $"Error: {ex.Message}";
         }
     }
 
