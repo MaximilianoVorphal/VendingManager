@@ -12,224 +12,217 @@
 <div class="industrial-wrapper container-fluid px-4 mt-4">
 
     @* ====== HEADER ====== *@
-    <div class="row align-items-center mb-4 border-bottom border-3 border-dark pb-3">
-        <div class="col-12 d-flex justify-content-between align-items-center flex-wrap gap-3">
-            <div>
-                <h2 class="m-0 fw-bold text-uppercase" style="letter-spacing: -1px;">CONCILIACIÓN DE FONDOS</h2>
-                <small class="text-muted fw-bold">JUSTIFICACIÓN DE GASTOS POR PERÍODO</small>
-            </div>
-            @if (State.PeriodoActivo != null)
-            {
-                <div class="d-flex align-items-center gap-2 flex-wrap">
-                    <span class="badge bg-dark rounded-0 fw-bold text-uppercase">
-                        <i class="bi bi-calendar-range"></i> @State.PeriodoActivo.Name.ToUpper()
-                    </span>
-                    <span class="badge @(State.PeriodoActivo.Estado == AccountingPeriodEstado.Abierto ? "bg-success" : "bg-secondary") rounded-0 fw-bold text-uppercase">
-                        @(State.PeriodoActivo.Estado == AccountingPeriodEstado.Abierto ? "ABIERTO" : "CERRADO")
-                    </span>
-                </div>
-            }
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3 border-bottom border-3 border-dark pb-2">
+        <div>
+            <h2 class="m-0 fw-bold text-uppercase" style="letter-spacing: -1px;">CONCILIACIÓN DE FONDOS</h2>
+            <small class="text-muted fw-bold">JUSTIFICACIÓN DE GASTOS POR PERÍODO</small>
         </div>
     </div>
 
     @* ====== ERROR / SUCCESS ALERTS ====== *@
     @if (!string.IsNullOrEmpty(Error))
     {
-        <div class="alert alert-danger border-dark rounded-0 fw-bold mb-4 shadow-sm">
+        <div class="alert alert-danger border-dark rounded-0 fw-bold mb-3 shadow-sm">
             <i class="bi bi-exclamation-triangle-fill me-2"></i> @Error
         </div>
     }
-
     @if (!string.IsNullOrEmpty(SuccessMessage))
     {
-        <div class="alert alert-success border-dark rounded-0 fw-bold mb-4 shadow-sm">
+        <div class="alert alert-success border-dark rounded-0 fw-bold mb-3 shadow-sm">
             <i class="bi bi-check-circle-fill me-2"></i> @SuccessMessage
         </div>
     }
 
     @if (CargandoInicial)
     {
-        <div class="row">
-            <div class="col-12 text-center p-5">
-                <div class="spinner-border text-dark mb-3" role="status"></div>
-                <p class="fw-bold text-muted">CARGANDO PERÍODOS...</p>
-            </div>
+        <div class="text-center p-5">
+            <div class="spinner-border text-dark mb-3" role="status"></div>
+            <p class="fw-bold text-muted">CARGANDO PERÍODOS...</p>
         </div>
     }
     else
     {
-        @* ====== PERIOD SELECTOR + QUICK ACTIONS ====== *@
-        <div class="row g-4 mb-4">
-            @* Left: Period selector *@
-            <div class="col-lg-4">
-                <div class="card border-2 border-dark rounded-0 shadow">
-                    <div class="card-header bg-dark text-white rounded-0 fw-bold py-2">
-                        <i class="bi bi-calendar3 me-2"></i>PERÍODOS
-                    </div>
-                    <div class="card-body bg-light p-3">
-                        @* Date range filter *@
-                        <div class="row g-2 mb-3">
-                            <div class="col-6">
-                                <label class="fw-bold small text-uppercase mb-1 text-muted">DESDE</label>
-                                <input type="date" class="form-control form-control-sm border-dark rounded-0"
-                                       @bind="FiltroDesde" />
-                            </div>
-                            <div class="col-6">
-                                <label class="fw-bold small text-uppercase mb-1 text-muted">HASTA</label>
-                                <input type="date" class="form-control form-control-sm border-dark rounded-0"
-                                       @bind="FiltroHasta" />
-                            </div>
-                            <div class="col-12 mt-2">
-                                <button class="btn btn-sm btn-outline-dark rounded-0 fw-bold w-100"
-                                        @onclick="FiltrarPeriodos">
-                                    <i class="bi bi-search me-1"></i>FILTRAR
-                                </button>
-                            </div>
-                        </div>
+        @* ====== CONTEXT BAR: period selector + actions ====== *@
+        <div class="card border-2 border-dark rounded-0 shadow mb-3">
+            <div class="card-body bg-light p-2 d-flex justify-content-between align-items-center flex-wrap gap-2">
 
-                        @* Period list *@
-                        @if (State.Periodos.Any())
-                        {
-                            <div class="list-group" style="max-height: 300px; overflow-y: auto;">
-                                @foreach (var p in State.Periodos)
-                                {
-                                    <button class="list-group-item list-group-item-action border-dark rounded-0 fw-bold py-2 @(State.PeriodoActivo?.Id == p.Id ? "active bg-dark text-white" : "")"
-                                            @onclick="() => SeleccionarPeriodo(p.Id)">
-                                        <div class="d-flex w-100 justify-content-between align-items-center">
-                                            <span class="small">@p.Name</span>
-                                            <div class="d-flex align-items-center gap-2">
-                                                <span class="badge @(p.Estado == AccountingPeriodEstado.Abierto ? "bg-success" : "bg-secondary") rounded-0">
-                                                    @(p.Estado == AccountingPeriodEstado.Abierto ? "ABIERTO" : "CERRADO")
-                                                </span>
-                                                <button class="btn btn-sm btn-outline-danger rounded-0 p-1 lh-1 border-0"
-                                                        @onclick="() => ConfirmarEliminarPeriodo(p)"
-                                                        @onclick:stopPropagation
-                                                        title="Eliminar período (desvincula transferencias y devoluciones)">
-                                                    <i class="bi bi-trash3" style="font-size: 0.8rem;"></i>
-                                                </button>
-                                            </div>
-                                        </div>
-                                        <small class="d-block text-muted" style="font-size: 0.7rem;">
-                                            @p.FechaInicio.ToString("dd/MM/yyyy") - @p.FechaFin.ToString("dd/MM/yyyy")
-                                        </small>
+                @* Period selector dropdown *@
+                <div class="position-relative d-flex align-items-center gap-2 flex-wrap">
+                    <button class="btn btn-dark rounded-0 fw-bold text-uppercase" @onclick="ToggleSelectorPeriodos">
+                        <i class="bi bi-calendar3 me-2"></i>
+                        @(State.PeriodoActivo?.Name ?? "SELECCIONAR PERÍODO")
+                        <i class="bi bi-chevron-down ms-2"></i>
+                    </button>
+                    @if (State.PeriodoActivo != null)
+                    {
+                        <span class="badge @(State.PeriodoActivo.Estado == AccountingPeriodEstado.Abierto ? "bg-success" : "bg-secondary") rounded-0 fw-bold text-uppercase">
+                            @(State.PeriodoActivo.Estado == AccountingPeriodEstado.Abierto ? "ABIERTO" : "CERRADO")
+                        </span>
+                    }
+
+                    @if (MostrarSelectorPeriodos)
+                    {
+                        @* click-outside backdrop *@
+                        <div class="position-fixed top-0 start-0 w-100 h-100" style="z-index: 1040;"
+                             @onclick="() => MostrarSelectorPeriodos = false"></div>
+
+                        <div class="position-absolute bg-light border-2 border-dark shadow rounded-0 p-3"
+                             style="top: calc(100% + 4px); left: 0; z-index: 1050; width: 360px; max-height: 70vh; overflow-y: auto;">
+
+                            @* Date range filter *@
+                            <div class="row g-2 mb-3">
+                                <div class="col-6">
+                                    <label class="fw-bold small text-uppercase mb-1 text-muted">DESDE</label>
+                                    <input type="date" class="form-control form-control-sm border-dark rounded-0" @bind="FiltroDesde" />
+                                </div>
+                                <div class="col-6">
+                                    <label class="fw-bold small text-uppercase mb-1 text-muted">HASTA</label>
+                                    <input type="date" class="form-control form-control-sm border-dark rounded-0" @bind="FiltroHasta" />
+                                </div>
+                                <div class="col-12">
+                                    <button class="btn btn-sm btn-outline-dark rounded-0 fw-bold w-100" @onclick="FiltrarPeriodos">
+                                        <i class="bi bi-search me-1"></i>FILTRAR
                                     </button>
-                                }
+                                </div>
                             </div>
-                        }
-                        else
-                        {
-                            <div class="text-center text-muted p-3">
-                                <i class="bi bi-inbox display-6 mb-2 d-block"></i>
-                                <p class="fw-bold small">No hay períodos para el filtro seleccionado.</p>
-                            </div>
-                        }
-                    </div>
-                </div>
-            </div>
 
-            @* Right: Quick actions + New period *@
-            <div class="col-lg-4">
-                <div class="card border-2 border-dark rounded-0 shadow">
-                    <div class="card-header bg-dark text-white rounded-0 fw-bold py-2">
-                        <i class="bi bi-lightning-charge me-2"></i>ACCIONES RÁPIDAS
-                    </div>
-                    <div class="card-body bg-light p-3">
-                        <div class="d-grid gap-2">
-                            @if (!MostrarNuevoPeriodo)
+                            @* Period list *@
+                            @if (State.Periodos.Any())
                             {
-                                <button class="btn btn-outline-dark rounded-0 fw-bold text-start"
-                                        @onclick="() => MostrarNuevoPeriodo = true">
-                                    <i class="bi bi-plus-circle me-2"></i>+ NUEVO PERÍODO
-                                </button>
+                                <div class="list-group">
+                                    @foreach (var p in State.Periodos)
+                                    {
+                                        <button class="list-group-item list-group-item-action border-dark rounded-0 fw-bold py-2 @(State.PeriodoActivo?.Id == p.Id ? "active bg-dark text-white" : "")"
+                                                @onclick="() => SeleccionarPeriodo(p.Id)">
+                                            <div class="d-flex w-100 justify-content-between align-items-center">
+                                                <span class="small">@p.Name</span>
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <span class="badge @(p.Estado == AccountingPeriodEstado.Abierto ? "bg-success" : "bg-secondary") rounded-0">
+                                                        @(p.Estado == AccountingPeriodEstado.Abierto ? "ABIERTO" : "CERRADO")
+                                                    </span>
+                                                    <button class="btn btn-sm btn-outline-danger rounded-0 p-1 lh-1 border-0"
+                                                            @onclick="() => ConfirmarEliminarPeriodo(p)"
+                                                            @onclick:stopPropagation
+                                                            title="Eliminar período (desvincula transferencias y devoluciones)">
+                                                        <i class="bi bi-trash3" style="font-size: 0.8rem;"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <small class="d-block text-muted" style="font-size: 0.7rem;">
+                                                @p.FechaInicio.ToString("dd/MM/yyyy") - @p.FechaFin.ToString("dd/MM/yyyy")
+                                            </small>
+                                        </button>
+                                    }
+                                </div>
                             }
                             else
                             {
-                                @* New period form inline *@
-                                <div class="border border-dark p-2 rounded-0 bg-white mb-2">
-                                    <div class="mb-2">
-                                        <label class="fw-bold small text-uppercase mb-1 text-muted">NOMBRE</label>
-                                        <input type="text" class="form-control form-control-sm border-dark rounded-0"
-                                               @bind="NuevoPeriodoName" placeholder="Ej: Junio 2026" />
-                                    </div>
-                                    <div class="row g-1 mb-2">
-                                        <div class="col-6">
-                                            <label class="fw-bold small text-uppercase mb-1 text-muted">INICIO</label>
-                                            <input type="date" class="form-control form-control-sm border-dark rounded-0"
-                                                   @bind="NuevoPeriodoInicio" />
-                                        </div>
-                                        <div class="col-6">
-                                            <label class="fw-bold small text-uppercase mb-1 text-muted">FIN</label>
-                                            <input type="date" class="form-control form-control-sm border-dark rounded-0"
-                                                   @bind="NuevoPeriodoFin" />
-                                        </div>
-                                    </div>
-                                    <div class="d-flex gap-1">
-                                        <button class="btn btn-sm btn-dark rounded-0 fw-bold flex-grow-1"
-                                                @onclick="CrearPeriodo" disabled="@CreandoPeriodo">
-                                            @if (CreandoPeriodo)
-                                            {
-                                                <span class="spinner-border spinner-border-sm me-1"></span>
-                                            }
-                                            else
-                                            {
-                                                <i class="bi bi-check me-1"></i>
-                                            }
-                                            GUARDAR
-                                        </button>
-                                        <button class="btn btn-sm btn-outline-secondary rounded-0 fw-bold"
-                                                @onclick="() => MostrarNuevoPeriodo = false">
-                                            CANCELAR
-                                        </button>
-                                    </div>
+                                <div class="text-center text-muted p-3">
+                                    <i class="bi bi-inbox display-6 mb-2 d-block"></i>
+                                    <p class="fw-bold small">No hay períodos para el filtro seleccionado.</p>
                                 </div>
                             }
-
-                            <button class="btn btn-outline-dark rounded-0 fw-bold text-start"
-                                    @onclick="MostrarFormTransferencia" disabled="@(State.PeriodoActivo?.Estado != AccountingPeriodEstado.Abierto)">
-                                <i class="bi bi-bank me-2"></i>+ NUEVA TRANSFERENCIA
-                            </button>
-
-                            <button class="btn btn-outline-dark rounded-0 fw-bold text-start"
-                                    @onclick="MostrarFormCompra" disabled="@(State.PeriodoActivo?.Estado != AccountingPeriodEstado.Abierto || !State.Transferencias.Any())">
-                                <i class="bi bi-cart4 me-2"></i>+ VINCULAR COMPRA
-                            </button>
-
-                            <button class="btn btn-outline-dark rounded-0 fw-bold text-start"
-                                    @onclick="MostrarFormGasto" disabled="@(State.PeriodoActivo?.Estado != AccountingPeriodEstado.Abierto)">
-                                <i class="bi bi-fuel-pump me-2"></i>+ VINCULAR GASTO
-                            </button>
-
-                            <hr class="my-2" />
-
-                            <button class="btn btn-outline-primary rounded-0 fw-bold text-start"
-                                    @onclick="NavegarACaja">
-                                <i class="bi bi-box-arrow-up-right me-2"></i>IR A CAJA →
-                            </button>
                         </div>
-                    </div>
+                    }
                 </div>
-            </div>
 
-            @* Rightmost: Reconciliation Panel (KPI summary) *@
-            <div class="col-lg-4">
-                <ReconciliationPanel State="@State" OnCerrar="CerrarPeriodo" />
+                @* Action toolbar *@
+                <div class="d-flex gap-2 flex-wrap">
+                    <button class="btn btn-outline-dark rounded-0 fw-bold" @onclick="AbrirNuevoPeriodo">
+                        <i class="bi bi-plus-circle me-1"></i>PERÍODO
+                    </button>
+                    <button class="btn btn-outline-dark rounded-0 fw-bold"
+                            @onclick="MostrarFormTransferencia" disabled="@(State.PeriodoActivo?.Estado != AccountingPeriodEstado.Abierto)">
+                        <i class="bi bi-bank me-1"></i>TRANSFERENCIA
+                    </button>
+                    <button class="btn btn-outline-dark rounded-0 fw-bold"
+                            @onclick="MostrarFormCompra" disabled="@(State.PeriodoActivo?.Estado != AccountingPeriodEstado.Abierto || !State.Transferencias.Any())">
+                        <i class="bi bi-cart4 me-1"></i>COMPRA
+                    </button>
+                    <button class="btn btn-outline-dark rounded-0 fw-bold"
+                            @onclick="MostrarFormGasto" disabled="@(State.PeriodoActivo?.Estado != AccountingPeriodEstado.Abierto)">
+                        <i class="bi bi-fuel-pump me-1"></i>GASTO
+                    </button>
+                    <button class="btn btn-outline-primary rounded-0 fw-bold" @onclick="NavegarACaja">
+                        <i class="bi bi-box-arrow-up-right me-1"></i>IR A CAJA →
+                    </button>
+                </div>
             </div>
         </div>
 
-        @* ====== FORMS (shown when action buttons are clicked) ====== *@
-        @if (ShowTransferenciaForm && State.PeriodoActivoFull != null)
+        @* ====== KPI STRIP (always visible) ====== *@
+        <ReconciliationPanel State="@State" OnCerrar="CerrarPeriodo" />
+
+        @* ====== WORK AREA: tabbed ====== *@
+        @if (State.PeriodoActivoFull != null)
         {
-            <div class="card border-2 border-dark rounded-0 shadow mb-4">
-                <div class="card-header bg-dark text-white rounded-0 fw-bold d-flex justify-content-between align-items-center">
-                    <span><i class="bi bi-bank me-2"></i>REGISTRAR TRANSFERENCIA</span>
-                    <button class="btn btn-sm btn-outline-light rounded-0 fw-bold"
-                            @onclick="() => ShowTransferenciaForm = false">
-                        <i class="bi bi-x"></i> CERRAR
-                    </button>
+            <div class="card border-2 border-dark rounded-0 shadow">
+                <div class="card-header bg-dark rounded-0 p-0">
+                    <div class="d-flex">
+                        <button class="btn rounded-0 fw-bold text-uppercase flex-fill py-2 @TabClass("CUADRE")"
+                                @onclick='() => TabActivo = "CUADRE"'>
+                            <i class="bi bi-table me-2"></i>CUADRE
+                        </button>
+                        <button class="btn rounded-0 fw-bold text-uppercase flex-fill py-2 @TabClass("COMPROBANTES")"
+                                @onclick='() => TabActivo = "COMPROBANTES"'>
+                            <i class="bi bi-card-checklist me-2"></i>COMPROBANTES
+                        </button>
+                        <button class="btn rounded-0 fw-bold text-uppercase flex-fill py-2 @TabClass("SALDO")"
+                                @onclick='() => TabActivo = "SALDO"'>
+                            <i class="bi bi-cash-coin me-2"></i>SALDO A DEVOLVER
+                        </button>
+                    </div>
                 </div>
-                <div class="card-body bg-light">
+                <div class="card-body bg-light p-3" style="max-height: calc(100vh - 360px); overflow-y: auto;">
+                    @switch (TabActivo)
+                    {
+                        case "COMPROBANTES":
+                            <ComprobantesPanel State="@State" OnUpdated="RecargarPeriodoActivo" />
+                            break;
+                        case "SALDO":
+                            <DevolucionPanel State="@State" OnUpdated="RecargarPeriodoActivo" />
+                            break;
+                        default:
+                            <CuadrarView Transferencias="@State.Transferencias"
+                                         Compras="@State.Compras"
+                                         Gastos="@State.Gastos"
+                                         RendicionId="@(State.Transferencias.FirstOrDefault()?.RendicionId ?? 0)"
+                                         OnItemUpdated="RecargarPeriodoActivo"
+                                         OnAvanzar="CerrarPeriodo" />
+                            break;
+                    }
+                </div>
+            </div>
+        }
+        else if (State.PeriodoActivo != null && State.PeriodoActivoFull == null)
+        {
+            <div class="text-center p-5">
+                <div class="spinner-border text-dark mb-3" role="status"></div>
+                <p class="fw-bold text-muted">CARGANDO DATOS DEL PERÍODO...</p>
+            </div>
+        }
+        else
+        {
+            <div class="text-center p-5">
+                <i class="bi bi-hand-index-thumb display-4 text-muted mb-3 d-block"></i>
+                <p class="fw-bold text-muted">Seleccioná un período contable para ver sus datos.</p>
+            </div>
+        }
+    }
+</div>
+
+@* ====== MODALS (floating data-entry forms) ====== *@
+@if (ShowTransferenciaForm && State.PeriodoActivoFull != null)
+{
+    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5); z-index: 1060;">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content rounded-0 border-2 border-dark shadow-lg">
+                <div class="modal-header bg-dark text-white rounded-0 border-bottom border-dark">
+                    <h5 class="modal-title fw-bold text-uppercase"><i class="bi bi-bank me-2"></i>REGISTRAR TRANSFERENCIA</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CerrarFormularios"></button>
+                </div>
+                <div class="modal-body p-4 bg-light">
                     @{
-                        // For period-based transfers, use the period's Trabajador
                         var trabajador = State.PeriodoActivoFull.Transferencias.FirstOrDefault()?.Trabajador
                                         ?? State.PeriodoActivo?.Trabajador
                                         ?? string.Empty;
@@ -240,19 +233,20 @@
                                        PeriodoId="@State.PeriodoActivo?.Id" />
                 </div>
             </div>
-        }
+        </div>
+    </div>
+}
 
-        @if (ShowCompraForm && State.PeriodoActivoFull != null)
-        {
-            <div class="card border-2 border-dark rounded-0 shadow mb-4">
-                <div class="card-header bg-dark text-white rounded-0 fw-bold d-flex justify-content-between align-items-center">
-                    <span><i class="bi bi-cart4 me-2"></i>REGISTRAR COMPRA VINCULADA</span>
-                    <button class="btn btn-sm btn-outline-light rounded-0 fw-bold"
-                            @onclick="() => ShowCompraForm = false">
-                        <i class="bi bi-x"></i> CERRAR
-                    </button>
+@if (ShowCompraForm && State.PeriodoActivoFull != null)
+{
+    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5); z-index: 1060;">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content rounded-0 border-2 border-dark shadow-lg">
+                <div class="modal-header bg-dark text-white rounded-0 border-bottom border-dark">
+                    <h5 class="modal-title fw-bold text-uppercase"><i class="bi bi-cart4 me-2"></i>REGISTRAR COMPRA VINCULADA</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CerrarFormularios"></button>
                 </div>
-                <div class="card-body bg-light">
+                <div class="modal-body p-4 bg-light">
                     @{
                         var compraTrabajador = State.PeriodoActivoFull.Transferencias.FirstOrDefault()?.Trabajador
                                                ?? State.PeriodoActivo?.Trabajador
@@ -264,63 +258,74 @@
                                 RendicionId="@(State.PeriodoActivoFull.Transferencias.FirstOrDefault()?.RendicionId ?? 0)" />
                 </div>
             </div>
-        }
+        </div>
+    </div>
+}
 
-        @if (ShowGastoForm && State.PeriodoActivoFull != null)
-        {
-            <div class="card border-2 border-dark rounded-0 shadow mb-4">
-                <div class="card-header bg-dark text-white rounded-0 fw-bold d-flex justify-content-between align-items-center">
-                    <span><i class="bi bi-fuel-pump me-2"></i>REGISTRAR GASTO</span>
-                    <button class="btn btn-sm btn-outline-light rounded-0 fw-bold"
-                            @onclick="() => ShowGastoForm = false">
-                        <i class="bi bi-x"></i> CERRAR
-                    </button>
+@if (ShowGastoForm && State.PeriodoActivoFull != null)
+{
+    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5); z-index: 1060;">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content rounded-0 border-2 border-dark shadow-lg">
+                <div class="modal-header bg-dark text-white rounded-0 border-bottom border-dark">
+                    <h5 class="modal-title fw-bold text-uppercase"><i class="bi bi-fuel-pump me-2"></i>REGISTRAR GASTO</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CerrarFormularios"></button>
                 </div>
-                <div class="card-body bg-light">
+                <div class="modal-body p-4 bg-light">
                     <GastoForm OnGastoCreated="OnGastoCreado"
                                RendicionId="@(State.PeriodoActivoFull.Transferencias.FirstOrDefault()?.RendicionId ?? 0)" />
                 </div>
             </div>
-        }
+        </div>
+    </div>
+}
 
-        @* ====== MAIN DATA SECTIONS ====== *@
-        @if (State.PeriodoActivoFull != null)
-        {
-            @* ── Side-by-side comprobantes verification ── *@
-            <ComprobantesPanel State="@State" OnUpdated="RecargarPeriodoActivo" />
-
-            @* ── Saldo breakdown + Registrar Devolución ── *@
-            <DevolucionPanel State="@State" OnUpdated="RecargarPeriodoActivo" />
-
-            @* ── Detailed tables (read-only audit) ── *@
-            <CuadrarView Transferencias="@State.Transferencias"
-                         Compras="@State.Compras"
-                         Gastos="@State.Gastos"
-                         RendicionId="@(State.Transferencias.FirstOrDefault()?.RendicionId ?? 0)"
-                         OnItemUpdated="RecargarPeriodoActivo"
-                         OnAvanzar="CerrarPeriodo" />
-        }
-        else if (State.PeriodoActivo != null && State.PeriodoActivoFull == null)
-        {
-            <div class="row">
-                <div class="col-12 text-center p-5">
-                    <div class="spinner-border text-dark mb-3" role="status"></div>
-                    <p class="fw-bold text-muted">CARGANDO DATOS DEL PERÍODO...</p>
+@if (MostrarNuevoPeriodo)
+{
+    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5); z-index: 1060;">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content rounded-0 border-2 border-dark shadow-lg">
+                <div class="modal-header bg-dark text-white rounded-0 border-bottom border-dark">
+                    <h5 class="modal-title fw-bold text-uppercase"><i class="bi bi-plus-circle me-2"></i>NUEVO PERÍODO</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CerrarFormularios"></button>
+                </div>
+                <div class="modal-body p-4 bg-light">
+                    <div class="mb-3">
+                        <label class="fw-bold small text-uppercase mb-1 text-muted">NOMBRE</label>
+                        <input type="text" class="form-control border-dark rounded-0"
+                               @bind="NuevoPeriodoName" placeholder="Ej: Junio 2026" />
+                    </div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <label class="fw-bold small text-uppercase mb-1 text-muted">INICIO</label>
+                            <input type="date" class="form-control border-dark rounded-0" @bind="NuevoPeriodoInicio" />
+                        </div>
+                        <div class="col-6">
+                            <label class="fw-bold small text-uppercase mb-1 text-muted">FIN</label>
+                            <input type="date" class="form-control border-dark rounded-0" @bind="NuevoPeriodoFin" />
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light rounded-0 border-top border-dark">
+                    <button type="button" class="btn btn-outline-dark rounded-0 fw-bold" @onclick="CerrarFormularios">
+                        CANCELAR
+                    </button>
+                    <button type="button" class="btn btn-dark rounded-0 fw-bold px-4" @onclick="CrearPeriodo" disabled="@CreandoPeriodo">
+                        @if (CreandoPeriodo)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2"></span>
+                        }
+                        else
+                        {
+                            <i class="bi bi-check me-2"></i>
+                        }
+                        GUARDAR
+                    </button>
                 </div>
             </div>
-        }
-        else
-        {
-            <div class="row">
-                <div class="col-12 text-center p-5">
-                    <i class="bi bi-hand-index-thumb display-4 text-muted mb-3 d-block"></i>
-                    <p class="fw-bold text-muted">Seleccioná un período contable de la lista para ver sus datos.</p>
-                </div>
-            </div>
-        }
-    }
-
-</div>
+        </div>
+    </div>
+}
 
 @code {
     [SupplyParameterFromQuery(Name = "periodoId")]
@@ -336,16 +341,27 @@
     private DateTime? FiltroDesde { get; set; }
     private DateTime? FiltroHasta { get; set; }
 
+    // Period selector dropdown
+    private bool MostrarSelectorPeriodos { get; set; }
+
+    // Work area tab
+    private string TabActivo { get; set; } = "CUADRE";
+
     // New period form
     private bool MostrarNuevoPeriodo { get; set; }
     private string NuevoPeriodoName { get; set; } = string.Empty;
     private DateTime NuevoPeriodoInicio { get; set; } = DateTime.Today;
     private DateTime NuevoPeriodoFin { get; set; } = DateTime.Today.AddMonths(1).AddDays(-1);
 
-    // Form toggles
+    // Form modals
     private bool ShowTransferenciaForm { get; set; }
     private bool ShowCompraForm { get; set; }
     private bool ShowGastoForm { get; set; }
+
+    private bool AnyFormOpen => ShowTransferenciaForm || ShowCompraForm || ShowGastoForm || MostrarNuevoPeriodo;
+
+    private string TabClass(string tab) =>
+        TabActivo == tab ? "bg-light text-dark" : "btn-dark text-white-50";
 
     protected override async Task OnInitializedAsync()
     {
@@ -360,6 +376,8 @@
             CargandoInicial = false;
         }
     }
+
+    private void ToggleSelectorPeriodos() => MostrarSelectorPeriodos = !MostrarSelectorPeriodos;
 
     private async Task CargarPeriodos()
     {
@@ -387,9 +405,7 @@
 
     private async Task FiltrarPeriodos()
     {
-        CargandoInicial = true;
         await CargarPeriodos();
-        CargandoInicial = false;
     }
 
     private void NavegarACaja()
@@ -403,12 +419,8 @@
         {
             Error = null;
             if (!keepMessages) SuccessMessage = null;
-            if (!keepMessages)
-            {
-                ShowTransferenciaForm = false;
-                ShowCompraForm = false;
-                ShowGastoForm = false;
-            }
+            MostrarSelectorPeriodos = false;
+            if (!keepMessages) await CerrarFormularios();
 
             // Find the basic DTO
             State.PeriodoActivo = State.Periodos.FirstOrDefault(p => p.Id == periodoId);
@@ -452,12 +464,12 @@
             {
                 var dto = await response.Content.ReadFromJsonAsync<AccountingPeriodDto>();
                 SuccessMessage = $"Período \"{dto?.Name}\" creado exitosamente.";
-                MostrarNuevoPeriodo = false;
                 NuevoPeriodoName = string.Empty;
                 NuevoPeriodoInicio = DateTime.Today;
                 NuevoPeriodoFin = DateTime.Today.AddMonths(1).AddDays(-1);
+                await CerrarFormularios();
                 await CargarPeriodos();
-                if (dto != null) await SeleccionarPeriodo(dto.Id);
+                if (dto != null) await SeleccionarPeriodo(dto.Id, keepMessages: true);
             }
             else
             {
@@ -488,7 +500,7 @@
                 SuccessMessage = "Período cerrado exitosamente.";
                 await CargarPeriodos();
                 if (State.PeriodoActivo != null)
-                    await SeleccionarPeriodo(State.PeriodoActivo.Id);
+                    await SeleccionarPeriodo(State.PeriodoActivo.Id, keepMessages: true);
             }
             else
             {
@@ -558,32 +570,32 @@
         }
     }
 
-    private void MostrarFormTransferencia()
+    // ===== Modal open/close (with body scroll lock) =====
+    private async Task MostrarFormTransferencia() => await AbrirModal(() => ShowTransferenciaForm = true);
+    private async Task MostrarFormCompra() => await AbrirModal(() => ShowCompraForm = true);
+    private async Task MostrarFormGasto() => await AbrirModal(() => ShowGastoForm = true);
+    private async Task AbrirNuevoPeriodo() => await AbrirModal(() => MostrarNuevoPeriodo = true);
+
+    private async Task AbrirModal(Action abrir)
     {
-        ShowTransferenciaForm = true;
-        ShowCompraForm = false;
-        ShowGastoForm = false;
+        var yaAbierto = AnyFormOpen;
+        ShowTransferenciaForm = ShowCompraForm = ShowGastoForm = MostrarNuevoPeriodo = false;
+        abrir();
+        MostrarSelectorPeriodos = false;
+        if (!yaAbierto) await JS.InvokeVoidAsync("modalScrollLock.lock");
     }
 
-    private void MostrarFormCompra()
+    private async Task CerrarFormularios()
     {
-        ShowCompraForm = true;
-        ShowTransferenciaForm = false;
-        ShowGastoForm = false;
-    }
-
-    private void MostrarFormGasto()
-    {
-        ShowGastoForm = true;
-        ShowTransferenciaForm = false;
-        ShowCompraForm = false;
+        if (AnyFormOpen) await JS.InvokeVoidAsync("modalScrollLock.unlock");
+        ShowTransferenciaForm = ShowCompraForm = ShowGastoForm = MostrarNuevoPeriodo = false;
     }
 
     private async Task OnTransferenciaCreada(TransferenciaDto t)
     {
         SuccessMessage = $"Transferencia ${t.Monto.ToString("N0")} registrada.";
         Error = null;
-        // Stay on the form to allow multiple transfers per period (partial deliveries)
+        // Stay on the modal to allow multiple transfers per period (partial deliveries)
         await RecargarPeriodoActivo();
     }
 
@@ -591,7 +603,7 @@
     {
         SuccessMessage = $"Compra a {c.Proveedor} por ${c.MontoTotal.ToString("N0")} vinculada.";
         Error = null;
-        ShowCompraForm = false;
+        await CerrarFormularios();
         await RecargarPeriodoActivo();
     }
 
@@ -599,7 +611,7 @@
     {
         SuccessMessage = $"Gasto {g.Categoria} por ${Math.Abs(g.Monto).ToString("N0")} vinculado.";
         Error = null;
-        ShowGastoForm = false;
+        await CerrarFormularios();
         await RecargarPeriodoActivo();
     }
 }
