@@ -201,6 +201,8 @@ public class RendicionController(
                 Estado = t.Estado,
                 RendicionId = t.RendicionId,
                 MovimientoCajaId = t.MovimientoCajaId,
+                Verificada = t.Verificada,
+                ComprobanteImagenPath = t.ComprobanteImagenPath,
                 Compras = t.Compras?.Select(c => new CompraDto
                 {
                     Id = c.Id,
@@ -255,6 +257,8 @@ public class RendicionController(
                 Estado = t.Estado,
                 RendicionId = t.RendicionId,
                 MovimientoCajaId = t.MovimientoCajaId,
+                Verificada = t.Verificada,
+                ComprobanteImagenPath = t.ComprobanteImagenPath,
                 Compras = t.Compras?.Select(c => new CompraDto
                 {
                     Id = c.Id,

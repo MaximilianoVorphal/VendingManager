@@ -1,4 +1,5 @@
 @using VendingManager.Shared.DTOs
+@using Microsoft.AspNetCore.Components.Forms
 @inject HttpClient Http
 @inject IJSRuntime JS
 
@@ -34,6 +35,24 @@
             <input type="date" class="form-control border-dark rounded-0 fw-bold"
                    @bind="Form.Fecha" />
         </div>
+        <div class="col-12">
+            <label class="fw-bold small text-uppercase mb-1 text-muted">COMPROBANTE (opcional)</label>
+            @if (_pendingFile != null)
+            {
+                <div class="d-flex align-items-center gap-2 p-2 border border-dark rounded-0 bg-white mb-1">
+                    <i class="bi bi-paperclip text-success"></i>
+                    <span class="small fw-bold text-truncate flex-grow-1">@_pendingFile.Name</span>
+                    <button type="button" class="btn btn-sm btn-outline-danger rounded-0 p-1 lh-1 border-0"
+                            @onclick="() => _pendingFile = null" title="Quitar archivo">
+                        <i class="bi bi-x-lg" style="font-size: 0.75rem;"></i>
+                    </button>
+                </div>
+            }
+            <InputFile OnChange="OnFileSelected"
+                       accept=".jpg,.jpeg,.png,.pdf"
+                       class="form-control form-control-sm border-dark rounded-0" />
+            <small class="text-muted">JPG, PNG o PDF — máx. 5MB</small>
+        </div>
         <div class="col-12 mt-3">
             <button class="btn btn-dark rounded-0 fw-bold w-100 py-2"
                     @onclick="RegistrarTransferencia"
@@ -41,12 +60,13 @@
                 @if (Enviando)
                 {
                     <span class="spinner-border spinner-border-sm me-2"></span>
+                    @(_uploadingComprobante ? "Subiendo comprobante..." : "Registrando...")
                 }
                 else
                 {
                     <i class="bi bi-check-lg me-2"></i>
+                    @("REGISTRAR TRANSFERENCIA")
                 }
-                REGISTRAR TRANSFERENCIA
             </button>
         </div>
     </div>
@@ -60,14 +80,21 @@
 
     private TransferenciaFormData Form { get; set; } = new() { Fecha = DateTime.Today };
     private bool Enviando { get; set; }
+    private bool _uploadingComprobante;
     private string? Error { get; set; }
     private string _trabajadorLocal = string.Empty;
     private string _montoDisplay = string.Empty;
+    private IBrowserFile? _pendingFile;
 
     protected override void OnParametersSet()
     {
         if (!string.IsNullOrEmpty(Trabajador) && string.IsNullOrEmpty(_trabajadorLocal))
             _trabajadorLocal = Trabajador;
+    }
+
+    private void OnFileSelected(InputFileChangeEventArgs e)
+    {
+        _pendingFile = e.File;
     }
 
     private void OnMontoChanged(ChangeEventArgs e)
@@ -91,12 +118,9 @@
 
     private async Task RegistrarTransferencia()
     {
-        await JS.InvokeVoidAsync("console.log", $"[TransferenciaForm] Click - Monto={Form.Monto}, RendicionId={RendicionId}, Trabajador='{_trabajadorLocal}'");
-
         if (Form.Monto <= 0)
         {
             Error = "El monto debe ser mayor a cero.";
-            await JS.InvokeVoidAsync("console.warn", "[TransferenciaForm] Monto <= 0, aborting");
             return;
         }
 
@@ -115,43 +139,66 @@
                 Descripcion = Form.Descripcion
             };
 
-            await JS.InvokeVoidAsync("console.log", $"[TransferenciaForm] POST body: {System.Text.Json.JsonSerializer.Serialize(request)}");
-
             var response = await Http.PostAsJsonAsync("api/contabilidad/transferencia-con-movimiento", request);
 
-            await JS.InvokeVoidAsync("console.log", $"[TransferenciaForm] Response: {response.StatusCode}");
-
-            if (response.IsSuccessStatusCode)
+            if (!response.IsSuccessStatusCode)
             {
-                var body = await response.Content.ReadAsStringAsync();
-                await JS.InvokeVoidAsync("console.log", $"[TransferenciaForm] Success body: {body}");
+                Error = await response.Content.ReadAsStringAsync();
+                return;
+            }
 
-                var dto = System.Text.Json.JsonSerializer.Deserialize<TransferenciaDto>(body,
-                    new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-                if (dto != null)
-                {
-                    await JS.InvokeVoidAsync("console.log", $"[TransferenciaForm] DTO parsed: Id={dto.Id}, Monto={dto.Monto}");
-                    Form = new() { Fecha = DateTime.Today };
-                    _montoDisplay = string.Empty;
-                    await OnTransferenciaCreated.InvokeAsync(dto);
-                }
-            }
-            else
+            var body = await response.Content.ReadAsStringAsync();
+            var dto = System.Text.Json.JsonSerializer.Deserialize<TransferenciaDto>(body,
+                new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+            if (dto == null)
             {
-                var errorBody = await response.Content.ReadAsStringAsync();
-                await JS.InvokeVoidAsync("console.error", $"[TransferenciaForm] Error response: {errorBody}");
-                Error = errorBody;
+                Error = "Error al procesar la respuesta del servidor.";
+                return;
             }
+
+            if (_pendingFile != null)
+            {
+                _uploadingComprobante = true;
+                await UploadComprobante(dto.Id);
+                _uploadingComprobante = false;
+            }
+
+            Form = new() { Fecha = DateTime.Today };
+            _montoDisplay = string.Empty;
+            _pendingFile = null;
+            await OnTransferenciaCreated.InvokeAsync(dto);
         }
         catch (Exception ex)
         {
-            await JS.InvokeVoidAsync("console.error", $"[TransferenciaForm] Exception: {ex.Message}\n{ex.StackTrace}");
             Error = $"Error: {ex.Message}";
         }
         finally
         {
             Enviando = false;
-            await JS.InvokeVoidAsync("console.log", "[TransferenciaForm] Finally - Enviando=false");
+            _uploadingComprobante = false;
+        }
+    }
+
+    private async Task UploadComprobante(int transferenciaId)
+    {
+        if (_pendingFile == null) return;
+        try
+        {
+            using var content = new MultipartFormDataContent();
+            var stream = _pendingFile.OpenReadStream(maxAllowedSize: 5 * 1024 * 1024);
+            content.Add(new StreamContent(stream), "file", _pendingFile.Name);
+            var uploadResponse = await Http.PostAsync(
+                $"api/contabilidad/transferencia/{transferenciaId}/comprobante", content);
+            if (!uploadResponse.IsSuccessStatusCode)
+            {
+                var uploadError = await uploadResponse.Content.ReadAsStringAsync();
+                Error = $"Transferencia registrada, pero el comprobante no se pudo subir: {uploadError}";
+            }
+        }
+        catch (Exception ex)
+        {
+            Error = $"Transferencia registrada, pero error al subir comprobante: {ex.Message}";
         }
     }
 
