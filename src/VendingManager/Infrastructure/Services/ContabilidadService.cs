@@ -863,9 +863,12 @@ public class ContabilidadService : IContabilidadService
     /// <summary>
     /// Categorías de MovimientoCaja que son movimientos estructurales de capital (no gastos reales).
     /// Se excluyen de los totales y de la lista de gastos de la rendición.
+    /// RETIRO_CAPITAL se mantiene aquí para compatibilidad con datos anteriores a la migración
+    /// RemoveRetiroCapitalFromCaja; ya no se crean nuevos movimientos de ese tipo.
     /// </summary>
     private static readonly HashSet<string> CategoriasEstructurales = new(StringComparer.OrdinalIgnoreCase)
     {
+        "RETIRO_CAPITAL",
         "DEVOLUCION_RENDICION"
     };
 

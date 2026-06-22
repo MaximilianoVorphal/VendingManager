@@ -599,8 +599,9 @@ public class ConciliacionServiceTests : IDisposable
     [Fact]
     public async Task GetPeriodoFullAsync_ExcludesRetiroCapitalFromGastos()
     {
-        // Arrange — a rendicion-backed transfer with its RETIRO_CAPITAL counterpart
-        // (the funding of the transfer, NOT a real expense), one real gasto, and a compra.
+        // Arrange — verifies RETIRO_CAPITAL legacy entries (pre-migration) are excluded
+        // from gasto totals. New transfers no longer create RETIRO_CAPITAL, but the
+        // filter remains for backward compatibility until migration cleans up old data.
         var period = await CreateOpenPeriodAsync();
 
         var rendicion = new Rendicion { Trabajador = "Worker A" };
