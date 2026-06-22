@@ -158,20 +158,20 @@
                 <div class="card-header bg-dark rounded-0 p-0">
                     <div class="d-flex">
                         <button class="btn rounded-0 fw-bold text-uppercase flex-fill py-2 @TabClass("CUADRE")"
-                                @onclick='() => TabActivo = "CUADRE"'>
+                                @onclick='() => CambiarTab("CUADRE")'>
                             <i class="bi bi-table me-2"></i>CUADRE
                         </button>
                         <button class="btn rounded-0 fw-bold text-uppercase flex-fill py-2 @TabClass("COMPROBANTES")"
-                                @onclick='() => TabActivo = "COMPROBANTES"'>
+                                @onclick='() => CambiarTab("COMPROBANTES")'>
                             <i class="bi bi-card-checklist me-2"></i>COMPROBANTES
                         </button>
                         <button class="btn rounded-0 fw-bold text-uppercase flex-fill py-2 @TabClass("SALDO")"
-                                @onclick='() => TabActivo = "SALDO"'>
+                                @onclick='() => CambiarTab("SALDO")'>
                             <i class="bi bi-cash-coin me-2"></i>SALDO A DEVOLVER
                         </button>
                     </div>
                 </div>
-                <div class="card-body bg-light p-3" style="flex: 1; overflow-y: auto; min-height: 0;">
+                <div id="contabilidad-workarea-scroll" class="card-body bg-light p-3" style="flex: 1; overflow-y: auto; min-height: 0;">
                     @switch (TabActivo)
                     {
                         case "COMPROBANTES":
@@ -302,6 +302,14 @@
     }
 
     private void ToggleSelectorRendiciones() => MostrarSelectorRendiciones = !MostrarSelectorRendiciones;
+
+    private async Task CambiarTab(string tab)
+    {
+        if (TabActivo == tab) return;
+        TabActivo = tab;
+        // Each tab is independent: reset the shared scroll container to the top.
+        await JS.InvokeVoidAsync("scrollElementToTop", "contabilidad-workarea-scroll");
+    }
 
     private async Task CargarRendiciones()
     {

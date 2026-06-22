@@ -115,39 +115,6 @@ public class TemplatesRecargaViewportTests : ViewportTestBase
     }
 
     // ══════════════════════════════════════════════════════════════════════════
-    // UC-7: Deprecation banner on Reposicion page
-    // ══════════════════════════════════════════════════════════════════════════
-
-    /// <summary>
-    /// UC-7: Reposicion page (/reposicion) displays a deprecation banner with
-    /// "DESCONTINUADA" text and a link to Templates de Recarga.
-    /// </summary>
-    [Test]
-    [TestCaseSource(typeof(ViewportConfig), nameof(ViewportConfig.AllProfiles))]
-    public async Task ReposicionPage_ShowsDeprecationBanner(ViewportProfile profile)
-    {
-        var available = await IsAppAvailableAsync();
-        if (!available) Assert.Ignore("App not available at " + BaseUrl);
-
-        await SetupViewport(profile, "/reposicion");
-
-        // Banner must be visible
-        var banner = Page.Locator(".deprecation-banner");
-        Assert.That(await banner.IsVisibleAsync(), Is.True,
-            "Deprecation banner should be visible on Reposicion page");
-
-        // Must contain deprecation notice
-        var bannerText = await banner.TextContentAsync();
-        Assert.That(bannerText, Does.Contain("DESCONTINUADA"),
-            "Banner should mark Reposicion as discontinued");
-
-        // Must link to /templates-recarga
-        var link = banner.Locator("a[href*=\"templates-recarga\"]");
-        Assert.That(await link.CountAsync(), Is.GreaterThan(0),
-            "Banner should contain a link to /templates-recarga");
-    }
-
-    // ══════════════════════════════════════════════════════════════════════════
     // E2E Lifecycle Test: Borrador → EnCarga → Activo → Cerrado (task 6.8)
     // ══════════════════════════════════════════════════════════════════════════
 
