@@ -451,7 +451,7 @@ public class CompraService : ICompraService
         return Path.Combine(basePath, relativePath.TrimStart('/'));
     }
 
-    public async Task<IEnumerable<Compra>> GetComprasNoVinculadasAsync(string? proveedor = null, string? numeroDocumento = null)
+    public async Task<IEnumerable<Compra>> GetComprasNoVinculadasAsync(string? proveedor = null, string? numeroDocumento = null, DateTime? desde = null, DateTime? hasta = null)
     {
         var query = _context.Compras
             .Where(c => c.TransferenciaId == null);
@@ -461,6 +461,12 @@ public class CompraService : ICompraService
 
         if (!string.IsNullOrWhiteSpace(numeroDocumento))
             query = query.Where(c => c.NumeroDocumento != null && c.NumeroDocumento.Contains(numeroDocumento));
+
+        if (desde.HasValue)
+            query = query.Where(c => c.FechaCompra >= desde.Value);
+
+        if (hasta.HasValue)
+            query = query.Where(c => c.FechaCompra <= hasta.Value);
 
         return await query
             .OrderByDescending(c => c.FechaCompra)
