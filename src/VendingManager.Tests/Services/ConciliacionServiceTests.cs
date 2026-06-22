@@ -597,6 +597,71 @@ public class ConciliacionServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task GetPeriodoFullAsync_ExcludesRetiroCapitalFromGastos()
+    {
+        // Arrange — a rendicion-backed transfer with its RETIRO_CAPITAL counterpart
+        // (the funding of the transfer, NOT a real expense), one real gasto, and a compra.
+        var period = await CreateOpenPeriodAsync();
+
+        var rendicion = new Rendicion { Trabajador = "Worker A" };
+        _context.Rendiciones.Add(rendicion);
+        await _context.SaveChangesAsync();
+
+        var t = new Transferencia
+        {
+            Fecha = DateTime.Today,
+            Monto = 1000m,
+            Trabajador = "Worker A",
+            Estado = TransferenciaEstado.EnUso,
+            PeriodoId = period.Id,
+            RendicionId = rendicion.Id
+        };
+        _context.Transferencias.Add(t);
+        await _context.SaveChangesAsync();
+
+        _context.MovimientosCaja.AddRange(
+            new MovimientoCaja
+            {
+                Fecha = DateTime.Today,
+                Descripcion = "Retiro para rendición: transferencia",
+                Monto = -1000m,
+                Tipo = "RETIRO",
+                Categoria = "RETIRO_CAPITAL",
+                RendicionId = rendicion.Id
+            },
+            new MovimientoCaja
+            {
+                Fecha = DateTime.Today,
+                Descripcion = "Bencina",
+                Monto = -150m,
+                Tipo = "GASTO",
+                Categoria = "BENCINA",
+                RendicionId = rendicion.Id
+            });
+
+        _context.Compras.Add(new Compra
+        {
+            Proveedor = "Prov A",
+            FechaCompra = DateTime.Today,
+            MontoTotal = 400m,
+            TransferenciaId = t.Id
+        });
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        // Act
+        var dto = await _contabilidadService.GetPeriodoFullAsync(period.Id);
+
+        // Assert — the RETIRO_CAPITAL must NOT be counted/listed as a gasto
+        dto.Should().NotBeNull();
+        dto!.TotalGastos.Should().Be(150m); // only the real gasto, not the 1000 retiro
+        dto.Gastos.Should().ContainSingle(g => g.Categoria == "BENCINA");
+        dto.Gastos.Should().NotContain(g => g.Categoria == "RETIRO_CAPITAL");
+        // Diferencia = 1000 transferido − 400 compras − 150 gastos = 450 (was −550 with double count)
+        dto.Diferencia.Should().Be(450m);
+    }
+
+    [Fact]
     public async Task ClosePeriodoAsync_UnverifiedTransferencia_ThrowsInvalidOperation()
     {
         // Arrange — period with one Transferencia (Verificada = false) linked to a compra
