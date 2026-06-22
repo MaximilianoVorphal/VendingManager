@@ -52,8 +52,9 @@
     }
 
     /* PAGE HEADER: stack vertically on mobile */
-    .industrial-wrapper .industrial-page-header .col-md-7 {
+    .industrial-wrapper .industrial-page-header > .d-flex {
         margin-top: 0.5rem;
+        width: 100%;
     }
 
     .industrial-wrapper .industrial-page-header .d-flex {

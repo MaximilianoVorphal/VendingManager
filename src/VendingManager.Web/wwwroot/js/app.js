@@ -1,3 +1,8 @@
+window.scrollElementToTop = (id) => {
+    const el = document.getElementById(id);
+    if (el) el.scrollTop = 0;
+};
+
 window.descargarArchivo = (content, fileName) => {
     try {
         let byteArray;
