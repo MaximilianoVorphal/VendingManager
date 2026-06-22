@@ -4,44 +4,20 @@ using VendingManager.Shared.DTOs;
 using VendingManager.Shared.Enums;
 using VendingManager.Web.Pages.Contabilidad.State;
 
-/// <summary>
-/// Unit tests for ContabilidadPageState computed properties (TASK-12).
-/// </summary>
 public class ContabilidadPageStateTests
 {
     // ── Helpers ──────────────────────────────────────────────────────────────
 
-    private static TransferenciaDto MakeTransferencia(bool verificada = true, int compraCount = 0)
-    {
-        var t = new TransferenciaDto
-        {
-            Id = Random.Shared.Next(1, 10000),
-            Fecha = DateTime.Today,
-            Monto = 1000m,
-            Trabajador = "Worker A",
-            Estado = TransferenciaEstado.EnUso,
-            Verificada = verificada,
-            Compras = Enumerable.Range(1, compraCount)
-                .Select(_ => new CompraDto
-                {
-                    Id = Random.Shared.Next(1, 10000),
-                    Proveedor = "Prov",
-                    FechaCompra = DateTime.Today,
-                    MontoTotal = 200m,
-                    Verificada = verificada
-                })
-                .ToList()
-        };
-        return t;
-    }
-
-    private static AccountingPeriodFullDto MakeFullDto(
+    private static RendicionFullDto MakeFullDto(
         decimal monto = 1000m,
         decimal devuelto = 0m,
         bool transVerificada = true,
         int compras = 0,
         bool comprasVerificadas = true)
     {
+        var totalCompras = compras * 100m;
+        var diferencia = monto - totalCompras;
+
         var transferencia = new TransferenciaDto
         {
             Id = 1,
@@ -62,43 +38,47 @@ public class ContabilidadPageStateTests
                 .ToList()
         };
 
-        return new AccountingPeriodFullDto
+        return new RendicionFullDto
         {
             Id = 1,
-            Name = "Test Period",
+            Trabajador = "Worker A",
             FechaInicio = DateTime.Today,
-            FechaFin = DateTime.Today.AddMonths(1),
-            Estado = AccountingPeriodEstado.Abierto,
-            TotalTransferido = monto,
-            TotalCompras = compras * 100m,
-            TotalGastos = 0m,
-            Devuelto = devuelto,
-            Transferencias = new List<TransferenciaDto> { transferencia }
+            Estado = RendicionEstado.Abierta,
+            Transferencias = new List<TransferenciaDto> { transferencia },
+            Resumen = new RendicionResumenDto
+            {
+                RendicionId = 1,
+                Transferido = monto,
+                TotalCompras = totalCompras,
+                TotalGastos = 0m,
+                Diferencia = diferencia,
+                Devuelto = devuelto
+            }
         };
     }
 
     // ── Devuelto / SaldoADevolver pass-through ─────────────────────────────
 
     [Fact]
-    public void Devuelto_WhenNoPeriodoActivo_ReturnsZero()
+    public void Devuelto_WhenNoRendicionActiva_ReturnsZero()
     {
         var state = new ContabilidadPageState();
         state.Devuelto.Should().Be(0m);
     }
 
     [Fact]
-    public void SaldoADevolver_WhenNoPeriodoActivo_ReturnsZero()
+    public void SaldoADevolver_WhenNoRendicionActiva_ReturnsZero()
     {
         var state = new ContabilidadPageState();
         state.SaldoADevolver.Should().Be(0m);
     }
 
     [Fact]
-    public void Devuelto_ReflectsPeriodoActivoFullDevuelto()
+    public void Devuelto_ReflectsResumenDevuelto()
     {
         var state = new ContabilidadPageState
         {
-            PeriodoActivoFull = MakeFullDto(monto: 1000m, devuelto: 300m)
+            RendicionActivaFull = MakeFullDto(monto: 1000m, devuelto: 300m)
         };
         state.Devuelto.Should().Be(300m);
     }
@@ -108,7 +88,7 @@ public class ContabilidadPageStateTests
     {
         var state = new ContabilidadPageState
         {
-            PeriodoActivoFull = MakeFullDto(monto: 1000m, devuelto: 200m)
+            RendicionActivaFull = MakeFullDto(monto: 1000m, devuelto: 200m)
         };
         // Diferencia = 1000 - 0 - 0 = 1000; SaldoADevolver = 1000 - 200 = 800
         state.SaldoADevolver.Should().Be(800m);
@@ -117,7 +97,7 @@ public class ContabilidadPageStateTests
     // ── CanCuadrar ─────────────────────────────────────────────────────────
 
     [Fact]
-    public void CanCuadrar_WhenNoPeriodoActivo_ReturnsFalse()
+    public void CanCuadrar_WhenNoRendicionActiva_ReturnsFalse()
     {
         var state = new ContabilidadPageState();
         state.CanCuadrar.Should().BeFalse();
@@ -126,24 +106,23 @@ public class ContabilidadPageStateTests
     [Fact]
     public void CanCuadrar_WhenAllVerifiedAndSaldoZero_ReturnsTrue()
     {
-        // Transferida 1000, Compras 1000, Devuelto 0 → Diferencia=0, SaldoADevolver=0
         var state = new ContabilidadPageState
         {
-            PeriodoActivoFull = MakeFullDto(monto: 1000m, devuelto: 0m,
+            RendicionActivaFull = MakeFullDto(monto: 1000m, devuelto: 0m,
                 transVerificada: true, compras: 1, comprasVerificadas: true)
         };
-        // Override totals to make saldo zero
-        state.PeriodoActivoFull!.TotalCompras = 1000m;
+        // Override Diferencia to zero so SaldoADevolver = 0
+        state.RendicionActivaFull!.Resumen.Diferencia = 0m;
         state.CanCuadrar.Should().BeTrue();
     }
 
     [Fact]
     public void CanCuadrar_WhenSaldoADevolverGreaterThanZero_ReturnsFalse()
     {
-        // Transferida 1000, Compras 0, Devuelto 0 → Diferencia=1000, SaldoADevolver=1000
+        // Diferencia = 1000 - 0 = 1000; Devuelto = 0 → SaldoADevolver = 1000
         var state = new ContabilidadPageState
         {
-            PeriodoActivoFull = MakeFullDto(monto: 1000m, devuelto: 0m,
+            RendicionActivaFull = MakeFullDto(monto: 1000m, devuelto: 0m,
                 transVerificada: true, compras: 0)
         };
         state.CanCuadrar.Should().BeFalse();
@@ -154,7 +133,7 @@ public class ContabilidadPageStateTests
     {
         var state = new ContabilidadPageState
         {
-            PeriodoActivoFull = MakeFullDto(monto: 1000m, devuelto: 1000m,
+            RendicionActivaFull = MakeFullDto(monto: 1000m, devuelto: 1000m,
                 transVerificada: false, compras: 0)
         };
         state.CanCuadrar.Should().BeFalse();
@@ -165,47 +144,50 @@ public class ContabilidadPageStateTests
     {
         var state = new ContabilidadPageState
         {
-            PeriodoActivoFull = MakeFullDto(monto: 1000m, devuelto: 900m,
+            RendicionActivaFull = MakeFullDto(monto: 1000m, devuelto: 900m,
                 transVerificada: true, compras: 1, comprasVerificadas: false)
         };
-        // TotalCompras = 100, Diferencia = 900, Devuelto = 900 → SaldoADevolver = 0
-        state.PeriodoActivoFull!.TotalCompras = 100m;
-        state.PeriodoActivoFull.Devuelto = 900m;
+        // Diferencia = 900, Devuelto = 900 → SaldoADevolver = 0, but compra not verified
+        state.RendicionActivaFull!.Resumen.Diferencia = 900m;
         state.CanCuadrar.Should().BeFalse();
     }
 
     [Fact]
-    public void CanCuadrar_WhenNoPeriodoActivoFull_ReturnsFalse()
+    public void CanCuadrar_WhenNoRendicionActivaFull_ReturnsFalse()
     {
         var state = new ContabilidadPageState
         {
-            PeriodoActivo = new AccountingPeriodDto
+            RendicionActiva = new RendicionDto
             {
-                Id = 1, Name = "Test", Estado = AccountingPeriodEstado.Abierto
+                Id = 1, Trabajador = "Test", Estado = RendicionEstado.Abierta
             }
         };
         state.CanCuadrar.Should().BeFalse();
     }
 
     [Fact]
-    public void CanCuadrar_WhenPeriodHasNoTransferencias_ReturnsFalse()
+    public void CanCuadrar_WhenRendicionHasNoTransferencias_ReturnsFalse()
     {
-        // Empty period: saldo is 0 and the verify checks pass vacuously, but
-        // there is nothing to reconcile — must NOT be cuadrable.
+        // Empty rendicion: saldo is 0 and verify checks pass vacuously,
+        // but there is nothing to reconcile — must NOT be cuadrable.
         var state = new ContabilidadPageState
         {
-            PeriodoActivoFull = new AccountingPeriodFullDto
+            RendicionActivaFull = new RendicionFullDto
             {
                 Id = 1,
-                Name = "Empty Period",
+                Trabajador = "Test",
                 FechaInicio = DateTime.Today,
-                FechaFin = DateTime.Today.AddMonths(1),
-                Estado = AccountingPeriodEstado.Abierto,
-                TotalTransferido = 0m,
-                TotalCompras = 0m,
-                TotalGastos = 0m,
-                Devuelto = 0m,
-                Transferencias = new List<TransferenciaDto>()
+                Estado = RendicionEstado.Abierta,
+                Transferencias = new List<TransferenciaDto>(),
+                Resumen = new RendicionResumenDto
+                {
+                    RendicionId = 1,
+                    Transferido = 0m,
+                    TotalCompras = 0m,
+                    TotalGastos = 0m,
+                    Diferencia = 0m,
+                    Devuelto = 0m
+                }
             }
         };
         state.CanCuadrar.Should().BeFalse();
@@ -214,10 +196,10 @@ public class ContabilidadPageStateTests
     [Fact]
     public void CanCuadrar_WhenSaldoADevolverNegative_ReturnsFalse()
     {
-        // Over-returned: Diferencia 1000, Devuelto 1500 → SaldoADevolver = -500.
+        // Over-returned: Diferencia 1000, Devuelto 1500 → SaldoADevolver = -500
         var state = new ContabilidadPageState
         {
-            PeriodoActivoFull = MakeFullDto(monto: 1000m, devuelto: 1500m,
+            RendicionActivaFull = MakeFullDto(monto: 1000m, devuelto: 1500m,
                 transVerificada: true, compras: 0)
         };
         state.SaldoADevolver.Should().Be(-500m);
