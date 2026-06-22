@@ -789,3 +789,8 @@ html {
 .pack-row:hover {
     background-color: #ffe69c !important;
 }
+
+/* Remove rounded corners from native file picker button to match industrial design */
+.form-control::file-selector-button {
+    border-radius: 0 !important;
+}
