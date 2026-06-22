@@ -2,175 +2,119 @@
 @using VendingManager.Shared.DTOs
 @using VendingManager.Shared.Enums
 
-<div class="card border-2 border-dark rounded-0 shadow sticky-panel">
-    <div class="card-header bg-dark text-white rounded-0 fw-bold text-uppercase d-flex justify-content-between align-items-center">
-        <span><i class="bi bi-graph-up me-2"></i>RESUMEN PERIODO</span>
-    </div>
-    <div class="card-body bg-light p-3">
-
+<div class="card border-2 border-dark rounded-0 shadow mb-3">
+    <div class="card-body bg-light p-0">
         @if (PeriodoActivo != null)
         {
-            @* Period Info *@
-            <div class="mb-3 p-2 bg-white border border-dark rounded-0">
-                <div class="fw-bold text-uppercase small text-muted">@PeriodoActivo.Name</div>
-                <div class="d-flex justify-content-between small fw-bold mt-1">
-                    <span>@PeriodoActivo.FechaInicio.ToString("dd/MM/yyyy")</span>
-                    <span class="text-muted">→</span>
-                    <span>@PeriodoActivo.FechaFin.ToString("dd/MM/yyyy")</span>
-                </div>
-                @if (!string.IsNullOrEmpty(PeriodoActivo.Trabajador))
-                {
-                    <div class="mt-1">
-                        <span class="badge bg-secondary rounded-0">
-                            <i class="bi bi-person me-1"></i>@PeriodoActivo.Trabajador
-                        </span>
-                    </div>
-                }
-            </div>
+            <div class="d-flex flex-wrap align-items-stretch">
 
-            @* KPI Cards *@
-            <div class="mb-3">
-                <div class="d-flex justify-content-between align-items-center py-2 border-bottom border-dark">
-                    <span class="text-muted fw-bold text-uppercase small" style="font-size: 0.7rem;">TRANSFERIDO</span>
-                    <span class="text-success fw-bold font-monospace">+$@TotalTransferido.ToString("N0")</span>
-                </div>
-                <div class="d-flex justify-content-between align-items-center py-2 border-bottom border-dark">
-                    <span class="text-muted fw-bold text-uppercase small" style="font-size: 0.7rem;">COMPRAS</span>
-                    <span class="text-danger fw-bold font-monospace">-$@TotalCompras.ToString("N0")</span>
-                </div>
-                <div class="d-flex justify-content-between align-items-center py-2 border-bottom border-dark">
-                    <span class="text-muted fw-bold text-uppercase small" style="font-size: 0.7rem;">GASTOS</span>
-                    <span class="text-danger fw-bold font-monospace">-$@TotalGastos.ToString("N0")</span>
-                </div>
-                @if (Devuelto > 0)
-                {
-                    <div class="d-flex justify-content-between align-items-center py-2 border-bottom border-dark">
-                        <span class="text-muted fw-bold text-uppercase small" style="font-size: 0.7rem;">DEVUELTO</span>
-                        <span class="text-info fw-bold font-monospace">-$@Devuelto.ToString("N0")</span>
+                @* Period info *@
+                <div class="p-3 border-end border-dark d-flex flex-column justify-content-center" style="min-width: 180px;">
+                    <div class="fw-bold text-uppercase small">@PeriodoActivo.Name</div>
+                    <div class="small fw-bold font-monospace text-muted mt-1">
+                        @PeriodoActivo.FechaInicio.ToString("dd/MM/yy") → @PeriodoActivo.FechaFin.ToString("dd/MM/yy")
                     </div>
-                }
-            </div>
-
-            @* Diferencia + SaldoADevolver *@
-            <div class="@(DiferenciaClass) p-3 rounded-0 border border-dark text-center mb-2">
-                <small class="text-uppercase fw-bold d-block mb-1" style="font-size: 0.65rem;">DIFERENCIA</small>
-                <span class="fw-bold font-monospace fs-5">$@Diferencia.ToString("N0")</span>
-            </div>
-            @if (Devuelto > 0 || SaldoADevolver != Diferencia)
-            {
-                <div class="@(SaldoADevolverClass) p-3 rounded-0 border border-dark text-center mb-3">
-                    <small class="text-uppercase fw-bold d-block mb-1" style="font-size: 0.65rem;">SALDO A DEVOLVER</small>
-                    <span class="fw-bold font-monospace fs-4">$@SaldoADevolver.ToString("N0")</span>
-                    @if (SaldoADevolver == 0)
+                    @if (!string.IsNullOrEmpty(PeriodoActivo.Trabajador))
                     {
                         <div class="mt-1">
-                            <span class="badge bg-success rounded-0 fw-bold">
-                                <i class="bi bi-check-circle-fill me-1"></i>SALDO CERO
+                            <span class="badge bg-secondary rounded-0">
+                                <i class="bi bi-person me-1"></i>@PeriodoActivo.Trabajador
                             </span>
                         </div>
                     }
                 </div>
-            }
-            else
-            {
-                <div class="mb-3">
-                    @if (Diferencia == 0)
-                    {
-                        <div class="text-center">
-                            <span class="badge bg-success rounded-0 fw-bold">
-                                <i class="bi bi-check-circle-fill me-1"></i>CUADRADO
-                            </span>
-                        </div>
-                    }
-                    else if (Diferencia > 0)
-                    {
-                        <div class="text-center">
-                            <span class="badge bg-warning text-dark rounded-0 fw-bold">
-                                DIFERENCIA POSITIVA
-                            </span>
-                        </div>
-                    }
-                    else
-                    {
-                        <div class="text-center">
-                            <span class="badge bg-danger rounded-0 fw-bold">
-                                DIFERENCIA NEGATIVA
-                            </span>
-                        </div>
-                    }
-                </div>
-            }
 
-            @* Counts *@
-            <div class="row g-2 mb-3">
-                <div class="col-4">
-                    <div class="bg-white border border-dark p-2 text-center rounded-0">
-                        <div class="fw-bold font-monospace">@TransferenciasCount</div>
-                        <small class="text-muted text-uppercase fw-bold" style="font-size: 0.6rem;">Transf.</small>
-                    </div>
+                @* Transferido *@
+                <div class="flex-fill p-3 border-end border-dark text-center d-flex flex-column justify-content-center" style="min-width: 110px;">
+                    <small class="text-muted fw-bold text-uppercase" style="font-size: 0.65rem;">TRANSFERIDO</small>
+                    <span class="text-success fw-bold font-monospace fs-6 mt-1">+$@TotalTransferido.ToString("N0")</span>
                 </div>
-                <div class="col-4">
-                    <div class="bg-white border border-dark p-2 text-center rounded-0">
-                        <div class="fw-bold font-monospace">@ComprasCount</div>
-                        <small class="text-muted text-uppercase fw-bold" style="font-size: 0.6rem;">Compras</small>
-                    </div>
-                </div>
-                <div class="col-4">
-                    <div class="bg-white border border-dark p-2 text-center rounded-0">
-                        <div class="fw-bold font-monospace">@GastosCount</div>
-                        <small class="text-muted text-uppercase fw-bold" style="font-size: 0.6rem;">Gastos</small>
-                    </div>
-                </div>
-            </div>
 
-            @* Action Buttons *@
-            @if (MostrarCerrar)
-            {
-                <button class="btn btn-warning rounded-0 fw-bold w-100 py-2 mb-2"
-                        @onclick="() => OnCerrar.InvokeAsync()"
-                        disabled="@(Cerrando || !CanCuadrar)"
-                        title="@(CanCuadrar ? "Cerrar período" : "Verificá todos los comprobantes y devolvé el saldo antes de cerrar")">
-                    @if (Cerrando)
-                    {
-                        <span class="spinner-border spinner-border-sm me-2"></span>
-                    }
-                    else
-                    {
-                        <i class="bi bi-lock-fill me-2"></i>
-                    }
-                    CERRAR PERÍODO
-                </button>
-                @if (!CanCuadrar)
+                @* Compras *@
+                <div class="flex-fill p-3 border-end border-dark text-center d-flex flex-column justify-content-center" style="min-width: 110px;">
+                    <small class="text-muted fw-bold text-uppercase" style="font-size: 0.65rem;">COMPRAS</small>
+                    <span class="text-danger fw-bold font-monospace fs-6 mt-1">-$@TotalCompras.ToString("N0")</span>
+                </div>
+
+                @* Gastos *@
+                <div class="flex-fill p-3 border-end border-dark text-center d-flex flex-column justify-content-center" style="min-width: 110px;">
+                    <small class="text-muted fw-bold text-uppercase" style="font-size: 0.65rem;">GASTOS</small>
+                    <span class="text-danger fw-bold font-monospace fs-6 mt-1">-$@TotalGastos.ToString("N0")</span>
+                </div>
+
+                @* Devuelto (only if any) *@
+                @if (Devuelto > 0)
                 {
-                    <div class="small text-muted fw-bold text-center" style="font-size: 0.65rem;">
-                        @if (SaldoADevolver > 0)
+                    <div class="flex-fill p-3 border-end border-dark text-center d-flex flex-column justify-content-center" style="min-width: 110px;">
+                        <small class="text-muted fw-bold text-uppercase" style="font-size: 0.65rem;">DEVUELTO</small>
+                        <span class="text-info fw-bold font-monospace fs-6 mt-1">-$@Devuelto.ToString("N0")</span>
+                    </div>
+                }
+
+                @* Diferencia + status badge *@
+                <div class="@DiferenciaClass p-3 border-end border-dark text-center d-flex flex-column justify-content-center" style="min-width: 150px;">
+                    <small class="text-uppercase fw-bold" style="font-size: 0.65rem;">DIFERENCIA</small>
+                    <span class="fw-bold font-monospace fs-5">$@Diferencia.ToString("N0")</span>
+                    <div class="mt-1">
+                        @if (Diferencia == 0)
                         {
-                            <span><i class="bi bi-exclamation-triangle-fill me-1 text-warning"></i>Saldo pendiente a devolver</span>
+                            <span class="badge bg-white text-dark rounded-0 fw-bold"><i class="bi bi-check-circle-fill me-1"></i>CUADRADO</span>
+                        }
+                        else if (Diferencia > 0)
+                        {
+                            <span class="badge bg-dark text-white rounded-0 fw-bold">POSITIVA</span>
                         }
                         else
                         {
-                            <span><i class="bi bi-exclamation-triangle-fill me-1 text-warning"></i>Comprobantes sin verificar</span>
+                            <span class="badge bg-dark text-white rounded-0 fw-bold">NEGATIVA</span>
+                        }
+                    </div>
+                </div>
+
+                @* Cerrar período *@
+                @if (MostrarCerrar)
+                {
+                    <div class="p-3 d-flex flex-column justify-content-center" style="min-width: 200px;">
+                        <button class="btn btn-warning rounded-0 fw-bold py-2"
+                                @onclick="() => OnCerrar.InvokeAsync()"
+                                disabled="@(Cerrando || !CanCuadrar)"
+                                title="@(CanCuadrar ? "Cerrar período" : "Verificá todos los comprobantes y devolvé el saldo antes de cerrar")">
+                            @if (Cerrando)
+                            {
+                                <span class="spinner-border spinner-border-sm me-2"></span>
+                            }
+                            else
+                            {
+                                <i class="bi bi-lock-fill me-2"></i>
+                            }
+                            CERRAR PERÍODO
+                        </button>
+                        @if (!CanCuadrar)
+                        {
+                            <div class="small text-muted fw-bold text-center mt-2" style="font-size: 0.65rem;">
+                                @if (SaldoADevolver > 0)
+                                {
+                                    <span><i class="bi bi-exclamation-triangle-fill me-1 text-warning"></i>Saldo pendiente a devolver</span>
+                                }
+                                else
+                                {
+                                    <span><i class="bi bi-exclamation-triangle-fill me-1 text-warning"></i>Comprobantes sin verificar</span>
+                                }
+                            </div>
                         }
                     </div>
                 }
-            }
+            </div>
         }
         else
         {
-            <div class="text-center text-muted p-4">
-                <i class="bi bi-inbox display-6 mb-3"></i>
-                <p class="fw-bold small">Seleccioná un período</p>
+            <div class="text-center text-muted p-3">
+                <i class="bi bi-inbox me-2"></i>
+                <span class="fw-bold small">Seleccioná un período para ver el resumen.</span>
             </div>
         }
     </div>
 </div>
-
-<style>
-    .sticky-panel {
-        position: sticky;
-        top: 1rem;
-    }
-</style>
 
 @code {
     [Parameter] public ContabilidadPageState? State { get; set; }
@@ -185,17 +129,6 @@
     private decimal SaldoADevolver => State?.SaldoADevolver ?? 0;
     private bool CanCuadrar => State?.CanCuadrar ?? false;
 
-    private int TransferenciasCount => State?.Transferencias.Count ?? 0;
-    private int ComprasCount
-    {
-        get
-        {
-            if (State?.PeriodoActivoFull == null) return 0;
-            return State.PeriodoActivoFull.Transferencias.Sum(t => t.Compras.Count);
-        }
-    }
-    private int GastosCount => State?.Gastos.Count ?? 0;
-
     private bool MostrarCerrar => PeriodoActivo?.Estado == AccountingPeriodEstado.Abierto;
     private bool Cerrando { get; set; }
 
@@ -205,16 +138,6 @@
         {
             if (Diferencia == 0) return "bg-success text-white";
             if (Diferencia > 0) return "bg-warning text-dark";
-            return "bg-danger text-white";
-        }
-    }
-
-    private string SaldoADevolverClass
-    {
-        get
-        {
-            if (SaldoADevolver == 0) return "bg-success text-white";
-            if (SaldoADevolver > 0) return "bg-warning text-dark";
             return "bg-danger text-white";
         }
     }
