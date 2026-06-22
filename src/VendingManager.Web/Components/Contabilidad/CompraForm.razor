@@ -1,6 +1,7 @@
 @using VendingManager.Shared.DTOs
 @using VendingManager.Shared.Enums
 @inject HttpClient Http
+@inject IJSRuntime JS
 
 <div class="p-3">
     @if (!string.IsNullOrEmpty(Error))
@@ -244,15 +245,23 @@
         @* ===== VINCULAR EXISTENTE: SEARCH & LINK ===== *@
         <div class="bg-white border border-dark p-3 mb-3">
             <div class="row g-2 align-items-end">
-                <div class="col-md-5">
+                <div class="col-md-3">
                     <label class="fw-bold small text-uppercase mb-1 text-muted">PROVEEDOR</label>
                     <input type="text" class="form-control border-dark rounded-0" @bind="LinkSearch.Proveedor" placeholder="Buscar proveedor..." />
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <label class="fw-bold small text-uppercase mb-1 text-muted">Nº DOCUMENTO</label>
                     <input type="text" class="form-control border-dark rounded-0" @bind="LinkSearch.NumeroDocumento" placeholder="N° documento..." />
                 </div>
-                <div class="col-md-3 d-grid">
+                <div class="col-md-2">
+                    <label class="fw-bold small text-uppercase mb-1 text-muted">DESDE</label>
+                    <input type="date" class="form-control border-dark rounded-0" @bind="LinkSearch.Desde" />
+                </div>
+                <div class="col-md-2">
+                    <label class="fw-bold small text-uppercase mb-1 text-muted">HASTA</label>
+                    <input type="date" class="form-control border-dark rounded-0" @bind="LinkSearch.Hasta" />
+                </div>
+                <div class="col-md-2 d-grid">
                     <button class="btn btn-outline-dark rounded-0 fw-bold" @onclick="BuscarComprasNoVinculadas" disabled="@LinkBuscando">
                         @if (LinkBuscando)
                         {
@@ -285,42 +294,64 @@
             }
             else
             {
+                @* Shared transferencia + batch link action bar *@
+                <div class="bg-white border border-dark p-3 mb-3">
+                    <div class="row g-2 align-items-end">
+                        <div class="col-md-7">
+                            <label class="fw-bold small text-uppercase mb-1 text-muted">TRANSFERENCIA A UTILIZAR *</label>
+                            <select class="form-select border-dark rounded-0 fw-bold" @bind="compraLinkTransferenciaId">
+                                <option value="0">-- SELECCIONAR TRANSFERENCIA --</option>
+                                @foreach (var t in Transferencias.Where(t => t.Estado != TransferenciaEstado.Conciliado))
+                                {
+                                    <option value="@t.Id">@t.Fecha.ToString("dd/MM") - $@t.Monto.ToString("N0")</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-5 d-grid">
+                            <button class="btn btn-success rounded-0 fw-bold border-dark"
+                                    @onclick="VincularSeleccionadas"
+                                    disabled="@(compraLinkTransferenciaId == 0 || !SelectedCompraIds.Any() || LinkEnviando)">
+                                @if (LinkEnviando)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-1"></span>
+                                }
+                                else
+                                {
+                                    <i class="bi bi-link me-1"></i>
+                                }
+                                VINCULAR SELECCIONADAS (@SelectedCompraIds.Count)
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="table-responsive">
                     <table class="table table-bordered border-dark table-hover align-middle mb-0">
                         <thead class="bg-secondary text-white text-uppercase small fw-bold text-center">
                             <tr>
+                                <th style="width: 44px;">
+                                    <input type="checkbox" class="form-check-input border-dark"
+                                           checked="@AllSeleccionadas" @onchange="ToggleSeleccionarTodas" title="Seleccionar todas" />
+                                </th>
                                 <th>FECHA</th>
                                 <th>Nº FACTURA</th>
                                 <th>PROVEEDOR</th>
                                 <th class="text-end">MONTO</th>
-                                <th>TRANSFERENCIA</th>
-                                <th class="text-center">ACCIÓN</th>
                             </tr>
                         </thead>
                         <tbody class="bg-white fw-bold" style="font-size: 0.85rem;">
                             @foreach (var c in ComprasNoVinculadas)
                             {
-                                <tr>
+                                <tr class="@(SelectedCompraIds.Contains(c.Id) ? "table-active" : "")">
+                                    <td class="text-center">
+                                        <input type="checkbox" class="form-check-input border-dark"
+                                               checked="@SelectedCompraIds.Contains(c.Id)"
+                                               @onchange="(e) => ToggleSeleccion(c.Id, e)" />
+                                    </td>
                                     <td>@c.FechaCompra.ToString("dd/MM/yyyy")</td>
                                     <td><span class="font-monospace">@(string.IsNullOrEmpty(c.NumeroDocumento) ? "S/N" : c.NumeroDocumento)</span></td>
                                     <td>@c.Proveedor</td>
                                     <td class="text-end text-danger font-monospace">$@c.MontoTotal.ToString("N0")</td>
-                                    <td>
-                                        <select class="form-select form-select-sm border-dark rounded-0" @bind="compraLinkTransferenciaId">
-                                            <option value="0">-- SEL. TRANSF. --</option>
-                                            @foreach (var t in Transferencias.Where(t => t.Estado != TransferenciaEstado.Conciliado))
-                                            {
-                                                <option value="@t.Id">@t.Fecha.ToString("dd/MM") - $@t.Monto.ToString("N0")</option>
-                                            }
-                                        </select>
-                                    </td>
-                                    <td class="text-center">
-                                        <button class="btn btn-sm btn-success rounded-0 fw-bold border-dark"
-                                                @onclick="() => VincularCompra(c.Id)"
-                                                disabled="@(compraLinkTransferenciaId == 0 || LinkEnviando)">
-                                            <i class="bi bi-link"></i> VINCULAR
-                                        </button>
-                                    </td>
                                 </tr>
                             }
                         </tbody>
@@ -357,6 +388,7 @@
     private bool VincularExistente { get; set; }
     private LinkCompraSearch LinkSearch { get; set; } = new();
     private List<CompraDto>? ComprasNoVinculadas { get; set; }
+    private HashSet<int> SelectedCompraIds { get; set; } = new();
     private int compraLinkTransferenciaId { get; set; }
     private bool LinkBuscando { get; set; }
     private bool LinkEnviando { get; set; }
@@ -538,13 +570,19 @@
         {
             LinkBuscando = true;
             LinkError = null;
+            SelectedCompraIds.Clear();
 
-            var url = "api/rendicion/compras-no-vinculadas";
+            var qs = new List<string>();
             if (!string.IsNullOrWhiteSpace(LinkSearch.Proveedor))
-                url += $"?proveedor={Uri.EscapeDataString(LinkSearch.Proveedor)}";
+                qs.Add($"proveedor={Uri.EscapeDataString(LinkSearch.Proveedor)}");
             if (!string.IsNullOrWhiteSpace(LinkSearch.NumeroDocumento))
-                url += $"{(LinkSearch.Proveedor != null ? "&" : "?")}numeroDocumento={Uri.EscapeDataString(LinkSearch.NumeroDocumento)}";
+                qs.Add($"numeroDocumento={Uri.EscapeDataString(LinkSearch.NumeroDocumento)}");
+            if (LinkSearch.Desde.HasValue)
+                qs.Add($"desde={LinkSearch.Desde.Value:yyyy-MM-dd}");
+            if (LinkSearch.Hasta.HasValue)
+                qs.Add($"hasta={LinkSearch.Hasta.Value:yyyy-MM-dd}");
 
+            var url = "api/rendicion/compras-no-vinculadas" + (qs.Any() ? "?" + string.Join("&", qs) : "");
             ComprasNoVinculadas = await Http.GetFromJsonAsync<List<CompraDto>>(url) ?? new();
         }
         catch (Exception ex)
@@ -557,11 +595,42 @@
         }
     }
 
-    private async Task VincularCompra(int compraId)
+    private void ToggleSeleccion(int compraId, ChangeEventArgs e)
+    {
+        if (e.Value is bool b && b)
+            SelectedCompraIds.Add(compraId);
+        else
+            SelectedCompraIds.Remove(compraId);
+    }
+
+    private bool AllSeleccionadas =>
+        ComprasNoVinculadas is { Count: > 0 }
+        && ComprasNoVinculadas.All(c => SelectedCompraIds.Contains(c.Id));
+
+    private void ToggleSeleccionarTodas(ChangeEventArgs e)
+    {
+        if (ComprasNoVinculadas == null) return;
+        if (e.Value is bool b && b)
+        {
+            foreach (var c in ComprasNoVinculadas)
+                SelectedCompraIds.Add(c.Id);
+        }
+        else
+        {
+            SelectedCompraIds.Clear();
+        }
+    }
+
+    private async Task VincularSeleccionadas()
     {
         if (compraLinkTransferenciaId == 0)
         {
-            LinkError = "Debe seleccionar una transferencia.";
+            LinkError = "Seleccioná una transferencia.";
+            return;
+        }
+        if (!SelectedCompraIds.Any())
+        {
+            LinkError = "Seleccioná al menos una compra.";
             return;
         }
 
@@ -570,30 +639,50 @@
             LinkEnviando = true;
             LinkError = null;
 
-            var request = new LinkCompraRequest { CompraId = compraId, TransferenciaId = compraLinkTransferenciaId };
-            var response = await Http.PostAsJsonAsync($"api/rendicion/{RendicionId}/link-compra", request);
-            if (response.IsSuccessStatusCode)
-            {
-                // Find the linked compra in search results and update TransferenciaId
-                var linked = ComprasNoVinculadas?.FirstOrDefault(c => c.Id == compraId);
-                if (linked != null)
-                {
-                    linked.TransferenciaId = compraLinkTransferenciaId;
-                    await OnCompraCreated.InvokeAsync(linked);
-                }
+            var ids = SelectedCompraIds.ToList();
+            var fallidas = new List<int>();
+            CompraDto? ultimaVinculada = null;
 
-                // Reset search state
-                ComprasNoVinculadas = null;
-                compraLinkTransferenciaId = 0;
-                LinkSearch = new();
-                VincularExistente = false;
-                Error = null;
-            }
-            else
+            foreach (var id in ids)
             {
-                var errBody = await response.Content.ReadAsStringAsync();
-                LinkError = $"Error al vincular compra: {errBody}";
+                var request = new LinkCompraRequest { CompraId = id, TransferenciaId = compraLinkTransferenciaId };
+                var response = await Http.PostAsJsonAsync($"api/rendicion/{RendicionId}/link-compra", request);
+                if (response.IsSuccessStatusCode)
+                {
+                    var linked = ComprasNoVinculadas?.FirstOrDefault(c => c.Id == id);
+                    if (linked != null)
+                    {
+                        linked.TransferenciaId = compraLinkTransferenciaId;
+                        ultimaVinculada = linked;
+                    }
+                }
+                else
+                {
+                    fallidas.Add(id);
+                }
             }
+
+            var exitos = ids.Count - fallidas.Count;
+            if (exitos == 0)
+            {
+                LinkError = "No se pudo vincular ninguna compra. Verificá la transferencia seleccionada.";
+                return;
+            }
+
+            if (fallidas.Any())
+            {
+                await JS.InvokeVoidAsync("alert",
+                    $"Se vincularon {exitos} de {ids.Count} compras. {fallidas.Count} fallaron y siguen sin vincular.");
+            }
+
+            // Reset & close (parent reloads the cuadre with everything linked)
+            ComprasNoVinculadas = null;
+            SelectedCompraIds.Clear();
+            compraLinkTransferenciaId = 0;
+            LinkSearch = new();
+            VincularExistente = false;
+            Error = null;
+            await OnCompraCreated.InvokeAsync(ultimaVinculada!);
         }
         catch (Exception ex)
         {
@@ -727,5 +816,7 @@
     {
         public string? Proveedor { get; set; }
         public string? NumeroDocumento { get; set; }
+        public DateTime? Desde { get; set; }
+        public DateTime? Hasta { get; set; }
     }
 }
