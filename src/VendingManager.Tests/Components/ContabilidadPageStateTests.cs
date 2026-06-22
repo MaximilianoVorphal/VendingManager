@@ -106,13 +106,12 @@ public class ContabilidadPageStateTests
     [Fact]
     public void CanCuadrar_WhenAllVerifiedAndSaldoZero_ReturnsTrue()
     {
+        // 10 compras × $100 = $1000 = monto → Diferencia computed locally = 0 → SaldoADevolver = 0
         var state = new ContabilidadPageState
         {
             RendicionActivaFull = MakeFullDto(monto: 1000m, devuelto: 0m,
-                transVerificada: true, compras: 1, comprasVerificadas: true)
+                transVerificada: true, compras: 10, comprasVerificadas: true)
         };
-        // Override Diferencia to zero so SaldoADevolver = 0
-        state.RendicionActivaFull!.Resumen.Diferencia = 0m;
         state.CanCuadrar.Should().BeTrue();
     }
 
