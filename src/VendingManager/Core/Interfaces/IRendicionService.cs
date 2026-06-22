@@ -5,7 +5,7 @@ namespace VendingManager.Core.Interfaces;
 
 public interface IRendicionService
 {
-    Task<IEnumerable<Rendicion>> GetAllAsync();
+    Task<IEnumerable<Rendicion>> GetAllAsync(DateTime? desde = null, DateTime? hasta = null);
     Task<Rendicion?> GetByIdAsync(int id);
     Task<Rendicion> CreateAsync(Rendicion rendicion);
     Task<Rendicion> UpdateAsync(int id, Rendicion rendicion);

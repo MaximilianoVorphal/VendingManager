@@ -8,7 +8,7 @@
 <div class="card border-2 border-dark rounded-0 shadow mb-4">
     <div class="card-header bg-dark text-white rounded-0 fw-bold py-2 d-flex align-items-center">
         <i class="bi bi-cash-coin me-2"></i>SALDO A DEVOLVER
-        @if (State?.SaldoADevolver == 0 && State.PeriodoActivoFull != null)
+        @if (State?.SaldoADevolver == 0 && State.RendicionActivaFull != null)
         {
             <span class="badge bg-success rounded-0 ms-auto fw-bold">SALDO CERO</span>
         }
@@ -18,11 +18,11 @@
         }
     </div>
     <div class="card-body bg-light p-3">
-        @if (State?.PeriodoActivoFull == null)
+        @if (State?.RendicionActivaFull == null)
         {
             <div class="text-center text-muted p-3">
                 <i class="bi bi-inbox display-6 mb-2 d-block"></i>
-                <p class="fw-bold small">Seleccioná un período para ver el saldo.</p>
+                <p class="fw-bold small">Seleccioná una transferencia para ver el saldo.</p>
             </div>
         }
         else
@@ -57,7 +57,7 @@
             </div>
 
             @* ===== Registrar Devolución form ===== *@
-            @if (State.PeriodoActivo?.Estado == AccountingPeriodEstado.Abierto)
+            @if (State.EstaAbierta)
             {
                 @if (State.SaldoADevolver > 0)
                 {
@@ -184,7 +184,7 @@
     {
         // Pre-fill trabajador from the active period if available
         if (string.IsNullOrEmpty(RequestTrabajador))
-            RequestTrabajador = State?.PeriodoActivo?.Trabajador ?? string.Empty;
+            RequestTrabajador = State?.RendicionActiva?.Trabajador ?? string.Empty;
 
         // Pre-fill monto with SaldoADevolver
         if (RequestMonto == 0 && State != null)
@@ -223,7 +223,7 @@
 
             var request = new RegistrarDevolucionRequest
             {
-                PeriodoId = State?.PeriodoActivo?.Id,
+                RendicionId = State?.RendicionActiva?.Id,
                 Trabajador = RequestTrabajador,
                 Monto = RequestMonto,
                 Fecha = RequestFecha,

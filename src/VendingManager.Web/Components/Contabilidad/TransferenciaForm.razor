@@ -19,8 +19,8 @@
             <label class="fw-bold small text-uppercase mb-1 text-muted">MONTO *</label>
             <div class="input-group">
                 <span class="input-group-text bg-dark text-white border-dark rounded-0 fw-bold">$</span>
-                <input type="number" class="form-control border-dark rounded-0 fw-bold font-monospace text-end fs-5"
-                       @oninput="OnMontoChanged" min="0" step="100"
+                <input type="text" inputmode="numeric" class="form-control border-dark rounded-0 fw-bold font-monospace text-end fs-5"
+                       @oninput="OnMontoChanged"
                        placeholder="0" value="@_montoDisplay" />
             </div>
         </div>
@@ -70,15 +70,23 @@
             _trabajadorLocal = Trabajador;
     }
 
-    private async Task OnMontoChanged(ChangeEventArgs e)
+    private void OnMontoChanged(ChangeEventArgs e)
     {
         var raw = e.Value?.ToString() ?? "";
-        _montoDisplay = raw;
-        if (decimal.TryParse(raw, out var parsed))
+        var digits = new string(raw.Where(char.IsDigit).ToArray());
+
+        if (string.IsNullOrEmpty(digits))
         {
-            Form.Monto = parsed;
+            Form.Monto = 0;
+            _montoDisplay = string.Empty;
+            return;
         }
-        await JS.InvokeVoidAsync("console.log", $"[TransferenciaForm] oninput: raw='{raw}', parsed={Form.Monto}");
+
+        if (long.TryParse(digits, out var value))
+        {
+            Form.Monto = value;
+            _montoDisplay = value.ToString("N0", new System.Globalization.CultureInfo("es-AR"));
+        }
     }
 
     private async Task RegistrarTransferencia()

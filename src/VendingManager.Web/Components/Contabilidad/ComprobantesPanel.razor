@@ -9,7 +9,7 @@
     <div class="card-header bg-dark text-white rounded-0 fw-bold py-2 d-flex align-items-center gap-2">
         <i class="bi bi-file-earmark-check me-1"></i>
         VERIFICACIÓN DE COMPROBANTES
-        @if (State?.PeriodoActivoFull != null)
+        @if (State?.RendicionActivaFull != null)
         {
             var totalTransf = State.Transferencias.Count;
             var verifiedTransf = State.Transferencias.Count(t => t.Verificada);
@@ -25,11 +25,11 @@
         }
     </div>
     <div class="card-body bg-light p-3">
-        @if (State?.PeriodoActivoFull == null)
+        @if (State?.RendicionActivaFull == null)
         {
             <div class="text-center text-muted p-4">
                 <i class="bi bi-inbox display-6 mb-2 d-block"></i>
-                <p class="fw-bold small">Seleccioná un período para verificar comprobantes.</p>
+                <p class="fw-bold small">Seleccioná una transferencia para verificar comprobantes.</p>
             </div>
         }
         else
@@ -85,7 +85,7 @@
                                 </div>
 
                                 @* Upload input *@
-                                @if (State.PeriodoActivo?.Estado == AccountingPeriodEstado.Abierto)
+                                @if (State.EstaAbierta)
                                 {
                                     <div class="mb-2">
                                         <InputFile OnChange="(e) => OnComprobanteFileSelected(e, t.Id)"
@@ -107,7 +107,7 @@
                                     {
                                         <button class="btn btn-sm btn-outline-success rounded-0 fw-bold"
                                                 @onclick="() => DesverificarTransferencia(t.Id)"
-                                                disabled="@(State.PeriodoActivo?.Estado != AccountingPeriodEstado.Abierto || VerifyingId == t.Id)">
+                                                disabled="@(!State.EstaAbierta || VerifyingId == t.Id)">
                                             @if (VerifyingId == t.Id)
                                             {
                                                 <span class="spinner-border spinner-border-sm me-1"></span>
@@ -123,7 +123,7 @@
                                     {
                                         <button class="btn btn-sm btn-outline-dark rounded-0 fw-bold"
                                                 @onclick="() => VerificarTransferencia(t.Id)"
-                                                disabled="@(State.PeriodoActivo?.Estado != AccountingPeriodEstado.Abierto || VerifyingId == t.Id)">
+                                                disabled="@(!State.EstaAbierta || VerifyingId == t.Id)">
                                             @if (VerifyingId == t.Id)
                                             {
                                                 <span class="spinner-border spinner-border-sm me-1"></span>
@@ -148,7 +148,7 @@
                     @if (!State.Transferencias.Any())
                     {
                         <div class="text-center text-muted p-3 border border-dark rounded-0 bg-white">
-                            <small class="fw-bold">No hay transferencias en este período.</small>
+                            <small class="fw-bold">No hay transferencias registradas.</small>
                         </div>
                     }
                 </div>
@@ -201,7 +201,7 @@
                                         <button class="btn btn-sm btn-success rounded-0 fw-bold"
                                                 title="Marcada como verificada — clic para desverificar"
                                                 @onclick="() => DesverificarCompra(c.Id)"
-                                                disabled="@(State.PeriodoActivo?.Estado != AccountingPeriodEstado.Abierto || CompraVerifyingId == c.Id)">
+                                                disabled="@(!State.EstaAbierta || CompraVerifyingId == c.Id)">
                                             @if (CompraVerifyingId == c.Id)
                                             {
                                                 <span class="spinner-border spinner-border-sm"></span>
@@ -217,7 +217,7 @@
                                         <button class="btn btn-sm btn-outline-dark rounded-0 fw-bold"
                                                 title="Marcar como verificada"
                                                 @onclick="() => VerificarCompra(c.Id)"
-                                                disabled="@(State.PeriodoActivo?.Estado != AccountingPeriodEstado.Abierto || CompraVerifyingId == c.Id)">
+                                                disabled="@(!State.EstaAbierta || CompraVerifyingId == c.Id)">
                                             @if (CompraVerifyingId == c.Id)
                                             {
                                                 <span class="spinner-border spinner-border-sm"></span>
@@ -256,7 +256,7 @@
                     @if (!State.Compras.Any() && !State.Gastos.Any())
                     {
                         <div class="text-center text-muted p-3 border border-dark rounded-0 bg-white">
-                            <small class="fw-bold">No hay compras ni gastos en este período.</small>
+                            <small class="fw-bold">No hay compras ni gastos registrados.</small>
                         </div>
                     }
                 </div>

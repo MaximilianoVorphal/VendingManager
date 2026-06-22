@@ -15,7 +15,7 @@
     <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3 border-bottom border-3 border-dark pb-2">
         <div>
             <h2 class="m-0 fw-bold text-uppercase" style="letter-spacing: -1px;">CONCILIACIÓN DE FONDOS</h2>
-            <small class="text-muted fw-bold">JUSTIFICACIÓN DE GASTOS POR PERÍODO</small>
+            <small class="text-muted fw-bold">JUSTIFICACIÓN DE TRANSFERENCIAS</small>
         </div>
     </div>
 
@@ -37,37 +37,44 @@
     {
         <div class="text-center p-5">
             <div class="spinner-border text-dark mb-3" role="status"></div>
-            <p class="fw-bold text-muted">CARGANDO PERÍODOS...</p>
+            <p class="fw-bold text-muted">CARGANDO TRANSFERENCIAS...</p>
         </div>
     }
     else
     {
-        @* ====== CONTEXT BAR: period selector + actions ====== *@
+        @* ====== CONTEXT BAR: rendicion selector + actions ====== *@
         <div class="card border-2 border-dark rounded-0 shadow mb-3">
             <div class="card-body bg-light p-2 d-flex justify-content-between align-items-center flex-wrap gap-2">
 
-                @* Period selector dropdown *@
+                @* Rendicion selector dropdown *@
                 <div class="position-relative d-flex align-items-center gap-2 flex-wrap">
-                    <button class="btn btn-dark rounded-0 fw-bold text-uppercase" @onclick="ToggleSelectorPeriodos">
-                        <i class="bi bi-calendar3 me-2"></i>
-                        @(State.PeriodoActivo?.Name ?? "SELECCIONAR PERÍODO")
+                    <button class="btn btn-dark rounded-0 fw-bold text-uppercase" @onclick="ToggleSelectorRendiciones">
+                        <i class="bi bi-bank me-2"></i>
+                        @if (State.RendicionActiva != null)
+                        {
+                            <span>$@State.RendicionActiva.Transferencias.Sum(t => t.Monto).ToString("N0") — @State.RendicionActiva.Trabajador</span>
+                        }
+                        else
+                        {
+                            <span>SELECCIONAR TRANSFERENCIA</span>
+                        }
                         <i class="bi bi-chevron-down ms-2"></i>
                     </button>
-                    @if (State.PeriodoActivo != null)
+                    @if (State.RendicionActiva != null)
                     {
-                        <span class="badge @(State.PeriodoActivo.Estado == AccountingPeriodEstado.Abierto ? "bg-success" : "bg-secondary") rounded-0 fw-bold text-uppercase">
-                            @(State.PeriodoActivo.Estado == AccountingPeriodEstado.Abierto ? "ABIERTO" : "CERRADO")
+                        <span class="badge @(State.RendicionActiva.Estado == RendicionEstado.Abierta ? "bg-success" : "bg-secondary") rounded-0 fw-bold text-uppercase">
+                            @(State.RendicionActiva.Estado == RendicionEstado.Abierta ? "ABIERTA" : "CERRADA")
                         </span>
                     }
 
-                    @if (MostrarSelectorPeriodos)
+                    @if (MostrarSelectorRendiciones)
                     {
                         @* click-outside backdrop *@
                         <div class="position-fixed top-0 start-0 w-100 h-100" style="z-index: 1040;"
-                             @onclick="() => MostrarSelectorPeriodos = false"></div>
+                             @onclick="() => MostrarSelectorRendiciones = false"></div>
 
                         <div class="position-absolute bg-light border-2 border-dark shadow rounded-0 p-3"
-                             style="top: calc(100% + 4px); left: 0; z-index: 1050; width: 360px; max-height: 70vh; overflow-y: auto;">
+                             style="top: calc(100% + 4px); left: 0; z-index: 1050; width: 380px; max-height: 70vh; overflow-y: auto;">
 
                             @* Date range filter *@
                             <div class="row g-2 mb-3">
@@ -80,36 +87,29 @@
                                     <input type="date" class="form-control form-control-sm border-dark rounded-0" @bind="FiltroHasta" />
                                 </div>
                                 <div class="col-12">
-                                    <button class="btn btn-sm btn-outline-dark rounded-0 fw-bold w-100" @onclick="FiltrarPeriodos">
+                                    <button class="btn btn-sm btn-outline-dark rounded-0 fw-bold w-100" @onclick="FiltrarRendiciones">
                                         <i class="bi bi-search me-1"></i>FILTRAR
                                     </button>
                                 </div>
                             </div>
 
-                            @* Period list *@
-                            @if (State.Periodos.Any())
+                            @* Rendicion list *@
+                            @if (State.Rendiciones.Any())
                             {
                                 <div class="list-group">
-                                    @foreach (var p in State.Periodos)
+                                    @foreach (var r in State.Rendiciones)
                                     {
-                                        <button class="list-group-item list-group-item-action border-dark rounded-0 fw-bold py-2 @(State.PeriodoActivo?.Id == p.Id ? "active bg-dark text-white" : "")"
-                                                @onclick="() => SeleccionarPeriodo(p.Id)">
+                                        var monto = r.Transferencias.Sum(t => t.Monto);
+                                        <button class="list-group-item list-group-item-action border-dark rounded-0 fw-bold py-2 @(State.RendicionActiva?.Id == r.Id ? "active bg-dark text-white" : "")"
+                                                @onclick="() => SeleccionarRendicion(r.Id)">
                                             <div class="d-flex w-100 justify-content-between align-items-center">
-                                                <span class="small">@p.Name</span>
-                                                <div class="d-flex align-items-center gap-2">
-                                                    <span class="badge @(p.Estado == AccountingPeriodEstado.Abierto ? "bg-success" : "bg-secondary") rounded-0">
-                                                        @(p.Estado == AccountingPeriodEstado.Abierto ? "ABIERTO" : "CERRADO")
-                                                    </span>
-                                                    <button class="btn btn-sm btn-outline-danger rounded-0 p-1 lh-1 border-0"
-                                                            @onclick="() => ConfirmarEliminarPeriodo(p)"
-                                                            @onclick:stopPropagation
-                                                            title="Eliminar período (desvincula transferencias y devoluciones)">
-                                                        <i class="bi bi-trash3" style="font-size: 0.8rem;"></i>
-                                                    </button>
-                                                </div>
+                                                <span class="font-monospace small">$@monto.ToString("N0")</span>
+                                                <span class="badge @(r.Estado == RendicionEstado.Abierta ? "bg-success" : "bg-secondary") rounded-0">
+                                                    @(r.Estado == RendicionEstado.Abierta ? "ABIERTA" : "CERRADA")
+                                                </span>
                                             </div>
-                                            <small class="d-block text-muted" style="font-size: 0.7rem;">
-                                                @p.FechaInicio.ToString("dd/MM/yyyy") - @p.FechaFin.ToString("dd/MM/yyyy")
+                                            <small class="d-block @(State.RendicionActiva?.Id == r.Id ? "text-white-50" : "text-muted")" style="font-size: 0.7rem;">
+                                                @r.Trabajador — @r.FechaInicio.ToString("dd/MM/yyyy")
                                             </small>
                                         </button>
                                     }
@@ -119,7 +119,7 @@
                             {
                                 <div class="text-center text-muted p-3">
                                     <i class="bi bi-inbox display-6 mb-2 d-block"></i>
-                                    <p class="fw-bold small">No hay períodos para el filtro seleccionado.</p>
+                                    <p class="fw-bold small">No hay transferencias para el filtro seleccionado.</p>
                                 </div>
                             }
                         </div>
@@ -128,19 +128,16 @@
 
                 @* Action toolbar *@
                 <div class="d-flex gap-2 flex-wrap">
-                    <button class="btn btn-outline-dark rounded-0 fw-bold" @onclick="AbrirNuevoPeriodo">
-                        <i class="bi bi-plus-circle me-1"></i>PERÍODO
-                    </button>
                     <button class="btn btn-outline-dark rounded-0 fw-bold"
-                            @onclick="MostrarFormTransferencia" disabled="@(State.PeriodoActivo?.Estado != AccountingPeriodEstado.Abierto)">
+                            @onclick="MostrarFormTransferencia">
                         <i class="bi bi-bank me-1"></i>TRANSFERENCIA
                     </button>
                     <button class="btn btn-outline-dark rounded-0 fw-bold"
-                            @onclick="MostrarFormCompra" disabled="@(State.PeriodoActivo?.Estado != AccountingPeriodEstado.Abierto || !State.Transferencias.Any())">
+                            @onclick="MostrarFormCompra" disabled="@(!State.EstaAbierta || !State.Transferencias.Any())">
                         <i class="bi bi-cart4 me-1"></i>COMPRA
                     </button>
                     <button class="btn btn-outline-dark rounded-0 fw-bold"
-                            @onclick="MostrarFormGasto" disabled="@(State.PeriodoActivo?.Estado != AccountingPeriodEstado.Abierto)">
+                            @onclick="MostrarFormGasto" disabled="@(!State.EstaAbierta)">
                         <i class="bi bi-fuel-pump me-1"></i>GASTO
                     </button>
                     <button class="btn btn-outline-primary rounded-0 fw-bold" @onclick="NavegarACaja">
@@ -151,10 +148,10 @@
         </div>
 
         @* ====== KPI STRIP (always visible) ====== *@
-        <ReconciliationPanel State="@State" OnCerrar="CerrarPeriodo" />
+        <ReconciliationPanel State="@State" OnCerrar="CerrarRendicion" />
 
         @* ====== WORK AREA: tabbed ====== *@
-        @if (State.PeriodoActivoFull != null)
+        @if (State.RendicionActivaFull != null)
         {
             <div class="card border-2 border-dark rounded-0 shadow">
                 <div class="card-header bg-dark rounded-0 p-0">
@@ -177,42 +174,42 @@
                     @switch (TabActivo)
                     {
                         case "COMPROBANTES":
-                            <ComprobantesPanel State="@State" OnUpdated="RecargarPeriodoActivo" />
+                            <ComprobantesPanel State="@State" OnUpdated="RecargarRendicionActiva" />
                             break;
                         case "SALDO":
-                            <DevolucionPanel State="@State" OnUpdated="RecargarPeriodoActivo" />
+                            <DevolucionPanel State="@State" OnUpdated="RecargarRendicionActiva" />
                             break;
                         default:
                             <CuadrarView Transferencias="@State.Transferencias"
                                          Compras="@State.Compras"
                                          Gastos="@State.Gastos"
-                                         RendicionId="@(State.Transferencias.FirstOrDefault()?.RendicionId ?? 0)"
-                                         OnItemUpdated="RecargarPeriodoActivo"
-                                         OnAvanzar="CerrarPeriodo" />
+                                         RendicionId="@(State.RendicionActiva?.Id ?? 0)"
+                                         OnItemUpdated="RecargarRendicionActiva"
+                                         OnAvanzar="CerrarRendicion" />
                             break;
                     }
                 </div>
             </div>
         }
-        else if (State.PeriodoActivo != null && State.PeriodoActivoFull == null)
+        else if (State.RendicionActiva != null && State.RendicionActivaFull == null)
         {
             <div class="text-center p-5">
                 <div class="spinner-border text-dark mb-3" role="status"></div>
-                <p class="fw-bold text-muted">CARGANDO DATOS DEL PERÍODO...</p>
+                <p class="fw-bold text-muted">CARGANDO DATOS DE LA TRANSFERENCIA...</p>
             </div>
         }
         else
         {
             <div class="text-center p-5">
                 <i class="bi bi-hand-index-thumb display-4 text-muted mb-3 d-block"></i>
-                <p class="fw-bold text-muted">Seleccioná un período contable para ver sus datos.</p>
+                <p class="fw-bold text-muted">Seleccioná una transferencia para ver su justificación.</p>
             </div>
         }
     }
 </div>
 
 @* ====== MODALS (floating data-entry forms) ====== *@
-@if (ShowTransferenciaForm && State.PeriodoActivoFull != null)
+@if (ShowTransferenciaForm)
 {
     <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5); z-index: 1060;">
         <div class="modal-dialog modal-dialog-centered modal-lg">
@@ -222,22 +219,17 @@
                     <button type="button" class="btn-close btn-close-white" @onclick="CerrarFormularios"></button>
                 </div>
                 <div class="modal-body p-4 bg-light">
-                    @{
-                        var trabajador = State.PeriodoActivoFull.Transferencias.FirstOrDefault()?.Trabajador
-                                        ?? State.PeriodoActivo?.Trabajador
-                                        ?? string.Empty;
-                    }
                     <TransferenciaForm OnTransferenciaCreated="OnTransferenciaCreada"
-                                       Trabajador="@trabajador"
-                                       RendicionId="@(State.PeriodoActivoFull.Transferencias.FirstOrDefault()?.RendicionId ?? 0)"
-                                       PeriodoId="@State.PeriodoActivo?.Id" />
+                                       Trabajador="@(State.RendicionActiva?.Trabajador ?? string.Empty)"
+                                       RendicionId="0"
+                                       PeriodoId="@null" />
                 </div>
             </div>
         </div>
     </div>
 }
 
-@if (ShowCompraForm && State.PeriodoActivoFull != null)
+@if (ShowCompraForm && State.RendicionActivaFull != null)
 {
     <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5); z-index: 1060;">
         <div class="modal-dialog modal-dialog-centered modal-lg">
@@ -247,22 +239,17 @@
                     <button type="button" class="btn-close btn-close-white" @onclick="CerrarFormularios"></button>
                 </div>
                 <div class="modal-body p-4 bg-light">
-                    @{
-                        var compraTrabajador = State.PeriodoActivoFull.Transferencias.FirstOrDefault()?.Trabajador
-                                               ?? State.PeriodoActivo?.Trabajador
-                                               ?? string.Empty;
-                    }
                     <CompraForm OnCompraCreated="OnCompraCreada"
-                                Trabajador="@compraTrabajador"
+                                Trabajador="@(State.RendicionActiva?.Trabajador ?? string.Empty)"
                                 Transferencias="@State.Transferencias"
-                                RendicionId="@(State.PeriodoActivoFull.Transferencias.FirstOrDefault()?.RendicionId ?? 0)" />
+                                RendicionId="@(State.RendicionActiva?.Id ?? 0)" />
                 </div>
             </div>
         </div>
     </div>
 }
 
-@if (ShowGastoForm && State.PeriodoActivoFull != null)
+@if (ShowGastoForm && State.RendicionActivaFull != null)
 {
     <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5); z-index: 1060;">
         <div class="modal-dialog modal-dialog-centered modal-lg">
@@ -273,54 +260,7 @@
                 </div>
                 <div class="modal-body p-4 bg-light">
                     <GastoForm OnGastoCreated="OnGastoCreado"
-                               RendicionId="@(State.PeriodoActivoFull.Transferencias.FirstOrDefault()?.RendicionId ?? 0)" />
-                </div>
-            </div>
-        </div>
-    </div>
-}
-
-@if (MostrarNuevoPeriodo)
-{
-    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5); z-index: 1060;">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content rounded-0 border-2 border-dark shadow-lg">
-                <div class="modal-header bg-dark text-white rounded-0 border-bottom border-dark">
-                    <h5 class="modal-title fw-bold text-uppercase"><i class="bi bi-plus-circle me-2"></i>NUEVO PERÍODO</h5>
-                    <button type="button" class="btn-close btn-close-white" @onclick="CerrarFormularios"></button>
-                </div>
-                <div class="modal-body p-4 bg-light">
-                    <div class="mb-3">
-                        <label class="fw-bold small text-uppercase mb-1 text-muted">NOMBRE</label>
-                        <input type="text" class="form-control border-dark rounded-0"
-                               @bind="NuevoPeriodoName" placeholder="Ej: Junio 2026" />
-                    </div>
-                    <div class="row g-2 mb-3">
-                        <div class="col-6">
-                            <label class="fw-bold small text-uppercase mb-1 text-muted">INICIO</label>
-                            <input type="date" class="form-control border-dark rounded-0" @bind="NuevoPeriodoInicio" />
-                        </div>
-                        <div class="col-6">
-                            <label class="fw-bold small text-uppercase mb-1 text-muted">FIN</label>
-                            <input type="date" class="form-control border-dark rounded-0" @bind="NuevoPeriodoFin" />
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer bg-light rounded-0 border-top border-dark">
-                    <button type="button" class="btn btn-outline-dark rounded-0 fw-bold" @onclick="CerrarFormularios">
-                        CANCELAR
-                    </button>
-                    <button type="button" class="btn btn-dark rounded-0 fw-bold px-4" @onclick="CrearPeriodo" disabled="@CreandoPeriodo">
-                        @if (CreandoPeriodo)
-                        {
-                            <span class="spinner-border spinner-border-sm me-2"></span>
-                        }
-                        else
-                        {
-                            <i class="bi bi-check me-2"></i>
-                        }
-                        GUARDAR
-                    </button>
+                               RendicionId="@(State.RendicionActiva?.Id ?? 0)" />
                 </div>
             </div>
         </div>
@@ -328,12 +268,8 @@
 }
 
 @code {
-    [SupplyParameterFromQuery(Name = "periodoId")]
-    public int? QueryPeriodoId { get; set; }
-
     public ContabilidadPageState State { get; set; } = new();
     private bool CargandoInicial { get; set; } = true;
-    private bool CreandoPeriodo { get; set; }
     private string? Error { get; set; }
     private string? SuccessMessage { get; set; }
 
@@ -341,50 +277,36 @@
     private DateTime? FiltroDesde { get; set; }
     private DateTime? FiltroHasta { get; set; }
 
-    // Period selector dropdown
-    private bool MostrarSelectorPeriodos { get; set; }
+    // Rendicion selector dropdown
+    private bool MostrarSelectorRendiciones { get; set; }
 
     // Work area tab
     private string TabActivo { get; set; } = "CUADRE";
-
-    // New period form
-    private bool MostrarNuevoPeriodo { get; set; }
-    private string NuevoPeriodoName { get; set; } = string.Empty;
-    private DateTime NuevoPeriodoInicio { get; set; } = DateTime.Today;
-    private DateTime NuevoPeriodoFin { get; set; } = DateTime.Today.AddMonths(1).AddDays(-1);
 
     // Form modals
     private bool ShowTransferenciaForm { get; set; }
     private bool ShowCompraForm { get; set; }
     private bool ShowGastoForm { get; set; }
 
-    private bool AnyFormOpen => ShowTransferenciaForm || ShowCompraForm || ShowGastoForm || MostrarNuevoPeriodo;
+    private bool AnyFormOpen => ShowTransferenciaForm || ShowCompraForm || ShowGastoForm;
 
     private string TabClass(string tab) =>
         TabActivo == tab ? "bg-light text-dark" : "btn-dark text-white-50";
 
     protected override async Task OnInitializedAsync()
     {
-        if (QueryPeriodoId.HasValue)
-        {
-            await CargarPeriodos();
-            await SeleccionarPeriodo(QueryPeriodoId.Value);
-        }
-        else
-        {
-            await CargarPeriodos();
-            CargandoInicial = false;
-        }
+        await CargarRendiciones();
+        CargandoInicial = false;
     }
 
-    private void ToggleSelectorPeriodos() => MostrarSelectorPeriodos = !MostrarSelectorPeriodos;
+    private void ToggleSelectorRendiciones() => MostrarSelectorRendiciones = !MostrarSelectorRendiciones;
 
-    private async Task CargarPeriodos()
+    private async Task CargarRendiciones()
     {
         try
         {
             Error = null;
-            var url = "api/contabilidad/periodos";
+            var url = "api/rendicion";
             var queryParams = new List<string>();
 
             if (FiltroDesde.HasValue)
@@ -395,17 +317,17 @@
             if (queryParams.Any())
                 url += "?" + string.Join("&", queryParams);
 
-            State.Periodos = await Http.GetFromJsonAsync<List<AccountingPeriodDto>>(url) ?? new();
+            State.Rendiciones = await Http.GetFromJsonAsync<List<RendicionDto>>(url) ?? new();
         }
         catch (Exception ex)
         {
-            Error = $"Error al cargar períodos: {ex.Message}";
+            Error = $"Error al cargar transferencias: {ex.Message}";
         }
     }
 
-    private async Task FiltrarPeriodos()
+    private async Task FiltrarRendiciones()
     {
-        await CargarPeriodos();
+        await CargarRendiciones();
     }
 
     private void NavegarACaja()
@@ -413,98 +335,49 @@
         Navigation.NavigateTo("/caja");
     }
 
-    private async Task SeleccionarPeriodo(int periodoId, bool keepMessages = false)
+    private async Task SeleccionarRendicion(int rendicionId, bool keepMessages = false)
     {
         try
         {
             Error = null;
             if (!keepMessages) SuccessMessage = null;
-            MostrarSelectorPeriodos = false;
+            MostrarSelectorRendiciones = false;
             if (!keepMessages) await CerrarFormularios();
 
-            // Find the basic DTO
-            State.PeriodoActivo = State.Periodos.FirstOrDefault(p => p.Id == periodoId);
+            State.RendicionActiva = State.Rendiciones.FirstOrDefault(r => r.Id == rendicionId);
 
-            // Load full data
-            var full = await Http.GetFromJsonAsync<AccountingPeriodFullDto>($"api/contabilidad/periodos/{periodoId}");
+            var full = await Http.GetFromJsonAsync<RendicionFullDto>($"api/rendicion/{rendicionId}/full");
             if (full != null)
             {
-                State.PeriodoActivoFull = full;
-                State.PeriodoActivo = full; // override with full data
+                State.RendicionActivaFull = full;
+                State.RendicionActiva = full;
             }
         }
         catch (Exception ex)
         {
-            Error = $"Error al cargar período: {ex.Message}";
+            Error = $"Error al cargar transferencia: {ex.Message}";
         }
     }
 
-    private async Task CrearPeriodo()
+    private async Task CerrarRendicion()
     {
-        if (string.IsNullOrWhiteSpace(NuevoPeriodoName))
-        {
-            Error = "El nombre del período es obligatorio.";
-            return;
-        }
-
-        try
-        {
-            CreandoPeriodo = true;
-            Error = null;
-
-            var request = new CreatePeriodoRequest
-            {
-                Name = NuevoPeriodoName,
-                FechaInicio = NuevoPeriodoInicio,
-                FechaFin = NuevoPeriodoFin
-            };
-
-            var response = await Http.PostAsJsonAsync("api/contabilidad/periodos", request);
-            if (response.IsSuccessStatusCode)
-            {
-                var dto = await response.Content.ReadFromJsonAsync<AccountingPeriodDto>();
-                SuccessMessage = $"Período \"{dto?.Name}\" creado exitosamente.";
-                NuevoPeriodoName = string.Empty;
-                NuevoPeriodoInicio = DateTime.Today;
-                NuevoPeriodoFin = DateTime.Today.AddMonths(1).AddDays(-1);
-                await CerrarFormularios();
-                await CargarPeriodos();
-                if (dto != null) await SeleccionarPeriodo(dto.Id, keepMessages: true);
-            }
-            else
-            {
-                Error = "Error al crear período: " + await response.Content.ReadAsStringAsync();
-            }
-        }
-        catch (Exception ex)
-        {
-            Error = $"Error: {ex.Message}";
-        }
-        finally
-        {
-            CreandoPeriodo = false;
-        }
-    }
-
-    private async Task CerrarPeriodo()
-    {
-        if (State.PeriodoActivo == null) return;
+        if (State.RendicionActiva == null) return;
 
         try
         {
             Error = null;
             SuccessMessage = null;
-            var response = await Http.PostAsync($"api/contabilidad/periodos/{State.PeriodoActivo.Id}/cerrar", null);
+            var response = await Http.PostAsync($"api/rendicion/{State.RendicionActiva.Id}/cerrar", null);
             if (response.IsSuccessStatusCode)
             {
-                SuccessMessage = "Período cerrado exitosamente.";
-                await CargarPeriodos();
-                if (State.PeriodoActivo != null)
-                    await SeleccionarPeriodo(State.PeriodoActivo.Id, keepMessages: true);
+                SuccessMessage = "Rendición cerrada exitosamente.";
+                await CargarRendiciones();
+                if (State.RendicionActiva != null)
+                    await SeleccionarRendicion(State.RendicionActiva.Id, keepMessages: true);
             }
             else
             {
-                Error = "Error al cerrar período: " + await response.Content.ReadAsStringAsync();
+                Error = "Error al cerrar: " + await response.Content.ReadAsStringAsync();
             }
         }
         catch (Exception ex)
@@ -513,60 +386,11 @@
         }
     }
 
-    private async Task ConfirmarEliminarPeriodo(AccountingPeriodDto periodo)
+    private async Task RecargarRendicionActiva()
     {
-        var confirmado = await JS.InvokeAsync<bool>("confirm",
-            $"¿Eliminar el período \"{periodo.Name}\"?\n\n" +
-            $"Las transferencias y devoluciones vinculadas se DESVINCULARÁN (PeriodoId = null) " +
-            "pero NO se eliminarán.\n" +
-            "Los movimientos de caja NO se modifican.\n\n" +
-            "¿Estás seguro? Esta operación no se puede deshacer.");
-
-        if (confirmado)
+        if (State.RendicionActiva != null)
         {
-            await EjecutarEliminarPeriodo(periodo.Id, periodo.Name);
-        }
-    }
-
-    private async Task EjecutarEliminarPeriodo(int periodoId, string periodoName)
-    {
-        try
-        {
-            Error = null;
-            SuccessMessage = null;
-            var response = await Http.DeleteAsync($"api/contabilidad/periodos/{periodoId}");
-            if (response.IsSuccessStatusCode)
-            {
-                SuccessMessage = $"Período \"{periodoName}\" eliminado.";
-                // Clear active period if it was the deleted one
-                if (State.PeriodoActivo?.Id == periodoId)
-                {
-                    State.PeriodoActivo = null;
-                    State.PeriodoActivoFull = null;
-                }
-                await CargarPeriodos();
-            }
-            else if ((int)response.StatusCode == 404)
-            {
-                await CargarPeriodos();
-                Error = "El período ya no existe.";
-            }
-            else
-            {
-                Error = "Error al eliminar período: " + await response.Content.ReadAsStringAsync();
-            }
-        }
-        catch (Exception ex)
-        {
-            Error = $"Error: {ex.Message}";
-        }
-    }
-
-    private async Task RecargarPeriodoActivo()
-    {
-        if (State.PeriodoActivo != null)
-        {
-            await SeleccionarPeriodo(State.PeriodoActivo.Id, keepMessages: true);
+            await SeleccionarRendicion(State.RendicionActiva.Id, keepMessages: true);
         }
     }
 
@@ -574,21 +398,20 @@
     private async Task MostrarFormTransferencia() => await AbrirModal(() => ShowTransferenciaForm = true);
     private async Task MostrarFormCompra() => await AbrirModal(() => ShowCompraForm = true);
     private async Task MostrarFormGasto() => await AbrirModal(() => ShowGastoForm = true);
-    private async Task AbrirNuevoPeriodo() => await AbrirModal(() => MostrarNuevoPeriodo = true);
 
     private async Task AbrirModal(Action abrir)
     {
         var yaAbierto = AnyFormOpen;
-        ShowTransferenciaForm = ShowCompraForm = ShowGastoForm = MostrarNuevoPeriodo = false;
+        ShowTransferenciaForm = ShowCompraForm = ShowGastoForm = false;
         abrir();
-        MostrarSelectorPeriodos = false;
+        MostrarSelectorRendiciones = false;
         if (!yaAbierto) await JS.InvokeVoidAsync("modalScrollLock.lock");
     }
 
     private async Task CerrarFormularios()
     {
         if (AnyFormOpen) await JS.InvokeVoidAsync("modalScrollLock.unlock");
-        ShowTransferenciaForm = ShowCompraForm = ShowGastoForm = MostrarNuevoPeriodo = false;
+        ShowTransferenciaForm = ShowCompraForm = ShowGastoForm = false;
     }
 
     private async Task OnTransferenciaCreada(TransferenciaDto t)
@@ -596,7 +419,9 @@
         SuccessMessage = $"Transferencia ${t.Monto.ToString("N0")} registrada.";
         Error = null;
         await CerrarFormularios();
-        await RecargarPeriodoActivo();
+        await CargarRendiciones();
+        if (t.RendicionId.HasValue)
+            await SeleccionarRendicion(t.RendicionId.Value, keepMessages: true);
     }
 
     private async Task OnCompraCreada(CompraDto c)
@@ -604,7 +429,7 @@
         SuccessMessage = $"Compra a {c.Proveedor} por ${c.MontoTotal.ToString("N0")} vinculada.";
         Error = null;
         await CerrarFormularios();
-        await RecargarPeriodoActivo();
+        await RecargarRendicionActiva();
     }
 
     private async Task OnGastoCreado(MovimientoCajaDto g)
@@ -612,6 +437,6 @@
         SuccessMessage = $"Gasto {g.Categoria} por ${Math.Abs(g.Monto).ToString("N0")} vinculado.";
         Error = null;
         await CerrarFormularios();
-        await RecargarPeriodoActivo();
+        await RecargarRendicionActiva();
     }
 }

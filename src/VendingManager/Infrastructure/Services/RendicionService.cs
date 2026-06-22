@@ -16,11 +16,19 @@ public class RendicionService : IRendicionService
         _context = context;
     }
 
-    public async Task<IEnumerable<Rendicion>> GetAllAsync()
+    public async Task<IEnumerable<Rendicion>> GetAllAsync(DateTime? desde = null, DateTime? hasta = null)
     {
-        return await _context.Rendiciones
+        var query = _context.Rendiciones
             .Include(r => r.Transferencias)
             .Include(r => r.Gastos)
+            .AsQueryable();
+
+        if (desde.HasValue)
+            query = query.Where(r => r.FechaInicio >= desde.Value);
+        if (hasta.HasValue)
+            query = query.Where(r => r.FechaInicio < hasta.Value.AddDays(1));
+
+        return await query
             .OrderByDescending(r => r.FechaInicio)
             .ThenByDescending(r => r.Id)
             .ToListAsync();
