@@ -68,11 +68,14 @@
                                     @if (!string.IsNullOrEmpty(t.ComprobanteImagenPath))
                                     {
                                         <a href="api/contabilidad/transferencia/@t.Id/comprobante" target="_blank"
-                                           class="d-block text-center">
+                                           class="comprobante-preview d-block text-center">
                                             <img src="api/contabilidad/transferencia/@t.Id/comprobante"
                                                  class="img-fluid border border-dark rounded-0"
                                                  style="max-height: 120px; object-fit: cover; width: 100%;"
                                                  alt="Comprobante transferencia" />
+                                            <span class="comprobante-preview-overlay">
+                                                <i class="bi bi-zoom-in me-1"></i>VER IMAGEN COMPLETA
+                                            </span>
                                         </a>
                                     }
                                     else
