@@ -210,7 +210,10 @@ public class RendicionController(
                     MontoTotal = c.MontoTotal,
                     Estado = c.Estado,
                     TipoFactura = c.TipoFactura,
-                    PagadaCaja = c.PagadaCaja
+                    PagadaCaja = c.PagadaCaja,
+                    FacturaImagenPath = c.FacturaImagenPath,
+                    Verificada = c.Verificada,
+                    TransferenciaId = c.TransferenciaId
                 }).ToList() ?? new()
             }).ToList() ?? new(),
             Gastos = r.Gastos?.Select(g => new MovimientoCajaDto
@@ -261,7 +264,10 @@ public class RendicionController(
                     MontoTotal = c.MontoTotal,
                     Estado = c.Estado,
                     TipoFactura = c.TipoFactura,
-                    PagadaCaja = c.PagadaCaja
+                    PagadaCaja = c.PagadaCaja,
+                    FacturaImagenPath = c.FacturaImagenPath,
+                    Verificada = c.Verificada,
+                    TransferenciaId = c.TransferenciaId
                 }).ToList() ?? new()
             }).ToList() ?? new(),
             Gastos = r.Gastos?.Select(g => new MovimientoCajaDto

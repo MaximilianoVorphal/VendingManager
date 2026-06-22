@@ -500,7 +500,8 @@ public class ContabilidadController(
                 TipoFactura = c.TipoFactura,
                 PagadaCaja = c.PagadaCaja,
                 TransferenciaId = c.TransferenciaId,
-                Verificada = c.Verificada
+                Verificada = c.Verificada,
+                FacturaImagenPath = c.FacturaImagenPath
             }).ToList() ?? new()
         };
     }
@@ -518,6 +519,8 @@ public class ContabilidadController(
             TipoFactura = c.TipoFactura,
             PagadaCaja = c.PagadaCaja,
             TransferenciaId = c.TransferenciaId,
+            Verificada = c.Verificada,
+            FacturaImagenPath = c.FacturaImagenPath,
             Detalles = c.Detalles?.Select(d => new DetalleCompraDto
             {
                 Id = d.Id,
