@@ -101,8 +101,8 @@ public class CajaServiceTests : IDisposable
         result.GastosFijos.Should().Be(0m);
         result.AportesExtra.Should().Be(0m);
         result.GastosMercaderia.Should().Be(0m);
-        result.CostoTransbank.Should().Be(0m);
-        result.CantidadVentasTransbank.Should().Be(0);
+        result.CostoTransbank.Should().Be(80m); // TransbankFee = 80 per paid venta
+        result.CantidadVentasTransbank.Should().Be(1);
         result.UtilidadTotal.Should().Be(300m);
         result.UtilidadNeta.Should().Be(300m);
         result.IsLocked.Should().BeFalse();
@@ -166,8 +166,8 @@ public class CajaServiceTests : IDisposable
         result.GastosFijos.Should().Be(0m);
         result.AportesExtra.Should().Be(0m);
         result.GastosMercaderia.Should().Be(0m);
-        result.CostoTransbank.Should().Be(0m);
-        result.CantidadVentasTransbank.Should().Be(0);
+        result.CostoTransbank.Should().Be(80m); // TransbankFee = 80 per paid venta
+        result.CantidadVentasTransbank.Should().Be(1);
         result.UtilidadTotal.Should().Be(200m);     // IngresosVentas(300) - TotalCostoVenta(100)
         result.UtilidadNeta.Should().Be(50m);      // UtilidadTotal(200) - GastosOperativos(150)
         result.IsLocked.Should().BeFalse();
@@ -265,8 +265,8 @@ public class CajaServiceTests : IDisposable
         result.GastosFijos.Should().Be(0m);
         result.AportesExtra.Should().Be(0m);
         result.GastosMercaderia.Should().Be(0m);
-        result.CostoTransbank.Should().Be(0m);
-        result.CantidadVentasTransbank.Should().Be(0);
+        result.CostoTransbank.Should().Be(160m); // TransbankFee = 80 × 2 paid ventas
+        result.CantidadVentasTransbank.Should().Be(2);
         result.UtilidadTotal.Should().Be(3600m);   // 6000 - 2400
         result.UtilidadNeta.Should().Be(3600m);    // No gastos
         result.UtilidadOperacional.Should().Be(3600m);
