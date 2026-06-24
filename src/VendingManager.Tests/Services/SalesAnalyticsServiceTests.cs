@@ -65,7 +65,7 @@ public class SalesAnalyticsServiceTests : IDisposable
         result.CantidadStockCritico.Should().Be(1);
     }
 
-    [Fact(Skip = "TODO: Revisar assertions — fix de tracking conflicts reveló bug preexistente")]
+    [Fact]
     public async Task GetDashboardStatsAsync_WithSalesAcrossPeriods_ReturnsCorrectStats()
     {
         // Arrange

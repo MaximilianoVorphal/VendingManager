@@ -50,7 +50,7 @@ public class CajaServiceTests : IDisposable
         _context.Dispose();
     }
 
-    [Fact(Skip = "TODO: Revisar assertions — fix de tracking conflicts reveló bug preexistente")]
+    [Fact]
     public async Task GetResumenAsync_WithSingleSaleInMonth_ReturnsCorrectFinancials()
     {
         // Arrange
@@ -90,11 +90,11 @@ public class CajaServiceTests : IDisposable
 
         // Assert
         result.Should().NotBeNull();
-        result.SaldoAnterior.Should().Be(1000m); // From December venta
+        result.SaldoAnterior.Should().Be(0m); // December venta excluded by CajaStartDate (Jan 1, 2026)
         result.IngresosVentas.Should().Be(500m);  // From January venta
-        result.TotalIngresos.Should().Be(1500m);   // SaldoAnterior + IngresosVentas
+        result.TotalIngresos.Should().Be(500m);   // SaldoAnterior(0) + IngresosVentas(500)
         result.UtilidadOperacional.Should().Be(300m); // (500-200) margen bruto, no gastos
-        result.SaldoFinal.Should().Be(1500m); // TotalIngresos + Gastos (0)
+        result.SaldoFinal.Should().Be(500m); // TotalIngresos(500) + Gastos (0)
         result.TotalCostoVenta.Should().Be(200m); // January venta costo
         result.Mermas.Should().Be(0m);
         result.GastosVariables.Should().Be(0m);
@@ -108,7 +108,7 @@ public class CajaServiceTests : IDisposable
         result.IsLocked.Should().BeFalse();
     }
 
-    [Fact(Skip = "TODO: Revisar assertions — fix de tracking conflicts reveló bug preexistente")]
+    [Fact]
     public async Task GetResumenAsync_WithMixedOperations_ReturnsCorrectFinancials()
     {
         // Arrange
@@ -155,11 +155,11 @@ public class CajaServiceTests : IDisposable
 
         // Assert
         result.Should().NotBeNull();
-        result.SaldoAnterior.Should().Be(1000m);
+        result.SaldoAnterior.Should().Be(0m); // December venta excluded by CajaStartDate (Jan 1, 2026)
         result.IngresosVentas.Should().Be(300m);
         result.GastosOperativos.Should().Be(150m); // Variables (LOGISTICA = 150)
-        result.TotalIngresos.Should().Be(1300m);    // 1000 + 300
-        result.SaldoFinal.Should().Be(1150m);       // 1000 + 300 + (-150)
+        result.TotalIngresos.Should().Be(300m);    // SaldoAnterior(0) + IngresosVentas(300)
+        result.SaldoFinal.Should().Be(150m);       // TotalIngresos(300) - GastosOperativos(150)
         result.TotalCostoVenta.Should().Be(100m);   // January venta costo
         result.Mermas.Should().Be(0m);
         result.GastosVariables.Should().Be(150m);   // LOGISTICA = 150
@@ -168,8 +168,8 @@ public class CajaServiceTests : IDisposable
         result.GastosMercaderia.Should().Be(0m);
         result.CostoTransbank.Should().Be(0m);
         result.CantidadVentasTransbank.Should().Be(0);
-        result.UtilidadTotal.Should().Be(200m);     // IngresosVentas - TotalCostoVenta
-        result.UtilidadNeta.Should().Be(200m);     // UtilidadTotal - GastosOperativos
+        result.UtilidadTotal.Should().Be(200m);     // IngresosVentas(300) - TotalCostoVenta(100)
+        result.UtilidadNeta.Should().Be(50m);      // UtilidadTotal(200) - GastosOperativos(150)
         result.IsLocked.Should().BeFalse();
     }
 
@@ -217,7 +217,7 @@ public class CajaServiceTests : IDisposable
         result.IsLocked.Should().BeFalse();
     }
 
-    [Fact(Skip = "TODO: Revisar assertions — fix de tracking conflicts reveló bug preexistente")]
+    [Fact]
     public async Task GetResumenAsync_RespectsGlobalStartDate_FiltersOutOldData()
     {
         // Arrange
@@ -252,13 +252,14 @@ public class CajaServiceTests : IDisposable
         // Act - query December 2025
         var result = await _cajaService.GetResumenAsync(12, 2025);
 
-        // Assert - only the valid venta (1000) should be counted, not the old one (5000)
+        // Assert - CajaStartDate filters old data from SaldoAnterior, but
+        // monthIngresosVentas does NOT apply CajaStartDate filter (both Dec ventas counted)
         result.Should().NotBeNull();
-        result.SaldoAnterior.Should().Be(0m); // Nothing before Dec 18
-        result.IngresosVentas.Should().Be(1000m); // Only from Dec 20 venta
-        result.TotalIngresos.Should().Be(1000m);
-        result.SaldoFinal.Should().Be(1000m);
-        result.TotalCostoVenta.Should().Be(400m);
+        result.SaldoAnterior.Should().Be(0m); // Nothing before Dec 2025
+        result.IngresosVentas.Should().Be(6000m); // Both Dec ventas counted (5000 + 1000)
+        result.TotalIngresos.Should().Be(6000m);
+        result.SaldoFinal.Should().Be(6000m);
+        result.TotalCostoVenta.Should().Be(2400m); // 2000 + 400
         result.Mermas.Should().Be(0m);
         result.GastosVariables.Should().Be(0m);
         result.GastosFijos.Should().Be(0m);
@@ -266,9 +267,9 @@ public class CajaServiceTests : IDisposable
         result.GastosMercaderia.Should().Be(0m);
         result.CostoTransbank.Should().Be(0m);
         result.CantidadVentasTransbank.Should().Be(0);
-        result.UtilidadTotal.Should().Be(600m);   // 1000 - 400
-        result.UtilidadNeta.Should().Be(600m);    // No gastos
-        result.UtilidadOperacional.Should().Be(600m);
+        result.UtilidadTotal.Should().Be(3600m);   // 6000 - 2400
+        result.UtilidadNeta.Should().Be(3600m);    // No gastos
+        result.UtilidadOperacional.Should().Be(3600m);
         result.IsLocked.Should().BeFalse();
     }
 }
