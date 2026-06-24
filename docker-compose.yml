@@ -15,7 +15,7 @@ services:
 
     environment:
       - ConnectionStrings__DefaultConnection=Server=db;Database=VendingDB;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True;
-      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_ENVIRONMENT=Production
       - TZ=America/Santiago
       # URL del servicio de scraping para que .NET sepa a dónde llamar
       - ScraperServiceUrl=http://scraper:8000
