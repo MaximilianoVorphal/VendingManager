@@ -163,6 +163,12 @@
                                         <button class="btn btn-sm btn-outline-warning rounded-0 fw-bold border-dark text-dark" title="Editar Compra" @onclick='() => Navigation.NavigateTo($"/compras/editar/{c.Id}")'>
                                             <i class="bi bi-pencil-square"></i>
                                         </button>
+                                        @if (c.TransferenciaId != null)
+                                        {
+                                            <button class="btn btn-sm btn-outline-dark rounded-0 fw-bold border-dark" title="Desvincular de transferencia" @onclick="() => ConfirmarDesvinculacion(c)">
+                                                <i class="bi bi-link-45deg"></i> DESVINC.
+                                            </button>
+                                        }
                                         <button class="btn btn-sm btn-outline-danger rounded-0 fw-bold border-dark" title="Eliminar Compra" @onclick="() => ConfirmarEliminacion(c)">
                                             <i class="bi bi-trash-fill"></i>
                                         </button>
@@ -339,6 +345,39 @@
     </div>
 }
 
+<!-- MODAL DESVINCULAR TRANSFERENCIA -->
+@if (CompraADesvincular != null)
+{
+    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5); z-index: 1060; position: fixed; top: 0; left: 0; width: 100%; height: 100%;">
+        <div class="modal-dialog modal-dialog-centered" style="z-index: 1061;">
+            <div class="modal-content rounded-0 border-2 border-dark shadow-lg">
+                <div class="modal-header bg-warning text-dark rounded-0 border-bottom border-dark">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-link-45deg me-2"></i>DESVINCULAR TRANSFERENCIA</h5>
+                    <button type="button" class="btn-close" @onclick="CancelarDesvinculacion"></button>
+                </div>
+                <div class="modal-body p-4 text-center">
+                    <p class="fs-5">¿Desvincular la boleta/factura de <strong>@CompraADesvincular.Proveedor</strong> de su transferencia?</p>
+                    <p class="text-muted"><i class="bi bi-info-circle-fill me-1"></i>El documento Nº @(string.IsNullOrEmpty(CompraADesvincular.NumeroDocumento) ? "S/N" : CompraADesvincular.NumeroDocumento) quedará sin transferencia asociada. Podés vincularlo a otra después.</p>
+                </div>
+                <div class="modal-footer bg-light rounded-0">
+                    <button type="button" class="btn btn-outline-dark rounded-0 fw-bold" @onclick="CancelarDesvinculacion" disabled="@ProcesandoDesvinculacion">CANCELAR</button>
+                    <button type="button" class="btn btn-warning rounded-0 border-dark fw-bold px-4" @onclick="DesvincularTransferencia" disabled="@ProcesandoDesvinculacion">
+                        @if(ProcesandoDesvinculacion)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                        }
+                        else
+                        {
+                            <i class="bi bi-check-circle me-2"></i>
+                        }
+                        SÍ, DESVINCULAR
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     private List<CompraDto> ListaCompras = new();
     private bool Cargando = true;
@@ -419,6 +458,54 @@
     private bool MostrarModalReconstruccion = false;
     private bool EjecutandoReconstruccion = false;
     private ReconstruirCostosResult? ResultadoReconstruccion;
+
+    // Modal Desvincular Transferencia
+    private CompraDto? CompraADesvincular;
+    private bool ProcesandoDesvinculacion = false;
+
+    private async Task ConfirmarDesvinculacion(CompraDto compra)
+    {
+        await JS.InvokeVoidAsync("modalScrollLock.lock");
+        CompraADesvincular = compra;
+        Error = null;
+        MensajeExito = null;
+    }
+
+    private async Task CancelarDesvinculacion()
+    {
+        await JS.InvokeVoidAsync("modalScrollLock.unlock");
+        CompraADesvincular = null;
+    }
+
+    private async Task DesvincularTransferencia()
+    {
+        if (CompraADesvincular == null) return;
+
+        try
+        {
+            ProcesandoDesvinculacion = true;
+            var response = await Http.DeleteAsync($"api/compras/{CompraADesvincular.Id}/transferencia");
+
+            if (response.IsSuccessStatusCode)
+            {
+                MensajeExito = $"La compra de {CompraADesvincular.Proveedor} fue desvinculada de la transferencia.";
+                await CancelarDesvinculacion();
+                await CargarCompras();
+            }
+            else
+            {
+                Error = "Error al desvincular: " + await response.Content.ReadAsStringAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            Error = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            ProcesandoDesvinculacion = false;
+        }
+    }
 
     private async Task ConfirmarEliminacion(CompraDto compra)
     {
