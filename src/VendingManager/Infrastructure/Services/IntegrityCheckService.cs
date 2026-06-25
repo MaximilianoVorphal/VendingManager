@@ -160,10 +160,14 @@ public class IntegrityCheckService : IIntegrityCheckService
 
         // Fetch Devoluciones for these rendiciones in a single query
         var rendicionIds = closedRendiciones.Select(r => r.Id).ToList();
-        var devolucionesByRendicion = await _context.Devoluciones
+        // Materialize before GroupBy: the EF Core provider cannot translate a bare
+        // GroupBy (not composed into an aggregate projection). The filtered set is small
+        // (devoluciones for the rendiciones in scope), so client-side grouping is fine.
+        var devolucionesByRendicion = (await _context.Devoluciones
             .Where(d => d.RendicionId != null && rendicionIds.Contains(d.RendicionId!.Value))
+            .ToListAsync(ct))
             .GroupBy(d => d.RendicionId!.Value)
-            .ToDictionaryAsync(g => g.Key, g => g.Sum(d => d.Monto), ct);
+            .ToDictionary(g => g.Key, g => g.Sum(d => d.Monto));
 
         foreach (var r in closedRendiciones)
         {
@@ -244,10 +248,14 @@ public class IntegrityCheckService : IIntegrityCheckService
             .ToListAsync(ct);
 
         var rendicionIds = openRendiciones.Select(r => r.Id).ToList();
-        var devolucionesByRendicion = await _context.Devoluciones
+        // Materialize before GroupBy: the EF Core provider cannot translate a bare
+        // GroupBy (not composed into an aggregate projection). The filtered set is small
+        // (devoluciones for the rendiciones in scope), so client-side grouping is fine.
+        var devolucionesByRendicion = (await _context.Devoluciones
             .Where(d => d.RendicionId != null && rendicionIds.Contains(d.RendicionId!.Value))
+            .ToListAsync(ct))
             .GroupBy(d => d.RendicionId!.Value)
-            .ToDictionaryAsync(g => g.Key, g => g.Sum(d => d.Monto), ct);
+            .ToDictionary(g => g.Key, g => g.Sum(d => d.Monto));
 
         foreach (var r in openRendiciones)
         {
