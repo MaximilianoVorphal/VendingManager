@@ -14,4 +14,5 @@ public interface ICompraService
     string ResolveFacturaPhysicalPath(string relativePath);
     Task<IEnumerable<Compra>> GetComprasNoVinculadasAsync(string? proveedor = null, string? numeroDocumento = null, DateTime? desde = null, DateTime? hasta = null);
     Task<ReconstruirCostosResult> ReconstruirProductoCostosAsync();
+    Task DesvincularDeTransferenciaAsync(int compraId);
 }
