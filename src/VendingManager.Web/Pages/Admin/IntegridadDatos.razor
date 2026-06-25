@@ -1,0 +1,201 @@
+@page "/admin/integridad-datos"
+@using Microsoft.AspNetCore.Authorization
+@using VendingManager.Shared.DTOs
+@using VendingManager.Shared.Constants
+@attribute [Authorize(Roles = Roles.Admin)]
+@inject HttpClient Http
+
+<PageTitle>Integridad de Datos</PageTitle>
+
+<div class="industrial-wrapper container-fluid px-4 mt-4">
+
+    <div class="row align-items-center mb-4 border-bottom border-3 border-dark pb-3">
+        <div class="col-12">
+            <h1 class="m-0 fw-bold text-uppercase" style="letter-spacing: -1px;">Integridad de Datos</h1>
+            <p class="text-muted mt-1 mb-0">Controles de integridad financiera — Conciliación</p>
+        </div>
+    </div>
+
+    <div class="mb-3">
+        <button class="btn btn-dark fw-bold rounded-0" @onclick="CargarChequeos" disabled="@(_loading)">
+            <i class="bi bi-arrow-clockwise me-2"></i>Ejecutar controles
+        </button>
+    </div>
+
+@if (_loading)
+{
+    <div class="d-flex justify-content-center my-5">
+        <div class="spinner-border text-dark" role="status">
+            <span class="visually-hidden">Cargando...</span>
+        </div>
+    </div>
+    <p class="text-center text-muted"><em>Cargando...</em></p>
+}
+else if (_error != null)
+{
+    <div class="alert alert-danger rounded-0">
+        <strong>Error:</strong> @_error
+    </div>
+}
+else if (_results == null || !_results.Any())
+{
+    <div class="alert alert-success rounded-0">
+        <i class="bi bi-check-circle me-2"></i>No se encontraron problemas de integridad.
+    </div>
+}
+else
+{
+    foreach (var check in _results!)
+    {
+        <div class="card border-dark rounded-0 mb-4 shadow-sm">
+            <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                <span class="fw-bold">@check.CheckType</span>
+                <span class="badge @GetBadgeClass(check.Severity) rounded-0">@GetSeverityLabel(check.Severity)</span>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover mb-0 border-dark">
+                        <thead class="table-secondary text-uppercase">
+                            <tr>
+                                @if (check.DetailEntries.Any(d => d.TransferenciaId.HasValue))
+                                {
+                                    <th>Transferencia</th>
+                                }
+                                @if (check.DetailEntries.Any(d => d.CompraId.HasValue))
+                                {
+                                    <th>Compra</th>
+                                }
+                                @if (check.DetailEntries.Any(d => d.RendicionId.HasValue))
+                                {
+                                    <th>Rendición</th>
+                                }
+                                @if (check.DetailEntries.Any(d => !string.IsNullOrEmpty(d.Trabajador)))
+                                {
+                                    <th>Trabajador</th>
+                                }
+                                @if (check.DetailEntries.Any(d => d.MontoEntregado.HasValue))
+                                {
+                                    <th>Monto Entregado</th>
+                                }
+                                @if (check.DetailEntries.Any(d => d.MontoTotal.HasValue))
+                                {
+                                    <th>Monto Total</th>
+                                }
+                                @if (check.DetailEntries.Any(d => d.MontoRecibido.HasValue))
+                                {
+                                    <th>Recibido / Gastado</th>
+                                }
+                                @if (check.DetailEntries.Any(d => d.SaldoADevolver.HasValue))
+                                {
+                                    <th>Saldo a Devolver</th>
+                                }
+                                @if (check.DetailEntries.Any(d => d.Diferencia.HasValue))
+                                {
+                                    <th>Diferencia</th>
+                                }
+                                <th>Mensaje</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var detail in check.DetailEntries)
+                            {
+                                <tr>
+                                    @if (check.DetailEntries.Any(d => d.TransferenciaId.HasValue))
+                                    {
+                                        <td>@(detail.TransferenciaId?.ToString() ?? "-")</td>
+                                    }
+                                    @if (check.DetailEntries.Any(d => d.CompraId.HasValue))
+                                    {
+                                        <td>@(detail.CompraId?.ToString() ?? "-")</td>
+                                    }
+                                    @if (check.DetailEntries.Any(d => d.RendicionId.HasValue))
+                                    {
+                                        <td>@(detail.RendicionId?.ToString() ?? "-")</td>
+                                    }
+                                    @if (check.DetailEntries.Any(d => !string.IsNullOrEmpty(d.Trabajador)))
+                                    {
+                                        <td>@detail.Trabajador</td>
+                                    }
+                                    @if (check.DetailEntries.Any(d => d.MontoEntregado.HasValue))
+                                    {
+                                        <td>@(detail.MontoEntregado.HasValue ? $"${detail.MontoEntregado.Value:N2}" : "-")</td>
+                                    }
+                                    @if (check.DetailEntries.Any(d => d.MontoTotal.HasValue))
+                                    {
+                                        <td>@(detail.MontoTotal.HasValue ? $"${detail.MontoTotal.Value:N2}" : "-")</td>
+                                    }
+                                    @if (check.DetailEntries.Any(d => d.MontoRecibido.HasValue))
+                                    {
+                                        <td>@(detail.MontoRecibido.HasValue ? $"${detail.MontoRecibido.Value:N2}" : "-")</td>
+                                    }
+                                    @if (check.DetailEntries.Any(d => d.SaldoADevolver.HasValue))
+                                    {
+                                        <td class="@(detail.SaldoADevolver < 0 ? "text-danger fw-bold" : "")">@(detail.SaldoADevolver.HasValue ? $"${detail.SaldoADevolver.Value:N2}" : "-")</td>
+                                    }
+                                    @if (check.DetailEntries.Any(d => d.Diferencia.HasValue))
+                                    {
+                                        <td class="@(detail.Diferencia < 0 ? "text-danger" : "")">@(detail.Diferencia.HasValue ? $"${detail.Diferencia.Value:N2}" : "-")</td>
+                                    }
+                                    <td><small>@detail.Mensaje</small></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                <div class="card-footer text-muted small">
+                    @check.DetailEntries.Count registro(s) encontrado(s)
+                </div>
+            </div>
+        </div>
+    }
+}
+
+</div>
+
+@code {
+    private List<IntegrityCheckResultDto>? _results;
+    private bool _loading;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarChequeos();
+    }
+
+    private async Task CargarChequeos()
+    {
+        _loading = true;
+        _error = null;
+        _results = null;
+
+        try
+        {
+            _results = await Http.GetFromJsonAsync<List<IntegrityCheckResultDto>>("api/contabilidad/integridad");
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+            _results = [];
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private static string GetBadgeClass(CheckSeverity severity) => severity switch
+    {
+        CheckSeverity.Error => "bg-danger",
+        CheckSeverity.Warn => "bg-warning text-dark",
+        CheckSeverity.Info => "bg-info text-dark",
+        _ => "bg-secondary"
+    };
+
+    private static string GetSeverityLabel(CheckSeverity severity) => severity switch
+    {
+        CheckSeverity.Error => "Error",
+        CheckSeverity.Warn => "Advertencia",
+        CheckSeverity.Info => "Información",
+        _ => "Desconocido"
+    };
+}
