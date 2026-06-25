@@ -12,10 +12,12 @@ namespace VendingManager.Controllers;
 [Route("api/[controller]")]
 public class ContabilidadController(
     IContabilidadService contabilidadService,
-    ITransferenciaService transferenciaService) : ControllerBase
+    ITransferenciaService transferenciaService,
+    IIntegrityCheckService integrityCheckService) : ControllerBase
 {
     private readonly IContabilidadService _service = contabilidadService;
     private readonly ITransferenciaService _transferenciaService = transferenciaService;
+    private readonly IIntegrityCheckService _integrityCheckService = integrityCheckService;
 
     [HttpPost("transferencia-con-movimiento")]
     public async Task<ActionResult<TransferenciaDto>> CrearTransferenciaConMovimiento(
@@ -472,6 +474,19 @@ public class ContabilidadController(
         {
             return BadRequest(ex.Message);
         }
+    }
+
+    // ========== Data Integrity Checks ==========
+
+    /// <summary>
+    /// Runs all data integrity checks and returns grouped results with severity.
+    /// </summary>
+    [HttpGet("integridad")]
+    public async Task<ActionResult<List<IntegrityCheckResultDto>>> GetIntegridad(
+        CancellationToken ct = default)
+    {
+        var results = await _integrityCheckService.RunAllChecksAsync(ct);
+        return Ok(results);
     }
 
     private static TransferenciaDto MapToDto(VendingManager.Core.Entities.Transferencia t)
