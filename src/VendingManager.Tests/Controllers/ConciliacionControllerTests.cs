@@ -21,7 +21,11 @@ public class ConciliacionControllerTests
     {
         _mockService = new Mock<IContabilidadService>();
         _mockTransferenciaService = new Mock<ITransferenciaService>();
-        _controller = new ContabilidadController(_mockService.Object, _mockTransferenciaService.Object);
+        var mockIntegrityCheck = new Mock<IIntegrityCheckService>();
+        _controller = new ContabilidadController(
+            _mockService.Object,
+            _mockTransferenciaService.Object,
+            mockIntegrityCheck.Object);
     }
 
     // ── VerificarTransferencia ────────────────────────────────────────────
