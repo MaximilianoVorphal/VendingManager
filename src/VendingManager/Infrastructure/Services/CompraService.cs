@@ -562,6 +562,16 @@ public class CompraService : ICompraService
         }
     }
 
+    public async Task DesvincularDeTransferenciaAsync(int compraId)
+    {
+        var compra = await _context.Compras.FindAsync(compraId);
+        if (compra == null) throw new KeyNotFoundException($"Compra {compraId} no encontrada.");
+        if (compra.TransferenciaId == null) return; // ya está desvinculada
+        compra.TransferenciaId = null;
+        _context.Compras.Update(compra);
+        await _context.SaveChangesAsync();
+    }
+
     /// <summary>
     /// Resuelve la categoría del movimiento de caja basado en tipo de factura y subcategoría.
     /// Prioriza SubcategoriaGasto explícita; si no hay, intenta inferir del proveedor.

@@ -235,6 +235,24 @@ public class ComprasController(ICompraService compraService, IFacturaOcrService 
         return PhysicalFile(Path.GetFullPath(filePath), contentType);
     }
 
+    [HttpDelete("{id}/transferencia")]
+    public async Task<IActionResult> DesvincularTransferencia(int id)
+    {
+        try
+        {
+            await compraService.DesvincularDeTransferenciaAsync(id);
+            return NoContent();
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
     [HttpPost("reconstruir-costos")]
     public async Task<ActionResult<ReconstruirCostosResult>> ReconstruirCostos()
     {
