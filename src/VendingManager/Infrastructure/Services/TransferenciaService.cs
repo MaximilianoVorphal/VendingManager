@@ -145,6 +145,18 @@ public class TransferenciaService : ITransferenciaService
     public string ResolveComprobantePhysicalPath(string relativePath)
     {
         var basePath = _uploadPathProvider.GetUploadBasePath();
-        return Path.Combine(basePath, relativePath.TrimStart('/'));
+        var resolved = Path.Combine(basePath, relativePath.TrimStart('/'));
+
+        // H-4: Path-traversal containment. The resolved path must stay inside the base directory.
+        // Using Path.DirectorySeparatorChar suffix prevents sibling-prefix bypass (e.g. /uploads2/).
+        var fullBase = Path.GetFullPath(basePath);
+        var fullPath = Path.GetFullPath(resolved);
+        if (!fullPath.StartsWith(fullBase + Path.DirectorySeparatorChar, StringComparison.Ordinal)
+            && fullPath != fullBase)
+        {
+            throw new UnauthorizedAccessException("Path escapes the upload base directory.");
+        }
+
+        return resolved;
     }
 }

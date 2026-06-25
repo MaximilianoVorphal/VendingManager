@@ -58,18 +58,36 @@ builder.Host.UseSerilog();
 builder.Services.AddMemoryCache();
 
 // 1. Configurar CORS (DEBE ir ANTES de AddControllers)
+// M-5: In Production, CORS origin is read from config (Cors:AllowedOrigin) and must use https://.
+// In Development, localhost origins (https + http) are allowed for local tooling convenience.
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("PermitirBlazor", policy =>
     {
-        policy.WithOrigins(
+        string[] origins;
+        if (builder.Environment.IsDevelopment())
+        {
+            origins = new[]
+            {
                 "https://localhost:5091",
                 "http://localhost:5091",
                 "https://localhost:5093",
                 "http://localhost:5093",
                 "http://localhost:5095",
                 "https://localhost:5095"
-            )
+            };
+        }
+        else
+        {
+            // TODO(operator): set Cors:AllowedOrigin in appsettings.Production.json to the real production https origin.
+            var prodOrigin = builder.Configuration["Cors:AllowedOrigin"]
+                ?? throw new InvalidOperationException("Cors:AllowedOrigin must be configured for non-Development environments.");
+            if (!prodOrigin.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException($"Cors:AllowedOrigin must use https:// in Production. Got: {prodOrigin}");
+            origins = new[] { prodOrigin };
+        }
+
+        policy.WithOrigins(origins)
               .AllowAnyMethod()
               .AllowAnyHeader()
               .AllowCredentials();
@@ -80,13 +98,19 @@ builder.Services.AddCors(options =>
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-    options.AddFixedWindowLimiter("LoginPolicy", opt =>
-    {
-        opt.Window = TimeSpan.FromMinutes(1);
-        opt.PermitLimit = 5;
-        opt.QueueLimit = 0;
-        opt.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
-    });
+    // H-1: partition the login limiter per client IP so one client cannot exhaust a
+    // global bucket (DoS) and brute-force is throttled per source. Behind a reverse
+    // proxy, configure ForwardedHeaders so RemoteIpAddress reflects the real client.
+    options.AddPolicy("LoginPolicy", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                Window = TimeSpan.FromMinutes(1),
+                PermitLimit = 5,
+                QueueLimit = 0,
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst
+            }));
 });
 
 // Auth
@@ -151,6 +175,7 @@ builder.Services.AddScoped<IAccountingPeriodRepository, AccountingPeriodReposito
 builder.Services.AddScoped<IProductoEANRepository, ProductoEANRepository>();
 builder.Services.AddScoped<IProductMatchingService, ProductMatchingService>();
 builder.Services.AddScoped<IIntegrityCheckService, IntegrityCheckService>();
+builder.Services.AddScoped<IFileContentValidator, FileContentValidator>(); // M-1: magic-byte upload validation
 builder.Services.AddHttpClient<IFacturaOcrService, FacturaOcrService>();
 builder.Services.AddHttpClient<IRecargaOcrService, RecargaOcrService>();
 // Servicios en segundo plano (Background Workers)
@@ -195,37 +220,61 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
+    var logger = services.GetRequiredService<ILogger<Program>>();
     try
     {
         var context = services.GetRequiredService<VendingManager.Infrastructure.Data.ApplicationDbContext>();
         context.Database.Migrate();
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "An error occurred while migrating the database.");
+    }
 
-        // Crear usuario por defecto si no existe (Safety net para Dev y Prod)
+    // Seed admin user — OUTSIDE the migration try/catch so failures are not silently swallowed.
+    // C-1: No hardcoded password. SEED_ADMIN_PASSWORD env var is the sole password source.
+    try
+    {
+        var context = services.GetRequiredService<VendingManager.Infrastructure.Data.ApplicationDbContext>();
         if (!context.Users.Any())
         {
-            // Solo crear seed si está expresamente permitido o estrictamente en Development sin usuarios
-            // Por ahora lo mantenemos simple: si no hay usuarios, crear admin via Env Var o default si Dev
             var seedPassword = Environment.GetEnvironmentVariable("SEED_ADMIN_PASSWORD");
 
-            if (app.Environment.IsDevelopment() || !string.IsNullOrEmpty(seedPassword))
+            if (!string.IsNullOrEmpty(seedPassword))
             {
-                var passwordToUse = !string.IsNullOrEmpty(seedPassword) ? seedPassword : "admin";
-
+                // Seed with the provided password in any environment.
                 var adminUser = new VendingManager.Core.Entities.User
                 {
                     Username = "admin",
-                    PasswordHash = BCrypt.Net.BCrypt.HashPassword(passwordToUse),
+                    PasswordHash = BCrypt.Net.BCrypt.HashPassword(seedPassword),
                     Role = Roles.Admin
                 };
                 context.Users.Add(adminUser);
                 context.SaveChanges();
+                logger.LogInformation("Admin user seeded successfully.");
+            }
+            else if (app.Environment.IsDevelopment())
+            {
+                // Development: skip seeding, warn the operator.
+                logger.LogWarning("Skipping admin seed: SEED_ADMIN_PASSWORD not set (Development).");
+            }
+            else
+            {
+                // Production (or any non-Development env): fail loud so the deployment is blocked.
+                logger.LogCritical("SEED_ADMIN_PASSWORD must be set to seed the initial admin in Production.");
+                throw new InvalidOperationException(
+                    "SEED_ADMIN_PASSWORD must be set to seed the initial admin in Production.");
             }
         }
     }
+    catch (InvalidOperationException)
+    {
+        // Re-throw so startup halts. This is intentional (C-1 fail-loud in Production).
+        throw;
+    }
     catch (Exception ex)
     {
-        var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
-        logger.LogError(ex, "An error occurred while migrating the database.");
+        logger.LogError(ex, "An error occurred while seeding the admin user.");
     }
 }
 
@@ -262,10 +311,11 @@ app.MapHealthChecks("/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks
 {
     Predicate = _ => false // liveness: only self-check (always passes if app is running)
 });
+// M-2: /health/db is protected — anonymous callers must not see DB connectivity status.
 app.MapHealthChecks("/health/db", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
 {
     Predicate = check => check.Tags.Contains("db") // readiness: SQL Server check
-});
+}).RequireAuthorization("RequireAdmin");
 
 // 9. Mapear componentes y API
 app.MapStaticAssets();
@@ -276,3 +326,6 @@ app.MapRazorComponents<VendingManager.Components.App>()
     .AddAdditionalAssemblies(typeof(VendingManager.Web.App).Assembly);
 
 app.Run();
+
+// Expose Program as a partial class so tests can use WebApplicationFactory<Program>.
+public partial class Program { }

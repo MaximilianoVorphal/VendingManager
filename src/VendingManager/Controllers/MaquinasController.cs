@@ -1,4 +1,6 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using VendingManager.Shared.DTOs;
 using VendingManager.Core.Interfaces;
 
@@ -6,14 +8,17 @@ namespace VendingManager.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class MaquinasController(IMaquinaService maquinaService, IAuditService auditService) : ControllerBase
+    [Authorize]
+    public class MaquinasController(IMaquinaService maquinaService, IAuditService auditService, ILogger<MaquinasController> logger) : ControllerBase
     {
+        [HttpGet]
         public async Task<ActionResult<List<Maquina>>> GetMaquinas()
         {
             return await maquinaService.GetMaquinasAsync();
         }
 
         [HttpPost]
+        [Authorize(Policy = "RequireAdmin")]
         public async Task<ActionResult<Maquina>> PostMaquina(Maquina maquina)
         {
             var created = await maquinaService.CreateMaquinaAsync(maquina);
@@ -22,6 +27,7 @@ namespace VendingManager.Controllers
         }
 
         [HttpPut("{id}")]
+        [Authorize(Policy = "RequireAdmin")]
         public async Task<IActionResult> PutMaquina(int id, Maquina maquina)
         {
             if (id != maquina.Id) return BadRequest();
@@ -40,6 +46,7 @@ namespace VendingManager.Controllers
         }
 
         [HttpDelete("{id}")]
+        [Authorize(Policy = "RequireAdmin")]
         public async Task<IActionResult> DeleteMaquina(int id)
         {
             var maquina = await maquinaService.GetMaquinaAsync(id);
@@ -58,6 +65,7 @@ namespace VendingManager.Controllers
         }
 
         [HttpPost("{id}/slots")]
+        [Authorize(Policy = "RequireAdmin")]
         public async Task<IActionResult> UpdateSlot(int id, [FromBody] ConfiguracionSlotDto slot)
         {
             if (id != slot.MaquinaId) return BadRequest("ID de máquina no coincide.");
@@ -67,6 +75,7 @@ namespace VendingManager.Controllers
         }
 
         [HttpPost("{id}/batch-actions")]
+        [Authorize(Policy = "RequireAdmin")]
         public async Task<IActionResult> ProcesarMovimientos(int id, [FromBody] List<SlotActionDto> acciones)
         {
             try
@@ -106,7 +115,8 @@ namespace VendingManager.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, ex.Message);
+                logger.LogError(ex, "Unhandled error in {Action} for machine {Id}.", nameof(ProcesarMovimientos), id);
+                throw;
             }
         }
     }

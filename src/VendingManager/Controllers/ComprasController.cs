@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using VendingManager.Core.Entities;
 using VendingManager.Core.Interfaces;
 using VendingManager.Shared.DTOs;
@@ -9,7 +10,7 @@ namespace VendingManager.Controllers;
 [Authorize]
 [ApiController]
 [Route("api/[controller]")]
-public class ComprasController(ICompraService compraService, IFacturaOcrService facturaOcrService) : ControllerBase
+public class ComprasController(ICompraService compraService, IFacturaOcrService facturaOcrService, ILogger<ComprasController> logger) : ControllerBase
 {
     public async Task<ActionResult<IEnumerable<CompraDto>>> GetCompras([FromQuery] int? limit = null)
     {
@@ -49,7 +50,8 @@ public class ComprasController(ICompraService compraService, IFacturaOcrService 
         }
         catch (Exception ex)
         {
-            return StatusCode(500, $"Error interno: {ex.Message} | Detalle: {ex.InnerException?.Message}");
+            logger.LogError(ex, "Unhandled error in {Action}.", nameof(GetCompras));
+            throw;
         }
     }
 
@@ -177,7 +179,8 @@ public class ComprasController(ICompraService compraService, IFacturaOcrService 
         }
         catch (Exception ex)
         {
-            return StatusCode(500, $"Error procesando factura con IA: {ex.Message}");
+            logger.LogError(ex, "Unhandled error in {Action}.", nameof(UploadFactura));
+            throw;
         }
     }
 
@@ -203,19 +206,23 @@ public class ComprasController(ICompraService compraService, IFacturaOcrService 
         }
         catch (UnauthorizedAccessException ex)
         {
-            return StatusCode(500, $"Error de permisos al guardar la imagen: {ex.Message}. Verifique que el directorio de uploads tenga permisos de escritura.");
+            logger.LogError(ex, "Permission error saving factura for compra {Id}.", id);
+            return StatusCode(500, "Permission error saving the image. Verify the upload directory has write permissions.");
         }
         catch (IOException ex)
         {
-            return StatusCode(500, $"Error de E/S al guardar la imagen: {ex.Message}");
+            logger.LogError(ex, "I/O error saving factura for compra {Id}.", id);
+            return StatusCode(500, "I/O error saving the image.");
         }
         catch (Exception ex)
         {
-            return StatusCode(500, $"Error guardando imagen: {ex.GetType().Name} - {ex.Message}");
+            logger.LogError(ex, "Unhandled error in {Action}.", nameof(UploadFacturaImagen));
+            throw;
         }
     }
 
     [HttpGet("{id}/factura")]
+    [Authorize] // H-2: image endpoints explicitly require authentication (cookie sent same-origin).
     public async Task<IActionResult> GetFacturaImagen(int id)
     {
         var compra = await compraService.GetCompraByIdAsync(id);
@@ -224,7 +231,18 @@ public class ComprasController(ICompraService compraService, IFacturaOcrService 
         if (string.IsNullOrEmpty(compra.FacturaImagenPath))
             return NotFound("Esta compra no tiene imagen de factura.");
 
-        var filePath = compraService.ResolveFacturaPhysicalPath(compra.FacturaImagenPath);
+        string filePath;
+        try
+        {
+            // H-4: ResolveFacturaPhysicalPath enforces path-containment. Throws UnauthorizedAccessException on traversal.
+            filePath = compraService.ResolveFacturaPhysicalPath(compra.FacturaImagenPath);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // Do not expose the reason — return 404 to avoid information leakage.
+            return NotFound();
+        }
+
         if (!System.IO.File.Exists(filePath))
             return NotFound("Archivo de imagen no encontrado en disco.");
 
@@ -263,7 +281,8 @@ public class ComprasController(ICompraService compraService, IFacturaOcrService 
         }
         catch (Exception ex)
         {
-            return StatusCode(500, $"Error al reconstruir costos: {ex.Message}");
+            logger.LogError(ex, "Unhandled error in {Action}.", nameof(ReconstruirCostos));
+            throw;
         }
     }
 }

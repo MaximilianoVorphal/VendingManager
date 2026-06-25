@@ -1,6 +1,7 @@
 namespace VendingManager.Tests.Controllers;
 
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using Moq;
 using VendingManager.Controllers;
 using VendingManager.Core.Interfaces;
@@ -22,10 +23,12 @@ public class ConciliacionControllerTests
         _mockService = new Mock<IContabilidadService>();
         _mockTransferenciaService = new Mock<ITransferenciaService>();
         var mockIntegrityCheck = new Mock<IIntegrityCheckService>();
+        var mockLogger = new Mock<ILogger<ContabilidadController>>();
         _controller = new ContabilidadController(
             _mockService.Object,
             _mockTransferenciaService.Object,
-            mockIntegrityCheck.Object);
+            mockIntegrityCheck.Object,
+            mockLogger.Object);
     }
 
     // ── VerificarTransferencia ────────────────────────────────────────────

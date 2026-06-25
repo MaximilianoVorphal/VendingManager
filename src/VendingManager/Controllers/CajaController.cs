@@ -1,11 +1,12 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 
 namespace VendingManager.Web.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
     [Microsoft.AspNetCore.Authorization.Authorize]
-    public class CajaController(ICajaService cajaService, Core.Interfaces.IInventarioService inventarioService, Core.Interfaces.IAuditService auditService) : ControllerBase
+    public class CajaController(ICajaService cajaService, Core.Interfaces.IInventarioService inventarioService, Core.Interfaces.IAuditService auditService, ILogger<CajaController> logger) : ControllerBase
     {
         [HttpGet("resumen")]
         public async Task<ActionResult<CajaResumenDto>> GetResumen([FromQuery] int? month, [FromQuery] int? year)
@@ -58,7 +59,11 @@ namespace VendingManager.Web.Controllers
             }
             catch (ArgumentException ex) { return BadRequest(ex.Message); }
             catch (InvalidOperationException ex) { return BadRequest(ex.Message); }
-            catch (Exception ex) { return StatusCode(500, ex.Message); }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Unhandled error in {Action}.", nameof(RegistrarMovimiento));
+                throw;
+            }
         }
 
         [HttpPost("upload")]
@@ -79,7 +84,8 @@ namespace VendingManager.Web.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Internal server error: {ex.Message}");
+                logger.LogError(ex, "Unhandled error in {Action}.", nameof(UploadImage));
+                throw;
             }
         }
 
@@ -97,7 +103,8 @@ namespace VendingManager.Web.Controllers
             }
             catch (Exception ex)
             {
-                return BadRequest("Error al generar Excel: " + ex.Message);
+                logger.LogError(ex, "Unhandled error in {Action}.", nameof(ExportarCaja));
+                throw;
             }
         }
         [HttpGet("valorizacion")]

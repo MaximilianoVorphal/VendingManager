@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using VendingManager.Core.Interfaces;
 using VendingManager.Shared.DTOs;
 
@@ -13,11 +14,13 @@ namespace VendingManager.Controllers;
 public class ContabilidadController(
     IContabilidadService contabilidadService,
     ITransferenciaService transferenciaService,
-    IIntegrityCheckService integrityCheckService) : ControllerBase
+    IIntegrityCheckService integrityCheckService,
+    ILogger<ContabilidadController> logger) : ControllerBase
 {
     private readonly IContabilidadService _service = contabilidadService;
     private readonly ITransferenciaService _transferenciaService = transferenciaService;
     private readonly IIntegrityCheckService _integrityCheckService = integrityCheckService;
+    private readonly ILogger<ContabilidadController> _logger = logger;
 
     [HttpPost("transferencia-con-movimiento")]
     public async Task<ActionResult<TransferenciaDto>> CrearTransferenciaConMovimiento(
@@ -327,20 +330,24 @@ public class ContabilidadController(
         }
         catch (UnauthorizedAccessException ex)
         {
-            return StatusCode(500, $"Error de permisos al guardar la imagen: {ex.Message}");
+            _logger.LogError(ex, "Permission error saving comprobante for transferencia {Id}.", id);
+            return StatusCode(500, "Permission error saving the image. Verify the upload directory has write permissions.");
         }
         catch (IOException ex)
         {
-            return StatusCode(500, $"Error de E/S al guardar la imagen: {ex.Message}");
+            _logger.LogError(ex, "I/O error saving comprobante for transferencia {Id}.", id);
+            return StatusCode(500, "I/O error saving the image.");
         }
         catch (Exception ex)
         {
-            return StatusCode(500, $"Error guardando imagen: {ex.GetType().Name} - {ex.Message}");
+            _logger.LogError(ex, "Unhandled error in {Action}.", nameof(UploadComprobanteTransferencia));
+            throw;
         }
     }
 
     /// <summary>Retrieve the comprobante image for a Transferencia. Mirrors ComprasController GET {id}/factura.</summary>
     [HttpGet("transferencia/{id}/comprobante")]
+    [Authorize] // H-2: image endpoints explicitly require authentication (cookie sent same-origin).
     public async Task<IActionResult> GetComprobanteTransferencia(int id, CancellationToken ct = default)
     {
         var transferencia = await _transferenciaService.GetByIdAsync(id);
@@ -350,7 +357,18 @@ public class ContabilidadController(
         if (string.IsNullOrEmpty(transferencia.ComprobanteImagenPath))
             return NotFound("Esta transferencia no tiene comprobante de imagen.");
 
-        var filePath = _transferenciaService.ResolveComprobantePhysicalPath(transferencia.ComprobanteImagenPath);
+        string filePath;
+        try
+        {
+            // H-4: ResolveComprobantePhysicalPath enforces path-containment. Throws UnauthorizedAccessException on traversal.
+            filePath = _transferenciaService.ResolveComprobantePhysicalPath(transferencia.ComprobanteImagenPath);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // Do not expose the reason — return 404 to avoid information leakage.
+            return NotFound();
+        }
+
         if (!System.IO.File.Exists(filePath))
             return NotFound("Archivo de imagen no encontrado en disco.");
 
@@ -485,8 +503,16 @@ public class ContabilidadController(
     public async Task<ActionResult<List<IntegrityCheckResultDto>>> GetIntegridad(
         CancellationToken ct = default)
     {
-        var results = await _integrityCheckService.RunAllChecksAsync(ct);
-        return Ok(results);
+        try
+        {
+            var results = await _integrityCheckService.RunAllChecksAsync(ct);
+            return Ok(results);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unhandled error in {Action}.", nameof(GetIntegridad));
+            throw;
+        }
     }
 
     private static TransferenciaDto MapToDto(VendingManager.Core.Entities.Transferencia t)

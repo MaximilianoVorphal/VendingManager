@@ -11,15 +11,18 @@ public class CompraService : ICompraService
     private readonly ApplicationDbContext _context;
     private readonly IProductMatchingService _productMatchingService;
     private readonly IUploadPathProvider _uploadPathProvider;
+    private readonly IFileContentValidator _fileContentValidator;
 
     public CompraService(
         ApplicationDbContext context,
         IProductMatchingService productMatchingService,
-        IUploadPathProvider uploadPathProvider)
+        IUploadPathProvider uploadPathProvider,
+        IFileContentValidator fileContentValidator)
     {
         _context = context;
         _productMatchingService = productMatchingService;
         _uploadPathProvider = uploadPathProvider;
+        _fileContentValidator = fileContentValidator;
     }
 
     public async Task<IEnumerable<Compra>> GetComprasAsync(int? count = null)
@@ -413,6 +416,12 @@ public class CompraService : ICompraService
         if (!allowedExt.Contains(ext))
             throw new ArgumentException("Formato de archivo no permitido. Use JPG, PNG o PDF.");
 
+        // M-1: Validate file content by magic bytes — extension/Content-Type alone are not sufficient.
+        using (var validationStream = file.OpenReadStream())
+        {
+            _fileContentValidator.Validate(validationStream, ext);
+        }
+
         var compra = await _context.Compras.FindAsync(compraId);
         if (compra == null)
             throw new KeyNotFoundException($"Compra {compraId} no encontrada.");
@@ -448,7 +457,19 @@ public class CompraService : ICompraService
     public string ResolveFacturaPhysicalPath(string relativePath)
     {
         var basePath = _uploadPathProvider.GetUploadBasePath();
-        return Path.Combine(basePath, relativePath.TrimStart('/'));
+        var resolved = Path.Combine(basePath, relativePath.TrimStart('/'));
+
+        // H-4: Path-traversal containment. The resolved path must stay inside the base directory.
+        // Using Path.DirectorySeparatorChar suffix prevents sibling-prefix bypass (e.g. /uploads2/).
+        var fullBase = Path.GetFullPath(basePath);
+        var fullPath = Path.GetFullPath(resolved);
+        if (!fullPath.StartsWith(fullBase + Path.DirectorySeparatorChar, StringComparison.Ordinal)
+            && fullPath != fullBase)
+        {
+            throw new UnauthorizedAccessException("Path escapes the upload base directory.");
+        }
+
+        return resolved;
     }
 
     public async Task<IEnumerable<Compra>> GetComprasNoVinculadasAsync(string? proveedor = null, string? numeroDocumento = null, DateTime? desde = null, DateTime? hasta = null)

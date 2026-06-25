@@ -15,6 +15,7 @@ namespace VendingManager.Controllers
     public class AccountController(ApplicationDbContext context, IAuditService auditService) : ControllerBase
     {
         [HttpPost("login")]
+        [Microsoft.AspNetCore.RateLimiting.EnableRateLimiting("LoginPolicy")]
         public async Task<ActionResult<string>> Login(LoginDto loginDto)
         {
             var user = await context.Users
@@ -22,8 +23,8 @@ namespace VendingManager.Controllers
 
             if (user == null || !BCrypt.Net.BCrypt.Verify(loginDto.Password, user.PasswordHash))
             {
-                // Retraso para prevenir ataques de timing (opcional pero buena práctica)
-                await Task.Delay(new Random().Next(100, 300));
+                // Timing delay to mitigate user-enumeration attacks — uses CSPRNG (L-3).
+                await Task.Delay(System.Security.Cryptography.RandomNumberGenerator.GetInt32(100, 300));
                 return Unauthorized("Credenciales inválidas");
             }
 

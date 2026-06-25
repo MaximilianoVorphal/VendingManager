@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using VendingManager.Core.Interfaces;
 
 namespace VendingManager.Web.Controllers
@@ -7,8 +8,10 @@ namespace VendingManager.Web.Controllers
     [Route("api/[controller]")]
     [ApiController]
     [Microsoft.AspNetCore.Authorization.Authorize]
-    public class InventarioController(IInventarioService inventarioService, IAuditService auditService) : ControllerBase
+    public class InventarioController(IInventarioService inventarioService, IAuditService auditService, ILogger<InventarioController> logger) : ControllerBase
     {
+        [Microsoft.AspNetCore.Mvc.HttpPost("importar-catalogo")]
+        [Microsoft.AspNetCore.Authorization.Authorize(Policy = "RequireAdmin")]
         public async Task<IActionResult> SubirCatalogo(IFormFile file)
         {
             if (file == null || file.Length == 0)
@@ -25,7 +28,8 @@ namespace VendingManager.Web.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Error interno: {ex.Message}");
+                logger.LogError(ex, "Unhandled error in {Action}.", nameof(SubirCatalogo));
+                throw;
             }
         }
 
@@ -39,8 +43,8 @@ namespace VendingManager.Web.Controllers
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"ðŸ”¥ ERROR AL CARGAR INVENTARIO: {ex.Message}");
-                return StatusCode(500, "Error interno al cargar la lista de productos.");
+                logger.LogError(ex, “Unhandled error in {Action}.”, nameof(GetInventario));
+                throw;
             }
         }
     }

@@ -33,7 +33,8 @@ public class CompraServiceTests : IDisposable
             .Returns(Task.CompletedTask);
 
         var uploadProvider = new DefaultUploadPathProvider(_mockEnv.Object, _config);
-        _service = new CompraService(_context, _mockProductMatching.Object, uploadProvider);
+        var fileContentValidator = new FileContentValidator();
+        _service = new CompraService(_context, _mockProductMatching.Object, uploadProvider, fileContentValidator);
     }
 
     public void Dispose()

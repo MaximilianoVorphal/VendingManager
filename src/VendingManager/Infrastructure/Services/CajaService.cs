@@ -17,6 +17,7 @@ namespace VendingManager.Infrastructure.Services
         private readonly IOptions<VendingConfig> _config;
         private readonly IExcelExportService _excelExportService;
         private readonly CajaBusinessService _business;
+        private readonly IFileContentValidator _fileContentValidator;
 
         public CajaService(
             ApplicationDbContext context,
@@ -24,7 +25,8 @@ namespace VendingManager.Infrastructure.Services
             IInformesService informesService,
             IOptions<VendingConfig> config,
             IExcelExportService excelExportService,
-            CajaBusinessService business)
+            CajaBusinessService business,
+            IFileContentValidator fileContentValidator)
         {
             _context = context;
             _environment = environment;
@@ -32,17 +34,27 @@ namespace VendingManager.Infrastructure.Services
             _config = config;
             _excelExportService = excelExportService;
             _business = business;
+            _fileContentValidator = fileContentValidator;
         }
 
         // UploadComprobanteAsync — kept in service (uses _informesService)
         public async Task<string> UploadComprobanteAsync(Stream fileStream, string fileName, string? webRootPath = null, string? category = null)
         {
+            string extension = Path.GetExtension(fileName).ToLower();
+
+            // M-1: Validate file content by magic bytes before accepting the upload.
+            // The stream must be re-read after validation, so buffer it first.
+            using var bufferStream = new MemoryStream();
+            await fileStream.CopyToAsync(bufferStream);
+            bufferStream.Position = 0;
+            _fileContentValidator.Validate(bufferStream, extension);
+            bufferStream.Position = 0;
+
             using (var memoryStream = new MemoryStream())
             {
-                await fileStream.CopyToAsync(memoryStream);
+                await bufferStream.CopyToAsync(memoryStream);
                 var content = memoryStream.ToArray();
 
-                string extension = Path.GetExtension(fileName).ToLower();
                 string contentType = "application/octet-stream";
 
                 if (extension == ".pdf") contentType = "application/pdf";

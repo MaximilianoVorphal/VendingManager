@@ -36,8 +36,9 @@ public class UploadPathProviderTests
         var productMatching = new Mock<IProductMatchingService>();
 
         var uploadProvider = new DefaultUploadPathProvider(envMock.Object, cfg);
+        var fileContentValidator = new FileContentValidator();
 
-        return (new CompraService(context, productMatching.Object, uploadProvider), envMock);
+        return (new CompraService(context, productMatching.Object, uploadProvider, fileContentValidator), envMock);
     }
 
     // ── Regression: step 1 — config path wins ────────────────────────────────

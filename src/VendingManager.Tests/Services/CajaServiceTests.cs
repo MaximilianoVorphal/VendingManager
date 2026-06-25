@@ -42,7 +42,8 @@ public class CajaServiceTests : IDisposable
         var maquinaRepo = new MaquinaRepository(_context);
         var business = new CajaBusinessService(_context, ventaRepo, maquinaRepo, _mockExcelExport.Object, _config);
 
-        _cajaService = new CajaService(_context, _mockEnvironment.Object, _mockInformesService.Object, _config, _mockExcelExport.Object, business);
+        var fileContentValidator = new FileContentValidator();
+        _cajaService = new CajaService(_context, _mockEnvironment.Object, _mockInformesService.Object, _config, _mockExcelExport.Object, business, fileContentValidator);
     }
 
     public void Dispose()

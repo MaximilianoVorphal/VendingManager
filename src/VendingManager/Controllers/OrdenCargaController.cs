@@ -1,4 +1,6 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using VendingManager.Shared.DTOs;
 using VendingManager.Core.Interfaces;
 
@@ -6,11 +8,15 @@ namespace VendingManager.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class OrdenCargaController(
         IOrdenCargaService service,
         IOrdenCargaExcelService ordenCargaExcelService,
-        IRecargaOcrService recargaOcrService) : ControllerBase
+        IRecargaOcrService recargaOcrService,
+        ILogger<OrdenCargaController> logger) : ControllerBase
     {
+        [HttpPost]
+        [Authorize(Policy = "RequireAdmin")]
         public async Task<ActionResult<OrdenCargaDto>> CrearOrden(CrearOrdenDto dto)
         {
             try
@@ -25,6 +31,7 @@ namespace VendingManager.Controllers
         }
 
         [HttpPost("finalizar")]
+        [Authorize(Policy = "RequireAdmin")]
         public async Task<IActionResult> FinalizarOrden(FinalizarOrdenDto dto)
         {
             try
@@ -39,6 +46,7 @@ namespace VendingManager.Controllers
         }
 
         [HttpPatch("{id}/nombre")]
+        [Authorize(Policy = "RequireAdmin")]
         public async Task<IActionResult> ActualizarNombre(int id, [FromBody] string nombre) // usando body de string simple
         {
             try 
@@ -54,6 +62,7 @@ namespace VendingManager.Controllers
         }
 
         [HttpPut("{id}")]
+        [Authorize(Policy = "RequireAdmin")]
         public async Task<IActionResult> ActualizarOrden(int id, ActualizarOrdenRequestDto dto)
         {
             try
@@ -157,7 +166,8 @@ namespace VendingManager.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, "Error OCR: " + ex.Message);
+                logger.LogError(ex, "Unhandled error in {Action}.", nameof(ExtractFromPhoto));
+                throw;
             }
         }
     }

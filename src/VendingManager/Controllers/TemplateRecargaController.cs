@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using VendingManager.Shared.DTOs;
 using VendingManager.Core.Interfaces;
@@ -6,6 +7,7 @@ namespace VendingManager.Controllers;
 
 [Route("api/[controller]")]
 [ApiController]
+[Authorize]
 public class TemplateRecargaController(
     ITemplateRecargaService service,
     ITemplateRecargaLifecycleService lifecycleService) : ControllerBase
@@ -109,6 +111,7 @@ public class TemplateRecargaController(
     /// Crear nuevo template de recarga
     /// </summary>
     [HttpPost]
+    [Authorize(Policy = "RequireAdmin")]
     public async Task<ActionResult<TemplateRecargaDto>> Create([FromBody] CreateTemplateRecargaDto dto)
     {
         if (string.IsNullOrWhiteSpace(dto.Nombre))
@@ -132,6 +135,7 @@ public class TemplateRecargaController(
     /// Actualizar template existente
     /// </summary>
     [HttpPut("{id}")]
+    [Authorize(Policy = "RequireAdmin")]
     public async Task<ActionResult<TemplateRecargaDto>> Update(int id, [FromBody] UpdateTemplateRecargaDto dto)
     {
         try
@@ -153,6 +157,7 @@ public class TemplateRecargaController(
     /// Eliminar template
     /// </summary>
     [HttpDelete("{id}")]
+    [Authorize(Policy = "RequireAdmin")]
     public async Task<IActionResult> Delete(int id)
     {
         await service.DeleteAsync(id);

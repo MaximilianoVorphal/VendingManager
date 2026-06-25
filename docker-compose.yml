@@ -31,8 +31,9 @@ services:
       - TZ=America/Santiago
     volumes:
       - mssql_data:/var/opt/mssql
-    ports:
-      - "1433:1433"
+    # H-5: SQL Server port is NOT published to the host in production.
+    # The webapp connects to db on the internal compose network (host 'db', port 1433).
+    # For local development, use docker-compose.dev.yml which maps 1434:1433.
 
   # Nuevo servicio para el Scraper (Python + Playwright)
   scraper:

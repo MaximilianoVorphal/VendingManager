@@ -1,4 +1,6 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using VendingManager.Shared.DTOs;
 using VendingManager.Core.Interfaces;
 using VendingManager.Core.Entities;
@@ -7,21 +9,25 @@ namespace VendingManager.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class ProductosController(
         IInventarioService inventarioService,
         IAuditService auditService,
-        IProductoEANRepository eanRepo) : ControllerBase
+        IProductoEANRepository eanRepo,
+        ILogger<ProductosController> logger) : ControllerBase
     {
+        [HttpGet]
         public async Task<ActionResult<IEnumerable<Producto>>> GetProductos()
         {
             return Ok(await inventarioService.GetProductosAsync());
         }
 
         [HttpPost("importar-catalogo")]
+        [Authorize(Policy = "RequireAdmin")]
         public async Task<IActionResult> SubirCatalogo(IFormFile file)
         {
             if (file == null || file.Length == 0)
-                return BadRequest("Por favor sube un archivo vÃ¡lido.");
+                return BadRequest("Por favor sube un archivo válido.");
 
             try
             {
@@ -34,7 +40,8 @@ namespace VendingManager.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Error interno: {ex.Message}");
+                logger.LogError(ex, "Unhandled error in {Action}.", nameof(SubirCatalogo));
+                throw;
             }
         }
 
@@ -49,11 +56,13 @@ namespace VendingManager.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Error interno al exportar: {ex.Message}");
+                logger.LogError(ex, "Unhandled error in {Action}.", nameof(ExportarCatalogo));
+                throw;
             }
         }
 
         [HttpPost("ajustar-stock")]
+        [Authorize(Policy = "RequireAdmin")]
         public async Task<IActionResult> AjustarStock([FromBody] StockUpdateDto dto)
         {
             try
@@ -67,10 +76,14 @@ namespace VendingManager.Controllers
                 await auditService.RegistrarAccionAsync(User.Identity?.Name ?? "Desconocido", $"{tipoMov} Stock", $"{producto.Nombre}: {stockAnterior} → {dto.NuevoStock} ({tipoMov} de {diferencia} uds)");
                 return Ok(new { message = "Stock actualizado", nuevoStock = dto.NuevoStock });
             }
+            catch (KeyNotFoundException)
+            {
+                return NotFound("Producto no encontrado");
+            }
             catch (Exception ex)
             {
-                if (ex.Message.Contains("not found")) return NotFound("Producto no encontrado");
-                return StatusCode(500, ex.Message);
+                logger.LogError(ex, "Unhandled error in {Action}.", nameof(AjustarStock));
+                throw;
             }
         }
 
@@ -90,6 +103,7 @@ namespace VendingManager.Controllers
         }
 
         [HttpPost]
+        [Authorize(Policy = "RequireAdmin")]
         public async Task<ActionResult<Producto>> PostProducto(Producto producto)
         {
             var created = await inventarioService.CreateProductoAsync(producto);
@@ -98,6 +112,7 @@ namespace VendingManager.Controllers
         }
 
         [HttpPut("{id}")]
+        [Authorize(Policy = "RequireAdmin")]
         public async Task<IActionResult> PutProducto(int id, Producto producto, [FromQuery] DateTime? recalculateFrom = null, [FromQuery] DateTime? recalculateTo = null)
         {
             if (id != producto.Id) return BadRequest();
@@ -121,12 +136,13 @@ namespace VendingManager.Controllers
             catch (Exception ex)
             {
                 if (await inventarioService.GetProductoAsync(id) == null) return NotFound();
-                Console.WriteLine($"🔥 ERROR en PUT /api/productos/{id}: {ex}");
-                return StatusCode(500, $"Error interno al actualizar producto: {ex.Message}");
+                logger.LogError(ex, "Unhandled error in {Action} for product {Id}.", nameof(PutProducto), id);
+                throw;
             }
         }
 
         [HttpDelete("{id}")]
+        [Authorize(Policy = "RequireAdmin")]
         public async Task<IActionResult> DeleteProducto(int id)
         {
             var producto = await inventarioService.GetProductoAsync(id);
@@ -159,6 +175,7 @@ namespace VendingManager.Controllers
 
         /// <summary>Create a new EAN mapping.</summary>
         [HttpPost("ean")]
+        [Authorize(Policy = "RequireAdmin")]
         public async Task<ActionResult<ProductoEanDto>> CreateEanMapping([FromBody] CreateProductoEanRequestDto dto)
         {
             if (string.IsNullOrWhiteSpace(dto.EAN))
@@ -190,6 +207,7 @@ namespace VendingManager.Controllers
 
         /// <summary>Update an existing EAN mapping.</summary>
         [HttpPut("ean/{id:int}")]
+        [Authorize(Policy = "RequireAdmin")]
         public async Task<IActionResult> UpdateEanMapping(int id, [FromBody] CreateProductoEanRequestDto dto)
         {
             var entity = (await eanRepo.GetAllAsync()).FirstOrDefault(e => e.Id == id);
@@ -217,6 +235,7 @@ namespace VendingManager.Controllers
 
         /// <summary>Delete an EAN mapping.</summary>
         [HttpDelete("ean/{id:int}")]
+        [Authorize(Policy = "RequireAdmin")]
         public async Task<IActionResult> DeleteEanMapping(int id)
         {
             var entity = (await eanRepo.GetAllAsync()).FirstOrDefault(e => e.Id == id);

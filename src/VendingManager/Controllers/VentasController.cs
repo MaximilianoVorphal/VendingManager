@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using VendingManager.Core.Entities;
 using VendingManager.Core.Interfaces;
 
@@ -14,7 +15,8 @@ namespace VendingManager.Controllers
         ISalesAnalyticsService salesAnalyticsService,
         IPurchasingService purchasingService,
         ISalesImportService salesImportService,
-        IAuditService auditService) : ControllerBase
+        IAuditService auditService,
+        ILogger<VentasController> logger) : ControllerBase
     {
         public async Task<IActionResult> SubirVentasMaquina(IFormFile file, [FromQuery] DateTime? fechaLimite = null)
         {
@@ -41,7 +43,11 @@ namespace VendingManager.Controllers
                     return Ok($"Archivo procesado. {resultado}");
                 }
             }
-            catch (Exception ex) { return StatusCode(500, ex.Message); }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Unhandled error in {Action}.", nameof(SubirVentasMaquina));
+                throw;
+            }
         }
 
         [HttpGet("fix-dates")]
@@ -87,7 +93,11 @@ namespace VendingManager.Controllers
                 await auditService.RegistrarAccionAsync(User.Identity?.Name ?? "Desconocido", "Importar Transbank", $"Archivo importado: {file.FileName}");
                 return Ok("Archivo de TRANSBANK procesado y guardado en Documentos correctamente.");
             }
-            catch (Exception ex) { return StatusCode(500, ex.Message); }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Unhandled error in {Action}.", nameof(SubirTransbank));
+                throw;
+            }
         }
 
         [HttpGet("lista-maquinas")]
@@ -140,7 +150,8 @@ namespace VendingManager.Controllers
             }
             catch (Exception ex)
             {
-                return BadRequest("Error al generar Excel: " + ex.Message);
+                logger.LogError(ex, "Unhandled error in {Action}.", nameof(ExportarReporte));
+                throw;
             }
         }
 
@@ -211,11 +222,13 @@ namespace VendingManager.Controllers
             }
             catch (Exception ex)
             {
-                return BadRequest("Error al exportar: " + ex.Message);
+                logger.LogError(ex, "Unhandled error in {Action}.", nameof(ExportPurchaseSuggestion));
+                throw;
             }
         }
         
         [HttpDelete("borrar-rango")]
+        [Microsoft.AspNetCore.Authorization.Authorize(Policy = "RequireAdmin")] // H-2: mass-delete of sales is admin-only.
         public async Task<IActionResult> BorrarVentasRango([FromQuery] DateTime inicio, [FromQuery] DateTime fin, [FromQuery] int maquinaId)
         {
             try
@@ -225,7 +238,11 @@ namespace VendingManager.Controllers
                 return Ok("Ventas eliminadas y stock restaurado correctamente.");
             }
             catch (ArgumentException ex) { return BadRequest(ex.Message); }
-            catch (Exception ex) { return StatusCode(500, "Error interno: " + ex.Message); }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Unhandled error in {Action}.", nameof(BorrarVentasRango));
+                throw;
+            }
         }
     }
 }

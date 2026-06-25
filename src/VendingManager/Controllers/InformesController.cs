@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using System;
@@ -10,6 +11,7 @@ namespace VendingManager.Web.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize] // M-4/H-2: All informe endpoints require authentication. Download serves private documents.
     public class InformesController(IInformesService informesService) : ControllerBase
     {
         public async Task<IActionResult> Get()
