@@ -1,4 +1,5 @@
 using VendingManager.Core.Entities;
+using VendingManager.Shared.DTOs;
 
 namespace VendingManager.Core.Interfaces;
 
@@ -42,15 +43,3 @@ public interface IGastoRecurrenteService
     Task AplicarGastoAsync(int gastoRecurrenteId, int month, int year, decimal? montoReal = null);
 }
 
-/// <summary>
-/// DTO para mostrar un gasto pendiente en la UI.
-/// </summary>
-public class GastoPendienteDto
-{
-    public int GastoRecurrenteId { get; set; }
-    public string Descripcion { get; set; } = string.Empty;
-    public decimal MontoEstimado { get; set; }
-    public string Categoria { get; set; } = string.Empty;
-    public int? MaquinaId { get; set; }
-    public string? MaquinaNombre { get; set; }
-}
