@@ -150,6 +150,7 @@ builder.Services.AddScoped<IMaquinaRepository, MaquinaRepository>();
 builder.Services.AddScoped<IAccountingPeriodRepository, AccountingPeriodRepository>();
 builder.Services.AddScoped<IProductoEANRepository, ProductoEANRepository>();
 builder.Services.AddScoped<IProductMatchingService, ProductMatchingService>();
+builder.Services.AddScoped<IIntegrityCheckService, IntegrityCheckService>();
 builder.Services.AddHttpClient<IFacturaOcrService, FacturaOcrService>();
 builder.Services.AddHttpClient<IRecargaOcrService, RecargaOcrService>();
 // Servicios en segundo plano (Background Workers)
