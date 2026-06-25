@@ -1407,16 +1407,6 @@ var bgHeader = grupo.EsOrdenCarga ? "bg-warning-subtle" : "bg-white";
         public int? MaquinaId { get; set; }
     }
 
-    public class GastoPendienteDto
-    {
-        public int GastoRecurrenteId { get; set; }
-        public string Descripcion { get; set; } = "";
-        public decimal MontoEstimado { get; set; }
-        public string Categoria { get; set; } = "";
-        public int? MaquinaId { get; set; }
-        public string? MaquinaNombre { get; set; }
-    }
-
     public class MaquinaSimpleDto { public int Id { get; set; } public string Nombre { get; set; } = ""; }
 
     public class AplicarTodosRequest

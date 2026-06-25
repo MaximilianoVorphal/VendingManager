@@ -12,12 +12,6 @@ namespace VendingManager.Web.Controllers
     [ApiController]
     public class InformesController(IInformesService informesService) : ControllerBase
     {
-        public async Task<IActionResult> Get()
-        {
-            var informes = await informesService.ObtenerTodosSinContenidoAsync();
-            return Ok(informes);
-        }
-
         [HttpGet("{id}")]
         public async Task<IActionResult> Download(int id)
         {

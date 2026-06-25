@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.WebUtilities;
+using VendingManager.Shared.DTOs;
 
 namespace VendingManager.Web.Pages
 {
@@ -526,15 +527,6 @@ namespace VendingManager.Web.Pages
             public decimal Ganancia { get; set; }
         }
 
-        public class InformeFinancieroDto
-        {
-            public decimal VentasTotales { get; set; }
-            public decimal CostoVentas { get; set; }
-            public decimal MargenBruto { get; set; }
-            public decimal GastosOperativos { get; set; }
-            public decimal UtilidadNeta { get; set; }
-            public decimal MargenPorcentaje { get; set; }
-        }
     }
 }
 
