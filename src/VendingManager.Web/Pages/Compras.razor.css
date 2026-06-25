@@ -36,12 +36,6 @@
         display: none;
     }
 
-    /* Hide PEND. column (index 6) */
-    .industrial-wrapper .table th:nth-child(6),
-    .industrial-wrapper .table td:nth-child(6) {
-        display: none;
-    }
-
     /* Smaller text and padding */
     .industrial-wrapper .table {
         font-size: 0.7rem;

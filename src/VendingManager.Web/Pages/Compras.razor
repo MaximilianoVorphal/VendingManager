@@ -14,18 +14,12 @@
                 <small class="text-muted fw-bold">GESTIÓN DE FACTURAS Y BOLETAS</small>
             </div>
 
-            <div class="d-flex flex-wrap gap-2 justify-content-end">
+            <div class="d-flex flex-wrap gap-2 justify-content-end align-items-center">
                 <!-- SEARCH BAR -->
                 <div class="input-group" style="max-width: 300px;">
                     <span class="input-group-text bg-white border-dark rounded-0"><i class="bi bi-search"></i></span>
                     <input type="text" class="form-control border-dark rounded-0 shadow-sm"
                         placeholder="Buscar proveedor o documento..." @bind="SearchTerm" @bind:event="oninput" />
-                </div>
-                <div class="d-flex align-items-center gap-2">
-                    <div class="form-check form-switch m-0">
-                        <input class="form-check-input border-dark" type="checkbox" id="filtroPendientes" @bind="FiltrarSoloPendientes" />
-                        <label class="form-check-label fw-bold small text-muted" for="filtroPendientes">SOLO PENDIENTES</label>
-                    </div>
                 </div>
                 <button class="btn btn-dark rounded-0 fw-bold shadow animate__animated animate__fadeIn" @onclick='() => Navigation.NavigateTo("/compras/nueva")'>
                     <i class="bi bi-plus-lg me-2"></i>NUEVA COMPRA
@@ -73,7 +67,6 @@
                         <th class="text-center">TIPO <i class="bi bi-tag"></i></th>
                         <th>Nº DOCUMENTO <i class="bi bi-file-earmark-text"></i></th>
                         <th class="text-end">MONTO TOTAL <i class="bi bi-currency-dollar"></i></th>
-                        <th class="text-center">PEND. <i class="bi bi-clock"></i></th>
                         <th class="text-center">ESTADO <i class="bi bi-info-circle"></i></th>
                         <th class="text-center" style="min-width: 140px;">ACCIONES</th>
                     </tr>
@@ -82,7 +75,7 @@
                     @if (Cargando)
                     {
                         <tr>
-                            <td colspan="8" class="text-center p-4">
+                            <td colspan="7" class="text-center p-4">
                                 <div class="spinner-border text-dark spinner-border-sm me-2" role="status"></div>
                                 Cargando datos...
                             </td>
@@ -91,13 +84,13 @@
                     else if (!ListaCompras.Any())
                     {
                         <tr>
-                            <td colspan="8" class="text-center p-4 text-muted">No se han registrado compras.</td>
+                            <td colspan="7" class="text-center p-4 text-muted">No se han registrado compras.</td>
                         </tr>
                     }
                     else if (!FilteredCompras.Any())
                     {
                         <tr>
-                            <td colspan="8" class="text-center p-4 text-muted">No se encontraron resultados para "@SearchTerm".</td>
+                            <td colspan="7" class="text-center p-4 text-muted">No se encontraron resultados para "@SearchTerm".</td>
                         </tr>
                     }
                     else
@@ -119,17 +112,6 @@
                                 </td>
                                 <td><span class="font-monospace">@(string.IsNullOrEmpty(c.NumeroDocumento) ? "S/N" : c.NumeroDocumento)</span></td>
                                 <td class="text-end text-success font-monospace">@c.MontoTotal.ToString("C0")</td>
-                                <td class="text-center">
-                                    @if (c.TienePendientes)
-                                    {
-                                        <button class="badge bg-warning text-dark border border-dark rounded-0 small px-2 py-1" 
-                                                style="cursor: pointer;"
-                                                title="Ir a completar items pendientes"
-                                                @onclick='() => Navigation.NavigateTo($"/compras/editar/{c.Id}")'>
-                                            ⚠️ @c.PendientesCount pend.
-                                        </button>
-                                    }
-                                </td>
                                 <td class="text-center">
                                     @if(c.Estado == "PAGADA")
                                     {
@@ -186,8 +168,8 @@
 <!-- MODAL VER DETALLES -->
 @if (CompraSeleccionada != null)
 {
-    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5); z-index: 1060; position: fixed; top: 0; left: 0; width: 100%; height: 100%;">
-        <div class="modal-dialog modal-dialog-centered modal-lg" style="z-index: 1061;">
+    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5); z-index: 1200; position: fixed; top: 0; left: 0; width: 100%; height: 100%;">
+        <div class="modal-dialog modal-dialog-centered modal-lg" style="z-index: 1201;">
             <div class="modal-content rounded-0 border-2 border-dark shadow-lg">
                 <div class="modal-header bg-dark text-white rounded-0">
                     <h5 class="modal-title fw-bold"><i class="bi bi-receipt me-2"></i>DETALLE DE COMPRA</h5>
@@ -282,8 +264,8 @@
 <!-- MODAL ELIMINAR COMPRA -->
 @if (CompraAEliminar != null)
 {
-    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5); z-index: 1060; position: fixed; top: 0; left: 0; width: 100%; height: 100%;">
-        <div class="modal-dialog modal-dialog-centered" style="z-index: 1061;">
+    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5); z-index: 1200; position: fixed; top: 0; left: 0; width: 100%; height: 100%;">
+        <div class="modal-dialog modal-dialog-centered" style="z-index: 1201;">
             <div class="modal-content rounded-0 border-2 border-dark shadow-lg">
                 <div class="modal-header bg-danger text-white rounded-0 border-bottom border-dark">
                     <h5 class="modal-title fw-bold"><i class="bi bi-exclamation-triangle-fill me-2"></i>ELIMINAR COMPRA</h5>
@@ -315,8 +297,8 @@
 <!-- MODAL RECONSTRUIR COSTOS -->
 @if (MostrarModalReconstruccion)
 {
-    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5); z-index: 1060; position: fixed; top: 0; left: 0; width: 100%; height: 100%;">
-        <div class="modal-dialog modal-dialog-centered" style="z-index: 1061;">
+    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5); z-index: 1200; position: fixed; top: 0; left: 0; width: 100%; height: 100%;">
+        <div class="modal-dialog modal-dialog-centered" style="z-index: 1201;">
             <div class="modal-content rounded-0 border-2 border-dark shadow-lg">
                 <div class="modal-header bg-warning text-dark rounded-0 border-bottom border-dark">
                     <h5 class="modal-title fw-bold"><i class="bi bi-database-fill-gear me-2"></i>RECONSTRUIR COSTOS</h5>
@@ -348,8 +330,8 @@
 <!-- MODAL DESVINCULAR TRANSFERENCIA -->
 @if (CompraADesvincular != null)
 {
-    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5); z-index: 1060; position: fixed; top: 0; left: 0; width: 100%; height: 100%;">
-        <div class="modal-dialog modal-dialog-centered" style="z-index: 1061;">
+    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5); z-index: 1200; position: fixed; top: 0; left: 0; width: 100%; height: 100%;">
+        <div class="modal-dialog modal-dialog-centered" style="z-index: 1201;">
             <div class="modal-content rounded-0 border-2 border-dark shadow-lg">
                 <div class="modal-header bg-warning text-dark rounded-0 border-bottom border-dark">
                     <h5 class="modal-title fw-bold"><i class="bi bi-link-45deg me-2"></i>DESVINCULAR TRANSFERENCIA</h5>
@@ -384,17 +366,13 @@
     private string? Error;
     private string? MensajeExito;
     private string SearchTerm = "";
-    private bool FiltrarSoloPendientes = false;
     
-    // Filtro basado en búsqueda y filtro de pendientes
+    // Filtro basado en búsqueda
     private IEnumerable<CompraDto> FilteredCompras
     {
         get
         {
             var query = ListaCompras.AsEnumerable();
-
-            if (FiltrarSoloPendientes)
-                query = query.Where(c => c.TienePendientes);
 
             if (!string.IsNullOrWhiteSpace(SearchTerm))
             {
