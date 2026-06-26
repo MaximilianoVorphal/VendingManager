@@ -13,6 +13,8 @@ public class CompraDto
     public string? FacturaImagenPath { get; set; }
     public bool Verificada { get; set; } = false;
     public int? TransferenciaId { get; set; }
+    public int? ProveedorCatalogId { get; set; }
+    public string? ProveedorCanonical { get; set; }
     public bool TienePendientes => Detalles?.Any(d => d.EsPendiente) ?? false;
     public int PendientesCount => Detalles?.Count(d => d.EsPendiente) ?? 0;
     public List<DetalleCompraDto> Detalles { get; set; } = new();
@@ -43,6 +45,7 @@ public class RegistrarCompraRequestDto
     public bool PagadaCaja { get; set; } = true;
     /// <summary>Subcategoría para GASTO_GENERAL: BENCINA, PEAJE, o vacío para GASTOS GENERALES.</summary>
     public string? SubcategoriaGasto { get; set; }
+    public int? ProveedorCatalogId { get; set; }
     public List<RegistrarDetalleCompraRequestDto> Detalles { get; set; } = new();
 }
 

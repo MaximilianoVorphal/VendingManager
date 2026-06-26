@@ -254,6 +254,69 @@ public class AuditSaveChangesInterceptorTests
         auditRecord!.Usuario.Should().Be("testuser@example.com");
     }
 
+    // ─── ProveedorCatalog Audit (T26/T27) ────────────────────────────
+
+    [Fact]
+    public async Task SavingChangesAsync_WhenProveedorCatalogCreated_WritesProveedorCatalogHistoryWithInsert()
+    {
+        // Arrange
+        var interceptor = CreateInterceptor();
+        using var context = CreateContextWithInterceptor(interceptor, "ProveedorCatalogInsertTest");
+
+        var catalog = new ProveedorCatalog
+        {
+            NombreCanonical = "Test Supplier"
+        };
+        context.ProveedorCatalog.Add(catalog);
+
+        // Act
+        await context.SaveChangesAsync();
+
+        // Assert: ProveedorCatalogHistory row written
+        var historyRecord = await context.Set<ProveedorCatalogHistory>().FirstOrDefaultAsync();
+        historyRecord.Should().NotBeNull();
+        historyRecord!.Action.Should().Be("Added");
+        historyRecord.EntityId.Should().Be(catalog.Id);
+        historyRecord.NombreCanonical.Should().Be("Test Supplier");
+        historyRecord.Timestamp.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5));
+        historyRecord.Usuario.Should().Be("system");
+    }
+
+    [Fact]
+    public async Task SavingChangesAsync_WhenProveedorCatalogRenamed_WritesProveedorCatalogHistoryWithUpdate()
+    {
+        // Arrange
+        var interceptor = CreateInterceptor();
+        using var context = CreateContextWithInterceptor(interceptor, "ProveedorCatalogRenameTest");
+
+        var catalog = new ProveedorCatalog
+        {
+            Id = 42,
+            NombreCanonical = "Original Name"
+        };
+        context.ProveedorCatalog.Add(catalog);
+        await context.SaveChangesAsync();
+
+        // Detach and re-attach to simulate a modify
+        context.ChangeTracker.Clear();
+
+        var existing = await context.ProveedorCatalog.FindAsync(42);
+        existing!.NombreCanonical = "Updated Name";
+
+        // Act
+        await context.SaveChangesAsync();
+
+        // Assert
+        var historyRecords = await context.Set<ProveedorCatalogHistory>()
+            .OrderBy(h => h.Id)
+            .ToListAsync();
+        historyRecords.Should().HaveCount(2); // Insert + Update
+
+        var updateRecord = historyRecords.Last();
+        updateRecord.Action.Should().Be("Modified");
+        updateRecord.EntityId.Should().Be(42);
+    }
+
     private class MockHttpContextAccessor : IHttpContextAccessor
     {
         public MockHttpContextAccessor(string username)
