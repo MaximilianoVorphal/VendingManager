@@ -44,6 +44,10 @@ public class Compra
     public int? TransferenciaId { get; set; }
     public Transferencia? Transferencia { get; set; }
 
+    // Vinculación con ProveedorCatalog (nullable FK — null == PENDING, sin ruptura de cambios existentes)
+    public int? ProveedorCatalogId { get; set; }
+    public ProveedorCatalog? ProveedorCatalog { get; set; }
+
     /// <summary>Subcategoría para gastos: BENCINA, PEAJE, GASTOS GENERALES. No persiste en DB, solo se usa en el flujo de creación.</summary>
     [NotMapped]
     public string? SubcategoriaGasto { get; set; }
