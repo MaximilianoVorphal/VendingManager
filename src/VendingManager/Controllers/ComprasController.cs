@@ -253,6 +253,24 @@ public class ComprasController(ICompraService compraService, IFacturaOcrService 
         }
     }
 
+    [HttpPost("{id}/proveedor")]
+    public async Task<IActionResult> ReasignarProveedor(int id, [FromBody] ReasignarProveedorRequestDto request)
+    {
+        try
+        {
+            await compraService.ReasignarProveedorAsync(id, request);
+            return NoContent();
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
     [HttpPost("reconstruir-costos")]
     public async Task<ActionResult<ReconstruirCostosResult>> ReconstruirCostos()
     {
