@@ -15,4 +15,11 @@ public interface ICompraService
     Task<IEnumerable<Compra>> GetComprasNoVinculadasAsync(string? proveedor = null, string? numeroDocumento = null, DateTime? desde = null, DateTime? hasta = null);
     Task<ReconstruirCostosResult> ReconstruirProductoCostosAsync();
     Task DesvincularDeTransferenciaAsync(int compraId);
+
+    /// <summary>
+    /// Reassigns a compra to a different supplier catalog entry.
+    /// Updates ProveedorCatalogId, LastSeenAt, persists alias learning,
+    /// and handles alias-move logic. All mutations in a single SaveChanges.
+    /// </summary>
+    Task<Compra> ReasignarProveedorAsync(int id, VendingManager.Shared.DTOs.ReasignarProveedorRequestDto request);
 }

@@ -28,6 +28,9 @@ namespace VendingManager.Shared.DTOs
         [JsonPropertyName("total_ila")]
         public decimal? TotalIla { get; set; }
 
+        [JsonPropertyName("proveedor_catalog_id")]
+        public int? ProveedorCatalogId { get; set; }
+
         [JsonPropertyName("items")]
         public List<OcrInvoiceItemDto> Items { get; set; } = new();
     }

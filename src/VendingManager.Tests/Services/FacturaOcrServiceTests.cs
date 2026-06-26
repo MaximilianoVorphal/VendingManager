@@ -10,6 +10,7 @@ using VendingManager.Shared.DTOs;
 public class FacturaOcrServiceTests
 {
     private readonly Mock<IProductMatchingService> _mockMatcher;
+    private readonly Mock<IProveedorMatchingService> _mockProveedorMatcher;
     private readonly HttpClient _httpClient;
     private readonly Mock<IConfiguration> _mockConfig;
     private readonly MockHttpMessageHandler _mockHttpHandler;
@@ -35,6 +36,18 @@ public class FacturaOcrServiceTests
             .Setup(m => m.SaveMappingAsync(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int?>()))
             .Returns(Task.CompletedTask);
 
+        _mockProveedorMatcher = new Mock<IProveedorMatchingService>();
+        // Default: no supplier match (each test can override)
+        _mockProveedorMatcher
+            .Setup(m => m.MatchAsync(It.IsAny<string>()))
+            .ReturnsAsync(new ProveedorMatchResult
+            {
+                ProveedorCatalog = null,
+                Confidence = 0.0,
+                SugerirCreacion = true,
+                MatchMethod = ProveedorMatchMethod.None
+            });
+
         _mockHttpHandler = new MockHttpMessageHandler();
         _mockHttpHandler.SetDefaultResponse(new HttpResponseMessage
         {
@@ -47,8 +60,8 @@ public class FacturaOcrServiceTests
         _mockConfig = new Mock<IConfiguration>();
         _mockConfig.Setup(c => c["ScraperServiceUrl"]).Returns("http://test:5000");
 
-        // RED: FacturaOcrService constructor doesn't accept IProductMatchingService yet
-        _service = new FacturaOcrService(_httpClient, _mockConfig.Object, _mockMatcher.Object);
+        // RED: FacturaOcrService constructor doesn't accept IProveedorMatchingService yet
+        _service = new FacturaOcrService(_httpClient, _mockConfig.Object, _mockMatcher.Object, _mockProveedorMatcher.Object);
     }
 
     [Fact]
@@ -289,6 +302,73 @@ public class FacturaOcrServiceTests
         // Assert: short EAN was discarded → MatchAsync receives null for ean
         _mockMatcher.Verify(m => m.MatchAsync("Coca Cola", null, It.IsAny<string?>(), "Test"), Times.Once);
         result.Items[0].Ean.Should().BeNull();
+    }
+
+    // ─── Proveedor Matching (PR2) ─────────────────────────────────────
+
+    [Fact]
+    public async Task ExtractInvoiceDataAsync_WithHighConfidenceProveedorMatch_SetsProveedorCatalogId()
+    {
+        // Arrange
+        _mockProveedorMatcher
+            .Setup(m => m.MatchAsync("Test"))
+            .ReturnsAsync(new ProveedorMatchResult
+            {
+                ProveedorCatalog = new ProveedorCatalog { Id = 99, NombreCanonical = "Supplier Test" },
+                Confidence = 0.95,
+                SugerirCreacion = false,
+                MatchMethod = ProveedorMatchMethod.Tokenized
+            });
+
+        var file = CreateMockFile("test.jpg", "image/jpeg");
+
+        // Act
+        var result = await _service.ExtractInvoiceDataAsync(file);
+
+        // Assert
+        result.Should().NotBeNull();
+        result.ProveedorCatalogId.Should().Be(99);
+        result.Proveedor.Should().Be("Test"); // raw OCR string unchanged
+        _mockProveedorMatcher.Verify(m => m.MatchAsync("Test"), Times.Once);
+    }
+
+    [Fact]
+    public async Task ExtractInvoiceDataAsync_WithNoProveedorMatch_LeavesProveedorCatalogIdNull()
+    {
+        // Arrange — uses default setup: no match
+        var file = CreateMockFile("test.jpg", "image/jpeg");
+
+        // Act
+        var result = await _service.ExtractInvoiceDataAsync(file);
+
+        // Assert
+        result.Should().NotBeNull();
+        result.ProveedorCatalogId.Should().BeNull();
+        result.Proveedor.Should().Be("Test"); // raw OCR string unchanged
+        _mockProveedorMatcher.Verify(m => m.MatchAsync("Test"), Times.Once);
+    }
+
+    [Fact]
+    public async Task ExtractInvoiceDataAsync_WithNullProveedor_SkipsProveedorMatching()
+    {
+        // Arrange — no proveedor in OCR response
+        _mockHttpHandler.SetDefaultResponse(new HttpResponseMessage
+        {
+            StatusCode = System.Net.HttpStatusCode.OK,
+            Content = new StringContent("{\"proveedor\":null,\"items\":[{\"producto\":\"Coca Cola\",\"cantidad\":1,\"costo_unitario\":500,\"subtotal\":500}]}")
+        });
+
+        var file = CreateMockFile("test.jpg", "image/jpeg");
+
+        // Act
+        var result = await _service.ExtractInvoiceDataAsync(file);
+
+        // Assert
+        result.Should().NotBeNull();
+        result.ProveedorCatalogId.Should().BeNull();
+        _mockProveedorMatcher.Verify(
+            m => m.MatchAsync(It.IsAny<string>()),
+            Times.Never);
     }
 
     private static IFormFile CreateMockFile(string fileName, string contentType)
