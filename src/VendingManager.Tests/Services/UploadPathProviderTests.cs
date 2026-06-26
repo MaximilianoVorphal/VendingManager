@@ -34,10 +34,11 @@ public class UploadPathProviderTests
         var cfg = Options.Create(new VendingConfig { FacturaUploadPath = configuredPath });
 
         var productMatching = new Mock<IProductMatchingService>();
+        var proveedorMatching = new Mock<IProveedorMatchingService>();
 
         var uploadProvider = new DefaultUploadPathProvider(envMock.Object, cfg);
 
-        return (new CompraService(context, productMatching.Object, uploadProvider), envMock);
+        return (new CompraService(context, productMatching.Object, uploadProvider, proveedorMatching.Object), envMock);
     }
 
     // ── Regression: step 1 — config path wins ────────────────────────────────
