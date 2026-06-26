@@ -190,6 +190,11 @@ public class AuditSaveChangesInterceptor : SaveChangesInterceptor
 
         // Establecer propiedades de auditoría vía reflexión
         var historyTypeProps = historyType.GetProperties();
+        var standardProps = new HashSet<string>
+        {
+            "EntityId", "Action", "BeforeJson", "AfterJson", "Timestamp", "Usuario"
+        };
+
         foreach (var prop in historyTypeProps)
         {
             if (prop.Name == "EntityId" && entityId.HasValue)
@@ -204,6 +209,20 @@ public class AuditSaveChangesInterceptor : SaveChangesInterceptor
                 prop.SetValue(historyRecord, DateTime.UtcNow);
             else if (prop.Name == "Usuario")
                 prop.SetValue(historyRecord, usuario);
+            else if (prop.Name == "Id")
+            {
+                // Skip PK — it's auto-generated
+            }
+            else if (!standardProps.Contains(prop.Name)
+                     && entry.CurrentValues.Properties.Any(p => p.Name == prop.Name))
+            {
+                // Copy domain-specific scalar snapshot properties (e.g. NombreCanonical)
+                var value = entry.CurrentValues[prop.Name];
+                if (value is not null && value is not DBNull)
+                {
+                    prop.SetValue(historyRecord, value);
+                }
+            }
         }
 
         return historyRecord;
