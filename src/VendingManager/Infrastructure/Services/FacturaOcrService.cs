@@ -10,12 +10,18 @@ namespace VendingManager.Infrastructure.Services
     {
         private readonly HttpClient _httpClient;
         private readonly IProductMatchingService _productMatchingService;
+        private readonly IProveedorMatchingService _proveedorMatchingService;
         private readonly string? _scraperServiceUrl;
 
-        public FacturaOcrService(HttpClient httpClient, IConfiguration configuration, IProductMatchingService productMatchingService)
+        public FacturaOcrService(
+            HttpClient httpClient,
+            IConfiguration configuration,
+            IProductMatchingService productMatchingService,
+            IProveedorMatchingService proveedorMatchingService)
         {
             _httpClient = httpClient;
             _productMatchingService = productMatchingService;
+            _proveedorMatchingService = proveedorMatchingService;
             _scraperServiceUrl = configuration["ScraperServiceUrl"];
         }
 
@@ -53,6 +59,16 @@ namespace VendingManager.Infrastructure.Services
 
             if (result != null)
             {
+                // Proveedor matching: attempt to resolve the raw supplier name to a catalog entry.
+                // Never auto-creates catalog entries — only sets ProveedorCatalogId when a match is found.
+                if (!string.IsNullOrWhiteSpace(result.Proveedor))
+                {
+                    var pm = await _proveedorMatchingService.MatchAsync(result.Proveedor);
+                    if (pm.ProveedorCatalog != null && pm.Confidence >= 0.6)
+                        result.ProveedorCatalogId = pm.ProveedorCatalog.Id;
+                    // else leaves null → PENDING
+                }
+
                 foreach (var item in result.Items)
                 {
                     // Validar EAN: descartar EANs inválidos (Gemini puede alucinar)

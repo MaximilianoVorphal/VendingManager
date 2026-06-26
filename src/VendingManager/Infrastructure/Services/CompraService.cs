@@ -10,16 +10,19 @@ public class CompraService : ICompraService
 {
     private readonly ApplicationDbContext _context;
     private readonly IProductMatchingService _productMatchingService;
+    private readonly IProveedorMatchingService _proveedorMatchingService;
     private readonly IUploadPathProvider _uploadPathProvider;
 
     public CompraService(
         ApplicationDbContext context,
         IProductMatchingService productMatchingService,
-        IUploadPathProvider uploadPathProvider)
+        IUploadPathProvider uploadPathProvider,
+        IProveedorMatchingService proveedorMatchingService)
     {
         _context = context;
         _productMatchingService = productMatchingService;
         _uploadPathProvider = uploadPathProvider;
+        _proveedorMatchingService = proveedorMatchingService;
     }
 
     public async Task<IEnumerable<Compra>> GetComprasAsync(int? count = null)
@@ -27,6 +30,7 @@ public class CompraService : ICompraService
         var query = _context.Compras
             .Include(c => c.Detalles)
             .ThenInclude(d => d.Producto)
+            .Include(c => c.ProveedorCatalog)
             .OrderByDescending(c => c.FechaCompra)
             .ThenByDescending(c => c.Id)
             .AsQueryable();
@@ -44,6 +48,7 @@ public class CompraService : ICompraService
         return await _context.Compras
             .Include(c => c.Detalles)
             .ThenInclude(d => d.Producto)
+            .Include(c => c.ProveedorCatalog)
             .FirstOrDefaultAsync(c => c.Id == id);
     }
 
@@ -195,6 +200,7 @@ public class CompraService : ICompraService
             compra.TipoFactura = request.TipoFactura;
             compra.PagadaCaja = request.PagadaCaja;
             compra.SubcategoriaGasto = request.SubcategoriaGasto;
+            compra.ProveedorCatalogId = request.ProveedorCatalogId;
 
             // 3. Reemplazar detalles
             _context.DetallesCompra.RemoveRange(compra.Detalles);
@@ -570,6 +576,82 @@ public class CompraService : ICompraService
         compra.TransferenciaId = null;
         _context.Compras.Update(compra);
         await _context.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// Reassigns a compra to a (possibly different) supplier catalog entry.
+    /// Stage ALL mutations first, then SINGLE SaveChanges for atomicity.
+    /// Mutations: FK update + LastSeenAt update + alias learning + optional catalog creation + alias-move.
+    /// EF Core's temp-key resolution ensures catalog FK is resolved correctly on SaveChanges.
+    /// </summary>
+    public async Task<Compra> ReasignarProveedorAsync(int id, VendingManager.Shared.DTOs.ReasignarProveedorRequestDto request)
+    {
+        var compra = await _context.Compras
+            .Include(c => c.ProveedorCatalog)
+            .FirstOrDefaultAsync(c => c.Id == id)
+            ?? throw new KeyNotFoundException($"Compra {id} no encontrada.");
+
+        int catalogId;
+
+        if (request.ProveedorCatalogId.HasValue)
+        {
+            // Case 1: link to an existing catalog entry
+            catalogId = request.ProveedorCatalogId.Value;
+
+            var catalog = await _context.ProveedorCatalog.FindAsync(catalogId)
+                ?? throw new KeyNotFoundException($"ProveedorCatalog {catalogId} no encontrado.");
+
+            catalog.LastSeenAt = DateTime.UtcNow;
+        }
+        else if (!string.IsNullOrWhiteSpace(request.NuevoNombreCanonical))
+        {
+            // Case 2: create a new catalog entry — stage in change tracker
+            var nuevo = new ProveedorCatalog
+            {
+                NombreCanonical = request.NuevoNombreCanonical,
+                CreatedAt = DateTime.UtcNow,
+                LastSeenAt = DateTime.UtcNow
+            };
+            _context.ProveedorCatalog.Add(nuevo);
+            // EF Core temp-key: nuevo.Id will have a temp value that EF resolves
+            // to the real identity value on SaveChanges. The alias FK below uses
+            // this temp key and is correctly resolved by EF.
+            catalogId = nuevo.Id;
+        }
+        else
+        {
+            throw new ArgumentException("Debe especificar ProveedorCatalogId o NuevoNombreCanonical.");
+        }
+
+        // Alias-move logic: if the compra's raw Proveedor text was previously an alias
+        // of a DIFFERENT supplier, remove it from the old supplier's aliases.
+        var rawProveedor = compra.Proveedor;
+        if (!string.IsNullOrWhiteSpace(rawProveedor))
+        {
+            var normalized = Core.Utils.NameNormalizer.Normalize(rawProveedor);
+            var existingAlias = await _context.ProveedorAlias
+                .FirstOrDefaultAsync(a => a.RawNameNormalized == normalized);
+
+            if (existingAlias != null && existingAlias.ProveedorCatalogId != catalogId)
+            {
+                // Alias was owned by a different catalog entry — remove it
+                _context.ProveedorAlias.Remove(existingAlias);
+            }
+        }
+
+        // Update the compra FK
+        compra.ProveedorCatalogId = catalogId;
+
+        // Learn alias (SaveAliasAsync stages change tracker mutation, no SaveChanges — S3)
+        if (!string.IsNullOrWhiteSpace(rawProveedor))
+        {
+            await _proveedorMatchingService.SaveAliasAsync(rawProveedor, catalogId);
+        }
+
+        // SINGLE SaveChanges for all mutations
+        await _context.SaveChangesAsync();
+
+        return compra;
     }
 
     /// <summary>
