@@ -2,6 +2,7 @@
 @using VendingManager.Shared.Enums
 @inject HttpClient Http
 @inject IJSRuntime JS
+@implements IDisposable
 
 <div class="p-3">
     @if (!string.IsNullOrEmpty(Error))
@@ -27,10 +28,58 @@
     {
         <div class="row g-3">
             @* Proveedor y Numero Documento *@
-            <div class="col-md-6">
+            <div class="col-md-6" style="position:relative;">
                 <label class="fw-bold small text-uppercase mb-1 text-muted">PROVEEDOR *</label>
                 <input type="text" class="form-control border-dark rounded-0 fw-bold"
-                       @bind="Form.Proveedor" placeholder="Nombre del proveedor..." />
+                       @bind="Form.Proveedor"
+                       @bind:event="oninput"
+                       @onfocus="OnProveedorFocus"
+                       @onfocusout="OnProveedorFocusOut"
+                       placeholder="Nombre del proveedor..." />
+                @if (_showProveedorDropdown)
+                {
+                    <div class="dropdown-menu show border-dark rounded-0 p-0 shadow"
+                         style="width:100%; max-height:260px; overflow-y:auto; position:absolute; z-index:1000;">
+                        @if (_filteredProveedores.Any())
+                        {
+                            @foreach (var p in _filteredProveedores)
+                            {
+                                <button type="button" class="dropdown-item fw-bold border-bottom border-light"
+                                        @onmousedown:preventDefault="true"
+                                        @onclick="() => SeleccionarProveedor(p)">
+                                    <span class="d-block">@p.NombreCanonical</span>
+                                </button>
+                            }
+                        }
+                        @if (!string.IsNullOrWhiteSpace(Form.Proveedor)
+                            && _catalogProveedores.All(p =>
+                                !p.NombreCanonical.Equals(Form.Proveedor.Trim(), StringComparison.OrdinalIgnoreCase)))
+                        {
+                            <div class="dropdown-divider m-0"></div>
+                            <button type="button" class="dropdown-item fw-bold text-success"
+                                    @onmousedown:preventDefault="true"
+                                    @onclick="CrearNuevoProveedor">
+                                <i class="bi bi-plus-circle me-1"></i> CREAR NUEVO: "@Form.Proveedor.Trim()"
+                            </button>
+                        }
+                    </div>
+                }
+                @if (_selectedProveedorCatalogId.HasValue)
+                {
+                    <div class="mt-1">
+                        <span class="badge bg-dark rounded-0 small">
+                            <i class="bi bi-check-circle-fill text-success me-1"></i>@_catalogProveedores
+                                .Where(p => p.Id == _selectedProveedorCatalogId.Value)
+                                .Select(p => p.NombreCanonical)
+                                .FirstOrDefault()
+                        </span>
+                        <button type="button" class="btn btn-sm btn-outline-danger border-0 py-0"
+                                @onclick="LimpiarSeleccionProveedor"
+                                title="Quitar selección">
+                            <i class="bi bi-x-lg"></i>
+                        </button>
+                    </div>
+                }
             </div>
             <div class="col-md-3">
                 <label class="fw-bold small text-uppercase mb-1 text-muted">Nº DOCUMENTO</label>
@@ -384,6 +433,17 @@
     private string? FacturaFileName;
     private string? FacturaUploadError;
 
+    // Proveedor catalog autocomplete state
+    private List<ProveedorCatalogDto> _catalogProveedores = new();
+    private List<ProveedorCatalogDto> _filteredProveedores => string.IsNullOrWhiteSpace(Form.Proveedor)
+        ? _catalogProveedores
+        : _catalogProveedores
+            .Where(p => p.NombreCanonical.Contains(Form.Proveedor.Trim(), StringComparison.OrdinalIgnoreCase))
+            .ToList();
+    private int? _selectedProveedorCatalogId;
+    private bool _showProveedorDropdown;
+    private bool _proveedoresLoaded;
+
     // Linking state
     private bool VincularExistente { get; set; }
     private LinkCompraSearch LinkSearch { get; set; } = new();
@@ -411,6 +471,7 @@
     protected override async Task OnInitializedAsync()
     {
         await CargarProductos();
+        await CargarCatalogProveedores();
     }
 
     private async Task CargarProductos()
@@ -428,6 +489,91 @@
         {
             // Products might not be available
         }
+    }
+
+    // ─── Proveedor catalog autocomplete ───────────────────────────────
+
+    private async Task CargarCatalogProveedores()
+    {
+        if (_proveedoresLoaded) return;
+        try
+        {
+            _catalogProveedores = await Http.GetFromJsonAsync<List<ProveedorCatalogDto>>("api/proveedores") ?? new();
+            _proveedoresLoaded = true;
+        }
+        catch
+        {
+            // Catalog may not be available (e.g. first load before any entries exist)
+        }
+    }
+
+    private void OnProveedorFocus()
+    {
+        if (_catalogProveedores.Any())
+        {
+            _showProveedorDropdown = true;
+        }
+    }
+
+    private void OnProveedorFocusOut()
+    {
+        // Delay hiding so dropdown click can fire first
+        _ = Task.Run(async () =>
+        {
+            await Task.Delay(200);
+            await InvokeAsync(() => _showProveedorDropdown = false);
+        });
+    }
+
+    private void SeleccionarProveedor(ProveedorCatalogDto p)
+    {
+        Form.Proveedor = p.NombreCanonical;
+        _selectedProveedorCatalogId = p.Id;
+        _showProveedorDropdown = false;
+    }
+
+    private void LimpiarSeleccionProveedor()
+    {
+        _selectedProveedorCatalogId = null;
+        Form.Proveedor = string.Empty;
+    }
+
+    private async Task CrearNuevoProveedor()
+    {
+        var nombre = Form.Proveedor?.Trim();
+        if (string.IsNullOrWhiteSpace(nombre)) return;
+
+        try
+        {
+            Error = null;
+
+            var request = new CrearProveedorRequestDto { NombreCanonical = nombre };
+            var response = await Http.PostAsJsonAsync("api/proveedores", request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var dto = await response.Content.ReadFromJsonAsync<ProveedorCatalogDto>();
+                if (dto != null)
+                {
+                    _catalogProveedores.Add(dto);
+                    SeleccionarProveedor(dto);
+                }
+            }
+            else
+            {
+                var errorBody = await response.Content.ReadAsStringAsync();
+                Error = $"Error al crear proveedor: {errorBody}";
+            }
+        }
+        catch (Exception ex)
+        {
+            Error = $"Error al crear proveedor: {ex.Message}";
+        }
+    }
+
+    public void Dispose()
+    {
+        // No managed resources to dispose; IDisposable implemented for pattern consistency.
     }
 
     private void AgregarDetalle()
@@ -479,6 +625,7 @@
                     Trabajador = Trabajador,
                     FechaCompra = Form.Fecha,
                     Proveedor = Form.Proveedor,
+                    ProveedorCatalogId = _selectedProveedorCatalogId,
                     NumeroDocumento = Form.NumeroDocumento,
                     TipoFactura = Form.TipoFactura,
                     PagadaCaja = Form.PagadaCaja,
@@ -522,6 +669,7 @@
                     Trabajador = Trabajador,
                     FechaCompra = Form.Fecha,
                     Proveedor = Form.Proveedor,
+                    ProveedorCatalogId = _selectedProveedorCatalogId,
                     NumeroDocumento = Form.NumeroDocumento,
                     TipoFactura = "GASTO_GENERAL",
                     PagadaCaja = Form.PagadaCaja,
@@ -787,6 +935,8 @@
     private void ResetForm()
     {
         Form = new() { Fecha = DateTime.Today, TipoFactura = "MERCADERIA", PagadaCaja = true };
+        _selectedProveedorCatalogId = null;
+        _showProveedorDropdown = false;
         GastoMonto = 0;
         Error = null;
         ClearFactura();

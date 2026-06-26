@@ -29,3 +29,13 @@ public class ReasignarProveedorRequestDto
     /// <summary>New canonical name to create (when no matching entry exists).</summary>
     public string? NuevoNombreCanonical { get; set; }
 }
+
+/// <summary>
+/// Result of the backfill endpoint: counts of processed, auto-linked, and pending compras.
+/// </summary>
+public class BackfillResultDto
+{
+    public int Procesadas { get; set; }
+    public int AutoVinculadas { get; set; }
+    public int Pendientes { get; set; }
+}
