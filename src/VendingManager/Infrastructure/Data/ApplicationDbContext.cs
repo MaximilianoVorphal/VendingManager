@@ -41,6 +41,9 @@ namespace VendingManager.Infrastructure.Data
         public DbSet<RendicionHistory> RendicionesHistory { get; set; } = null!;
         public DbSet<ProductoEAN> ProductoEANs { get; set; } = null!;
         public DbSet<Devolucion> Devoluciones { get; set; } = null!;
+        public DbSet<ProveedorCatalog> ProveedorCatalog { get; set; } = null!;
+        public DbSet<ProveedorAlias> ProveedorAlias { get; set; } = null!;
+        public DbSet<ProveedorCatalogHistory> ProveedorCatalogHistory { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -195,6 +198,69 @@ namespace VendingManager.Infrastructure.Data
                     .HasForeignKey(e => e.ProductoId)
                     .OnDelete(DeleteBehavior.SetNull);
             });
+
+            // ProveedorCatalog: canonical supplier identity
+            // NOTE: unique index on NombreCanonical — SQL Server default collation is CI (case-insensitive)
+            // so case uniqueness is enforced at DB level; verify this matches the target database collation
+            // before going to production (design risk documented in apply-progress).
+            modelBuilder.Entity<ProveedorCatalog>(entity =>
+            {
+                entity.ToTable("ProveedorCatalog");
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.NombreCanonical)
+                    .IsRequired()
+                    .HasMaxLength(200);
+
+                entity.Property(e => e.CreatedAt)
+                    .HasColumnType("datetime2");
+
+                entity.Property(e => e.LastSeenAt)
+                    .HasColumnType("datetime2");
+
+                entity.HasIndex(e => e.NombreCanonical)
+                    .IsUnique()
+                    .HasDatabaseName("IX_ProveedorCatalog_NombreCanonical");
+            });
+
+            // ProveedorAlias: raw OCR strings mapped to a canonical supplier
+            modelBuilder.Entity<ProveedorAlias>(entity =>
+            {
+                entity.ToTable("ProveedorAlias");
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.RawName)
+                    .IsRequired()
+                    .HasMaxLength(200);
+
+                entity.Property(e => e.RawNameNormalized)
+                    .IsRequired()
+                    .HasMaxLength(200);
+
+                entity.Property(e => e.CreatedAt)
+                    .HasColumnType("datetime2");
+
+                entity.Property(e => e.LastSeenAt)
+                    .HasColumnType("datetime2");
+
+                // Unique filtered index on the normalized key — one alias belongs to exactly one catalog entry
+                entity.HasIndex(e => e.RawNameNormalized)
+                    .IsUnique()
+                    .HasDatabaseName("IX_ProveedorAlias_RawNameNormalized");
+
+                // Alias is meaningless without its canonical — cascade delete
+                entity.HasOne(a => a.ProveedorCatalog)
+                    .WithMany()
+                    .HasForeignKey(a => a.ProveedorCatalogId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // Compra -> ProveedorCatalog: nullable FK, SetNull on catalog deletion preserves the compra row
+            modelBuilder.Entity<Compra>()
+                .HasOne(c => c.ProveedorCatalog)
+                .WithMany()
+                .HasForeignKey(c => c.ProveedorCatalogId)
+                .OnDelete(DeleteBehavior.SetNull);
         }
     }
 }
