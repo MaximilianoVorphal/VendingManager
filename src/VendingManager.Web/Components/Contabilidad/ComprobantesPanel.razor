@@ -189,13 +189,79 @@
                                     }
                                 </div>
 
-                                @* Info *@
+                                @* Info — canonical-primary proveedor display + inline reassign *@
                                 <div class="flex-grow-1 overflow-hidden">
-                                    <div class="fw-bold small text-truncate">@c.Proveedor</div>
-                                    <div class="d-flex gap-2 align-items-center">
+                                    <div class="fw-bold small text-truncate"
+                                         title="@(c.ProveedorCanonical != null ? c.Proveedor : null)">
+                                        @(c.ProveedorCanonical ?? c.Proveedor)
+                                    </div>
+                                    @if (c.ProveedorCanonical != null)
+                                    {
+                                        <small class="text-muted text-truncate d-block" style="font-size: 0.65rem;">@c.Proveedor</small>
+                                    }
+                                    <div class="d-flex gap-2 align-items-center flex-wrap">
                                         <span class="font-monospace text-danger small fw-bold">-$@c.MontoTotal.ToString("N0")</span>
                                         <span class="badge bg-secondary rounded-0" style="font-size: 0.6rem;">@c.TipoFactura</span>
+                                        @if (c.ProveedorCatalogId == null)
+                                        {
+                                            <span class="badge bg-warning text-dark rounded-0" style="font-size: 0.6rem;">PENDIENTE PROVEEDOR</span>
+                                        }
                                     </div>
+
+                                    @* Inline reassign toggle *@
+                                    @if (ReasignandoId == c.Id)
+                                    {
+                                        <div class="mt-1 p-1 border border-secondary rounded-0 bg-white" style="font-size: 0.7rem;">
+                                            <div class="d-flex gap-1 align-items-start flex-wrap">
+                                                <select class="form-select form-select-sm border-dark rounded-0"
+                                                        style="width: auto; max-width: 140px; font-size: 0.7rem;"
+                                                        disabled="@(_isReasignandoSubmit)"
+                                                        @bind="_selectedCatalogId">
+                                                    <option value="">— Existente —</option>
+                                                    @foreach (var opt in CatalogOptions)
+                                                    {
+                                                        <option value="@opt.Id">@opt.NombreCanonical</option>
+                                                    }
+                                                </select>
+                                                <span class="text-muted small align-self-center">o</span>
+                                                <input type="text" class="form-control form-control-sm border-dark rounded-0"
+                                                       style="width: 120px; font-size: 0.7rem;"
+                                                       placeholder="+ Nuevo nombre"
+                                                       disabled="@(_isReasignandoSubmit)"
+                                                       @bind="_newCanonicalName" />
+                                                <button class="btn btn-sm btn-dark rounded-0 fw-bold px-2"
+                                                        style="font-size: 0.7rem; line-height: 1;"
+                                                        disabled="@(!State.EstaAbierta || _isReasignandoSubmit)"
+                                                        @onclick="() => SubmitReasignar(c.Id, c.Proveedor)">
+                                                    @if (_isReasignandoSubmit)
+                                                    {
+                                                        <span class="spinner-border spinner-border-sm"></span>
+                                                    }
+                                                    <i class="bi bi-check-lg"></i>
+                                                </button>
+                                                <button class="btn btn-sm btn-outline-secondary rounded-0 px-2"
+                                                        style="font-size: 0.7rem; line-height: 1;"
+                                                        disabled="@_isReasignandoSubmit"
+                                                        @onclick='() => { ReasignandoId = null; ReasignError = null; _selectedCatalogId = null; _newCanonicalName = null; }'>
+                                                    <i class="bi bi-x-lg"></i>
+                                                </button>
+                                            </div>
+                                            @if (ReasignError != null)
+                                            {
+                                                <small class="text-danger fw-bold d-block mt-1">@ReasignError</small>
+                                            }
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <button class="btn btn-sm btn-outline-secondary rounded-0 px-1 mt-1"
+                                                style="font-size: 0.65rem;"
+                                                title="@(c.ProveedorCatalogId == null ? "Asignar proveedor" : "Cambiar proveedor")"
+                                                @onclick="() => OpenReasignar(c.Id)"
+                                                disabled="@(!State.EstaAbierta)">
+                                            <i class="bi bi-arrow-left-right"></i>
+                                        </button>
+                                    }
                                 </div>
 
                                 @* Verify tick *@
@@ -293,6 +359,14 @@
     private string? VerifyError { get; set; }
     private string? ActionError { get; set; }
     private string? UploadSuccess { get; set; }
+
+    @* T32-T33: Proveedor catalog reassign state *@
+    private int? ReasignandoId { get; set; }
+    private string? ReasignError { get; set; }
+    private List<ProveedorCatalogDto> CatalogOptions { get; set; } = new();
+    private bool _isReasignandoSubmit;
+    private int? _selectedCatalogId;
+    private string? _newCanonicalName;
 
     private async Task VerificarTransferencia(int id)
     {
@@ -425,5 +499,91 @@
         await Task.Delay(4000);
         UploadSuccess = null;
         await InvokeAsync(StateHasChanged);
+    }
+
+    @* T32-T33: Reassign proveedor methods *@
+    private async Task OpenReasignar(int compraId)
+    {
+        if (ReasignandoId == compraId)
+        {
+            ReasignandoId = null;
+            return;
+        }
+
+        ReasignandoId = compraId;
+        ReasignError = null;
+        _selectedCatalogId = null;
+        _newCanonicalName = null;
+
+        if (CatalogOptions.Count == 0)
+        {
+            try
+            {
+                CatalogOptions = await Http.GetFromJsonAsync<List<ProveedorCatalogDto>>("api/proveedores") ?? new();
+            }
+            catch
+            {
+                CatalogOptions = new();
+            }
+        }
+    }
+
+    private async Task SubmitReasignar(int compraId, string proveedorRaw)
+    {
+        try
+        {
+            _isReasignandoSubmit = true;
+            ReasignError = null;
+
+            var request = new ReasignarProveedorRequestDto();
+
+            if (_selectedCatalogId.HasValue)
+            {
+                request.ProveedorCatalogId = _selectedCatalogId.Value;
+            }
+            else if (!string.IsNullOrWhiteSpace(_newCanonicalName))
+            {
+                request.NuevoNombreCanonical = _newCanonicalName.Trim();
+            }
+            else
+            {
+                ReasignError = "Seleccioná un proveedor existente o ingresá un nombre nuevo.";
+                return;
+            }
+
+            var response = await Http.PostAsJsonAsync($"api/compras/{compraId}/proveedor", request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                ReasignandoId = null;
+                _selectedCatalogId = null;
+                _newCanonicalName = null;
+                await OnUpdated.InvokeAsync();
+            }
+            else
+            {
+                var errorBody = await response.Content.ReadAsStringAsync();
+                if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+                {
+                    ReasignError = "Compra no encontrada. Recargá la página.";
+                }
+                else if (response.StatusCode == System.Net.HttpStatusCode.Conflict)
+                {
+                    ReasignError = "Conflicto de concurrencia. Recargá la página.";
+                }
+                else
+                {
+                    ReasignError = $"Error: {errorBody}";
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            ReasignError = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            _isReasignandoSubmit = false;
+        }
     }
 }
