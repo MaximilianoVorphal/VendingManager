@@ -266,6 +266,13 @@
                 </div>
             </div>
 
+            @if (!string.IsNullOrEmpty(UploadSuccess))
+            {
+                <div class="alert alert-success border-dark rounded-0 fw-bold mt-3 py-2">
+                    <i class="bi bi-check-circle-fill me-1"></i> @UploadSuccess
+                </div>
+            }
+
             @if (!string.IsNullOrEmpty(ActionError))
             {
                 <div class="alert alert-danger border-dark rounded-0 fw-bold mt-3 py-2">
@@ -285,6 +292,7 @@
     private int UploadingId { get; set; }
     private string? VerifyError { get; set; }
     private string? ActionError { get; set; }
+    private string? UploadSuccess { get; set; }
 
     private async Task VerificarTransferencia(int id)
     {
@@ -381,6 +389,7 @@
         {
             UploadingId = transferenciaId;
             ActionError = null;
+            UploadSuccess = null;
 
             var file = e.File;
             using var content = new MultipartFormDataContent();
@@ -392,7 +401,9 @@
 
             if (response.IsSuccessStatusCode)
             {
+                UploadSuccess = $"Imagen \"{file.Name}\" subida correctamente.";
                 await OnUpdated.InvokeAsync();
+                _ = AutoDismissUploadSuccess();
             }
             else
             {
@@ -407,5 +418,12 @@
         {
             UploadingId = 0;
         }
+    }
+
+    private async Task AutoDismissUploadSuccess()
+    {
+        await Task.Delay(4000);
+        UploadSuccess = null;
+        await InvokeAsync(StateHasChanged);
     }
 }
