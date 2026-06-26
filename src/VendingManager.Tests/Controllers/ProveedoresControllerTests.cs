@@ -2,6 +2,7 @@ namespace VendingManager.Tests.Controllers;
 
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Moq;
 using VendingManager.Controllers;
 using VendingManager.Core.Entities;
@@ -17,12 +18,14 @@ using VendingManager.Tests.TestData;
 public class ProveedoresControllerTests
 {
     private readonly ApplicationDbContext _context;
+    private readonly Mock<IProveedorMatchingService> _mockMatchingService;
     private readonly ProveedoresController _controller;
 
     public ProveedoresControllerTests()
     {
         _context = TestDataHelpers.CreateInMemoryContext($"ProveedoresControllerTest_{Guid.NewGuid()}");
-        _controller = new ProveedoresController(_context);
+        _mockMatchingService = new Mock<IProveedorMatchingService>();
+        _controller = new ProveedoresController(_context, _mockMatchingService.Object);
     }
 
     [Fact]
@@ -109,5 +112,207 @@ public class ProveedoresControllerTests
 
         // Assert
         result.Result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    // ─── Backfill (T34/T35) ─────────────────────────────────────────
+
+    [Fact]
+    public async Task Backfill_AutoLinksHighConfidenceMatch()
+    {
+        // Arrange
+        _context.ProveedorCatalog.Add(new ProveedorCatalog { Id = 10, NombreCanonical = "ALVI" });
+        _context.Compras.Add(new Compra
+        {
+            Id = 100,
+            Proveedor = "ALVI S.A.",
+            FechaCompra = DateTime.UtcNow,
+            MontoTotal = 5000,
+            Estado = "PAGADA"
+        });
+        await _context.SaveChangesAsync();
+        // Detach seeded entities so the controller loads fresh from InMemory
+        _context.Entry(_context.ProveedorCatalog.Find(10)!).State = EntityState.Detached;
+
+        _mockMatchingService
+            .Setup(s => s.MatchAsync("ALVI S.A.", 0.85))
+            .ReturnsAsync(new ProveedorMatchResult
+            {
+                ProveedorCatalog = new ProveedorCatalog { Id = 10, NombreCanonical = "ALVI" },
+                Confidence = 0.90,
+                SugerirCreacion = false,
+                MatchMethod = ProveedorMatchMethod.Tokenized
+            });
+
+        // Act
+        var result = await _controller.Backfill();
+
+        // Assert
+        var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        var dto = okResult.Value.Should().BeAssignableTo<BackfillResultDto>().Subject;
+        dto.Procesadas.Should().Be(1);
+        dto.AutoVinculadas.Should().Be(1);
+        dto.Pendientes.Should().Be(0);
+
+        var saved = await _context.Compras.FindAsync(100);
+        saved.Should().NotBeNull();
+        saved!.ProveedorCatalogId.Should().Be(10);
+    }
+
+    [Fact]
+    public async Task Backfill_LeavesPendingBelowThreshold()
+    {
+        // Arrange
+        _context.ProveedorCatalog.Add(new ProveedorCatalog { Id = 20, NombreCanonical = "Distribuidora" });
+        _context.Compras.Add(new Compra
+        {
+            Id = 200,
+            Proveedor = "Dist Nte",
+            FechaCompra = DateTime.UtcNow,
+            MontoTotal = 3000,
+            Estado = "PAGADA"
+        });
+        await _context.SaveChangesAsync();
+
+        _mockMatchingService
+            .Setup(s => s.MatchAsync("Dist Nte", 0.85))
+            .ReturnsAsync(new ProveedorMatchResult
+            {
+                ProveedorCatalog = null,
+                Confidence = 0.0,
+                SugerirCreacion = true,
+                MatchMethod = ProveedorMatchMethod.None
+            });
+
+        // Act
+        var result = await _controller.Backfill();
+
+        // Assert
+        var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        var dto = okResult.Value.Should().BeAssignableTo<BackfillResultDto>().Subject;
+        dto.Procesadas.Should().Be(1);
+        dto.AutoVinculadas.Should().Be(0);
+        dto.Pendientes.Should().Be(1);
+
+        var saved = await _context.Compras.FindAsync(200);
+        saved!.ProveedorCatalogId.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Backfill_SkipsAlreadyLinkedCompras()
+    {
+        // Arrange — compra already linked, should be excluded from processing
+        _context.Compras.Add(new Compra
+        {
+            Id = 300,
+            Proveedor = "Already Linked",
+            ProveedorCatalogId = 30,
+            FechaCompra = DateTime.UtcNow,
+            MontoTotal = 2000,
+            Estado = "PAGADA"
+        });
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _controller.Backfill();
+
+        // Assert
+        var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        var dto = okResult.Value.Should().BeAssignableTo<BackfillResultDto>().Subject;
+        dto.Procesadas.Should().Be(0);
+        dto.AutoVinculadas.Should().Be(0);
+        dto.Pendientes.Should().Be(0);
+
+        // Verify matching service was NEVER called
+        _mockMatchingService.Verify(
+            s => s.MatchAsync(It.IsAny<string>(), It.IsAny<double>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task Backfill_ReturnsCorrectCounts_MixedScenario()
+    {
+        // Arrange
+        _context.ProveedorCatalog.Add(new ProveedorCatalog { Id = 40, NombreCanonical = "ALVI" });
+        _context.Compras.AddRange(
+            new Compra { Id = 400, Proveedor = "ALVI S.A.", FechaCompra = DateTime.UtcNow, MontoTotal = 1000, Estado = "PAGADA" },
+            new Compra { Id = 401, Proveedor = "Unknown Shop", FechaCompra = DateTime.UtcNow, MontoTotal = 2000, Estado = "PAGADA" },
+            new Compra { Id = 402, Proveedor = "Already Done", ProveedorCatalogId = 99, FechaCompra = DateTime.UtcNow, MontoTotal = 3000, Estado = "PAGADA" }
+        );
+        await _context.SaveChangesAsync();
+
+        _mockMatchingService
+            .Setup(s => s.MatchAsync("ALVI S.A.", 0.85))
+            .ReturnsAsync(new ProveedorMatchResult
+            {
+                ProveedorCatalog = new ProveedorCatalog { Id = 40, NombreCanonical = "ALVI" },
+                Confidence = 0.90,
+                SugerirCreacion = false,
+                MatchMethod = ProveedorMatchMethod.Tokenized
+            });
+
+        _mockMatchingService
+            .Setup(s => s.MatchAsync("Unknown Shop", 0.85))
+            .ReturnsAsync(new ProveedorMatchResult
+            {
+                ProveedorCatalog = null,
+                Confidence = 0.0,
+                SugerirCreacion = true,
+                MatchMethod = ProveedorMatchMethod.None
+            });
+
+        // Act
+        var result = await _controller.Backfill();
+
+        // Assert
+        var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        var dto = okResult.Value.Should().BeAssignableTo<BackfillResultDto>().Subject;
+        dto.Procesadas.Should().Be(2);  // 2 null-linked compras
+        dto.AutoVinculadas.Should().Be(1);  // ALVI S.A. matched
+        dto.Pendientes.Should().Be(1);  // Unknown Shop did not match
+    }
+
+    [Fact]
+    public async Task Backfill_IsIdempotent()
+    {
+        // Arrange
+        _context.ProveedorCatalog.Add(new ProveedorCatalog { Id = 50, NombreCanonical = "El Molino" });
+        _context.Compras.Add(new Compra
+        {
+            Id = 500,
+            Proveedor = "El Molino S.A.",
+            FechaCompra = DateTime.UtcNow,
+            MontoTotal = 4000,
+            Estado = "PAGADA"
+        });
+        await _context.SaveChangesAsync();
+
+        _mockMatchingService
+            .Setup(s => s.MatchAsync("El Molino S.A.", 0.85))
+            .ReturnsAsync(new ProveedorMatchResult
+            {
+                ProveedorCatalog = new ProveedorCatalog { Id = 50, NombreCanonical = "El Molino" },
+                Confidence = 0.92,
+                SugerirCreacion = false,
+                MatchMethod = ProveedorMatchMethod.Tokenized
+            });
+
+        // Act — first run
+        var result1 = await _controller.Backfill();
+        var ok1 = result1.Result.Should().BeOfType<OkObjectResult>().Subject;
+        var dto1 = ok1.Value.Should().BeAssignableTo<BackfillResultDto>().Subject;
+        dto1.Procesadas.Should().Be(1);
+        dto1.AutoVinculadas.Should().Be(1);
+
+        // Act — second run (compra already linked, should be skipped)
+        var result2 = await _controller.Backfill();
+        var ok2 = result2.Result.Should().BeOfType<OkObjectResult>().Subject;
+        var dto2 = ok2.Value.Should().BeAssignableTo<BackfillResultDto>().Subject;
+        dto2.Procesadas.Should().Be(0);  // Already linked — not processed
+        dto2.AutoVinculadas.Should().Be(0);
+        dto2.Pendientes.Should().Be(0);
+
+        // Verify ProveedorCatalogId still correct (not double-linked)
+        var saved = await _context.Compras.FindAsync(500);
+        saved!.ProveedorCatalogId.Should().Be(50);
     }
 }
