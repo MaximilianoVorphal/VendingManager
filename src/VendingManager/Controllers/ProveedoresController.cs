@@ -11,7 +11,7 @@ namespace VendingManager.Controllers;
 [Authorize]
 [ApiController]
 [Route("api/[controller]")]
-public class ProveedoresController(ApplicationDbContext context) : ControllerBase
+public class ProveedoresController(ApplicationDbContext context, IProveedorMatchingService matchingService) : ControllerBase
 {
     /// <summary>
     /// GET api/proveedores — returns catalog entries ordered by NombreCanonical.
@@ -68,5 +68,40 @@ public class ProveedoresController(ApplicationDbContext context) : ControllerBas
         };
 
         return CreatedAtAction(nameof(GetProveedores), dto);
+    }
+
+    /// <summary>
+    /// POST api/proveedores/backfill — batch-match existing Compra records where ProveedorCatalogId IS NULL,
+    /// using threshold 0.85. Auto-links only high-confidence matches. Idempotent and re-runnable.
+    /// Returns summary counts of processed, auto-linked, and remaining pending compras.
+    /// </summary>
+    [HttpPost("backfill")]
+    public async Task<ActionResult<BackfillResultDto>> Backfill()
+    {
+        var compras = await context.Compras
+            .Where(c => c.ProveedorCatalogId == null)
+            .ToListAsync();
+
+        int procesadas = compras.Count;
+        int autoVinculadas = 0;
+
+        foreach (var compra in compras)
+        {
+            var match = await matchingService.MatchAsync(compra.Proveedor, 0.85);
+            if (match.ProveedorCatalog != null && match.Confidence >= 0.85)
+            {
+                compra.ProveedorCatalogId = match.ProveedorCatalog.Id;
+                autoVinculadas++;
+            }
+        }
+
+        await context.SaveChangesAsync();
+
+        return Ok(new BackfillResultDto
+        {
+            Procesadas = procesadas,
+            AutoVinculadas = autoVinculadas,
+            Pendientes = procesadas - autoVinculadas
+        });
     }
 }
