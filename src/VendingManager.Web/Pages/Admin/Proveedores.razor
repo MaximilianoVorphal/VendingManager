@@ -1,0 +1,362 @@
+@page "/admin/proveedores"
+@using Microsoft.AspNetCore.Authorization
+@using VendingManager.Shared.DTOs
+@using VendingManager.Shared.Constants
+@attribute [Authorize(Roles = Roles.Admin)]
+@inject HttpClient Http
+@inject NavigationManager Navigation
+
+<PageTitle>PROVEEDORES</PageTitle>
+
+<div class="industrial-wrapper container-fluid px-4 mt-4">
+    <div class="row align-items-center mb-4 border-bottom border-3 border-dark pb-3 g-3">
+        <div class="col-md-8 col-12">
+            <h2 class="m-0 fw-bold text-uppercase" style="letter-spacing: -1px; color: #333;">
+                <i class="bi bi-truck me-2"></i>PROVEEDORES
+            </h2>
+            <small class="text-muted fw-bold">CATÁLOGO DE PROVEEDORES</small>
+        </div>
+        <div class="col-md-4 col-12 text-md-end">
+            <button class="btn btn-dark rounded-0 fw-bold shadow-sm" @onclick="AbrirModalNuevo">
+                <i class="bi bi-plus-lg me-1"></i>NUEVO PROVEEDOR
+            </button>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(Error))
+    {
+        <div class="alert alert-danger border-dark rounded-0 fw-bold mb-4 shadow-sm fade show">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i> @Error
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(MensajeExito))
+    {
+        <div class="alert alert-success border-dark rounded-0 fw-bold mb-4 shadow-sm fade show">
+            <i class="bi bi-check-circle-fill me-2"></i> @MensajeExito
+        </div>
+    }
+
+    @if (Cargando)
+    {
+        <div class="text-center my-5">
+            <div class="spinner-border text-dark" role="status"></div>
+            <p class="mt-2 fw-bold">Cargando proveedores...</p>
+        </div>
+    }
+    else
+    {
+        <!-- SEARCH BAR -->
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <div class="input-group">
+                    <span class="input-group-text bg-white border-dark rounded-0"><i class="bi bi-search"></i></span>
+                    <input type="text" class="form-control border-dark rounded-0 shadow-sm"
+                           placeholder="Buscar proveedor..." @bind="SearchTerm" @bind:event="oninput" />
+                </div>
+            </div>
+            <div class="col-md-6 text-md-end pt-2 pt-md-0">
+                <span class="fw-bold small text-muted">@FilteredProveedores.Count() de @Catalogo.Count registros</span>
+            </div>
+        </div>
+
+        <div class="card border-2 border-dark rounded-0 shadow">
+            <div class="card-header bg-dark text-white rounded-0 fw-bold d-flex justify-content-between align-items-center">
+                <span>PROVEEDORES</span>
+                <span class="badge bg-light text-dark">@Catalogo.Count REGISTROS</span>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover table-bordered border-dark m-0 align-middle">
+                    <thead class="bg-secondary text-white text-uppercase small font-monospace fw-bold">
+                        <tr>
+                            <th>NOMBRE</th>
+                            <th class="text-center" style="width: 120px;">ACCIONES</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white fw-bold" style="font-size: 0.85rem;">
+                        @if (!FilteredProveedores.Any())
+                        {
+                            <tr>
+                                <td colspan="2" class="text-center p-4 text-muted">
+                                    @(string.IsNullOrWhiteSpace(SearchTerm) ? "No hay proveedores registrados." : $"Sin resultados para \"{SearchTerm}\".")
+                                </td>
+                            </tr>
+                        }
+                        else
+                        {
+                            @foreach (var p in FilteredProveedores)
+                            {
+                                <tr>
+                                    <td>@p.NombreCanonical</td>
+                                    <td class="text-center">
+                                        <div class="d-flex justify-content-center gap-1">
+                                            <button class="btn btn-sm btn-outline-dark rounded-0 fw-bold" title="Editar" @onclick="() => AbrirModalEditar(p)">
+                                                <i class="bi bi-pencil-square"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-danger rounded-0 fw-bold" title="Eliminar" @onclick="() => ConfirmarEliminar(p)">
+                                                <i class="bi bi-trash-fill"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+</div>
+
+@* ─── MODAL CREAR / RENOMBRAR ─── *@
+@if (MostrarModal)
+{
+    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5); z-index: 1060; position: fixed; top: 0; left: 0; width: 100%; height: 100%;">
+        <div class="modal-dialog modal-dialog-centered" style="z-index: 1061;">
+            <div class="modal-content rounded-0 border-2 border-dark shadow-lg">
+                <div class="modal-header @(Editando ? "bg-warning text-dark" : "bg-dark text-white") rounded-0 border-bottom border-dark">
+                    <h5 class="modal-title fw-bold">
+                        <i class="bi @(Editando ? "bi-pencil-square" : "bi-plus-circle") me-2"></i>
+                        @(Editando ? "RENOMBRAR PROVEEDOR" : "NUEVO PROVEEDOR")
+                    </h5>
+                    <button type="button" class="btn-close @(Editando ? "" : "btn-close-white")" @onclick="CerrarModal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-muted">NOMBRE *</label>
+                        <input type="text" class="form-control border-dark rounded-0"
+                               @bind="FormNombreCanonical" @bind:event="oninput"
+                               placeholder="Nombre del proveedor" maxlength="200" />
+                    </div>
+                    @if (!string.IsNullOrEmpty(Error))
+                    {
+                        <div class="alert alert-danger border-dark rounded-0 fw-bold py-2 mb-0 small fade show">
+                            <i class="bi bi-exclamation-triangle-fill me-1"></i> @Error
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer bg-light rounded-0">
+                    <button type="button" class="btn btn-outline-dark rounded-0 fw-bold" @onclick="CerrarModal">CANCELAR</button>
+                    <button type="button" class="btn btn-dark rounded-0 fw-bold px-4" @onclick="GuardarProveedor" disabled="@Guardando">
+                        @if (Guardando)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                            <span>GUARDANDO...</span>
+                        }
+                        else
+                        {
+                            <i class="bi bi-save-fill me-2"></i>
+                            <span>GUARDAR</span>
+                        }
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@* ─── MODAL CONFIRMAR ELIMINAR ─── *@
+@if (ProveedorAEliminar != null)
+{
+    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5); z-index: 1060; position: fixed; top: 0; left: 0; width: 100%; height: 100%;">
+        <div class="modal-dialog modal-dialog-centered" style="z-index: 1061;">
+            <div class="modal-content rounded-0 border-2 border-dark shadow-lg">
+                <div class="modal-header bg-danger text-white rounded-0 border-bottom border-dark">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-exclamation-triangle-fill me-2"></i>ELIMINAR PROVEEDOR</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="() => ProveedorAEliminar = null"></button>
+                </div>
+                <div class="modal-body p-4 text-center">
+                    <p class="fs-5 fw-bold">¿Eliminar <span class="text-danger">@ProveedorAEliminar.NombreCanonical</span>?</p>
+                    <p class="text-danger small fw-bold">
+                        <i class="bi bi-exclamation-circle-fill me-1"></i>
+                        Al eliminar este proveedor, las compras vinculadas quedarán sin proveedor asignado. ¿Desea continuar?
+                    </p>
+                </div>
+                <div class="modal-footer bg-light rounded-0">
+                    <button type="button" class="btn btn-outline-dark rounded-0 fw-bold" @onclick="() => ProveedorAEliminar = null">CANCELAR</button>
+                    <button type="button" class="btn btn-danger rounded-0 fw-bold px-4" @onclick="EliminarProveedor" disabled="@Eliminando">
+                        @if (Eliminando)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                        }
+                        SÍ, ELIMINAR
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<ProveedorCatalogDto> Catalogo = new();
+    private bool Cargando = true;
+    private string? Error;
+    private string? MensajeExito;
+    private string SearchTerm = "";
+
+    private IEnumerable<ProveedorCatalogDto> FilteredProveedores
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(SearchTerm)) return Catalogo;
+            var term = SearchTerm.ToLower();
+            return Catalogo.Where(p =>
+                p.NombreCanonical.ToLower().Contains(term));
+        }
+    }
+
+    // Modal state
+    private bool MostrarModal;
+    private bool Editando;
+    private bool Guardando;
+    private string FormNombreCanonical = "";
+    private int? EditandoId;
+
+    // Delete state
+    private ProveedorCatalogDto? ProveedorAEliminar;
+    private bool Eliminando;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarDatos();
+    }
+
+    private async Task CargarDatos()
+    {
+        try
+        {
+            Cargando = true;
+            Error = null;
+
+            var list = await Http.GetFromJsonAsync<List<ProveedorCatalogDto>>("api/proveedores");
+            Catalogo = list?.OrderBy(p => p.NombreCanonical).ToList() ?? new();
+        }
+        catch (Exception ex)
+        {
+            Error = "Error al cargar: " + ex.Message;
+        }
+        finally
+        {
+            Cargando = false;
+        }
+    }
+
+    private void AbrirModalNuevo()
+    {
+        Editando = false;
+        EditandoId = null;
+        FormNombreCanonical = "";
+        MostrarModal = true;
+        Error = null;
+        MensajeExito = null;
+    }
+
+    private void AbrirModalEditar(ProveedorCatalogDto p)
+    {
+        Editando = true;
+        EditandoId = p.Id;
+        FormNombreCanonical = p.NombreCanonical;
+        MostrarModal = true;
+        Error = null;
+        MensajeExito = null;
+    }
+
+    private void CerrarModal()
+    {
+        MostrarModal = false;
+    }
+
+    private async Task GuardarProveedor()
+    {
+        if (string.IsNullOrWhiteSpace(FormNombreCanonical))
+        {
+            Error = "El nombre del proveedor es obligatorio.";
+            return;
+        }
+
+        Guardando = true;
+        Error = null;
+        MensajeExito = null;
+
+        try
+        {
+            HttpResponseMessage response;
+            if (Editando && EditandoId.HasValue)
+            {
+                var dto = new ActualizarProveedorRequestDto { NombreCanonical = FormNombreCanonical.Trim() };
+                response = await Http.PutAsJsonAsync($"api/proveedores/{EditandoId.Value}", dto);
+            }
+            else
+            {
+                var dto = new CrearProveedorRequestDto { NombreCanonical = FormNombreCanonical.Trim() };
+                response = await Http.PostAsJsonAsync("api/proveedores", dto);
+            }
+
+            if (response.IsSuccessStatusCode)
+            {
+                MensajeExito = Editando ? "Proveedor renombrado." : "Proveedor creado.";
+                CerrarModal();
+                await CargarDatos();
+            }
+            else if (response.StatusCode == System.Net.HttpStatusCode.Conflict)
+            {
+                Error = "Ya existe un proveedor con ese nombre.";
+            }
+            else
+            {
+                var errorBody = await response.Content.ReadAsStringAsync();
+                Error = $"Error: {errorBody}";
+            }
+        }
+        catch (Exception ex)
+        {
+            Error = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            Guardando = false;
+        }
+    }
+
+    private void ConfirmarEliminar(ProveedorCatalogDto p)
+    {
+        ProveedorAEliminar = p;
+        Error = null;
+        MensajeExito = null;
+    }
+
+    private async Task EliminarProveedor()
+    {
+        if (ProveedorAEliminar == null) return;
+
+        Eliminando = true;
+        try
+        {
+            var response = await Http.DeleteAsync($"api/proveedores/{ProveedorAEliminar.Id}");
+            if (response.IsSuccessStatusCode)
+            {
+                MensajeExito = $"Proveedor \"{ProveedorAEliminar.NombreCanonical}\" eliminado.";
+                ProveedorAEliminar = null;
+                await CargarDatos();
+            }
+            else if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                Error = "El proveedor ya no existe.";
+                ProveedorAEliminar = null;
+                await CargarDatos();
+            }
+            else
+            {
+                Error = "Error al eliminar: " + await response.Content.ReadAsStringAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            Error = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            Eliminando = false;
+        }
+    }
+}
