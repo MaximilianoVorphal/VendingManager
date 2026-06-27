@@ -71,6 +71,51 @@ public class ProveedoresController(ApplicationDbContext context, IProveedorMatch
     }
 
     /// <summary>
+    /// PUT api/proveedores/{id} — rename a supplier. Requires admin role.
+    /// Returns 200 on success, 200 no-op if name unchanged, 409 if duplicate,
+    /// 404 if id missing, 400 if name empty.
+    /// </summary>
+    [HttpPut("{id}")]
+    [Authorize(Policy = "RequireAdmin")]
+    public async Task<ActionResult<ProveedorCatalogDto>> UpdateProveedor(int id, [FromBody] ActualizarProveedorRequestDto request)
+    {
+        if (string.IsNullOrWhiteSpace(request.NombreCanonical))
+            return BadRequest("NombreCanonical es requerido.");
+
+        var catalog = await context.ProveedorCatalog.FindAsync(id);
+        if (catalog is null) return NotFound();
+
+        if (catalog.NombreCanonical == request.NombreCanonical)
+            return Ok(new ProveedorCatalogDto { Id = catalog.Id, NombreCanonical = catalog.NombreCanonical });
+
+        var duplicate = await context.ProveedorCatalog.AnyAsync(p => p.NombreCanonical == request.NombreCanonical && p.Id != id);
+        if (duplicate) return Conflict("Ya existe un proveedor con ese nombre.");
+
+        catalog.NombreCanonical = request.NombreCanonical;
+        await context.SaveChangesAsync();
+
+        return Ok(new ProveedorCatalogDto { Id = catalog.Id, NombreCanonical = catalog.NombreCanonical });
+    }
+
+    /// <summary>
+    /// DELETE api/proveedores/{id} — remove a supplier. Requires admin role.
+    /// Compra FK is SetNull, ProveedorAlias cascades.
+    /// Returns 204 NoContent on success, 404 if missing.
+    /// </summary>
+    [HttpDelete("{id}")]
+    [Authorize(Policy = "RequireAdmin")]
+    public async Task<ActionResult> DeleteProveedor(int id)
+    {
+        var catalog = await context.ProveedorCatalog.FindAsync(id);
+        if (catalog is null) return NotFound();
+
+        context.ProveedorCatalog.Remove(catalog);
+        await context.SaveChangesAsync();
+
+        return NoContent();
+    }
+
+    /// <summary>
     /// POST api/proveedores/backfill — batch-match existing Compra records where ProveedorCatalogId IS NULL,
     /// using threshold 0.85. Auto-links only high-confidence matches. Idempotent and re-runnable.
     /// Returns summary counts of processed, auto-linked, and remaining pending compras.

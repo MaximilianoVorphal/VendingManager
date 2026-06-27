@@ -114,6 +114,213 @@ public class ProveedoresControllerTests
         result.Result.Should().BeOfType<BadRequestObjectResult>();
     }
 
+    // ─── PUT UpdateProveedor (T2-T6) ─────────────────────────────────
+
+    [Fact]
+    public async Task UpdateProveedor_WithValidName_Returns200AndUpdates()
+    {
+        // Arrange
+        _context.ProveedorCatalog.Add(new ProveedorCatalog { NombreCanonical = "Old Name" });
+        await _context.SaveChangesAsync();
+        var dto = new ActualizarProveedorRequestDto { NombreCanonical = "New Name" };
+
+        // Act
+        var result = await _controller.UpdateProveedor(1, dto);
+
+        // Assert
+        var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        var updated = okResult.Value.Should().BeAssignableTo<ProveedorCatalogDto>().Subject;
+        updated.Id.Should().Be(1);
+        updated.NombreCanonical.Should().Be("New Name");
+
+        // Verify persistence
+        var saved = await _context.ProveedorCatalog.FindAsync(1);
+        saved.Should().NotBeNull();
+        saved!.NombreCanonical.Should().Be("New Name");
+    }
+
+    [Fact]
+    public async Task UpdateProveedor_WithDuplicateNameOtherId_Returns409Conflict()
+    {
+        // Arrange
+        _context.ProveedorCatalog.AddRange(
+            new ProveedorCatalog { Id = 1, NombreCanonical = "Supplier A" },
+            new ProveedorCatalog { Id = 2, NombreCanonical = "Supplier B" }
+        );
+        await _context.SaveChangesAsync();
+        // Detach seeded entities so controller loads fresh from InMemory
+        _context.Entry(_context.ProveedorCatalog.Find(1)!).State = EntityState.Detached;
+        _context.Entry(_context.ProveedorCatalog.Find(2)!).State = EntityState.Detached;
+
+        var dto = new ActualizarProveedorRequestDto { NombreCanonical = "Supplier B" };
+
+        // Act
+        var result = await _controller.UpdateProveedor(1, dto);
+
+        // Assert
+        result.Result.Should().BeOfType<ConflictObjectResult>();
+
+        // Verify Supplier A's name was NOT changed
+        var savedA = await _context.ProveedorCatalog.FindAsync(1);
+        savedA!.NombreCanonical.Should().Be("Supplier A");
+    }
+
+    [Fact]
+    public async Task UpdateProveedor_SameName_Returns200NoOp()
+    {
+        // Arrange
+        _context.ProveedorCatalog.Add(new ProveedorCatalog
+        {
+            Id = 1,
+            NombreCanonical = "Same Name",
+            CreatedAt = new DateTime(2025, 1, 1),
+            LastSeenAt = new DateTime(2025, 6, 1)
+        });
+        await _context.SaveChangesAsync();
+        _context.Entry(_context.ProveedorCatalog.Find(1)!).State = EntityState.Detached;
+
+        var dto = new ActualizarProveedorRequestDto { NombreCanonical = "Same Name" };
+
+        // Act
+        var result = await _controller.UpdateProveedor(1, dto);
+
+        // Assert
+        var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        var updated = okResult.Value.Should().BeAssignableTo<ProveedorCatalogDto>().Subject;
+        updated.Id.Should().Be(1);
+        updated.NombreCanonical.Should().Be("Same Name");
+
+        // Verify no history row was created (no SaveChanges triggered)
+        var historyCount = await _context.ProveedorCatalogHistory.CountAsync();
+        historyCount.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task UpdateProveedor_NotFound_Returns404()
+    {
+        // Act
+        var result = await _controller.UpdateProveedor(999, new ActualizarProveedorRequestDto { NombreCanonical = "Any" });
+
+        // Assert
+        result.Result.Should().BeOfType<NotFoundResult>();
+    }
+
+    [Fact]
+    public async Task UpdateProveedor_EmptyName_ReturnsBadRequest()
+    {
+        // Arrange
+        _context.ProveedorCatalog.Add(new ProveedorCatalog { NombreCanonical = "Exists" });
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _controller.UpdateProveedor(1, new ActualizarProveedorRequestDto { NombreCanonical = "" });
+
+        // Assert
+        result.Result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
+    public async Task UpdateProveedor_WhitespaceName_ReturnsBadRequest()
+    {
+        // Arrange
+        _context.ProveedorCatalog.Add(new ProveedorCatalog { NombreCanonical = "Exists" });
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _controller.UpdateProveedor(1, new ActualizarProveedorRequestDto { NombreCanonical = "   " });
+
+        // Assert
+        result.Result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    // ─── DELETE DeleteProveedor (T7-T10) ──────────────────────────────
+
+    [Fact]
+    public async Task DeleteProveedor_Existing_ReturnsNoContentAndRemoves()
+    {
+        // Arrange
+        _context.ProveedorCatalog.Add(new ProveedorCatalog { Id = 1, NombreCanonical = "To Delete" });
+        await _context.SaveChangesAsync();
+        _context.Entry(_context.ProveedorCatalog.Find(1)!).State = EntityState.Detached;
+
+        // Act
+        var result = await _controller.DeleteProveedor(1);
+
+        // Assert
+        result.Should().BeOfType<NoContentResult>();
+
+        // Verify removed from DB
+        var saved = await _context.ProveedorCatalog.FindAsync(1);
+        saved.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task DeleteProveedor_NotFound_Returns404()
+    {
+        // Act
+        var result = await _controller.DeleteProveedor(999);
+
+        // Assert
+        result.Should().BeOfType<NotFoundResult>();
+    }
+
+    [Fact]
+    public async Task DeleteProveedor_WithLinkedCompra_CompraSurvives()
+    {
+        // Arrange
+        _context.ProveedorCatalog.Add(new ProveedorCatalog { Id = 1, NombreCanonical = "Linked Supplier" });
+        _context.Compras.Add(new Compra
+        {
+            Id = 100,
+            Proveedor = "Linked Supplier",
+            ProveedorCatalogId = 1,
+            FechaCompra = DateTime.UtcNow,
+            MontoTotal = 5000,
+            Estado = "PAGADA"
+        });
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _controller.DeleteProveedor(1);
+
+        // Assert
+        result.Should().BeOfType<NoContentResult>();
+
+        // Compra row survives deletion (FK SetNull in SQL Server; InMemory does not cascade)
+        var compra = await _context.Compras.FindAsync(100);
+        compra.Should().NotBeNull();
+        // NOTE: InMemory does NOT enforce SetNull on delete. The ProveedorCatalogId
+        // remains set. In SQL Server, the FK constraint would set it to null.
+        // This is a documented InMemory limitation — real SetNull verification
+        // requires SQL Server integration tests.
+    }
+
+    [Fact]
+    public async Task DeleteProveedor_WithLinkedAlias_ControllerDoesNotThrow()
+    {
+        // Arrange
+        _context.ProveedorCatalog.Add(new ProveedorCatalog { Id = 1, NombreCanonical = "With Alias" });
+        _context.ProveedorAlias.Add(new ProveedorAlias
+        {
+            Id = 10,
+            RawName = "Alias Name",
+            RawNameNormalized = "alias name",
+            ProveedorCatalogId = 1,
+            CreatedAt = DateTime.UtcNow,
+            LastSeenAt = DateTime.UtcNow
+        });
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _controller.DeleteProveedor(1);
+
+        // Assert
+        result.Should().BeOfType<NoContentResult>();
+        // NOTE: Cascade delete on Alias is enforced by SQL Server FK constraint.
+        // InMemory does not cascade automatically. The controller runs without error
+        // and the ProveedorCatalog is removed. Cascade verification requires SQL Server.
+    }
+
     // ─── Backfill (T34/T35) ─────────────────────────────────────────
 
     [Fact]
