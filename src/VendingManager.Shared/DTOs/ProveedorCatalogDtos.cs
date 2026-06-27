@@ -31,6 +31,14 @@ public class ReasignarProveedorRequestDto
 }
 
 /// <summary>
+/// Request DTO for renaming an existing ProveedorCatalog entry.
+/// </summary>
+public class ActualizarProveedorRequestDto
+{
+    public string NombreCanonical { get; set; } = string.Empty;
+}
+
+/// <summary>
 /// Result of the backfill endpoint: counts of processed, auto-linked, and pending compras.
 /// </summary>
 public class BackfillResultDto
