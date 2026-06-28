@@ -1,0 +1,64 @@
+@* =========================================================================
+   VmKpiCard — Tile KPI del dashboard VendingManager
+   Construido sobre VmCard. Header negro, cifra grande, footer dividido.
+   
+   Props:
+   - Header:       título del encabezado
+   - HeaderVariant: igual que VmCard (default: "dark")
+   - Caption:      texto pequeño encima del valor (optional)
+   - Value:        el número/texto grande
+   - ValueColor:   color CSS del valor (default: var(--text-primary))
+   - Footer:       lista de VmKpiFooterItem (optional)
+   - OnClick:      EventCallback (activa hover-lift)
+   
+   Uso:
+   <VmKpiCard Header="VENTAS HOY" Value="$1.240.500"
+              Caption="Total acumulado">
+       <FooterItems>
+           <VmKpiCard.FooterItem Label="Máquinas" Value="12" />
+           <VmKpiCard.FooterItem Label="Productos" Value="847" />
+       </FooterItems>
+   </VmKpiCard>
+   
+   ALTERNATIVA SIMPLIFICADA (sin footer):
+   <VmKpiCard Header="VENTAS HOY" Value="$1.240.500" Caption="Total" />
+   ========================================================================= *@
+
+@code {
+    [Parameter] public string? Header { get; set; }
+    [Parameter] public string HeaderVariant { get; set; } = "dark";
+    [Parameter] public string? Caption { get; set; }
+    [Parameter] public string Value { get; set; } = "";
+    [Parameter] public string ValueColor { get; set; } = "var(--text-primary)";
+    [Parameter] public RenderFragment? FooterContent { get; set; }
+    [Parameter] public EventCallback OnClick { get; set; }
+}
+
+<VmCard Header="@Header" HeaderVariant="@HeaderVariant"
+        Hover="@OnClick.HasDelegate" OnClick="OnClick"
+        BodyStyle="padding:1.25rem;text-align:center;">
+
+    @if (!string.IsNullOrEmpty(Caption))
+    {
+        <div style="font-family:var(--font-mono);font-size:var(--fs-2xs);
+                    font-weight:var(--fw-bold);text-transform:uppercase;
+                    letter-spacing:0.5px;color:var(--text-muted);">
+            @Caption
+        </div>
+    }
+
+    <div style="font-family:var(--font-sans);font-weight:var(--fw-bold);
+                font-size:var(--fs-xl);letter-spacing:var(--tracking-tighter);
+                line-height:1;margin:0.5rem 0;color:@ValueColor;">
+        @Value
+    </div>
+
+    @if (FooterContent != null)
+    {
+        <div style="display:flex;justify-content:space-between;gap:0.5rem;
+                    margin-top:1rem;padding-top:0.75rem;
+                    border-top:1px solid var(--ink-900);">
+            @FooterContent
+        </div>
+    }
+</VmCard>
