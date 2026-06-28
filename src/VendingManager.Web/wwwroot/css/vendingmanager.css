@@ -1,0 +1,21 @@
+/* =========================================================================
+   VendingManager Design System — entry point para Blazor
+   Agregar en wwwroot/index.html (WASM) o Pages/_Host.cshtml (Server):
+   <link rel="stylesheet" href="css/vendingmanager.css" />
+   ========================================================================= */
+
+@import url('tokens/fonts.css');
+@import url('tokens/colors.css');
+@import url('tokens/typography.css');
+@import url('tokens/spacing.css');
+@import url('tokens/effects.css');
+
+/* Reset mínimo — compatible con Bootstrap 5 que ya usa Blazor */
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg-canvas);
+  color: var(--text-primary);
+  font: var(--type-body);
+}
