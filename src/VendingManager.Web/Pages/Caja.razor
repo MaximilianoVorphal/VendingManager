@@ -785,6 +785,102 @@ var bgHeader = grupo.EsOrdenCarga ? "bg-warning-subtle" : "bg-white";
     </div>
 }
 
+@* ====== MODAL: DETALLE DE MOVIMIENTO ====== *@
+@if (_detalleModalOpen && _selectedMovement != null)
+{
+    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5); z-index: 2000;" @onclick="CerrarModalDetalle">
+        <div class="modal-dialog modal-dialog-centered" @onclick:stopPropagation="true">
+            <div class="modal-content rounded-0 border-2 border-dark shadow-lg">
+                <div class="modal-header bg-dark text-white rounded-0">
+                    <h5 class="modal-title fw-bold text-uppercase"><i class="bi bi-eye me-2"></i>DETALLE DE MOVIMIENTO</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CerrarModalDetalle"></button>
+                </div>
+                <div class="modal-body p-4 bg-light">
+                    <div class="text-center mb-4">
+                        <span class="fw-bold font-monospace" style="font-size: 2.2rem; letter-spacing: -1px; color: @(_selectedMovement.Monto > 0 ? "var(--signal-success)" : "var(--signal-danger)")">
+                            @(_selectedMovement.Monto > 0 ? $"+${_selectedMovement.Monto:N0}" : $"-${Math.Abs(_selectedMovement.Monto):N0}")
+                        </span>
+                    </div>
+
+                    <VmCard Header="DATOS GENERALES" HeaderVariant="dark" Style="margin-bottom:1rem;">
+                        <div class="font-monospace" style="font-size: 0.8rem;">
+                            <div class="d-flex justify-content-between border-bottom border-secondary-subtle py-2">
+                                <span class="text-muted fw-bold text-uppercase">Fecha</span>
+                                <span>@_selectedMovement.Fecha.ToString("dd/MM/yyyy HH:mm")</span>
+                            </div>
+                            <div class="d-flex justify-content-between border-bottom border-secondary-subtle py-2">
+                                <span class="text-muted fw-bold text-uppercase">Tipo</span>
+                                <span>@_selectedMovement.Tipo</span>
+                            </div>
+                            <div class="d-flex justify-content-between border-bottom border-secondary-subtle py-2">
+                                <span class="text-muted fw-bold text-uppercase">Categoría</span>
+                                <span>@_selectedMovement.Categoria</span>
+                            </div>
+                            <div class="d-flex justify-content-between py-2">
+                                <span class="text-muted fw-bold text-uppercase">Descripción</span>
+                                <span>@_selectedMovement.Descripcion</span>
+                            </div>
+                        </div>
+                    </VmCard>
+
+                    @if (_selectedMovement.OrdenCargaId.HasValue || _selectedMovement.CompraId.HasValue || _selectedMovement.GastoRecurrenteId.HasValue)
+                    {
+                        <VmCard Header="VÍNCULOS" HeaderVariant="secondary" Style="margin-bottom:1rem;">
+                            <div class="font-monospace" style="font-size: 0.8rem;">
+                                @if (_selectedMovement.OrdenCargaId.HasValue)
+                                {
+                                    <div class="d-flex justify-content-between py-2">
+                                        <span class="text-muted fw-bold text-uppercase">Orden de Carga</span>
+                                        <span>#@_selectedMovement.OrdenCargaId</span>
+                                    </div>
+                                }
+                                @if (_selectedMovement.CompraId.HasValue)
+                                {
+                                    <div class="d-flex justify-content-between py-2">
+                                        <span class="text-muted fw-bold text-uppercase">Compra</span>
+                                        <span>#@_selectedMovement.CompraId</span>
+                                    </div>
+                                }
+                                @if (_selectedMovement.GastoRecurrenteId.HasValue)
+                                {
+                                    <div class="d-flex justify-content-between py-2">
+                                        <span class="text-muted fw-bold text-uppercase">Gasto Recurrente</span>
+                                        <span>#@_selectedMovement.GastoRecurrenteId</span>
+                                    </div>
+                                }
+                            </div>
+                        </VmCard>
+                    }
+
+                    @if (!string.IsNullOrEmpty(_selectedMovement.ImagenPath))
+                    {
+                        <VmCard Header="COMPROBANTE" HeaderVariant="light" Style="margin-bottom:1rem;">
+                            <div class="text-center">
+                                @if (_selectedMovement.ImagenPath.Contains(".pdf", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    <a href="@_selectedMovement.ImagenPath" target="_blank" class="btn btn-outline-dark rounded-0">
+                                        <i class="bi bi-file-earmark-pdf me-2"></i>Ver documento PDF
+                                    </a>
+                                }
+                                else
+                                {
+                                    <a href="@_selectedMovement.ImagenPath" target="_blank" class="btn btn-outline-dark rounded-0">
+                                        <i class="bi bi-image me-2"></i>Ver comprobante
+                                    </a>
+                                }
+                            </div>
+                        </VmCard>
+                    }
+                </div>
+                <div class="modal-footer bg-white border-top border-dark rounded-0 d-flex gap-2">
+                    <VmButton Variant="outline" Block="true" OnClick="CerrarModalDetalle">CERRAR</VmButton>
+                    <VmButton Variant="dark" Block="true" Disabled="true">EDITAR</VmButton>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     private DateTime SelectedDate = DateTime.Now;
     private CajaResumenDto? Resumen;
@@ -818,6 +914,8 @@ var bgHeader = grupo.EsOrdenCarga ? "bg-warning-subtle" : "bg-white";
     private bool MostrarModalGastoFijo = false;
     private bool MostrarModalAplicarGastos = false;
     private bool _registroModalOpen = false;
+    private bool _detalleModalOpen = false;
+    private MovimientoCaja? _selectedMovement;
     private bool AplicandoGastos = false;
     private GastoRecurrenteDto GastoEditando = new();
     private int GastoEditandoMaquinaId = 0;
@@ -1211,6 +1309,18 @@ var bgHeader = grupo.EsOrdenCarga ? "bg-warning-subtle" : "bg-white";
     }
 
     private void CerrarModalRegistro() => _registroModalOpen = false;
+
+    private void AbrirModalDetalle(MovimientoCaja mov)
+    {
+        _selectedMovement = mov;
+        _detalleModalOpen = true;
+    }
+
+    private void CerrarModalDetalle()
+    {
+        _detalleModalOpen = false;
+        _selectedMovement = null;
+    }
 
     private async Task AbrirModalNuevoGasto()
     {
