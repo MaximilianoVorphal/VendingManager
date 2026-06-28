@@ -87,7 +87,7 @@
 
     @* ====== FILA DE ACCIONES ====== *@
     <div class="d-flex gap-2 mb-4 flex-wrap align-items-center">
-        <VmButton Variant="@(ActiveTab == "caja" ? "dark" : "outline")" Icon="bi-cash-stack" OnClick='() => ActiveTab = "caja"'>CAJA</VmButton>
+        <VmButton Variant="dark" Icon="bi-plus-lg" OnClick="AbrirModalRegistro" Disabled="@(Resumen?.IsLocked == true)">NUEVO MOVIMIENTO</VmButton>
         <VmButton Variant="@(ActiveTab == "gastosfijos" ? "dark" : "outline")" Icon="bi-gear-fill" OnClick='() => ActiveTab = "gastosfijos"'>GASTOS FIJOS</VmButton>
         @if (GastosPendientes != null && GastosPendientes.Any())
         {
@@ -129,99 +129,8 @@
         }
 
         <div class="row g-3">
-        <!-- FORMULARIO DE REGISTRO -->
-        <div class="col-md-4 mb-4">
-            <div class="card border-2 border-dark rounded-0 h-100 shadow-sm @(Resumen?.IsLocked == true ? "opacity-50" : "")">
-                <div class="card-header bg-dark text-white rounded-0 fw-bold d-flex justify-content-between align-items-center">
-                    <span>NUEVO MOVIMIENTO</span>
-                    <span class="small text-white-50">MANUAL</span>
-                </div>
-                <div class="card-body bg-light position-relative">
-
-                    @if (Resumen?.IsLocked == true)
-                    {
-                        <div class="position-absolute top-0 start-0 w-100 h-100 bg-white opacity-25" style="z-index: 10;"></div>
-                    }
-
-                    <div class="mb-3">
-                        <VmSelect Label="TIPO DE OPERACIÓN"
-                                  Value="Nuevo.Tipo"
-                                  ValueChanged="SetTipo"
-                                  Options="@(new[] { new VmSelect.VmSelectOption("GASTO", "🔴 GASTO"), new VmSelect.VmSelectOption("APORTE", "🔵 APORTE"), new VmSelect.VmSelectOption("RETIRO", "💸 RETIRO") })" />
-                    </div>
-
-                    <div class="mb-3">
-                        <VmInput Label="FECHA DE REGISTRO" Type="date" @bind-Value="FechaRegistroString" />
-                        <small class="text-muted" style="font-size: 0.7rem;">Puedes registrar gastos de días anteriores del mes actual.</small>
-                    </div>
-
-                    <div class="mb-3">
-                        <VmSelect Label="CATEGORÍA" @bind-Value="Nuevo.Categoria" Options="@CategoriaOptions" />
-                    </div>
-
-                    <div class="mb-3">
-                        <VmSelect Label="VINCULAR A ORDEN DE CARGA"
-                                  Value="@(Nuevo.OrdenCargaId?.ToString() ?? "")"
-                                  ValueChanged="@(v => Nuevo.OrdenCargaId = string.IsNullOrEmpty(v) ? null : int.Parse(v))"
-                                  Options="@OrdenCargaOptions" />
-                        <small class="text-muted" style="font-size: 0.7rem;">Si gastaste dinero PARA esta orden de carga (ej: Bencina), selecciónala.</small>
-                    </div>
-
-                    <div class="mb-3">
-                        <VmInput Label="DESCRIPCIÓN" @bind-Value="Nuevo.Descripcion" Placeholder="Ej: COPEC, LIDER..." />
-                    </div>
-
-                    @if (Nuevo.Categoria == "MERMA")
-                    {
-                        <div class="mb-3 p-3 border border-dashed border-danger bg-danger-subtle">
-                            <h6 class="fw-bold text-danger small"><i class="bi bi-box-seam me-1"></i> DETALLE DE MERMA (STOCK)</h6>
-
-                            <VmSelect Label="PRODUCTO AFECTADO"
-                                      Value="@(Nuevo.ProductoId?.ToString() ?? "0")"
-                                      ValueChanged="@(v => Nuevo.ProductoId = string.IsNullOrEmpty(v) || v == "0" ? null : int.Parse(v))"
-                                      Options="@ProductoOptions" />
-
-                            <VmInput Label="CANTIDAD PERDIDA" Type="number" @bind-Value="CantidadString" />
-
-                            <small class="text-danger d-block mt-1 user-select-none">* El monto se calculará automáticamente según el costo promedio del producto y se descontará del inventario.</small>
-                        </div>
-                    }
-
-                    <div class="mb-3">
-                        <VmInput Label="MONTO ($)" @bind-Value="MontoString" Placeholder="0" Disabled="@(Nuevo.Categoria == "MERMA")" />
-                        @if(Nuevo.Categoria == "MERMA") { <small class="text-muted">Calculado Automáticamente</small> }
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="fw-bold small text-uppercase mb-1">ADJUNTAR COMPROBANTE (OPCIONAL):</label>
-                        <InputFile OnChange="@LoadFiles" class="form-control border-dark rounded-0" accept=".jpg,.jpeg,.png,.pdf" />
-                        @if (fileToUpload != null)
-                        {
-                            <small class="text-success fw-bold">Archivo seleccionado: @fileToUpload.Name</small>
-                        }
-                    </div>
-
-                    <VmButton Variant="dark" Block="true" OnClick="Registrar" Disabled="@(Resumen?.IsLocked == true || IsUploading)">
-                        @if (IsUploading)
-                        {
-                            <span>SUBIENDO ARCHIVO...</span>
-                        }
-                        else
-                        {
-                            <span>REGISTRAR OPERACIÓN_</span>
-                        }
-                    </VmButton>
-
-                    @if (!string.IsNullOrEmpty(Mensaje))
-                    {
-                        <div class="mt-2 text-center small fw-bold text-success animate__animated animate__fadeIn">@Mensaje</div>
-                    }
-                </div>
-            </div>
-        </div>
-
         <!-- LISTA AGRUPADA -->
-        <div class="col-md-8">
+        <div class="col-12">
             <div class="card border-2 border-dark rounded-0 h-100">
                 <div class="card-header bg-white text-dark rounded-0 fw-bold border-bottom border-dark d-flex justify-content-between align-items-center flex-wrap gap-2">
                     <span>MOVIMIENTOS DE @SelectedDate.ToString("MMMM yyyy").ToUpper()</span>
@@ -784,6 +693,98 @@ var bgHeader = grupo.EsOrdenCarga ? "bg-warning-subtle" : "bg-white";
     </div>
 }
 
+@* ====== MODAL: REGISTRAR MOVIMIENTO ====== *@
+@if (_registroModalOpen)
+{
+    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5); z-index: 2000;">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content rounded-0 border-2 border-dark shadow-lg">
+                <div class="modal-header bg-dark text-white rounded-0">
+                    <h5 class="modal-title fw-bold text-uppercase"><i class="bi bi-plus-lg me-2"></i>REGISTRAR MOVIMIENTO</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CerrarModalRegistro"></button>
+                </div>
+                <div class="modal-body p-4 bg-light">
+                    <div class="mb-3">
+                        <VmSelect Label="TIPO DE OPERACIÓN"
+                                  Value="Nuevo.Tipo"
+                                  ValueChanged="SetTipo"
+                                  Options="@(new[] { new VmSelect.VmSelectOption("GASTO", "🔴 GASTO"), new VmSelect.VmSelectOption("APORTE", "🔵 APORTE"), new VmSelect.VmSelectOption("RETIRO", "💸 RETIRO") })" />
+                    </div>
+
+                    <div class="mb-3">
+                        <VmInput Label="FECHA DE REGISTRO" Type="date" @bind-Value="FechaRegistroString" />
+                        <small class="text-muted" style="font-size: 0.7rem;">Puedes registrar gastos de días anteriores del mes actual.</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <VmSelect Label="CATEGORÍA" @bind-Value="Nuevo.Categoria" Options="@CategoriaOptions" />
+                    </div>
+
+                    <div class="mb-3">
+                        <VmSelect Label="VINCULAR A ORDEN DE CARGA"
+                                  Value="@(Nuevo.OrdenCargaId?.ToString() ?? "")"
+                                  ValueChanged="@(v => Nuevo.OrdenCargaId = string.IsNullOrEmpty(v) ? null : int.Parse(v))"
+                                  Options="@OrdenCargaOptions" />
+                        <small class="text-muted" style="font-size: 0.7rem;">Si gastaste dinero PARA esta orden de carga (ej: Bencina), selecciónala.</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <VmInput Label="DESCRIPCIÓN" @bind-Value="Nuevo.Descripcion" Placeholder="Ej: COPEC, LIDER..." />
+                    </div>
+
+                    @if (Nuevo.Categoria == "MERMA")
+                    {
+                        <div class="mb-3 p-3 border border-dashed border-danger bg-danger-subtle">
+                            <h6 class="fw-bold text-danger small"><i class="bi bi-box-seam me-1"></i> DETALLE DE MERMA (STOCK)</h6>
+
+                            <VmSelect Label="PRODUCTO AFECTADO"
+                                      Value="@(Nuevo.ProductoId?.ToString() ?? "0")"
+                                      ValueChanged="@(v => Nuevo.ProductoId = string.IsNullOrEmpty(v) || v == "0" ? null : int.Parse(v))"
+                                      Options="@ProductoOptions" />
+
+                            <VmInput Label="CANTIDAD PERDIDA" Type="number" @bind-Value="CantidadString" />
+
+                            <small class="text-danger d-block mt-1 user-select-none">* El monto se calculará automáticamente según el costo promedio del producto y se descontará del inventario.</small>
+                        </div>
+                    }
+
+                    <div class="mb-3">
+                        <VmInput Label="MONTO ($)" @bind-Value="MontoString" Placeholder="0" Disabled="@(Nuevo.Categoria == "MERMA")" />
+                        @if(Nuevo.Categoria == "MERMA") { <small class="text-muted">Calculado Automáticamente</small> }
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="fw-bold small text-uppercase mb-1">ADJUNTAR COMPROBANTE (OPCIONAL):</label>
+                        <InputFile OnChange="@LoadFiles" class="form-control border-dark rounded-0" accept=".jpg,.jpeg,.png,.pdf" />
+                        @if (fileToUpload != null)
+                        {
+                            <small class="text-success fw-bold">Archivo seleccionado: @fileToUpload.Name</small>
+                        }
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(Mensaje))
+                    {
+                        <div class="mt-2 text-center small fw-bold text-success animate__animated animate__fadeIn">@Mensaje</div>
+                    }
+                </div>
+                <div class="modal-footer bg-white border-top border-dark rounded-0 d-flex gap-2">
+                    <VmButton Variant="outline" Block="true" OnClick="CerrarModalRegistro">CANCELAR</VmButton>
+                    <VmButton Variant="dark" Block="true" OnClick="Registrar" Disabled="@(Resumen?.IsLocked == true || IsUploading)">
+                        @if (IsUploading)
+                        {
+                            <span>SUBIENDO ARCHIVO...</span>
+                        }
+                        else
+                        {
+                            <span>REGISTRAR OPERACIÓN_</span>
+                        }
+                    </VmButton>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     private DateTime SelectedDate = DateTime.Now;
     private CajaResumenDto? Resumen;
@@ -816,6 +817,7 @@ var bgHeader = grupo.EsOrdenCarga ? "bg-warning-subtle" : "bg-white";
     private List<MaquinaSimpleDto>? ListaMaquinas;
     private bool MostrarModalGastoFijo = false;
     private bool MostrarModalAplicarGastos = false;
+    private bool _registroModalOpen = false;
     private bool AplicandoGastos = false;
     private GastoRecurrenteDto GastoEditando = new();
     private int GastoEditandoMaquinaId = 0;
@@ -1100,6 +1102,7 @@ var bgHeader = grupo.EsOrdenCarga ? "bg-warning-subtle" : "bg-white";
             if (response.IsSuccessStatusCode)
             {
                 Mensaje = "✔ REGISTRADO";
+                _registroModalOpen = false;
                 Nuevo = new() { Tipo = "GASTO", Categoria = "MERCADERIA", Descripcion = "", Monto = 0, Cantidad = 0, ProductoId = null, OrdenCargaId = null };
                 fileToUpload = null;
                 await CargarDatos();
@@ -1198,6 +1201,16 @@ var bgHeader = grupo.EsOrdenCarga ? "bg-warning-subtle" : "bg-white";
         await JS.InvokeVoidAsync("modalScrollLock.unlock");
         MostrarModalAplicarGastos = false;
     }
+
+    private void AbrirModalRegistro()
+    {
+        Nuevo = new() { Tipo = "GASTO", Categoria = "MERCADERIA", Descripcion = "", Monto = 0, Cantidad = 0, ProductoId = null, OrdenCargaId = null };
+        fileToUpload = null;
+        Mensaje = "";
+        _registroModalOpen = true;
+    }
+
+    private void CerrarModalRegistro() => _registroModalOpen = false;
 
     private async Task AbrirModalNuevoGasto()
     {
