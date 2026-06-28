@@ -311,7 +311,7 @@ public class TemplateRecargaService : ITemplateRecargaService
         if (exists)
         {
             throw new InvalidOperationException(
-                $"Ya existe un período con FechaRecarga {fechaRecarga:dd/MM/yyyy HH:mm} "
+                $"Ya existe un período con FechaRecarga {fechaRecarga.ToString("dd'/'MM'/'yyyy HH:mm", System.Globalization.CultureInfo.InvariantCulture)} "
               + $"para la máquina {maquinaId}. No se permiten fechas duplicadas en la cadena.");
         }
     }
