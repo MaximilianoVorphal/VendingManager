@@ -7,37 +7,42 @@
 @inject AuthenticationStateProvider AuthStateProvider
 @layout Layout.LoginLayout
 
-<div class="pt-2">
-    <h3 class="fw-bold text-uppercase mb-4" style="letter-spacing: -1px;">Iniciar Sesión</h3>
+<div style="display:flex;justify-content:center;align-items:center;width:100%;">
+    <div style="width:100%;max-width:480px;">
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <VmCard Header="ERROR" HeaderVariant="danger" BodyStyle="margin-bottom:1rem;">
+                <p style="font-family:var(--font-mono);font-size:var(--fs-sm);margin:0;">
+                    @errorMessage
+                </p>
+            </VmCard>
+        }
 
-    <div class="row">
-        <div class="col-md-4 col-lg-3 offset-md-4 offset-lg-4">
-            @if (!string.IsNullOrEmpty(errorMessage))
-            {
-                <div class="alert alert-danger border-dark rounded-0 fw-bold">@errorMessage</div>
-            }
-
-            <div class="card border-2 border-dark rounded-0 shadow">
-                <div class="card-body p-4">
-                    <EditForm Model="@loginDto" OnValidSubmit="HandleLogin" FormName="loginForm">
-                        <DataAnnotationsValidator />
-                        <ValidationSummary />
-
-                        <div class="mb-3">
-                            <label for="username" class="form-label fw-bold">Usuario</label>
-                            <InputText id="username" class="form-control border-dark rounded-0" @bind-Value="loginDto.Username" />
-                        </div>
-
-                        <div class="mb-3">
-                            <label for="password" class="form-label fw-bold">Contraseña</label>
-                            <InputText id="password" type="password" class="form-control border-dark rounded-0" @bind-Value="loginDto.Password" />
-                        </div>
-
-                        <button type="submit" class="btn btn-dark w-100 fw-bold rounded-0">Ingresar</button>
-                    </EditForm>
-                </div>
+        <VmCard>
+            <div style="display:flex;justify-content:center;margin-bottom:1.5rem;">
+                <span style="font-family:var(--font-mono);font-weight:800;font-size:1.75rem;
+                             letter-spacing:-1px;text-transform:uppercase;
+                             border:2px solid var(--ink-900);padding:6px 12px;
+                             background:var(--ink-900);color:var(--paper-0);border-radius:0;">
+                    VENDING
+                </span>
             </div>
-        </div>
+
+            <EditForm Model="@loginDto" OnValidSubmit="HandleLogin" FormName="loginForm">
+                <DataAnnotationsValidator />
+                <ValidationSummary />
+
+                <div class="mb-3">
+                    <VmInput Label="Usuario" @bind-Value="loginDto.Username" />
+                </div>
+
+                <div class="mb-4">
+                    <VmInput Label="Contraseña" Type="password" @bind-Value="loginDto.Password" />
+                </div>
+
+                <VmButton Type="submit" Variant="dark" Block="true" Size="lg">Ingresar</VmButton>
+            </EditForm>
+        </VmCard>
     </div>
 </div>
 
