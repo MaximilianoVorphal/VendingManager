@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using VendingManager.Web;
+using VendingManager.Web.Services;
 using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Components.Authorization;
 
@@ -19,5 +20,8 @@ builder.Logging.SetMinimumLevel(LogLevel.Debug);
 // Auth
 builder.Services.AddAuthorizationCore();
 builder.Services.AddScoped<AuthenticationStateProvider, VendingManager.Web.Auth.CookieAuthenticationStateProvider>();
+
+// Mock services para UI/UX design v3 (reemplazar por implementaciones reales cuando existan)
+builder.Services.AddScoped<IMachineOnlineService, MockMachineOnlineService>();
 
 await builder.Build().RunAsync();
