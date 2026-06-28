@@ -1,0 +1,120 @@
+@* =========================================================================
+   VmSlotCard — Tile de recarga por slot (Templates de Recarga)
+   EXCEPCIÓN al sistema brutalista: 6px radius, borde gris suave, sombra suave.
+   Incluye stepper +/− y barra de capacidad verde→ámbar→rojo.
+   
+   Props:
+   - Slot:        identificador del slot, ej. "01"
+   - Product:     nombre del producto (null = vacío)
+   - Quantity:    cantidad actual
+   - Capacity:    capacidad máxima
+   - ReadOnly:    oculta el stepper
+   - Highlighted: resalta en verde (ej: slot modificado)
+   - OnChange:    EventCallback<int> con la nueva cantidad
+   
+   Uso:
+   <VmSlotCard Slot="@s.Slot" Product="@s.Producto"
+               Quantity="@s.Cantidad" Capacity="@s.Capacidad"
+               OnChange="qty => HandleChange(s.Slot, qty)" />
+   ========================================================================= *@
+
+@code {
+    [Parameter] public string Slot { get; set; } = "01";
+    [Parameter] public string? Product { get; set; }
+    [Parameter] public int Quantity { get; set; } = 0;
+    [Parameter] public int Capacity { get; set; } = 10;
+    [Parameter] public bool ReadOnly { get; set; } = false;
+    [Parameter] public bool Highlighted { get; set; } = false;
+    [Parameter] public EventCallback<int> OnChange { get; set; }
+
+    private bool IsEmpty => string.IsNullOrEmpty(Product);
+
+    private double Pct => Capacity > 0 ? Math.Min(100.0, Quantity * 100.0 / Capacity) : 0;
+
+    private string FillColor => Pct >= 80 ? "var(--fill-good)"
+                               : Pct >= 30 ? "var(--fill-warning)"
+                               : "var(--fill-danger)";
+
+    private string ContainerBg    => IsEmpty ? "var(--tint-empty)" : "var(--paper-0)";
+    private string ContainerBorder => Highlighted ? "1px solid var(--fill-good)"
+                                    : IsEmpty     ? "1px solid #fde047"
+                                    : "1px solid #d1d5db";
+    private string ContainerShadow => Highlighted ? "0 0 0 2px rgba(16,185,129,0.25)"
+                                    : "var(--shadow-soft)";
+
+    private async Task Decrement() =>
+        await OnChange.InvokeAsync(Math.Max(0, Quantity - 1));
+    private async Task Increment() =>
+        await OnChange.InvokeAsync(Math.Min(Capacity, Quantity + 1));
+}
+
+<div style="display:flex;flex-direction:column;gap:12px;
+            background:@ContainerBg;border:@ContainerBorder;
+            border-radius:var(--radius-soft);padding:12px 16px;
+            box-shadow:@ContainerShadow;
+            transition:all var(--dur-base);">
+
+    <!-- Header slot id -->
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-family:var(--font-mono);font-size:var(--fs-xs);
+                     font-weight:var(--fw-bold);letter-spacing:0.05em;
+                     text-transform:uppercase;color:var(--ink-500);">
+            SLOT @Slot
+        </span>
+        @if (!ReadOnly)
+        {
+            <span style="color:#4b5563;font-size:1.1rem;line-height:1;"
+                  aria-hidden="true">⋮</span>
+        }
+    </div>
+
+    <!-- Producto + stepper -->
+    <div style="display:flex;justify-content:space-between;
+                align-items:center;gap:16px;">
+        <span style="flex-grow:1;font-family:var(--font-sans);font-size:0.95rem;
+                     font-weight:600;line-height:1.3;
+                     color:@(IsEmpty ? "#92400e" : "#111827");">
+            @(Product ?? "-- SELECCIONAR --")
+        </span>
+
+        @if (!ReadOnly)
+        {
+            <div style="display:flex;align-items:center;flex-shrink:0;
+                        background:#f3f4f6;border:1px solid #e5e7eb;border-radius:6px;">
+                <button @onclick="Decrement" disabled="@(Quantity <= 0)"
+                        style="background:transparent;border:none;font-size:1.2rem;
+                               padding:6px 14px;min-width:44px;min-height:44px;
+                               color:@(Quantity <= 0 ? "#d1d5db" : "#374151");
+                               cursor:@(Quantity <= 0 ? "not-allowed" : "pointer");">
+                    −
+                </button>
+                <span style="font-weight:700;min-width:32px;text-align:center;
+                             font-family:var(--font-sans);">
+                    @Quantity
+                </span>
+                <button @onclick="Increment" disabled="@(Quantity >= Capacity)"
+                        style="background:transparent;border:none;font-size:1.2rem;
+                               padding:6px 14px;min-width:44px;min-height:44px;
+                               color:@(Quantity >= Capacity ? "#d1d5db" : "#374151");
+                               cursor:@(Quantity >= Capacity ? "not-allowed" : "pointer");">
+                    +
+                </button>
+            </div>
+        }
+    </div>
+
+    <!-- Barra de capacidad -->
+    <div style="display:flex;align-items:center;gap:12px;">
+        <div style="flex-grow:1;height:6px;background:#e5e7eb;
+                    border-radius:4px;overflow:hidden;">
+            <div style="height:100%;width:@(Pct.ToString("F1", System.Globalization.CultureInfo.InvariantCulture))%;
+                        background:@FillColor;border-radius:4px;
+                        transition:width var(--dur-slow),background var(--dur-slow);">
+            </div>
+        </div>
+        <span style="font-family:var(--font-mono);font-size:var(--fs-xs);
+                     font-weight:600;color:var(--ink-500);">
+            @Quantity / @Capacity
+        </span>
+    </div>
+</div>
