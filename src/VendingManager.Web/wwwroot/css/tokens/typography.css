@@ -1,0 +1,54 @@
+/* =========================================================================
+   TYPOGRAPHY — VendingManager Design System
+   Two families: a mechanical grotesk for display/UI and a terminal monospace
+   for codes, data, KPIs and the "system log" voice. The product leans HARD
+   on monospace + UPPERCASE + tight tracking — that is the brand voice.
+   ========================================================================= */
+
+:root {
+  /* ---- FAMILIES ---- */
+  --font-mono: 'JetBrains Mono', 'Consolas', 'Courier New', monospace;
+  --font-sans: 'Space Grotesk', 'Segoe UI', system-ui, sans-serif;
+
+  /* The product's two original stacks, aliased for fidelity work */
+  --font-primary:   var(--font-mono);  /* --industrial-font-primary        */
+  --font-secondary: var(--font-sans);  /* --industrial-font-secondary      */
+
+  /* ---- WEIGHTS ---- */
+  --fw-regular: 400; /* @kind font */
+  --fw-medium:  500; /* @kind font */
+  --fw-bold:    700; /* @kind font */
+  --fw-black:   800; /* @kind font */
+
+  /* ---- SIZE SCALE ---- */
+  --fs-2xs: 0.7rem;    /* 11.2px — micro labels, fuente tags               */
+  --fs-xs:  0.75rem;   /* 12px   — badges, table head, captions            */
+  --fs-sm:  0.85rem;   /* 13.6px — subtitles, dense tables                 */
+  --fs-base:1rem;      /* 16px   — body                                    */
+  --fs-md:  1.1rem;    /* 17.6px — nav links, emphasis                     */
+  --fs-lg:  1.5rem;    /* 24px   — logo, section headers                   */
+  --fs-xl:  2.2rem;    /* 35px   — KPI amounts                             */
+  --fs-2xl: 2.8rem;    /* 45px   — critical KPI / display                  */
+  --fs-3xl: 3.5rem;    /* 56px   — hero display                           */
+
+  /* ---- LINE HEIGHT ---- */
+  --lh-tight: 1;   /* @kind other */
+  --lh-snug:  1.2; /* @kind other */
+  --lh-base:  1.5; /* @kind other */
+
+  /* ---- TRACKING (the industrial signature) ---- */
+  --tracking-tighter: -2px;  /* @kind other */
+  --tracking-tight:   -1px;  /* @kind other */
+  --tracking-wide:    1px;   /* @kind other */
+  --tracking-wider:   2px;   /* @kind other */
+
+  /* =====================================================================
+     SEMANTIC TYPE ROLES
+     ===================================================================== */
+  --type-display:   var(--fw-bold) var(--fs-3xl)/var(--lh-tight) var(--font-sans);
+  --type-kpi:       var(--fw-bold) var(--fs-xl)/var(--lh-tight) var(--font-sans);
+  --type-h1:        var(--fw-bold) var(--fs-lg)/var(--lh-snug) var(--font-mono);
+  --type-body:      var(--fw-regular) var(--fs-base)/var(--lh-base) var(--font-sans);
+  --type-mono-data: var(--fw-medium) var(--fs-sm)/var(--lh-base) var(--font-mono);
+  --type-label:     var(--fw-bold) var(--fs-xs)/var(--lh-tight) var(--font-mono);
+}
