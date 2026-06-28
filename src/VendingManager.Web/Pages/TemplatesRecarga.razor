@@ -557,14 +557,8 @@
 {
     <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5); z-index: 1110;">
         <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
-            <div class="modal-content border-2 border-dark rounded-0">
-                <div class="modal-header bg-warning text-dark rounded-0 border-bottom border-dark">
-                    <h5 class="modal-title fw-bold text-uppercase">
-                        <i class="bi bi-exclamation-circle-fill me-2"></i> SLOTS PENDIENTES DE CONFIGURAR
-                    </h5>
-                    <button type="button" class="btn-close" @onclick="CerrarModalPendientes"></button>
-                </div>
-                <div class="modal-body">
+            <div class="modal-content border-0 bg-transparent shadow-none">
+                <VmCard Header="SLOTS PENDIENTES DE CONFIGURAR" HeaderVariant="dark">
                     @if (SlotsPendientes == null || !SlotsPendientes.Any())
                     {
                         <div class="text-center py-4">
@@ -593,13 +587,12 @@
                                             <td data-label="Máquina">@pend.MaquinaNombre</td>
                                             <td class="text-center font-monospace fw-bold" data-label="Slot">@pend.NumeroSlot</td>
                                             <td class="text-center" data-label="Estado">
-                                                <span class="badge bg-warning text-dark rounded-0">Pendiente</span>
+                                                <VmBadge Variant="warning">Pendiente</VmBadge>
                                             </td>
                                             <td class="text-center" data-label="Acción">
-                                                <button class="btn btn-sm btn-dark rounded-0 fw-bold"
-                                                    @onclick="() => IrAPendiente(pend)">
-                                                    <i class="bi bi-pencil me-1"></i> CONFIGURAR
-                                                </button>
+                                                <VmButton Variant="dark" Size="sm" Icon="bi-pencil" OnClick="() => IrAPendiente(pend)">
+                                                    CONFIGURAR
+                                                </VmButton>
                                             </td>
                                         </tr>
                                     }
@@ -607,12 +600,10 @@
                             </table>
                         </div>
                     }
-                </div>
-                <div class="modal-footer border-top border-dark">
-                    <button type="button" class="btn btn-secondary rounded-0" @onclick="CerrarModalPendientes">
-                        CERRAR
-                    </button>
-                </div>
+                    <div style="display:flex;justify-content:flex-end;gap:0.5rem;margin-top:1rem;">
+                        <VmButton Variant="outline" OnClick="CerrarModalPendientes">CERRAR</VmButton>
+                    </div>
+                </VmCard>
             </div>
         </div>
     </div>
@@ -623,14 +614,8 @@
 {
     <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5); z-index: 1110;">
         <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content border-2 border-dark rounded-0">
-                <div class="modal-header bg-dark text-white rounded-0 border-bottom border-dark">
-                    <h5 class="modal-title fw-bold text-uppercase">
-                        <i class="bi bi-arrow-repeat me-2"></i> SINCRONIZAR TODOS LOS TEMPLATES
-                    </h5>
-                    <button type="button" class="btn-close btn-close-white" @onclick="CerrarModalSincronizarGlobal"></button>
-                </div>
-                <div class="modal-body">
+            <div class="modal-content border-0 bg-transparent shadow-none">
+                <VmCard Header="SINCRONIZAR TODOS LOS TEMPLATES" HeaderVariant="dark">
                     <p class="fw-bold">Vas a sincronizar <strong>TODOS</strong> los templates contra las ventas históricas.</p>
                     <p class="small text-muted mb-4">
                         Cada template recorrerá sus períodos y asignará el ProductoId (y opcionalmente el CostoVenta) 
@@ -644,10 +629,7 @@
                     </div>
                     @if (ResultadoSincronizacionGlobal != null)
                     {
-                        <div class="mt-4 p-3 bg-light border border-dark rounded-0">
-                            <h6 class="fw-bold text-uppercase mb-2">
-                                <i class="bi bi-check-circle-fill text-success me-1"></i> RESULTADO
-                            </h6>
+                        <VmCard Header="RESULTADO" HeaderVariant="light" Style="margin-top:1rem;">
                             <p class="fw-bold mb-1">
                                 @ResultadoSincronizacionGlobal.TotalVentasActualizadas ventas actualizadas en 
                                 @ResultadoSincronizacionGlobal.TemplatesProcesados templates.
@@ -664,17 +646,15 @@
                                     }
                                 </div>
                             }
-                        </div>
+                        </VmCard>
                     }
-                </div>
-                <div class="modal-footer border-top border-dark">
-                    <button type="button" class="btn btn-secondary rounded-0" @onclick="CerrarModalSincronizarGlobal" disabled="@SincronizandoGlobal">
-                        CANCELAR
-                    </button>
-                    <button type="button" class="btn btn-dark rounded-0 fw-bold border-dark" @onclick="SincronizarTodasVentas" disabled="@SincronizandoGlobal">
-                        @(SincronizandoGlobal ? "SINCRONIZANDO..." : "SÍ, SINCRONIZAR TODO")
-                    </button>
-                </div>
+                    <div style="display:flex;justify-content:flex-end;gap:0.5rem;margin-top:1rem;">
+                        <VmButton Variant="outline" OnClick="CerrarModalSincronizarGlobal" Disabled="@SincronizandoGlobal">CANCELAR</VmButton>
+                        <VmButton Variant="dark" OnClick="SincronizarTodasVentas" Disabled="@SincronizandoGlobal">
+                            @(SincronizandoGlobal ? "SINCRONIZANDO..." : "SÍ, SINCRONIZAR TODO")
+                        </VmButton>
+                    </div>
+                </VmCard>
             </div>
         </div>
     </div>
@@ -685,14 +665,8 @@
 {
     <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5); z-index: 1110;">
         <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content border-2 border-dark rounded-0">
-                <div class="modal-header bg-warning text-dark rounded-0 border-bottom border-dark">
-                    <h5 class="modal-title fw-bold text-uppercase">
-                        <i class="bi bi-exclamation-triangle-fill me-2"></i> CONFIRMAR SINCRONIZACIÓN
-                    </h5>
-                    <button type="button" class="btn-close" @onclick="CerrarModalSincronizar"></button>
-                </div>
-                <div class="modal-body">
+            <div class="modal-content border-0 bg-transparent shadow-none">
+                <VmCard Header="CONFIRMAR SINCRONIZACIÓN" HeaderVariant="dark">
                     <p class="fw-bold">Estás a punto de reescribir datos históricos en Ventas.</p>
                     <p class="small text-muted mb-4">
                         Esto reemplazará el producto asignado a las ventas del período para que coincida con el snapshot actual.
@@ -703,15 +677,13 @@
                             ¿Actualizar también Costo de Venta con el valor actual del producto?
                         </label>
                     </div>
-                </div>
-                <div class="modal-footer border-top border-dark">
-                    <button type="button" class="btn btn-secondary rounded-0" @onclick="CerrarModalSincronizar" disabled="@Sincronizando">
-                        CANCELAR
-                    </button>
-                    <button type="button" class="btn btn-warning rounded-0 fw-bold border-dark" @onclick="SincronizarVentas" disabled="@Sincronizando">
-                        @(Sincronizando ? "SINCRONIZANDO..." : "SÍ, SINCRONIZAR")
-                    </button>
-                </div>
+                    <div style="display:flex;justify-content:flex-end;gap:0.5rem;margin-top:1rem;">
+                        <VmButton Variant="outline" OnClick="CerrarModalSincronizar" Disabled="@Sincronizando">CANCELAR</VmButton>
+                        <VmButton Variant="warning" OnClick="SincronizarVentas" Disabled="@Sincronizando">
+                            @(Sincronizando ? "SINCRONIZANDO..." : "SÍ, SINCRONIZAR")
+                        </VmButton>
+                    </div>
+                </VmCard>
             </div>
         </div>
     </div>
@@ -722,33 +694,29 @@
 {
     <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5); z-index: 1120; position: fixed; top: 0; left: 0; width: 100%; height: 100%;">
         <div class="modal-dialog modal-dialog-centered" style="z-index: 1121;">
-            <div class="modal-content rounded-0 border-2 border-dark shadow-lg">
-                <div class="modal-header bg-danger text-white rounded-0 border-bottom border-dark">
-                    <h5 class="modal-title fw-bold text-uppercase">
-                        <i class="bi bi-exclamation-triangle-fill me-2"></i>ELIMINAR TEMPLATE
-                    </h5>
-                    <button type="button" class="btn-close btn-close-white" @onclick="CancelarEliminacion"></button>
-                </div>
-                <div class="modal-body p-4 text-center">
-                    <p class="fs-5 fw-bold">¿Estás seguro de eliminar el template <span class="text-danger">@TemplateAEliminar.Nombre</span>?</p>
-                    <p class="text-muted small">Esta acción eliminará todos los períodos, slots configurados y fotos asociadas.</p>
-                    <p class="text-danger fw-bold small"><i class="bi bi-info-circle-fill me-1"></i>No se puede deshacer.</p>
-                </div>
-                <div class="modal-footer bg-light rounded-0">
-                    <button type="button" class="btn btn-outline-dark rounded-0 fw-bold" @onclick="CancelarEliminacion" disabled="@Eliminando">CANCELAR</button>
-                    <button type="button" class="btn btn-danger rounded-0 border-dark fw-bold px-4" @onclick="EliminarTemplateConfirmado" disabled="@Eliminando">
-                        @if (Eliminando)
-                        {
-                            <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                            <text>SÍ, ELIMINANDO...</text>
-                        }
-                        else
-                        {
-                            <i class="bi bi-trash-fill me-2"></i>
-                            <text>SÍ, ELIMINAR</text>
-                        }
-                    </button>
-                </div>
+            <div class="modal-content border-0 bg-transparent shadow-none">
+                <VmCard Header="ELIMINAR TEMPLATE" HeaderVariant="danger">
+                    <div class="text-center p-2">
+                        <p class="fs-5 fw-bold">¿Estás seguro de eliminar el template <span class="text-danger">@TemplateAEliminar.Nombre</span>?</p>
+                        <p class="text-muted small">Esta acción eliminará todos los períodos, slots configurados y fotos asociadas.</p>
+                        <p class="text-danger fw-bold small"><i class="bi bi-info-circle-fill me-1"></i>No se puede deshacer.</p>
+                    </div>
+                    <div style="display:flex;justify-content:flex-end;gap:0.5rem;margin-top:1rem;">
+                        <VmButton Variant="outline" OnClick="CancelarEliminacion" Disabled="@Eliminando">CANCELAR</VmButton>
+                        <VmButton Variant="danger" OnClick="EliminarTemplateConfirmado" Disabled="@Eliminando">
+                            @if (Eliminando)
+                            {
+                                <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                                <text>SÍ, ELIMINANDO...</text>
+                            }
+                            else
+                            {
+                                <i class="bi bi-trash-fill me-2"></i>
+                                <text>SÍ, ELIMINAR</text>
+                            }
+                        </VmButton>
+                    </div>
+                </VmCard>
             </div>
         </div>
     </div>
