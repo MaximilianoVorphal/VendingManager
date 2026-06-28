@@ -8,7 +8,7 @@
 
 <PageTitle>CAJA</PageTitle>
 
-    <div class="industrial-wrapper container-fluid px-4 mt-4">
+    <div class="industrial-wrapper container-fluid px-4 mt-4" style="overflow: hidden;">
 
     <div class="row align-items-center mb-4 border-bottom border-3 border-dark pb-3 industrial-page-header">
         <div class="col-12 d-flex justify-content-between align-items-center flex-wrap gap-3">
@@ -236,7 +236,7 @@
                     </div>
                 </div>
                 
-                <div class="table-responsive bg-light">
+                <div class="table-responsive bg-light caja-movements-scroll" style="overflow-y: auto; max-height: calc(100vh - 520px);">
                     @if (Movimientos != null && Movimientos.Any())
                     {
                         @* 
