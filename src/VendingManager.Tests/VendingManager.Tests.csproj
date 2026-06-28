@@ -10,6 +10,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="bunit.web" Version="1.39.5" />
     <PackageReference Include="coverlet.collector" Version="10.0.0">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
@@ -29,5 +30,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\VendingManager\VendingManager.csproj" />
+    <ProjectReference Include="..\VendingManager.Web\VendingManager.Web.csproj" />
   </ItemGroup>
 </Project>
