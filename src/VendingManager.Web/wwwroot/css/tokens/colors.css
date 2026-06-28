@@ -1,0 +1,56 @@
+/* =========================================================================
+   COLORS — VendingManager Design System
+   Derived from wwwroot/css/app.css design tokens (the "Industrial" palette).
+   A near-monochrome, high-contrast ink/paper system + Bootstrap-derived
+   status colors used across dashboards, tables and stock alerts.
+   ========================================================================= */
+
+:root {
+  /* ---- INK / PAPER (base neutrals) ---- */
+  --ink-900: #000000;   /* --industrial-black : borders, headers, logo box */
+  --ink-700: #333333;   /* secondary text on light                         */
+  --ink-500: #888888;   /* --industrial-gray-500 : muted / subtitle text   */
+  --line-300: #dcdcdc;  /* heavier divider / monthly card header           */
+  --line-200: #e0e0e0;  /* --industrial-gray-200 : hairline borders, hover */
+  --paper-100: #f4f4f4; /* --industrial-gray-100 : app canvas, hover fill  */
+  --paper-50: #f8f9fa;  /* modal / inset surface                           */
+  --paper-0:  #ffffff;  /* --industrial-white : cards, navbar, inputs      */
+
+  /* ---- STATUS (Bootstrap-aligned, used as-is in the product) ---- */
+  --signal-success: #198754;  /* confirmed sales, healthy stock fill        */
+  --signal-danger:  #dc3545;  /* critical stock, errors, pending cash       */
+  --signal-warning: #ffc107;  /* pack rows, caution fill                    */
+  --signal-info:    #0dcaf0;  /* informational alerts                       */
+
+  /* Stock-fill ramp (SlotCard progress bar) */
+  --fill-good:    #10b981;
+  --fill-warning: #f59e0b;
+  --fill-danger:  #ef4444;
+
+  /* Tinted row backgrounds (tables) */
+  --tint-danger:  #fff5f5;  /* low-stock row                                */
+  --tint-pending: #fff9e6;  /* pending invoice row                          */
+  --tint-pack:    #fef3cd;  /* desglosed pack (EAN) row                     */
+  --tint-empty:   #fef9c3;  /* empty slot card                              */
+
+  /* =====================================================================
+     SEMANTIC ALIASES — prefer these in components
+     ===================================================================== */
+  --bg-canvas:        var(--paper-100);
+  --bg-surface:       var(--paper-0);
+  --bg-surface-inset: var(--paper-50);
+  --bg-invert:        var(--ink-900);   /* black headers / bars / logo     */
+  --bg-hover:         var(--line-200);
+
+  --text-primary:   var(--ink-900);
+  --text-secondary: var(--ink-700);
+  --text-muted:     var(--ink-500);
+  --text-invert:    var(--paper-0);
+
+  --border-strong: var(--ink-900);   /* the signature 2px black border     */
+  --border-hair:   var(--line-200);
+  --border-heavy:  var(--line-300);
+
+  --accent:        var(--ink-900);   /* the system has no chromatic accent —
+                                        contrast IS the accent              */
+}
