@@ -372,14 +372,10 @@
 {
     <div class="modal show d-block" style="background: rgba(0,0,0,0.5);" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content rounded-0 border-2 border-dark shadow-lg">
-                <div class="modal-header bg-info text-dark rounded-0 border-bottom border-dark">
-                    <h5 class="modal-title fw-bold text-uppercase"><i class="bi bi-cloud-download-fill me-2"></i>Sincronización Ourvend</h5>
-                    <button type="button" class="btn-close" @onclick="CerrarModalSync"></button>
-                </div>
-                <div class="modal-body p-4" style="background-color: #f8f9fa;">
+            <div class="modal-content border-0 bg-transparent shadow-none">
+                <VmCard Header="SINCRONIZACIÓN OURVEND" HeaderVariant="dark">
                     <p class="mb-3 fw-bold small text-uppercase text-muted">Configuración de Importación</p>
-                    
+
                     <div class="alert alert-warning border-dark rounded-0 mb-3 small">
                         <i class="bi bi-info-circle-fill me-1"></i> Se descargarán las ventas desde el portal.
                         Puedes limitar hasta qué fecha/hora importar para evitar duplicados o datos parciales.
@@ -390,13 +386,12 @@
                         <input type="datetime-local" @bind="FechaLimiteSync" class="form-control border-dark rounded-0 fw-bold font-monospace" />
                         <div class="form-text small fst-italic">Cualquier venta posterior a esta hora será ignorada.</div>
                     </div>
-                </div>
-                <div class="modal-footer bg-light rounded-0 border-top border-dark">
-                    <button type="button" class="btn btn-outline-dark rounded-0 fw-bold" @onclick="CerrarModalSync">CANCELAR</button>
-                    <button type="button" class="btn btn-info rounded-0 fw-bold border-dark" @onclick="EjecutarSync">
-                        <i class="bi bi-play-fill me-1"></i> EJECUTAR
-                    </button>
-                </div>
+
+                    <div style="display:flex;justify-content:flex-end;gap:0.5rem;margin-top:1rem;">
+                        <VmButton Variant="outline" OnClick="CerrarModalSync">CANCELAR</VmButton>
+                        <VmButton Variant="dark" OnClick="EjecutarSync" Icon="bi-play-fill">EJECUTAR</VmButton>
+                    </div>
+                </VmCard>
             </div>
         </div>
     </div>
