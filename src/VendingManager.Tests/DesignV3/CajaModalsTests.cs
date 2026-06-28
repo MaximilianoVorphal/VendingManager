@@ -55,7 +55,7 @@ public class CajaModalsTests : TestContext
     }
 
     [Fact]
-    public void Caja_RegistroModal_Registrar_CallsAddMovementHandler()
+    public async Task Caja_RegistroModal_Registrar_CallsAddMovementHandler()
     {
         var cut = RenderComponent<CajaTestHost>();
 
@@ -67,10 +67,10 @@ public class CajaModalsTests : TestContext
         cut.WaitForAssertion(() => cut.Markup.Should().Contain("REGISTRAR MOVIMIENTO"));
 
         var descripcionInput = cut.FindComponents<VmInput>().First(i => i.Instance.Label == "DESCRIPCIÓN");
-        descripcionInput.Instance.ValueChanged.InvokeAsync("Copec test");
+        await cut.InvokeAsync(() => descripcionInput.Instance.ValueChanged.InvokeAsync("Copec test"));
 
         var montoInput = cut.FindComponents<VmInput>().First(i => i.Instance.Label == "MONTO ($)");
-        montoInput.Instance.ValueChanged.InvokeAsync("15000");
+        await cut.InvokeAsync(() => montoInput.Instance.ValueChanged.InvokeAsync("15000"));
 
         var registrarButton = cut.FindAll("button").First(b => b.TextContent.Contains("REGISTRAR"));
         registrarButton.Click();
