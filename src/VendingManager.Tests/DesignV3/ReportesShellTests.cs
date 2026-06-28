@@ -150,8 +150,8 @@ public class ReportesShellTests : TestContext
                     Detalle = new[]
                     {
                         new { FechaRaw = DateTime.Now, Maquina = "Máquina 001", Monto = 1000m, Estado = "Pagado", Slot = "10", Producto = "Coca Cola", Ganancia = 300m },
-                        new { FechaRaw = DateTime.Now.AddMinutes(-1), Maquina = "Máquina 002", Monto = 1000m, Estado = "Pendiente", Slot = "20", Producto = "Pepsi", Ganancia = -100m },
-                        new { FechaRaw = DateTime.Now.AddMinutes(-2), Maquina = "Máquina 001", Monto = 1000m, Estado = "Pagado", Slot = "30", Producto = "Agua", Ganancia = 200m }
+                        new { FechaRaw = DateTime.Now.AddMinutes(-1), Maquina = "Máquina 002", Monto = 1000m, Estado = "Pendiente", Slot = "20", Producto = "Pepsi", Ganancia = 100m },
+                        new { FechaRaw = DateTime.Now.AddMinutes(-2), Maquina = "Máquina 001", Monto = 1000m, Estado = "Pagado", Slot = "30", Producto = "Agua", Ganancia = -50m }
                     },
                     Fantasmas = Array.Empty<object>()
                 });

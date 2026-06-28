@@ -111,6 +111,16 @@ namespace VendingManager.Web.Pages
             return Task.CompletedTask;
         }
 
+        private string RowStyle(DetalleVentaDto v)
+        {
+            if (v.Ganancia < 0) return "background:var(--tint-danger);border-bottom:1px solid var(--line-200);";
+            if (v.Estado != "Pagado") return "background:var(--tint-pending);border-bottom:1px solid var(--line-200);";
+            return "border-bottom:1px solid var(--line-200);";
+        }
+
+        private static string GananciaColor(decimal ganancia)
+            => ganancia < 0 ? "var(--signal-danger)" : "var(--signal-success)";
+
         // --- CONTROL DE ORDEN ---
         private string ColumnaOrden = "Fecha";
         private bool Ascendente = false;
