@@ -92,8 +92,7 @@ public class AnalisisVentasPageTests : TestContext
         var selects = cut.FindComponents<VendingManager.Web.Shared.VmSelect>();
         var plantillaSelect = selects.Single(s => s.Instance.Label == "PLANTILLA");
 
-        var unidadSelectBefore = selects.Single(s => s.Instance.Label == "UNIDAD");
-        var optionsBefore = CountOptionsForSelect(cut, unidadSelectBefore.Instance);
+        var optionsBefore = CountOptionsForSelect(cut, "UNIDAD");
 
         plantillaSelect.Find("select").Change("1");
 
@@ -103,16 +102,16 @@ public class AnalisisVentasPageTests : TestContext
             _mockHandler.LastUrl!.Should().Contain("plantillaId=1");
         });
 
-        var unidadSelectAfter = cut.FindComponents<VendingManager.Web.Shared.VmSelect>().Single(s => s.Instance.Label == "UNIDAD");
-        var optionsAfter = CountOptionsForSelect(cut, unidadSelectAfter.Instance);
+        var optionsAfter = CountOptionsForSelect(cut, "UNIDAD");
 
         optionsAfter.Should().BeLessThan(optionsBefore);
     }
 
-    private static int CountOptionsForSelect(IRenderedComponent<AnalisisVentas> cut, VendingManager.Web.Shared.VmSelect select)
+    private static int CountOptionsForSelect(IRenderedComponent<AnalisisVentas> cut, string labelText)
     {
-        var id = (string)select.GetType().GetField("_id", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.GetValue(select)!;
-        return cut.FindAll($"#{id} option").Count;
+        var label = cut.FindAll("label").First(l => l.TextContent.Contains(labelText));
+        var id = label.GetAttribute("for")!;
+        return cut.FindAll($"[id='{id}'] option").Count;
     }
 
     private class AnalisisMockHttpMessageHandler : HttpMessageHandler
