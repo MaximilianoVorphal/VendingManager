@@ -12,107 +12,62 @@
     </div>
 
     <!-- CONTROL PANEL -->
-    <div class="card border-2 border-dark rounded-0 shadow-sm mb-4">
-        <div class="card-body bg-light p-3">
-            <div class="row align-items-end g-3">
-                <div class="col-md-3 col-12">
-                    <label class="fw-bold small text-uppercase mb-1">TEMPLATE (OPCIONAL):</label>
-                    <select class="form-select border-dark rounded-0 fw-bold py-2" @bind="TemplateSeleccionado">
-                        <option value="0">-- NINGUNO --</option>
-                        @if (ListaTemplates != null)
-                        {
-                            @foreach (var t in ListaTemplates)
-                            {
-                                <option value="@t.Id">@t.Nombre.ToUpper()</option>
-                            }
-                        }
-                    </select>
-                </div>
-                <div class="col-md-3 col-12">
-                    <label class="fw-bold small text-uppercase mb-1">UNIDAD:</label>
-                    <select class="form-select border-dark rounded-0 fw-bold py-2" @bind="MaquinaSeleccionada">
-                        <option value="0">:: TODAS LAS UNIDADES ::</option>
-                        @if (ListaMaquinasFiltradas.Count == 0 && TemplateSeleccionado > 0)
-                        {
-                            <option value="0" disabled>SIN MÁQUINAS CONFIGURADAS</option>
-                        }
-                        else if (ListaMaquinasFiltradas.Count > 0)
-                        {
-                            @foreach (var m in ListaMaquinasFiltradas)
-                            {
-                                        <option value="@m.Id">@m.Nombre.ToUpper()</option>
-                            }
-                        }
-                    </select>
-                </div>
-                <div class="col-6 col-md-3">
-                    <label class="fw-bold small text-uppercase mb-1">DESDE:</label>
-                    <input type="date" @bind="FechaInicio" class="form-control border-dark rounded-0 fw-bold py-2" disabled="@(TemplateSeleccionado > 0)" />
-                </div>
-                <div class="col-6 col-md-3">
-                    <label class="fw-bold small text-uppercase mb-1">HASTA:</label>
-                    <input type="date" @bind="FechaFin" class="form-control border-dark rounded-0 fw-bold py-2" disabled="@(TemplateSeleccionado > 0)" />
-                </div>
-                <div class="col-12 col-md-7 d-flex gap-2 align-items-center">
-                    <button class="btn btn-dark flex-grow-1 rounded-0 fw-bold py-2" @onclick="CargarReporte"
-                        disabled="@Cargando">
-                        @(Cargando ? "PROCESANDO..." : "EJECUTAR QUERY")
-                    </button>
-                    <!-- Financiero Button -->
-                    <button class="btn btn-primary rounded-0 fw-bold border-dark py-2" @onclick="VerInformeFinanciero"
-                        title="Ver Estado de Resultados">
-                        <i class="bi bi-graph-up-arrow"></i>
-                    </button>
-                    <!-- Excel Button -->
-                    <button class="btn btn-success rounded-0 fw-bold border-dark py-2" @onclick="ExportarExcel"
-                        title="Exportar a Excel">
-                        <i class="bi bi-file-earmark-excel"></i>
-                    </button>
-                    <!-- SYNC BUTTON (ORIGINAL) -->
-                    <button class="btn btn-info rounded-0 fw-bold border-dark py-2" @onclick="AbrirModalSync"
-                        disabled="@Sincronizando" title="Sincronizar con Ourvend (original)">
-                        @if (Sincronizando)
-                        {
-                                <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                        }
-                        else
-                        {
-                                <i class="bi bi-cloud-arrow-down-fill text-white"></i>
-                        }
-                    </button>
-                    
-                    <!-- FILTER BUTTON -->
-                    <button class="btn btn-secondary rounded-0 fw-bold border-dark py-2" @onclick="AbrirModalFiltroProductos"
-                        title="Filtrar Productos">
-                        <i class="bi bi-funnel-fill"></i>
-                        @if (ProductosExcluidos.Any())
-                        {
-                            <span class="badge bg-danger ms-1">@ProductosExcluidos.Count</span>
-                        }
-                    </button>
-                    <!-- ADMIN BUTTON -->
-                    <AuthorizeView Roles="Admin">
-                        <Authorized>
-                            <button class="btn btn-dark rounded-0 fw-bold border-dark py-2" @onclick="AbrirModalAdmin"
-                                title="Opciones Avanzadas">
-                                <i class="bi bi-gear-fill text-danger"></i>
-                            </button>
-                        </Authorized>
-                    </AuthorizeView>
-                </div>
+    <VmCard Header="CONTROL DE INFORME" HeaderVariant="dark" Style="margin-bottom:1.5rem;">
+        <div class="row align-items-end g-3">
+            <div class="col-md-3 col-12">
+                <VmSelect Label="TEMPLATE (OPCIONAL):"
+                          Value="@TemplateSeleccionado.ToString()"
+                          ValueChanged="OnTemplateChanged"
+                          Options="@TemplateOptions" />
             </div>
-            <div class="row mt-2">
-                <div class="col-12 d-flex align-items-center">
-                    <div class="form-check form-switch">
-                        <input class="form-check-input" type="checkbox" id="checkFantasmas" @bind="MostrarFantasmas">
-                        <label class="form-check-label fw-bold small text-uppercase" for="checkFantasmas">
-                            Incluir Ventas Fantasma (Diferencias Transbank)
-                        </label>
-                    </div>
+            <div class="col-md-3 col-12">
+                <VmSelect Label="UNIDAD:"
+                          Value="@MaquinaSeleccionada.ToString()"
+                          ValueChanged="OnMaquinaChanged"
+                          Options="@MaquinaOptions" />
+            </div>
+            <div class="col-6 col-md-2">
+                <VmInput Type="date" Label="DESDE" @bind-Value="FechaInicioString" Disabled="@(TemplateSeleccionado > 0)" />
+            </div>
+            <div class="col-6 col-md-2">
+                <VmInput Type="date" Label="HASTA" @bind-Value="FechaFinString" Disabled="@(TemplateSeleccionado > 0)" />
+            </div>
+            <div class="col-12 col-md-2">
+                <VmButton Variant="dark" Block="true" OnClick="CargarReporte" Disabled="Cargando" Icon="bi-play-fill">
+                    @(Cargando ? "PROCESANDO..." : "EJECUTAR QUERY")
+                </VmButton>
+            </div>
+        </div>
+        <div class="row mt-3 align-items-center">
+            <div class="col-12 d-flex flex-wrap gap-2 align-items-center">
+                <VmButton Variant="primary" OnClick="VerInformeFinanciero" Icon="bi-graph-up-arrow" />
+                <VmButton Variant="success" OnClick="ExportarExcel" Icon="bi-file-earmark-excel" />
+                <VmButton Variant="info" OnClick="AbrirModalSync" Disabled="Sincronizando" Icon="@(Sincronizando ? null : "bi-cloud-arrow-down-fill")">
+                    @if (Sincronizando)
+                    {
+                        <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                    }
+                </VmButton>
+                <VmButton Variant="secondary" OnClick="AbrirModalFiltroProductos" Icon="bi-funnel-fill">
+                    @if (ProductosExcluidos.Any())
+                    {
+                        <VmBadge Variant="danger">@ProductosExcluidos.Count</VmBadge>
+                    }
+                </VmButton>
+                <AuthorizeView Roles="Admin">
+                    <Authorized>
+                        <VmButton Variant="dark" OnClick="AbrirModalAdmin" Icon="bi-gear-fill text-danger" />
+                    </Authorized>
+                </AuthorizeView>
+                <div class="form-check form-switch ms-md-auto">
+                    <input class="form-check-input" type="checkbox" id="checkFantasmas" @bind="MostrarFantasmas">
+                    <label class="form-check-label fw-bold small text-uppercase" for="checkFantasmas">
+                        Incluir Ventas Fantasma (Diferencias Transbank)
+                    </label>
                 </div>
             </div>
         </div>
-    </div>
+    </VmCard>
 
     @if (!string.IsNullOrEmpty(MensajeError))
     {
