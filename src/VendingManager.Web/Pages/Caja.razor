@@ -85,21 +85,16 @@
         </div>
     }
 
-    @* ====== TABS DE NAVEGACIÓN ====== *@
-    <div class="d-flex gap-0 mb-4 border-bottom border-2 border-dark">
-        <button class="btn rounded-0 fw-bold text-uppercase px-4 py-2 border-0 @(ActiveTab == "caja" ? "bg-dark text-white" : "bg-white text-dark")" 
-                @onclick='() => ActiveTab = "caja"'>
-            <i class="bi bi-cash-stack me-1"></i>CAJA
-        </button>
-        <button class="btn rounded-0 fw-bold text-uppercase px-4 py-2 border-0 @(ActiveTab == "gastosfijos" ? "bg-dark text-white" : "bg-white text-dark")" 
-                @onclick='() => ActiveTab = "gastosfijos"'>
-            <i class="bi bi-gear-fill me-1"></i>GASTOS FIJOS
-        </button>
+    @* ====== FILA DE ACCIONES ====== *@
+    <div class="d-flex gap-2 mb-4 flex-wrap align-items-center">
+        <VmButton Variant="@(ActiveTab == "caja" ? "dark" : "outline")" Icon="bi-cash-stack" OnClick='() => ActiveTab = "caja"'>CAJA</VmButton>
+        <VmButton Variant="@(ActiveTab == "gastosfijos" ? "dark" : "outline")" Icon="bi-gear-fill" OnClick='() => ActiveTab = "gastosfijos"'>GASTOS FIJOS</VmButton>
+        @if (GastosPendientes != null && GastosPendientes.Any())
+        {
+            <VmButton Variant="warning" Icon="bi-lightning-fill" OnClick="MostrarModalAplicar">APLICAR PENDIENTES</VmButton>
+        }
         <AuthorizeView Roles="Admin">
-            <button class="btn rounded-0 fw-bold text-uppercase px-4 py-2 border-0 @(ActiveTab == "resultados" ? "bg-dark text-white" : "bg-white text-dark")" 
-                    @onclick='() => SetTabResultados()'>
-                <i class="bi bi-graph-up-arrow me-1"></i>ESTADO DE RESULTADOS
-            </button>
+            <VmButton Variant="@(ActiveTab == "resultados" ? "dark" : "outline")" Icon="bi-graph-up-arrow" OnClick="SetTabResultados">ESTADO DE RESULTADOS</VmButton>
         </AuthorizeView>
     </div>
 
