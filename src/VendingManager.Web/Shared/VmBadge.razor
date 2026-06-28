@@ -1,0 +1,39 @@
+@* =========================================================================
+   VmBadge — Token de estado del VendingManager Design System
+   Texto uppercase mono, borde 2px negro, esquinas cuadradas.
+   
+   Props:
+   - Variant: "dark" | "light" | "success" | "danger" | "warning"  (default: "dark")
+   
+   Uso:
+   <VmBadge Variant="success">Activo</VmBadge>
+   <VmBadge Variant="danger">Sin Stock</VmBadge>
+   ========================================================================= *@
+
+@code {
+    [Parameter] public string Variant { get; set; } = "dark";
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private string BgColor => Variant switch {
+        "light"   => "var(--paper-0)",
+        "success" => "var(--signal-success)",
+        "danger"  => "var(--signal-danger)",
+        "warning" => "var(--signal-warning)",
+        _         => "var(--ink-900)",
+    };
+    private string FgColor => Variant switch {
+        "light"   => "var(--ink-900)",
+        "warning" => "var(--ink-900)",
+        _         => "var(--paper-0)",
+    };
+}
+
+<span style="display:inline-block;
+             font-family:var(--font-mono);font-size:var(--fs-xs);
+             font-weight:var(--fw-bold);text-transform:uppercase;
+             letter-spacing:0.5px;line-height:1;
+             padding:0.25rem 0.5rem;
+             border:2px solid var(--ink-900);border-radius:var(--radius-0);
+             background:@BgColor;color:@FgColor;">
+    @ChildContent
+</span>
