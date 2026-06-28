@@ -128,6 +128,11 @@ public class VmAdvancedComponentsTests : TestContext
         var cut = RenderComponent<VmNavbar>();
 
         cut.Markup.Should().Contain("Panel de Control");
+
+        cut.FindAll("button")
+            .First(b => b.TextContent.Contains("Gestión"))
+            .Click();
+
         cut.Markup.Should().Contain("Templates Recarga");
         cut.Markup.Should().Contain("Caja");
     }
