@@ -88,7 +88,7 @@
     @* ====== FILA DE ACCIONES ====== *@
     <div class="d-flex gap-2 mb-4 flex-wrap align-items-center">
         <VmButton Variant="dark" Icon="bi-plus-lg" OnClick="AbrirModalRegistro" Disabled="@(Resumen?.IsLocked == true)">NUEVO MOVIMIENTO</VmButton>
-        <VmButton Variant="@(ActiveTab == "gastosfijos" ? "dark" : "outline")" Icon="bi-gear-fill" OnClick='() => ActiveTab = "gastosfijos"'>GASTOS FIJOS</VmButton>
+        <VmButton Variant="outline" Icon="bi-gear-fill" OnClick="AbrirModalGastosFijos">GASTOS FIJOS</VmButton>
         @if (GastosPendientes != null && GastosPendientes.Any())
         {
             <VmButton Variant="warning" Icon="bi-lightning-fill" OnClick="MostrarModalAplicar">APLICAR PENDIENTES</VmButton>
@@ -562,6 +562,106 @@ var bgHeader = grupo.EsOrdenCarga ? "bg-warning-subtle" : "bg-white";
         </div>
     } @* END TAB RESULTADOS *@
 
+    @* ====== MODAL: GASTOS FIJOS ====== *@
+    @if (_gastosFijosModalOpen)
+    {
+        <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5); z-index: 2000;">
+            <div class="modal-dialog modal-dialog-centered modal-lg">
+                <div class="modal-content rounded-0 border-2 border-dark shadow-lg">
+                    <div class="modal-header bg-dark text-white rounded-0">
+                        <h5 class="modal-title fw-bold text-uppercase"><i class="bi bi-gear-fill me-2"></i>GASTOS FIJOS MENSUALES</h5>
+                        <button type="button" class="btn-close btn-close-white" @onclick="CerrarModalGastosFijos"></button>
+                    </div>
+                    <div class="modal-body p-0 bg-light">
+                        <VmCard Header="CONFIGURACIÓN DE GASTOS FIJOS MENSUALES" HeaderVariant="dark" BodyStyle="padding:0;">
+                            @if (_showGastoFijoInlineForm)
+                            {
+                                <div class="p-3 border-bottom border-dark bg-light">
+                                    <h6 class="fw-bold text-uppercase mb-3">NUEVO GASTO FIJO</h6>
+                                    <div class="row g-3">
+                                        <div class="col-md-6">
+                                            <VmInput Label="DESCRIPCIÓN" @bind-Value="GastoEditando.Descripcion" Placeholder="Ej: Chip Máquina M-0023" />
+                                        </div>
+                                        <div class="col-md-6">
+                                            <VmInput Label="MONTO ESTIMADO MENSUAL ($)" Type="number" @bind-Value="GastoMontoString" />
+                                        </div>
+                                        <div class="col-md-6">
+                                            <VmSelect Label="CATEGORÍA" @bind-Value="GastoEditando.Categoria" Options="@GastoCategoriaOptions" />
+                                        </div>
+                                        <div class="col-md-6">
+                                            <VmSelect Label="MÁQUINA (OPCIONAL)" Value="@(GastoEditandoMaquinaId.ToString())" ValueChanged="@(v => GastoEditandoMaquinaId = int.TryParse(v, out var id) ? id : 0)" Options="@MaquinaOptions" />
+                                        </div>
+                                    </div>
+                                    <div class="d-flex gap-2 mt-3">
+                                        <VmButton Variant="outline" OnClick="CancelarInlineGasto">CANCELAR</VmButton>
+                                        <VmButton Variant="dark" OnClick="GuardarNuevoGastoFijo">GUARDAR</VmButton>
+                                    </div>
+                                </div>
+                            }
+                            @if (TodosGastos != null && TodosGastos.Any())
+                            {
+                                <table class="table table-hover table-sm m-0">
+                                    <thead class="bg-light text-dark text-uppercase small font-monospace">
+                                        <tr>
+                                            <th class="ps-3">DESCRIPCIÓN</th>
+                                            <th>CATEGORÍA</th>
+                                            <th class="text-end">MONTO ESTIMADO</th>
+                                            <th class="text-center">MÁQUINA</th>
+                                            <th class="text-center">ESTADO</th>
+                                            <th class="text-center pe-3">ACCIONES</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var g in TodosGastos)
+                                        {
+                                            <tr class="@(!g.Activo ? "text-muted bg-light" : "")">
+                                                <td class="ps-3 fw-bold">@g.Descripcion</td>
+                                                <td><VmBadge Variant="light">@g.Categoria</VmBadge></td>
+                                                <td class="text-end fw-bold font-monospace text-danger">$@g.MontoEstimado.ToString("N0")</td>
+                                                <td class="text-center small">@(g.MaquinaId.HasValue ? $"M-{g.MaquinaId}" : "—")</td>
+                                                <td class="text-center">
+                                                    @if (g.Activo)
+                                                    {
+                                                        <VmBadge Variant="success">ACTIVO</VmBadge>
+                                                    }
+                                                    else
+                                                    {
+                                                        <VmBadge Variant="light">INACTIVO</VmBadge>
+                                                    }
+                                                </td>
+                                                <td class="text-center pe-3">
+                                                    <button class="btn btn-outline-dark btn-sm rounded-0 me-1" @onclick="() => EditarGasto(g)" title="Editar">
+                                                        <i class="bi bi-pencil"></i>
+                                                    </button>
+                                                    @if (g.Activo)
+                                                    {
+                                                        <button class="btn btn-outline-danger btn-sm rounded-0" @onclick="() => DesactivarGasto(g.Id)" title="Desactivar">
+                                                            <i class="bi bi-x-lg"></i>
+                                                        </button>
+                                                    }
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            }
+                            else
+                            {
+                                <div class="p-4 text-center text-muted">
+                                    <p class="mb-0">No hay gastos fijos configurados. Agrega uno para recibir alertas mensuales.</p>
+                                </div>
+                            }
+                        </VmCard>
+                    </div>
+                    <div class="modal-footer bg-white border-top border-dark rounded-0 d-flex justify-content-end gap-2">
+                        <VmButton Variant="outline" OnClick="CerrarModalGastosFijos">CERRAR</VmButton>
+                        <VmButton Variant="dark" Icon="bi-plus-lg" OnClick="MostrarFormularioNuevoGasto">AGREGAR GASTO FIJO</VmButton>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
 </div>
 
 @* ====== MODAL: CREAR/EDITAR GASTO FIJO ====== *@
@@ -890,6 +990,8 @@ var bgHeader = grupo.EsOrdenCarga ? "bg-warning-subtle" : "bg-white";
     // UI Logic
     private string ActiveTab = "caja";
     private bool MostrarLotes = false;
+    private bool _gastosFijosModalOpen = false;
+    private bool _showGastoFijoInlineForm = false;
     private HashSet<string> ExpandedGroups = new(); // Stores IDs of expanded groups
     private List<GrupoVisual> GruposVisuales = new();
 
@@ -980,6 +1082,31 @@ var bgHeader = grupo.EsOrdenCarga ? "bg-warning-subtle" : "bg-white";
     private IEnumerable<VmSelect.VmSelectOption> ProductoOptions =>
         new[] { new VmSelect.VmSelectOption("0", "-- SEL. PRODUCTO --") }
         .Concat(ListaProductos?.Select(p => new VmSelect.VmSelectOption(p.Id.ToString(), $"{p.Nombre} (Stock: {p.StockBodega})")) ?? []);
+
+    private IEnumerable<VmSelect.VmSelectOption> GastoCategoriaOptions => new[]
+    {
+        new VmSelect.VmSelectOption("LOGISTICA", "Logística (Bencina/Fletes)"),
+        new VmSelect.VmSelectOption("PEAJES", "Peajes / Estacionamiento"),
+        new VmSelect.VmSelectOption("INSUMOS", "Insumos (Limpieza/Bolsas)"),
+        new VmSelect.VmSelectOption("MANTENCION", "Mantención / Repuestos"),
+        new VmSelect.VmSelectOption("INFRA", "Infraestructura (Luz/Agua/Arriendo)"),
+        new VmSelect.VmSelectOption("ARRIENDO_POS", "Arriendo POS (Transbank)"),
+        new VmSelect.VmSelectOption("INTERNET", "Internet (Planes/Chips)"),
+        new VmSelect.VmSelectOption("COMISIONES", "Comisiones Bancarias"),
+        new VmSelect.VmSelectOption("SUELDOS", "Sueldos Personal"),
+        new VmSelect.VmSelectOption("OTROS", "Otros Gastos Fijos"),
+        new VmSelect.VmSelectOption("GASTOS GENERALES", "Gastos Generales")
+    };
+
+    private IEnumerable<VmSelect.VmSelectOption> MaquinaOptions =>
+        new[] { new VmSelect.VmSelectOption("0", "-- GENERAL (SIN MÁQUINA) --") }
+        .Concat(ListaMaquinas?.Select(m => new VmSelect.VmSelectOption(m.Id.ToString(), m.Nombre)) ?? []);
+
+    private string GastoMontoString
+    {
+        get => GastoEditando.MontoEstimado == 0 ? "" : GastoEditando.MontoEstimado.ToString();
+        set { if (decimal.TryParse(value, out var m)) GastoEditando.MontoEstimado = m; }
+    }
 
     // --- Clases para Visualización ---
     public class GrupoVisual
@@ -1322,6 +1449,55 @@ var bgHeader = grupo.EsOrdenCarga ? "bg-warning-subtle" : "bg-white";
         _selectedMovement = null;
     }
 
+    private async Task AbrirModalGastosFijos()
+    {
+        await JS.InvokeVoidAsync("modalScrollLock.lock");
+        _gastosFijosModalOpen = true;
+        _showGastoFijoInlineForm = false;
+        GastoEditando = new GastoRecurrenteDto { Categoria = "INTERNET" };
+        GastoEditandoMaquinaId = 0;
+    }
+
+    private async Task CerrarModalGastosFijos()
+    {
+        await JS.InvokeVoidAsync("modalScrollLock.unlock");
+        _gastosFijosModalOpen = false;
+        _showGastoFijoInlineForm = false;
+    }
+
+    private void MostrarFormularioNuevoGasto()
+    {
+        _showGastoFijoInlineForm = true;
+        GastoEditando = new GastoRecurrenteDto { Categoria = "INTERNET" };
+        GastoEditandoMaquinaId = 0;
+    }
+
+    private void CancelarInlineGasto()
+    {
+        _showGastoFijoInlineForm = false;
+        GastoEditando = new GastoRecurrenteDto { Categoria = "INTERNET" };
+        GastoEditandoMaquinaId = 0;
+    }
+
+    private async Task GuardarNuevoGastoFijo()
+    {
+        if (string.IsNullOrWhiteSpace(GastoEditando.Descripcion) || GastoEditando.MontoEstimado <= 0) return;
+
+        GastoEditando.MaquinaId = GastoEditandoMaquinaId > 0 ? GastoEditandoMaquinaId : null;
+        GastoEditando.Tipo = "GASTO";
+        GastoEditando.Activo = true;
+
+        try
+        {
+            await Http.PostAsJsonAsync("api/GastoRecurrente", GastoEditando);
+            _showGastoFijoInlineForm = false;
+            await CargarGastosRecurrentes();
+            await CargarGastosPendientes();
+        }
+        catch (Exception ex) { Console.WriteLine($"Error: {ex.Message}"); }
+    }
+
+    // TODO: remove when legacy tab is deleted
     private async Task AbrirModalNuevoGasto()
     {
         await JS.InvokeVoidAsync("modalScrollLock.lock");
