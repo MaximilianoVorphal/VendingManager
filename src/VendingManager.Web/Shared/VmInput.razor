@@ -1,0 +1,65 @@
+@* =========================================================================
+   VmInput — Control de formulario industrial del VendingManager
+   Borde 2px negro, esquinas cuadradas, foco negro (sin acento cromático).
+   
+   Props:
+   - Label:    texto de la etiqueta (optional)
+   - Hint:     texto de ayuda debajo (optional)
+   - Value:    valor del input (bind con @bind-Value)
+   - Placeholder, Type, Disabled, etc.: pasan directo al <input>
+   
+   Uso:
+   <VmInput Label="Código de producto" Placeholder="EAN-13"
+            @bind-Value="producto.Codigo" />
+   ========================================================================= *@
+
+@code {
+    [Parameter] public string? Label { get; set; }
+    [Parameter] public string? Hint { get; set; }
+    [Parameter] public string? Value { get; set; }
+    [Parameter] public EventCallback<string> ValueChanged { get; set; }
+    [Parameter] public string Type { get; set; } = "text";
+    [Parameter] public string? Placeholder { get; set; }
+    [Parameter] public bool Disabled { get; set; } = false;
+    [Parameter] public string InputStyle { get; set; } = "";
+
+    private bool _focus = false;
+    private string _id = Guid.NewGuid().ToString("N")[..8];
+
+    private string FocusStyle =>
+        _focus ? "box-shadow:0 0 0 2px rgba(0,0,0,0.1);" : "box-shadow:none;";
+}
+
+<div style="display:flex;flex-direction:column;gap:0.35rem;">
+    @if (!string.IsNullOrEmpty(Label))
+    {
+        <label for="@_id"
+               style="font-family:var(--font-mono);font-size:var(--fs-xs);
+                      font-weight:var(--fw-bold);text-transform:uppercase;
+                      letter-spacing:0.5px;color:var(--text-primary);">
+            @Label
+        </label>
+    }
+
+    <input id="@_id"
+           type="@Type"
+           placeholder="@Placeholder"
+           disabled="@Disabled"
+           value="@Value"
+           @oninput="e => ValueChanged.InvokeAsync(e.Value?.ToString())"
+           @onfocus="() => _focus = true"
+           @onblur="() => _focus = false"
+           style="font-family:var(--font-sans);font-size:var(--fs-base);
+                  border:2px solid var(--ink-900);border-radius:var(--radius-0);
+                  padding:0.5rem 0.75rem;background:var(--paper-0);
+                  color:var(--text-primary);outline:none;width:100%;
+                   transition:box-shadow var(--dur-fast);@FocusStyle @InputStyle" />
+
+    @if (!string.IsNullOrEmpty(Hint))
+    {
+        <span style="font-family:var(--font-mono);font-size:var(--fs-2xs);
+                     color:var(--text-muted);">
+            @Hint
+        </span>
+    }
+</div>

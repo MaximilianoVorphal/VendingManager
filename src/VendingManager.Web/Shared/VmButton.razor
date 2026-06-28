@@ -1,0 +1,85 @@
+@* =========================================================================
+   VmButton — Botón industrial del VendingManager Design System
+   
+   Props:
+   - Variant: "dark" | "outline" | "danger" | "ghost"  (default: "dark")
+   - Size:    "sm" | "md" | "lg"                        (default: "md")
+   - Icon:    clase Bootstrap Icon, ej. "bi-plus-lg"    (default: null)
+   - Block:   ocupa 100% del ancho                      (default: false)
+   - Disabled: deshabilita el botón                     (default: false)
+   - OnClick: EventCallback
+   - Type:    "button" | "submit" | "reset"             (default: "button")
+   
+   Uso:
+   <VmButton Variant="outline" Icon="bi-download" OnClick="HandleClick">
+       Exportar
+   </VmButton>
+   ========================================================================= *@
+
+@code {
+    [Parameter] public string Variant { get; set; } = "dark";
+    [Parameter] public string Size { get; set; } = "md";
+    [Parameter] public string? Icon { get; set; }
+    [Parameter] public bool Block { get; set; } = false;
+    [Parameter] public bool Disabled { get; set; } = false;
+    [Parameter] public string Type { get; set; } = "button";
+    [Parameter] public EventCallback OnClick { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private bool _hover = false;
+
+    private string BgColor => Variant switch {
+        "outline" => "transparent",
+        "danger"  => "var(--signal-danger)",
+        "ghost"   => "var(--paper-0)",
+        _         => "var(--ink-900)",
+    };
+    private string FgColor => Variant switch {
+        "outline" => "var(--ink-900)",
+        "ghost"   => "var(--ink-900)",
+        _         => "var(--paper-0)",
+    };
+    private string BdColor => Variant switch {
+        "ghost" => "transparent",
+        _       => "var(--ink-900)",
+    };
+
+    private string Padding => Size switch {
+        "sm" => "0.25rem 0.5rem",
+        "lg" => "0.7rem 1.5rem",
+        _    => "0.5rem 1rem",
+    };
+    private string FontSize => Size switch {
+        "sm" => "var(--fs-xs)",
+        "lg" => "var(--fs-md)",
+        _    => "var(--fs-sm)",
+    };
+
+    private string ComputedStyle =>
+        $"display:{(Block ? "flex" : "inline-flex")};" +
+        $"width:{(Block ? "100%" : "auto")};" +
+        "align-items:center;justify-content:center;gap:0.5rem;" +
+        "font-family:var(--font-mono);font-weight:var(--fw-bold);" +
+        "text-transform:uppercase;letter-spacing:0.5px;line-height:1;" +
+        "border-radius:var(--radius-0);" +
+        $"border:2px solid {BdColor};" +
+        $"background:{BgColor};color:{FgColor};" +
+        $"cursor:{(Disabled ? "not-allowed" : "pointer")};" +
+        $"opacity:{(Disabled ? "0.45" : "1")};" +
+        $"padding:{Padding};font-size:{FontSize};" +
+        "transition:transform var(--dur-fast) var(--ease-snap),box-shadow var(--dur-fast) var(--ease-snap);" +
+        (_hover && !Disabled ? "transform:var(--lift-hover);box-shadow:var(--shadow-btn);" : "transform:none;box-shadow:none;");
+}
+
+<button type="@Type"
+        disabled="@Disabled"
+        style="@ComputedStyle"
+        @onmouseenter="() => _hover = true"
+        @onmouseleave="() => _hover = false"
+        @onclick="OnClick">
+    @if (!string.IsNullOrEmpty(Icon))
+    {
+        <i class="bi @Icon" aria-hidden="true"></i>
+    }
+    @ChildContent
+</button>

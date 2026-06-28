@@ -1,0 +1,64 @@
+@* =========================================================================
+   VmCard — Superficie industrial del VendingManager Design System
+   Fondo blanco, borde 2px negro, sombra offset dura, esquinas cuadradas.
+   
+   Props:
+   - Header:        texto del encabezado negro (optional)
+   - HeaderVariant: "dark" | "secondary" | "light" | "danger"  (default: "dark")
+   - Hover:         activa efecto lift al pasar el mouse           (default: false)
+   - BodyStyle:     estilos extra para el body interior            (default: "")
+   - Style:         estilos extra para el contenedor               (default: "")
+   
+   Uso:
+   <VmCard Header="VENTAS HOY" HeaderVariant="dark">
+       <p>Contenido de la card</p>
+   </VmCard>
+   ========================================================================= *@
+
+@code {
+    [Parameter] public string? Header { get; set; }
+    [Parameter] public string HeaderVariant { get; set; } = "dark";
+    [Parameter] public bool Hover { get; set; } = false;
+    [Parameter] public string BodyStyle { get; set; } = "";
+    [Parameter] public string Style { get; set; } = "";
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public EventCallback OnClick { get; set; }
+
+    private bool _hover = false;
+
+    private string HeaderBg => HeaderVariant switch {
+        "secondary" => "var(--ink-500)",
+        "light"     => "var(--line-300)",
+        "danger"    => "var(--signal-danger)",
+        _           => "var(--ink-900)",
+    };
+    private string HeaderFg => HeaderVariant == "light" ? "var(--ink-900)" : "var(--paper-0)";
+
+    private string ContainerStyle =>
+        "background:var(--paper-0);" +
+        "border:2px solid var(--ink-900);" +
+        "border-radius:var(--radius-0);" +
+        $"box-shadow:{(_hover && Hover ? "var(--shadow-strong)" : "var(--shadow-card)")};" +
+        $"transform:{(_hover && Hover ? "var(--lift-card)" : "none")};" +
+        "transition:transform var(--dur-base),box-shadow var(--dur-base);" +
+        $"cursor:{(Hover ? "pointer" : "default")};" +
+        Style;
+}
+
+<div style="@ContainerStyle"
+     @onmouseenter="() => { if(Hover) _hover = true; }"
+     @onmouseleave="() => { if(Hover) _hover = false; }"
+     @onclick="OnClick">
+    @if (!string.IsNullOrEmpty(Header))
+    {
+        <div style="background:@HeaderBg;color:@HeaderFg;
+                    font-family:var(--font-mono);font-weight:var(--fw-bold);
+                    font-size:var(--fs-sm);text-transform:uppercase;
+                    letter-spacing:1px;padding:0.6rem 1rem;">
+            @Header
+        </div>
+    }
+    <div style="padding:clamp(0.75rem,1.5vw,1.25rem);@BodyStyle">
+        @ChildContent
+    </div>
+</div>
