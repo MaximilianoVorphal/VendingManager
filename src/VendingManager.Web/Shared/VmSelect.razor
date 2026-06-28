@@ -1,0 +1,57 @@
+@* =========================================================================
+   VmSelect — Selector industrial del VendingManager (ej: selector de máquina)
+   Mono uppercase bold, fondo gris claro, borde 2px negro, flecha custom.
+   
+   Props:
+   - Label:   texto de la etiqueta (optional)
+   - Value:   valor seleccionado (bind con @bind-Value)
+   - Options: lista de VmSelectOption { Value, Label }
+   
+   Uso:
+   <VmSelect Label="Máquina" @bind-Value="filtro.Maquina"
+             Options="@maquinas.Select(m => new VmSelectOption(m.Id, m.Nombre))" />
+   ========================================================================= *@
+
+@using System.Collections.Generic
+
+@code {
+    [Parameter] public string? Label { get; set; }
+    [Parameter] public string? Value { get; set; }
+    [Parameter] public EventCallback<string> ValueChanged { get; set; }
+    [Parameter] public IEnumerable<VmSelectOption> Options { get; set; } = [];
+
+    private string _id = Guid.NewGuid().ToString("N")[..8];
+}
+
+<div style="display:flex;flex-direction:column;gap:0.35rem;">
+    @if (!string.IsNullOrEmpty(Label))
+    {
+        <label for="@_id"
+               style="font-family:var(--font-mono);font-size:var(--fs-xs);
+                      font-weight:var(--fw-bold);text-transform:uppercase;
+                      letter-spacing:0.5px;">
+            @Label
+        </label>
+    }
+
+    <select id="@_id"
+            value="@Value"
+            @onchange="e => ValueChanged.InvokeAsync(e.Value?.ToString())"
+            style="font-family:var(--font-mono);font-size:var(--fs-sm);
+                   font-weight:var(--fw-bold);text-transform:uppercase;
+                   border:2px solid var(--ink-900);border-radius:var(--radius-0);
+                   background:var(--paper-100);color:var(--text-primary);
+                   padding:0.5rem 2rem 0.5rem 0.75rem;
+                   appearance:none;cursor:pointer;width:100%;
+                   background-image:url(&quot;data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M4 6l4 4 4-4' stroke='black' stroke-width='2' fill='none'/></svg>&quot;);
+                   background-repeat:no-repeat;background-position:right 0.6rem center;">
+        @foreach (var opt in Options)
+        {
+            <option value="@opt.Value">@opt.Label</option>
+        }
+    </select>
+</div>
+
+@code {
+    public record VmSelectOption(string Value, string Label);
+}
