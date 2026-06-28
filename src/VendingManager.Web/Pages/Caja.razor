@@ -5,6 +5,7 @@
 @using VendingManager.Shared.DTOs
 @inject HttpClient Http
 @inject IJSRuntime JS
+@inject NavigationManager Navigation
 
 <PageTitle>CAJA</PageTitle>
 
@@ -94,7 +95,7 @@
             <VmButton Variant="warning" Icon="bi-lightning-fill" OnClick="MostrarModalAplicar">APLICAR PENDIENTES</VmButton>
         }
         <AuthorizeView Roles="Admin">
-            <VmButton Variant="@(ActiveTab == "resultados" ? "dark" : "outline")" Icon="bi-graph-up-arrow" OnClick="SetTabResultados">ESTADO DE RESULTADOS</VmButton>
+            <VmButton Variant="outline" Icon="bi-graph-up-arrow" OnClick="AbrirModalResultados">ESTADO DE RESULTADOS</VmButton>
         </AuthorizeView>
     </div>
 
@@ -662,6 +663,194 @@ var bgHeader = grupo.EsOrdenCarga ? "bg-warning-subtle" : "bg-white";
         </div>
     }
 
+    @* ====== MODAL: ESTADO DE RESULTADOS ====== *@
+    @if (_pnlModalOpen && Resumen != null)
+    {
+        <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5); z-index: 2000;">
+            <div class="modal-dialog modal-dialog-centered modal-xl">
+                <div class="modal-content rounded-0 border-2 border-dark shadow-lg">
+                    <div class="modal-header bg-dark text-white rounded-0">
+                        <h5 class="modal-title fw-bold text-uppercase"><i class="bi bi-graph-up-arrow me-2"></i>ESTADO DE RESULTADOS · @SelectedDate.ToString("MMMM yyyy").ToUpper()</h5>
+                        <button type="button" class="btn-close btn-close-white" @onclick="CerrarModalResultados"></button>
+                    </div>
+                    <div class="modal-body p-4 bg-light">
+                        @* KPIs *@
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-4">
+                                <VmKpiCard Header="INGRESOS" Caption="Ventas netas" Value="@($"${Resumen.IngresosVentas:N0}")" ValueColor="var(--signal-success)" />
+                            </div>
+                            <div class="col-md-4">
+                                <VmKpiCard Header="GASTOS" Caption="Total salidas" Value="@($"-${(Resumen.GastosVariables + Resumen.GastosFijos):N0}")" ValueColor="var(--signal-danger)" />
+                            </div>
+                            <div class="col-md-4">
+                                <VmKpiCard Header="UTILIDAD" Caption="Resultado operacional" Value="@($"${Resumen.UtilidadOperacional:N0}")" ValueColor="var(--ink-900)" />
+                            </div>
+                        </div>
+
+                        @* INDICADORES DE CAPITAL *@
+                        @if (Valorizacion != null)
+                        {
+                            <VmCard Header="INDICADORES DE CAPITAL (SNAPSHOT ACTUAL)" HeaderVariant="dark" Style="margin-bottom:1rem;">
+                                <div class="row g-3">
+                                    <div class="col-md-4">
+                                        <div class="d-flex flex-column border-end border-dark pe-3">
+                                            <small class="text-muted fw-bold text-uppercase" style="font-size: 0.7rem;">Stock en Máquinas</small>
+                                            <span class="fs-5 fw-bold font-monospace text-dark">$@Valorizacion.ValorMaquinas.ToString("N0")</span>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="d-flex flex-column border-end border-dark pe-3">
+                                            <small class="text-muted fw-bold text-uppercase" style="font-size: 0.7rem;">Stock en Bodega</small>
+                                            <span class="fs-5 fw-bold font-monospace text-dark">$@Valorizacion.ValorBodega.ToString("N0")</span>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="d-flex flex-column bg-light p-2 border border-secondary rounded-0">
+                                            <small class="text-success fw-bold text-uppercase" style="font-size: 0.7rem;">Capital Total Mercadería</small>
+                                            <span class="fs-4 fw-bold font-monospace text-success">$@Valorizacion.ValorTotal.ToString("N0")</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </VmCard>
+                        }
+
+                        @* 01 — VENTAS NETAS *@
+                        <VmCard Header="@($"01 — VENTAS NETAS — ${(Resumen.IngresosVentas - Resumen.Mermas):N0}")" HeaderVariant="dark" Style="margin-bottom:1rem;" OnClick="() => _isVentasExpanded = !_isVentasExpanded">
+                            @if (_isVentasExpanded)
+                            {
+                                <div class="bg-light p-3">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <span class="text-muted fw-bold text-uppercase small">Ventas Brutas</span>
+                                        <span class="fw-bold fs-6 text-dark font-monospace">$@Resumen.IngresosVentas.ToString("N0")</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span class="text-danger fw-bold text-uppercase small">(-) Mermas / Pérdidas</span>
+                                        <span class="fw-bold fs-6 text-danger font-monospace">-$@Resumen.Mermas.ToString("N0")</span>
+                                    </div>
+                                </div>
+                            }
+                        </VmCard>
+
+                        @* 02 — MARGEN BRUTO *@
+                        <VmCard Header="@($"02 — MARGEN BRUTO — ${Resumen.UtilidadTotal:N0}")" HeaderVariant="secondary" Style="margin-bottom:1rem;" OnClick="() => _isCostoExpanded = !_isCostoExpanded">
+                            @if (_isCostoExpanded)
+                            {
+                                <div class="bg-light p-3">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <div>
+                                            <span class="text-muted fw-bold text-uppercase small d-block">(-) Costo de Venta</span>
+                                            <small class="text-muted">Reposición de Mercadería</small>
+                                        </div>
+                                        <span class="fw-bold fs-5 text-danger font-monospace">-$@Resumen.TotalCostoVenta.ToString("N0")</span>
+                                    </div>
+                                    <div class="d-flex justify-content-end">
+                                        <VmBadge Variant="dark">@GetMarginPercentage()%</VmBadge>
+                                    </div>
+                                </div>
+                            }
+                        </VmCard>
+
+                        @* 03 — GASTOS DE OPERACIÓN *@
+                        <VmCard Header="@($"03 — GASTOS OPERACIÓN — -${(Resumen.GastosVariables + Resumen.GastosFijos):N0}")" HeaderVariant="danger" Style="margin-bottom:1rem;" OnClick="() => _isGastosExpanded = !_isGastosExpanded">
+                            @if (_isGastosExpanded)
+                            {
+                                <div class="p-3" style="background-color: rgba(220, 53, 69, 0.1);">
+                                    <div class="row g-2 mb-3">
+                                        <div class="col-6">
+                                            <div class="bg-white border border-danger rounded-0 p-2 text-center h-100">
+                                                <span class="fw-bold small text-dark text-uppercase d-block mb-1"><i class="bi bi-truck me-1"></i>Variables</span>
+                                                <span class="fw-bold text-danger font-monospace fs-5">-$@Resumen.GastosVariables.ToString("N0")</span>
+                                            </div>
+                                        </div>
+                                        <div class="col-6">
+                                            <div class="bg-white border border-danger rounded-0 p-2 text-center h-100">
+                                                <span class="fw-bold small text-dark text-uppercase d-block mb-1"><i class="bi bi-building me-1"></i>Fijos</span>
+                                                <span class="fw-bold text-danger font-monospace fs-5">-$@Resumen.GastosFijos.ToString("N0")</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    @if (MovimientosGastos != null && MovimientosGastos.Any())
+                                    {
+                                        <h6 class="fw-bold text-uppercase border-bottom border-danger pb-1 mb-2 text-danger small">Detalle de Gastos</h6>
+                                        <div class="table-responsive" style="max-height: 250px;">
+                                            <table class="table table-sm table-borderless small mb-0">
+                                                <tbody>
+                                                    @foreach (var g in MovimientosGastos)
+                                                    {
+                                                        <tr class="border-bottom border-white">
+                                                            <td class="text-muted">@g.Fecha.ToString("dd/MM")</td>
+                                                            <td class="fw-bold text-dark">@g.Categoria</td>
+                                                            <td class="text-truncate" style="max-width: 150px;" title="@g.Descripcion">@g.Descripcion</td>
+                                                            <td class="text-end fw-bold text-danger font-monospace">-$@Math.Abs(g.Monto).ToString("N0")</td>
+                                                        </tr>
+                                                    }
+                                                </tbody>
+                                                <tfoot>
+                                                    @if (_descontarTransbank)
+                                                    {
+                                                        <tr class="bg-white border-top border-danger">
+                                                            <td class="text-muted">-</td>
+                                                            <td class="fw-bold text-dark">COMISIONES</td>
+                                                            <td>Comisión Transbank (Estimada)</td>
+                                                            <td class="text-end fw-bold text-danger font-monospace">-$@Resumen.CostoTransbank.ToString("N0")</td>
+                                                        </tr>
+                                                    }
+                                                </tfoot>
+                                            </table>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <div class="text-center text-muted small py-2">
+                                            Sin gastos operativos registrados este mes.
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </VmCard>
+
+                        @* 04 — RESULTADO FINAL *@
+                        <VmCard Header="04 — RESULTADO FINAL" HeaderVariant="dark" Style="margin-bottom:1rem;" BodyStyle="padding:0;">
+                            <div class="card border-0 rounded-0 bg-dark text-white">
+                                <div class="card-body d-flex flex-column flex-md-row justify-content-between align-items-center p-3 p-md-4">
+                                    <div class="text-center text-md-start mb-2 mb-md-0">
+                                        <small class="text-white-50 fw-bold text-uppercase d-block mb-1" style="font-size: 0.7rem;">Resultado Operacional (EBITDA)</small>
+                                        <h4 class="m-0 fw-bold text-uppercase">(=) UTILIDAD OPERACIONAL</h4>
+                                    </div>
+                                    <h2 class="m-0 fw-bold text-white font-monospace">$@Resumen.UtilidadOperacional.ToString("N0")</h2>
+                                </div>
+                            </div>
+                        </VmCard>
+
+                        @* TOGGLE TRANSBANK *@
+                        <div class="d-flex justify-content-end align-items-center gap-2 mb-3">
+                            <div class="form-check form-switch m-0">
+                                <input class="form-check-input" type="checkbox" id="toggleTBModal" @bind="_descontarTransbank" style="cursor: pointer;">
+                                <label class="form-check-label fw-bold user-select-none" for="toggleTBModal" style="cursor: pointer;">
+                                    Descontar Comisión Transbank (@Resumen.CantidadVentasTransbank tx ≈ $@Resumen.CostoTransbank.ToString("N0"))
+                                </label>
+                            </div>
+                        </div>
+
+                        @* RESULTADO NETO FINAL *@
+                        <VmCard Header="RESULTADO NETO FINAL" HeaderVariant="dark" BodyStyle="padding:1.5rem;text-align:center;background:var(--signal-success);color:var(--paper-0);">
+                            <h1 class="display-3 fw-bold m-0 font-monospace">$@GetUtilidadNetaFinal().ToString("N0")</h1>
+                            @if (_descontarTransbank)
+                            {
+                                <small class="text-white-50 mt-2">(Incluye descuento comisión TB)</small>
+                            }
+                        </VmCard>
+                    </div>
+                    <div class="modal-footer bg-white border-top border-dark rounded-0 d-flex justify-content-between gap-2">
+                        <VmButton Variant="dark" Icon="bi-download" OnClick="ExportarResultados">EXPORTAR</VmButton>
+                        <VmButton Variant="outline" OnClick="CerrarModalResultados">CERRAR</VmButton>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
 </div>
 
 @* ====== MODAL: CREAR/EDITAR GASTO FIJO ====== *@
@@ -992,6 +1181,7 @@ var bgHeader = grupo.EsOrdenCarga ? "bg-warning-subtle" : "bg-white";
     private bool MostrarLotes = false;
     private bool _gastosFijosModalOpen = false;
     private bool _showGastoFijoInlineForm = false;
+    private bool _pnlModalOpen = false;
     private HashSet<string> ExpandedGroups = new(); // Stores IDs of expanded groups
     private List<GrupoVisual> GruposVisuales = new();
 
@@ -1351,11 +1541,22 @@ var bgHeader = grupo.EsOrdenCarga ? "bg-warning-subtle" : "bg-white";
     }
 
     // --- Estado de Resultados (P&L) ---
-    private async Task SetTabResultados()
+    private async Task AbrirModalResultados()
     {
-        ActiveTab = "resultados";
-        // Cargar datos de P&L al cambiar de tab
+        await JS.InvokeVoidAsync("modalScrollLock.lock");
+        _pnlModalOpen = true;
         await CargarDatosResultados();
+    }
+
+    private async Task CerrarModalResultados()
+    {
+        await JS.InvokeVoidAsync("modalScrollLock.unlock");
+        _pnlModalOpen = false;
+    }
+
+    private void ExportarResultados()
+    {
+        Navigation.NavigateTo($"api/caja/exportar?month={SelectedDate.Month}&year={SelectedDate.Year}", forceLoad: true);
     }
 
     private async Task CargarDatosResultados()
