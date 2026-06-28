@@ -72,100 +72,95 @@
     }
     else if (Productos != null)
     {
-        <div class="card border-2 border-dark rounded-0 shadow-sm mb-4">
-              <div class="card-header bg-dark text-white rounded-0 fw-bold border-bottom border-dark text-uppercase d-flex justify-content-between align-items-center">
-                  <span><i class="bi bi-list-stars me-2"></i>Ranking de Productos</span>
-                  <span class="badge bg-white text-dark border border-white">@Productos.Count items</span>
-              </div>
-              <div class="bg-light border-bottom border-dark px-3 py-2 small">
-                  <div class="row g-2">
-                      <div class="col-md-6">
-                          <strong>ABC</strong> — Clasificación Pareto (regla 80/20):
-                          <span class="badge bg-success ms-1">A</span> = generan el 80% del revenue acumulado &nbsp;
-                          <span class="badge bg-warning text-dark">B</span> = siguiente 15% &nbsp;
-                          <span class="badge bg-danger">C</span> = resto.
-                      </div>
-                      <div class="col-md-6">
-                          <strong>TENDENCIA</strong> — vs período anterior de igual duración:
-                          <span class="text-success fw-bold">▲ +X%</span> = mejoró &nbsp;
-                          <span class="text-danger fw-bold">▼ -X%</span> = empeoró &nbsp;
-                          <span class="text-muted">→</span> = igual &nbsp;
-                          <span class="text-muted">—</span> = sin datos previos.
-                      </div>
-                  </div>
-              </div>
-             <div class="table-responsive industrial-stack-table" style="max-height: 600px; overflow-y: auto;">
-                 <table class="table table-hover table-bordered border-dark m-0 table-sm align-middle">
-                     <thead class="bg-secondary text-white text-uppercase small sticky-top">
-                         <tr>
-                              <th role="button" @onclick='() => OrdenarPor("Nombre")'>PRODUCTO @RenderIcono("Nombre")</th>
-                               <th>ABC</th>
-                               <th>TENDENCIA</th>
-                              @* Removed Rotacion/Dia *@
-                             <th role="button" class="text-center" @onclick='() => OrdenarPor("Cantidad")'>TOTAL UNID. @RenderIcono("Cantidad")</th>
-                             <th role="button" class="text-end" @onclick='() => OrdenarPor("Ventas")'>INGRESOS @RenderIcono("Ventas")</th>
-                             <th role="button" class="text-end" @onclick='() => OrdenarPor("Ganancia")'>GANANCIA @RenderIcono("Ganancia")</th>
-                             <th role="button" class="text-center" @onclick='() => OrdenarPor("Margen")'>MARGEN % @RenderIcono("Margen")</th>
-                         </tr>
-                     </thead>
-                     <tbody class="bg-white">
-                         @foreach(var p in Productos)
-                         {
-                             <tr class="@(p.CantidadVendida == 0 ? "bg-light text-muted" : "")">
-                                  <td class="fw-bold text-uppercase" data-label="PRODUCTO">@p.Nombre</td>
-                                   <td class="text-center" data-label="ABC">
-                                      @if (!string.IsNullOrEmpty(p.ClasificacionABC))
-                                      {
-                                          var abcClass = p.ClasificacionABC == "A" ? "bg-success"
-                                              : p.ClasificacionABC == "B" ? "bg-warning text-dark"
-                                              : "bg-danger";
-                                          <span class="badge @abcClass">@p.ClasificacionABC</span>
-                                          @if (p.PorcentajeAcumulado.HasValue)
-                                          {
-                                              <small class="text-muted ms-1">@p.PorcentajeAcumulado.Value.ToString("F1")%</small>
-                                          }
-                                      }
-                                  </td>
-                                  <td class="text-center" data-label="TENDENCIA">
-                                      @if (p.Tendencia == "▲")
-                                      {
-                                          <span class="text-success fw-bold">▲ @p.CambioPorcentual?.ToString("+0.0;-0.0")%</span>
-                                      }
-                                      else if (p.Tendencia == "▼")
-                                      {
-                                          <span class="text-danger fw-bold">▼ @p.CambioPorcentual?.ToString("+0.0;-0.0")%</span>
-                                      }
-                                      else if (p.Tendencia == "→")
-                                      {
-                                          <span class="text-muted">→ @p.CambioPorcentual?.ToString("F1")%</span>
-                                      }
-                                      else
-                                      {
-                                          <span class="text-muted">—</span>
-                                      }
-                                  </td>
-                                 @* Removed Rotacion Cell *@
-                                 <td class="text-center font-monospace @(p.CantidadVendida == 0 ? "text-danger fw-bold" : "fw-bold")" style="font-size: 1.1em;" data-label="TOTAL UNID.">
-                                     @p.CantidadVendida
-                                 </td>
-                                 <td class="text-end font-monospace" data-label="INGRESOS">$@p.TotalVentas.ToString("N0")</td>
-                                 <td class="text-end font-monospace text-success fw-bold" data-label="GANANCIA">$@p.TotalGanancia.ToString("N0")</td>
-                                 <td class="text-center small" data-label="MARGEN %">
-                                     @if(p.TotalVentas > 0) {
-                                         <span class="badge rounded-pill @(p.MargenPromedio > 40 ? "bg-success" : p.MargenPromedio > 20 ? "bg-warning text-dark" : "bg-danger")">
-                                             @p.MargenPromedio.ToString("F1")%
-                                         </span>
-                                     }
-                                     else {
-                                         <span>-</span>
-                                     }
-                                 </td>
-                             </tr>
-                         }
-                     </tbody>
-                 </table>
-             </div>
-        </div>
+        <VmCard Header="Ranking de Productos" HeaderVariant="dark" Style="margin-bottom:1.5rem;">
+            <div style="background:var(--paper-50);border-bottom:2px solid var(--ink-900);padding:0.7rem 0.85rem;font-family:var(--font-mono);font-size:var(--fs-2xs);line-height:1.55;">
+                <div class="row g-2">
+                    <div class="col-md-6">
+                        <strong style="letter-spacing:0.3px;">ABC</strong> — Clasificación Pareto (regla 80/20):
+                        <VmBadge Variant="success">A</VmBadge> = generan el 80% del revenue acumulado &nbsp;
+                        <VmBadge Variant="warning">B</VmBadge> = siguiente 15% &nbsp;
+                        <VmBadge Variant="danger">C</VmBadge> = resto.
+                    </div>
+                    <div class="col-md-6">
+                        <strong style="letter-spacing:0.3px;">TENDENCIA</strong> — vs período anterior de igual duración:
+                        <span style="color:var(--signal-success);font-weight:700;">▲ +X%</span> = mejoró &nbsp;
+                        <span style="color:var(--signal-danger);font-weight:700;">▼ -X%</span> = empeoró &nbsp;
+                        <span style="color:var(--text-muted);font-weight:700;">→</span> = igual &nbsp;
+                        <span style="color:var(--text-muted);font-weight:700;">—</span> = sin datos previos.
+                    </div>
+                </div>
+            </div>
+            <div style="max-height:600px;overflow-y:auto;">
+                <table style="width:100%;border-collapse:collapse;border:2px solid var(--ink-900);font-family:var(--font-sans);">
+                    <thead style="position:sticky;top:0;z-index:2;background:var(--ink-900);color:var(--paper-0);font-family:var(--font-mono);text-transform:uppercase;font-size:var(--fs-2xs);letter-spacing:0.5px;">
+                        <tr>
+                            <th role="button" @onclick='() => OrdenarPor("Nombre")' style="text-align:left;padding:8px 12px;font-weight:700;background:var(--ink-900);">PRODUCTO @RenderIcono("Nombre")</th>
+                            <th style="text-align:left;padding:8px 12px;font-weight:700;background:var(--ink-900);">ABC</th>
+                            <th style="text-align:left;padding:8px 12px;font-weight:700;background:var(--ink-900);">TENDENCIA</th>
+                            <th role="button" class="text-center" @onclick='() => OrdenarPor("Cantidad")' style="text-align:right;padding:8px 12px;font-weight:700;background:var(--ink-900);">TOTAL UNID. @RenderIcono("Cantidad")</th>
+                            <th role="button" class="text-end" @onclick='() => OrdenarPor("Ventas")' style="text-align:right;padding:8px 12px;font-weight:700;background:var(--ink-900);">INGRESOS @RenderIcono("Ventas")</th>
+                            <th role="button" class="text-end" @onclick='() => OrdenarPor("Ganancia")' style="text-align:right;padding:8px 12px;font-weight:700;background:var(--ink-900);">GANANCIA @RenderIcono("Ganancia")</th>
+                            <th role="button" class="text-center" @onclick='() => OrdenarPor("Margen")' style="text-align:right;padding:8px 12px;font-weight:700;background:var(--ink-900);">MARGEN % @RenderIcono("Margen")</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach(var p in Productos)
+                        {
+                            <tr style="border-bottom:1px solid var(--line-200);@(p.CantidadVendida == 0 ? "background:var(--tint-danger);" : "")">
+                                <td style="font-family:var(--font-sans);font-weight:600;font-size:0.84rem;text-transform:uppercase;letter-spacing:-0.2px;padding:8px 12px;" data-label="PRODUCTO">@p.Nombre</td>
+                                <td style="text-align:center;padding:8px 12px;" data-label="ABC">
+                                    @if (!string.IsNullOrEmpty(p.ClasificacionABC))
+                                    {
+                                        var abcVariant = p.ClasificacionABC == "A" ? "success"
+                                            : p.ClasificacionABC == "B" ? "warning"
+                                            : "danger";
+                                        <VmBadge Variant="@abcVariant">@p.ClasificacionABC</VmBadge>
+                                        @if (p.PorcentajeAcumulado.HasValue)
+                                        {
+                                            <small style="color:var(--text-muted);margin-left:0.25rem;">@p.PorcentajeAcumulado.Value.ToString("F1")%</small>
+                                        }
+                                    }
+                                </td>
+                                <td style="white-space:nowrap;font-family:var(--font-mono);font-weight:700;font-size:0.78rem;text-align:center;padding:8px 12px;" data-label="TENDENCIA">
+                                    @if (p.Tendencia == "▲")
+                                    {
+                                        <span style="color:var(--signal-success);">▲ @p.CambioPorcentual?.ToString("+0.0;-0.0")%</span>
+                                    }
+                                    else if (p.Tendencia == "▼")
+                                    {
+                                        <span style="color:var(--signal-danger);">▼ @p.CambioPorcentual?.ToString("+0.0;-0.0")%</span>
+                                    }
+                                    else if (p.Tendencia == "→")
+                                    {
+                                        <span style="color:var(--text-muted);">→ @p.CambioPorcentual?.ToString("F1")%</span>
+                                    }
+                                    else
+                                    {
+                                        <span style="color:var(--text-muted);">—</span>
+                                    }
+                                </td>
+                                <td style="text-align:right;font-family:var(--font-mono);font-weight:700;font-size:0.82rem;padding:8px 12px;@(p.CantidadVendida == 0 ? "color:var(--signal-danger);" : "")" data-label="TOTAL UNID.">
+                                    @p.CantidadVendida
+                                </td>
+                                <td style="text-align:right;font-family:var(--font-mono);font-weight:700;font-size:0.8rem;padding:8px 12px;" data-label="INGRESOS">$@p.TotalVentas.ToString("N0")</td>
+                                <td style="text-align:right;font-family:var(--font-mono);font-weight:700;font-size:0.8rem;color:var(--signal-success);padding:8px 12px;" data-label="GANANCIA">$@p.TotalGanancia.ToString("N0")</td>
+                                <td style="text-align:right;padding:8px 12px;" data-label="MARGEN %">
+                                    @if(p.TotalVentas > 0) {
+                                        var margenVariant = p.MargenPromedio > 40 ? "success"
+                                            : p.MargenPromedio > 20 ? "warning"
+                                            : "danger";
+                                        <VmBadge Variant="@margenVariant">@p.MargenPromedio.ToString("F1")%</VmBadge>
+                                    }
+                                    else {
+                                        <span>-</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </VmCard>
     }
 
     <div class="mb-3">
