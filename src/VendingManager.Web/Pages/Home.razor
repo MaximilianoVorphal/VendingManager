@@ -151,37 +151,33 @@
             </div>
 
             <div class="col-md-6 mb-3">
-                <div class="card h-100 border-2 border-dark rounded-0">
-                    <div class="card-body bg-light">
-                        <div class="d-flex align-items-center mb-3">
-                            <div class="bg-dark text-white fw-bold px-2 py-1 me-2 rounded-0">01</div>
-                            <label class="fw-bold text-uppercase text-dark mb-0">REPORTE OURVEND (.XLS)</label>
-                        </div>
-                        <p class="small text-muted mb-2 font-monospace">Archivo fuente: "Give-out record"</p>
-
-                        <div class="input-group">
-                            <InputFile @key="InputKey" OnChange="SubirArchivoMaquina"
-                            class="form-control form-control-sm border-dark rounded-0" accept=".xls,.xlsx" />
-                        </div>
+                <VmCard BodyStyle="background:var(--bg-surface-inset);">
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="bg-dark text-white fw-bold px-2 py-1 me-2">01</div>
+                        <label class="fw-bold text-uppercase text-dark mb-0">REPORTE OURVEND (.XLS)</label>
                     </div>
-                </div>
+                    <p class="small text-muted mb-2 font-monospace">Archivo fuente: "Give-out record"</p>
+
+                    <div class="input-group">
+                        <InputFile @key="InputKey" OnChange="SubirArchivoMaquina"
+                                   class="form-control form-control-sm border-dark rounded-0" accept=".xls,.xlsx" />
+                    </div>
+                </VmCard>
             </div>
 
             <div class="col-md-6 mb-3">
-                <div class="card h-100 border-2 border-dark rounded-0">
-                    <div class="card-body bg-light">
-                        <div class="d-flex align-items-center mb-3">
-                            <div class="bg-dark text-white fw-bold px-2 py-1 me-2 rounded-0">02</div>
-                            <label class="fw-bold text-uppercase text-dark mb-0">CARTOLA TRANSBANK (.XLS/.CSV)</label>
-                        </div>
-                        <p class="small text-muted mb-2 font-monospace">Archivo fuente: "Transbank/Banco"</p>
-
-                        <div class="input-group">
-                            <InputFile @key="InputKey" OnChange="SubirArchivoTransbank"
-                            class="form-control form-control-sm border-dark rounded-0" accept=".xls,.xlsx,.csv" />
-                        </div>
+                <VmCard BodyStyle="background:var(--bg-surface-inset);">
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="bg-dark text-white fw-bold px-2 py-1 me-2">02</div>
+                        <label class="fw-bold text-uppercase text-dark mb-0">CARTOLA TRANSBANK (.XLS/.CSV)</label>
                     </div>
-                </div>
+                    <p class="small text-muted mb-2 font-monospace">Archivo fuente: "Transbank/Banco"</p>
+
+                    <div class="input-group">
+                        <InputFile @key="InputKey" OnChange="SubirArchivoTransbank"
+                                   class="form-control form-control-sm border-dark rounded-0" accept=".xls,.xlsx,.csv" />
+                    </div>
+                </VmCard>
             </div>
 
             @if (!string.IsNullOrEmpty(Mensaje))
@@ -217,21 +213,20 @@
                 </div>
                 <div class="modal-body p-4" style="background-color: #f8f9fa;">
                     <div class="alert alert-info border-dark rounded-0 mb-3 small">
-                        <i class="bi bi-file-earmark-excel-fill me-1"></i> Archivo seleccionado: 
+                        <i class="bi bi-file-earmark-excel-fill me-1"></i> Archivo seleccionado:
                         <strong>@(PendingFile?.Name ?? "Desconocido")</strong>
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label fw-bold small">IMPORTAR VENTAS HASTA (FECHA LOCAL):</label>
-                        <input type="datetime-local" @bind="FechaLimiteCarga" class="form-control border-dark rounded-0 fw-bold font-monospace" />
-                        <div class="form-text small fst-italic">Cualquier venta posterior a esta hora será ignorada.</div>
+                        <VmInput Type="datetime-local"
+                                 Label="IMPORTAR VENTAS HASTA (FECHA LOCAL):"
+                                 @bind-Value="FechaLimiteCargaString"
+                                 Hint="Cualquier venta posterior a esta hora será ignorada." />
                     </div>
                 </div>
                 <div class="modal-footer bg-light rounded-0 border-top border-dark">
-                     <button type="button" class="btn btn-outline-dark rounded-0 fw-bold" @onclick="CancelarCarga">CANCELAR</button>
-                    <button type="button" class="btn btn-dark rounded-0 fw-bold border-dark" @onclick="ConfirmarCarga">
-                        <i class="bi bi-upload me-1"></i> SUBIR AHORA
-                    </button>
+                    <VmButton Variant="outline" OnClick="CancelarCarga">CANCELAR</VmButton>
+                    <VmButton Variant="dark" Icon="bi-upload" OnClick="ConfirmarCarga">SUBIR AHORA</VmButton>
                 </div>
             </div>
         </div>
@@ -249,6 +244,11 @@
     // Manual Upload Logic
     private bool MostrarModalFecha = false;
     private DateTime FechaLimiteCarga = DateTime.Now;
+    private string FechaLimiteCargaString
+    {
+        get => FechaLimiteCarga.ToString("yyyy-MM-ddTHH:mm");
+        set { if (DateTime.TryParse(value, out var dt)) FechaLimiteCarga = dt; }
+    }
     private IBrowserFile? PendingFile;
     private string PendingType = "MAQUINA"; // MAQUINA or TRANSBANK
     private int InputKey = 0; // Para resetear el input file
