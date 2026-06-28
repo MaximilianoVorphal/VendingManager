@@ -149,114 +149,56 @@
                     }
 
                     <div class="mb-3">
-                        <label class="fw-bold small text-uppercase mb-1">1. TIPO DE OPERACIÓN:</label>
-                        <div class="btn-group btn-group-sm w-100 border border-dark flex-wrap" role="group">
-                            <input type="radio" class="btn-check" name="btnradio" id="btnGasto" autocomplete="off" checked @onclick='() => SetTipo("GASTO")'>
-                            <label class="btn btn-outline-dark rounded-0 fw-bold @(Nuevo.Tipo == "GASTO" ? "active bg-danger text-white" : "")" for="btnGasto">🔴 GASTO</label>
-
-                            <input type="radio" class="btn-check" name="btnradio" id="btnAporte" autocomplete="off" @onclick='() => SetTipo("APORTE")'>
-                            <label class="btn btn-outline-dark rounded-0 fw-bold @(Nuevo.Tipo == "APORTE" ? "active bg-primary text-white" : "")" for="btnAporte">🔵 APORTE</label>
-
-                            <input type="radio" class="btn-check" name="btnradio" id="btnRetiro" autocomplete="off" @onclick='() => SetTipo("RETIRO")'>
-                            <label class="btn btn-outline-dark rounded-0 fw-bold @(Nuevo.Tipo == "RETIRO" ? "active bg-warning text-dark" : "")" for="btnRetiro">💸 RETIRO</label>
-                        </div>
+                        <VmSelect Label="TIPO DE OPERACIÓN"
+                                  Value="Nuevo.Tipo"
+                                  ValueChanged="SetTipo"
+                                  Options="@(new[] { new VmSelect.VmSelectOption("GASTO", "🔴 GASTO"), new VmSelect.VmSelectOption("APORTE", "🔵 APORTE"), new VmSelect.VmSelectOption("RETIRO", "💸 RETIRO") })" />
                     </div>
 
                     <div class="mb-3">
-                        <label class="fw-bold small text-uppercase mb-1">2. FECHA DE REGISTRO:</label>
-                        <input @bind="FechaRegistro" type="date" class="form-control border-dark rounded-0" />
+                        <VmInput Label="FECHA DE REGISTRO" Type="date" @bind-Value="FechaRegistroString" />
                         <small class="text-muted" style="font-size: 0.7rem;">Puedes registrar gastos de días anteriores del mes actual.</small>
                     </div>
 
                     <div class="mb-3">
-                        <label class="fw-bold small text-uppercase mb-1">3. CATEGORÍA:</label>
-                        <select @bind="Nuevo.Categoria" class="form-select border-dark rounded-0 bg-white text-truncate">
-                            @if (Nuevo.Tipo == "GASTO")
-                            {
-                                <optgroup label="📦 STOCK Y COSTOS">
-                                    <option value="MERCADERIA">Mercadería (Reposición)</option>
-                                    <option value="MERMA">Merma / Pérdida</option>
-                                </optgroup>
-                                <optgroup label="⛽ GASTOS VARIABLES (OPERACIÓN)">
-                                    <option value="LOGISTICA">Logística (Bencina/Fletes)</option>
-                                    <option value="PEAJES">Peajes / Estacionamiento</option>
-                                    <option value="INSUMOS">Insumos (Limpieza/Bolsas)</option>
-                                    <option value="MANTENCION">Mantención / Repuestos</option>
-                                </optgroup>
-                                <optgroup label="🏢 GASTOS FIJOS (ESTRUCTURA)">
-                                    <option value="INFRA">Infraestructura (Luz/Agua/Arriendo)</option>
-                                    <option value="ARRIENDO_POS">Arriendo POS (Transbank)</option>
-                                    <option value="INTERNET">Internet (Planes/Chips)</option>
-                                    <option value="COMISIONES">Comisiones Bancarias</option>
-                                    <option value="SUELDOS">👥 Sueldos Personal</option>
-                                    <option value="OTROS">Otros Gastos Fijos</option>
-                                </optgroup>
-                            }
-                            else if (Nuevo.Tipo == "APORTE")
-                            {
-                                <option value="APORTE_CAPITAL">🏦 INYECCIÓN CAPITAL</option>
-                                <option value="DEVOLUCION">🔄 DEVOLUCIÓN PROVEEDOR</option>
-                            }
-                            else
-                            {
-                                <option value="RETIRO_UTILIDAD">💰 RETIRO UTILIDAD</option>
-                            }
-                        </select>
+                        <VmSelect Label="CATEGORÍA" @bind-Value="Nuevo.Categoria" Options="@CategoriaOptions" />
                     </div>
 
                     <div class="mb-3">
-                        <label class="fw-bold small text-uppercase mb-1 text-primary">🔗 VINCULAR A ORDEN DE CARGA (OPCIONAL):</label>
-                        <select @bind="Nuevo.OrdenCargaId" class="form-select border-primary rounded-0 fw-bold">
-                            <option value="">-- REGISTRO GENERAL (SIN VÍNCULO) --</option>
-                            @if (OrdenesMensuales != null)
-                            {
-                                @foreach (var ord in OrdenesMensuales.OrderByDescending(o => o.FechaCreacion))
-                                {
-                                    <option value="@ord.Id">📅 @ord.FechaCreacion.ToString("dd/MM") - @ord.MaquinaNombre</option>
-                                }
-                            }
-                        </select>
+                        <VmSelect Label="VINCULAR A ORDEN DE CARGA"
+                                  Value="@(Nuevo.OrdenCargaId?.ToString() ?? "")"
+                                  ValueChanged="@(v => Nuevo.OrdenCargaId = string.IsNullOrEmpty(v) ? null : int.Parse(v))"
+                                  Options="@OrdenCargaOptions" />
                         <small class="text-muted" style="font-size: 0.7rem;">Si gastaste dinero PARA esta orden de carga (ej: Bencina), selecciónala.</small>
                     </div>
 
                     <div class="mb-3">
-                        <label class="fw-bold small text-uppercase mb-1">4. DESCRIPCIÓN:</label>
-                        <input @bind="Nuevo.Descripcion" type="text" class="form-control border-dark rounded-0" placeholder="Ej: COPEC, LIDER..." />
+                        <VmInput Label="DESCRIPCIÓN" @bind-Value="Nuevo.Descripcion" Placeholder="Ej: COPEC, LIDER..." />
                     </div>
 
                     @if (Nuevo.Categoria == "MERMA")
                     {
                         <div class="mb-3 p-3 border border-dashed border-danger bg-danger-subtle">
                             <h6 class="fw-bold text-danger small"><i class="bi bi-box-seam me-1"></i> DETALLE DE MERMA (STOCK)</h6>
-                            
-                            <label class="small fw-bold mb-1">PRODUCTO AFECTADO:</label>
-                            <select @bind="Nuevo.ProductoId" class="form-select border-danger rounded-0 mb-2">
-                                <option value="0">-- SEL. PRODUCTO --</option>
-                                @foreach(var p in ListaProductos)
-                                {
-                                    <option value="@p.Id">@p.Nombre (Stock: @p.StockBodega)</option>
-                                }
-                            </select>
-                            
-                            <label class="small fw-bold mb-1">CANTIDAD PERDIDA:</label>
-                            <input @bind="Nuevo.Cantidad" type="number" class="form-control border-danger rounded-0 fw-bold" placeholder="0" min="1" />
-                            
+
+                            <VmSelect Label="PRODUCTO AFECTADO"
+                                      Value="@(Nuevo.ProductoId?.ToString() ?? "0")"
+                                      ValueChanged="@(v => Nuevo.ProductoId = string.IsNullOrEmpty(v) || v == "0" ? null : int.Parse(v))"
+                                      Options="@ProductoOptions" />
+
+                            <VmInput Label="CANTIDAD PERDIDA" Type="number" @bind-Value="CantidadString" />
+
                             <small class="text-danger d-block mt-1 user-select-none">* El monto se calculará automáticamente según el costo promedio del producto y se descontará del inventario.</small>
                         </div>
                     }
 
-
                     <div class="mb-3">
-                        <label class="fw-bold small text-uppercase mb-1">5. MONTO ($):</label>
-                        <div class="input-group">
-                            <span class="input-group-text border-dark rounded-0 bg-dark text-white fw-bold">$</span>
-                            <input @bind="MontoString" type="text" class="form-control border-dark rounded-0 fw-bold fs-5" placeholder="0" disabled="@(Nuevo.Categoria == "MERMA")" />
-                        </div>
+                        <VmInput Label="MONTO ($)" @bind-Value="MontoString" Placeholder="0" Disabled="@(Nuevo.Categoria == "MERMA")" />
                         @if(Nuevo.Categoria == "MERMA") { <small class="text-muted">Calculado Automáticamente</small> }
                     </div>
 
                     <div class="mb-3">
-                        <label class="fw-bold small text-uppercase mb-1">6. ADJUNTAR COMPROBANTE (OPCIONAL):</label>
+                        <label class="fw-bold small text-uppercase mb-1">ADJUNTAR COMPROBANTE (OPCIONAL):</label>
                         <InputFile OnChange="@LoadFiles" class="form-control border-dark rounded-0" accept=".jpg,.jpeg,.png,.pdf" />
                         @if (fileToUpload != null)
                         {
@@ -264,16 +206,16 @@
                         }
                     </div>
 
-                    <button class="btn btn-dark w-100 rounded-0 fw-bold py-2 mt-2 border-2 border-dark shadow" @onclick="Registrar" disabled="@(Resumen?.IsLocked == true || IsUploading)">
+                    <VmButton Variant="dark" Block="true" OnClick="Registrar" Disabled="@(Resumen?.IsLocked == true || IsUploading)">
                         @if (IsUploading)
-                        { 
+                        {
                             <span>SUBIENDO ARCHIVO...</span>
                         }
                         else
-                        { 
+                        {
                             <span>REGISTRAR OPERACIÓN_</span>
                         }
-                    </button>
+                    </VmButton>
 
                     @if (!string.IsNullOrEmpty(Mensaje))
                     {
@@ -892,6 +834,57 @@ var bgHeader = grupo.EsOrdenCarga ? "bg-warning-subtle" : "bg-white";
     private IBrowserFile? fileToUpload;
     private string Mensaje = "";
     private bool IsUploading = false;
+
+    // Helpers de binding para VmInput / VmSelect
+    private string FechaRegistroString
+    {
+        get => FechaRegistro.ToString("yyyy-MM-dd");
+        set { if (DateTime.TryParse(value, out var d)) FechaRegistro = d; }
+    }
+
+    private string CantidadString
+    {
+        get => Nuevo.Cantidad == 0 ? "" : Nuevo.Cantidad.ToString();
+        set { if (int.TryParse(value, out var c)) Nuevo.Cantidad = c; }
+    }
+
+    private IEnumerable<VmSelect.VmSelectOption> CategoriaOptions => Nuevo.Tipo switch
+    {
+        "GASTO" => new[]
+        {
+            new VmSelect.VmSelectOption("MERCADERIA", "📦 Mercadería (Reposición)"),
+            new VmSelect.VmSelectOption("MERMA", "📦 Merma / Pérdida"),
+            new VmSelect.VmSelectOption("LOGISTICA", "⛽ Logística (Bencina/Fletes)"),
+            new VmSelect.VmSelectOption("PEAJES", "⛽ Peajes / Estacionamiento"),
+            new VmSelect.VmSelectOption("INSUMOS", "⛽ Insumos (Limpieza/Bolsas)"),
+            new VmSelect.VmSelectOption("MANTENCION", "⛽ Mantención / Repuestos"),
+            new VmSelect.VmSelectOption("INFRA", "🏢 Infraestructura (Luz/Agua/Arriendo)"),
+            new VmSelect.VmSelectOption("ARRIENDO_POS", "🏢 Arriendo POS (Transbank)"),
+            new VmSelect.VmSelectOption("INTERNET", "🏢 Internet (Planes/Chips)"),
+            new VmSelect.VmSelectOption("COMISIONES", "🏢 Comisiones Bancarias"),
+            new VmSelect.VmSelectOption("SUELDOS", "🏢 👥 Sueldos Personal"),
+            new VmSelect.VmSelectOption("OTROS", "🏢 Otros Gastos Fijos")
+        },
+        "APORTE" => new[]
+        {
+            new VmSelect.VmSelectOption("APORTE_CAPITAL", "🏦 INYECCIÓN CAPITAL"),
+            new VmSelect.VmSelectOption("DEVOLUCION", "🔄 DEVOLUCIÓN PROVEEDOR")
+        },
+        "RETIRO" => new[]
+        {
+            new VmSelect.VmSelectOption("RETIRO_UTILIDAD", "💰 RETIRO UTILIDAD")
+        },
+        _ => Array.Empty<VmSelect.VmSelectOption>()
+    };
+
+    private IEnumerable<VmSelect.VmSelectOption> OrdenCargaOptions =>
+        new[] { new VmSelect.VmSelectOption("", "-- REGISTRO GENERAL (SIN VÍNCULO) --") }
+        .Concat(OrdenesMensuales?.OrderByDescending(o => o.FechaCreacion)
+            .Select(o => new VmSelect.VmSelectOption(o.Id.ToString(), $"📅 {o.FechaCreacion:dd/MM} - {o.MaquinaNombre}")) ?? []);
+
+    private IEnumerable<VmSelect.VmSelectOption> ProductoOptions =>
+        new[] { new VmSelect.VmSelectOption("0", "-- SEL. PRODUCTO --") }
+        .Concat(ListaProductos?.Select(p => new VmSelect.VmSelectOption(p.Id.ToString(), $"{p.Nombre} (Stock: {p.StockBodega})")) ?? []);
 
     // --- Clases para Visualización ---
     public class GrupoVisual
