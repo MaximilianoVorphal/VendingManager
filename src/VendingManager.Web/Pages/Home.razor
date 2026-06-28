@@ -292,6 +292,14 @@
 
     private async Task RenderCharts()
     {
+        // Chart.js canvas cannot read CSS custom properties at runtime.
+        // Hex literals below map to design tokens:
+        // #000000 == var(--ink-900)   — bar fill / industrial black
+        // #198754 == var(--signal-success) — confirmed / paid slices
+        // #dc3545 == var(--signal-danger)  — pending / critical slices
+        // #e0e0e0 == var(--line-200)  — axis grid lines
+        // #333333 == var(--ink-700)   — axis tick text
+
         // 1. Bar Chart: Weekly Stats (Simulated distribution for visualisation)
         var weeklyConfig = new
         {
@@ -300,26 +308,39 @@
             {
                 labels = new[] { "Lun", "Mar", "Mie", "Jue", "Vie", "Sab", "Dom" },
                 datasets = new[]
-        {
-new
-{
-label = "Ventas ($)",
-data = new[] {
-Stats!.Semana.VentaTotal * 0.1m,
-Stats.Semana.VentaTotal * 0.15m,
-Stats.Semana.VentaTotal * 0.2m,
-Stats.Semana.VentaTotal * 0.1m,
-Stats.Semana.VentaTotal * 0.25m,
-Stats.Semana.VentaTotal * 0.15m,
-Stats.Semana.VentaTotal * 0.05m
-},
-backgroundColor = "#212529"
-}
-}
+                {
+                    new
+                    {
+                        label = "Ventas ($)",
+                        data = new[] {
+                            Stats!.Semana.VentaTotal * 0.1m,
+                            Stats.Semana.VentaTotal * 0.15m,
+                            Stats.Semana.VentaTotal * 0.2m,
+                            Stats.Semana.VentaTotal * 0.1m,
+                            Stats.Semana.VentaTotal * 0.25m,
+                            Stats.Semana.VentaTotal * 0.15m,
+                            Stats.Semana.VentaTotal * 0.05m
+                        },
+                        backgroundColor = "#000000" /* equivalent to var(--ink-900) */
+                    }
+                }
             },
             options = new
             {
-                scales = new { y = new { beginAtZero = true } },
+                scales = new
+                {
+                    y = new
+                    {
+                        beginAtZero = true,
+                        grid = new { color = "#e0e0e0" /* equivalent to var(--line-200) */ },
+                        ticks = new { color = "#333333" /* equivalent to var(--ink-700) */ }
+                    },
+                    x = new
+                    {
+                        grid = new { color = "#e0e0e0" /* equivalent to var(--line-200) */ },
+                        ticks = new { color = "#333333" /* equivalent to var(--ink-700) */ }
+                    }
+                },
                 plugins = new { legend = new { display = false } },
                 responsive = true,
                 maintainAspectRatio = false
@@ -335,13 +356,13 @@ backgroundColor = "#212529"
             {
                 labels = new[] { "Confirmado", "Pendiente/Efectivo" },
                 datasets = new[]
-        {
-new
-{
-data = new[] { Stats.Semana.PagadoTB, Stats.Semana.Pendiente },
-backgroundColor = new[] { "#198754", "#dc3545" }
-}
-}
+                {
+                    new
+                    {
+                        data = new[] { Stats.Semana.PagadoTB, Stats.Semana.Pendiente },
+                        backgroundColor = new[] { "#198754" /* equivalent to var(--signal-success) */, "#dc3545" /* equivalent to var(--signal-danger) */ }
+                    }
+                }
             },
             options = new
             {
