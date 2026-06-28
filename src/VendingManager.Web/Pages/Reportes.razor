@@ -323,13 +323,9 @@
 {
     <div class="modal show d-block" style="background: rgba(0,0,0,0.5);" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered modal-lg">
-            <div class="modal-content rounded-0 border-2 border-dark shadow-lg">
-                <div class="modal-header bg-danger text-white rounded-0">
-                    <h5 class="modal-title fw-bold text-uppercase">⚠️ Diferencias Transbank (Ventas Fantasma)</h5>
-                    <button type="button" class="btn-close btn-close-white" @onclick="CerrarModalFantasmas"></button>
-                </div>
-                <div class="modal-body p-0">
-                    <div class="alert alert-warning rounded-0 m-0 border-0 border-bottom border-dark">
+            <div class="modal-content border-0 bg-transparent shadow-none">
+                <VmCard Header="DIFERENCIAS TRANSBANK" HeaderVariant="danger" BodyStyle="padding:0;">
+                    <div class="alert alert-warning rounded-0 m-0 border-0 border-bottom border-dark" style="padding:1rem;">
                         <small class="fw-bold">
                             <i class="bi bi-info-circle-fill me-1"></i> Estos montos fueron cobrados en Transbank pero NO tienen una venta de máquina asociada. Verifica inventario.
                         </small>
@@ -351,7 +347,7 @@
                                         <tr>
                                             <td class="font-monospace">@f.FechaRaw.ToString("dd/MM/yyyy HH:mm:ss")</td>
                                             <td>@f.Maquina</td>
-                                            <td class="text-end font-monospace fw-bold text-danger">$@f.Monto.ToString("N0")</td>
+                                            <td class="text-end font-monospace fw-bold" style="color:var(--signal-danger);">$@f.Monto.ToString("N0")</td>
                                         </tr>
                                     }
                                 }
@@ -362,10 +358,10 @@
                             </tbody>
                         </table>
                     </div>
-                </div>
-                <div class="modal-footer bg-light rounded-0">
-                    <button type="button" class="btn btn-dark rounded-0 fw-bold" @onclick="CerrarModalFantasmas">CERRAR</button>
-                </div>
+                    <div style="display:flex;justify-content:flex-end;gap:0.5rem;padding:1rem;">
+                        <VmButton Variant="dark" OnClick="CerrarModalFantasmas">CERRAR</VmButton>
+                    </div>
+                </VmCard>
             </div>
         </div>
     </div>
