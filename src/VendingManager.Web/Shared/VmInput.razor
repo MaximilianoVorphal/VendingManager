@@ -46,7 +46,7 @@
            placeholder="@Placeholder"
            disabled="@Disabled"
            value="@Value"
-           @oninput="e => ValueChanged.InvokeAsync(e.Value?.ToString())"
+           @oninput="e => ValueChanged.InvokeAsync(e.Value?.ToString() ?? string.Empty)"
            @onfocus="() => _focus = true"
            @onblur="() => _focus = false"
            style="font-family:var(--font-sans);font-size:var(--fs-base);
