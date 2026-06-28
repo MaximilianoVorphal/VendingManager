@@ -402,26 +402,16 @@
 {
     <div class="modal show d-block" style="background: rgba(0,0,0,0.5);" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered modal-lg">
-            <div class="modal-content rounded-0 border-2 border-dark shadow-lg">
-                <div class="modal-header bg-secondary text-white rounded-0 border-bottom border-dark">
-                    <h5 class="modal-title fw-bold text-uppercase"><i class="bi bi-funnel-fill me-2"></i>Filtrar Productos</h5>
-                    <button type="button" class="btn-close btn-close-white" @onclick="CerrarModalFiltroProductos"></button>
-                </div>
-                <div class="modal-body p-3">
+            <div class="modal-content border-0 bg-transparent shadow-none">
+                <VmCard Header="FILTRAR PRODUCTOS" HeaderVariant="dark">
                     <div class="alert alert-info rounded-0 small mb-3">
                         <i class="bi bi-info-circle-fill me-1"></i> Desmarca los productos que NO quieres ver en el reporte.
                     </div>
-                    
-                    <div class="d-flex gap-2 mb-3">
-                        <button class="btn btn-sm btn-outline-success rounded-0" @onclick="SeleccionarTodosProductos">
-                            <i class="bi bi-check-all"></i> Seleccionar Todos
-                        </button>
-                        <button class="btn btn-sm btn-outline-danger rounded-0" @onclick="DeseleccionarTodosProductos">
-                            <i class="bi bi-x-lg"></i> Deseleccionar Todos
-                        </button>
-                        <button class="btn btn-sm btn-outline-warning rounded-0" @onclick="ExcluirProductosVacios">
-                            <i class="bi bi-dash-circle"></i> Excluir Vacíos
-                        </button>
+
+                    <div class="d-flex flex-wrap gap-2 mb-3">
+                        <VmButton Variant="outline" Size="sm" OnClick="SeleccionarTodosProductos" Icon="bi-check-all">SELECCIONAR TODOS</VmButton>
+                        <VmButton Variant="outline" Size="sm" OnClick="DeseleccionarTodosProductos" Icon="bi-x-lg">DESELECCIONAR TODOS</VmButton>
+                        <VmButton Variant="outline" Size="sm" OnClick="ExcluirProductosVacios" Icon="bi-dash-circle">EXCLUIR VACÍOS</VmButton>
                     </div>
 
                     <div class="border border-dark p-2" style="max-height: 400px; overflow-y: auto;">
@@ -431,12 +421,12 @@
                             {
                                 var isExcluded = ProductosExcluidos.Contains(producto);
                                 <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" 
-                                        checked="@(!isExcluded)"
-                                        @onchange="() => ToggleProducto(producto)" 
-                                        id="@($"chk_{producto.GetHashCode()}")">
-                                    <label class="form-check-label small @(string.IsNullOrWhiteSpace(producto) ? "text-muted fst-italic" : "")" 
-                                        for="@($"chk_{producto.GetHashCode()}")">
+                                    <input class="form-check-input" type="checkbox"
+                                           checked="@(!isExcluded)"
+                                           @onchange="() => ToggleProducto(producto)"
+                                           id="@($"chk_{producto.GetHashCode()}")">
+                                    <label class="form-check-label small @(string.IsNullOrWhiteSpace(producto) ? "text-muted fst-italic" : "")"
+                                           for="@($"chk_{producto.GetHashCode()}")">
                                         @(string.IsNullOrWhiteSpace(producto) ? "(Sin nombre / Vacío)" : producto)
                                     </label>
                                 </div>
@@ -447,13 +437,14 @@
                             <p class="text-muted text-center py-4">Carga un reporte primero para ver los productos disponibles.</p>
                         }
                     </div>
-                </div>
-                <div class="modal-footer bg-light rounded-0 border-top border-dark">
-                    <span class="text-muted small me-auto">
-                        @ProductosExcluidos.Count producto(s) excluido(s)
-                    </span>
-                    <button type="button" class="btn btn-dark rounded-0 fw-bold" @onclick="CerrarModalFiltroProductos">APLICAR</button>
-                </div>
+
+                    <div style="display:flex;justify-content:space-between;align-items:center;gap:0.5rem;margin-top:1rem;">
+                        <span class="text-muted small">
+                            @ProductosExcluidos.Count producto(s) excluido(s)
+                        </span>
+                        <VmButton Variant="dark" OnClick="CerrarModalFiltroProductos">APLICAR</VmButton>
+                    </div>
+                </VmCard>
             </div>
         </div>
     </div>
