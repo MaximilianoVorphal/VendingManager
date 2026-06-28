@@ -95,16 +95,13 @@
         <!-- CARD DE STOCK CRITICO -->
         <div class="row mb-5">
             <div class="col-12">
-                <div class="industrial-card card-hover h-100 cursor-pointer position-relative"
-                @onclick="AbrirModalCritico" role="button">
-                    <div class="bg-danger text-white p-2 fw-bold text-center text-uppercase small"
-                    style="letter-spacing: 1px;">
-                        🚨 ALERTA DE STOCK CRÍTICO (≤ 2 UNIDADES) 🚨
-                    </div>
-                    <div class="p-4 text-center d-flex align-items-center justify-content-center gap-4">
+                <VmCard Header="🚨 ALERTA DE STOCK CRÍTICO (≤ 2 UNIDADES) 🚨"
+                        HeaderVariant="danger"
+                        Hover="true"
+                        OnClick="AbrirModalCritico">
+                    <div class="text-center d-flex align-items-center justify-content-center gap-4">
                         <div>
-                            <small class="text-danger text-uppercase fw-bold d-block" style="font-size: 0.7rem;">Items en
-                                Riesgo</small>
+                            <small class="text-danger text-uppercase fw-bold d-block" style="font-size: 0.7rem;">Items en Riesgo</small>
                             <h1 class="display-4 fw-bold my-0 text-danger kpi-amount-critico" style="letter-spacing: -2px;">
                                 @Stats.CantidadStockCritico
                             </h1>
@@ -116,7 +113,7 @@
                             <small class="text-muted">Inventario actualizado en tiempo real.</small>
                         </div>
                     </div>
-                </div>
+                </VmCard>
             </div>
         </div>
 
