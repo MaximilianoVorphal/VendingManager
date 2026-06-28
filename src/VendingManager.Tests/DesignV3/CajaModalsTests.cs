@@ -20,11 +20,11 @@ using Xunit;
 
 namespace VendingManager.Tests.DesignV3;
 
-public class CajaShellTests : TestContext
+public class CajaModalsTests : TestContext
 {
     private readonly CajaMockHttpMessageHandler _mockHandler;
 
-    public CajaShellTests()
+    public CajaModalsTests()
     {
         _mockHandler = new CajaMockHttpMessageHandler();
         Services.AddScoped(_ => new HttpClient(_mockHandler)
@@ -38,37 +38,24 @@ public class CajaShellTests : TestContext
     }
 
     [Fact]
-    public void Caja_RendersFourVmKpiCards()
+    public void Caja_RegistroModal_OpensOnNuevoMovimientoClick()
     {
         var cut = RenderComponent<CajaTestHost>();
+
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("NUEVO MOVIMIENTO"));
+
+        var nuevoButton = cut.FindAll("button").First(b => b.TextContent.Contains("NUEVO MOVIMIENTO"));
+        nuevoButton.Click();
 
         cut.WaitForAssertion(() =>
         {
-            cut.Markup.Should().Contain("VENTAS DEL MES");
-            cut.Markup.Should().Contain("GASTOS TOTALES");
-            cut.Markup.Should().Contain("APORTES / INYECCIONES");
-            cut.Markup.Should().Contain("DISPONIBLE EN CAJA");
+            cut.Markup.Should().Contain("REGISTRAR MOVIMIENTO");
+            cut.Markup.Should().Contain("MONTO ($)");
         });
-
-        var kpis = cut.FindComponents<VmKpiCard>();
-        kpis.Count.Should().Be(4);
     }
 
     [Fact]
-    public void Caja_KpiValues_UseDesignTokens()
-    {
-        var cut = RenderComponent<CajaTestHost>();
-
-        cut.WaitForAssertion(() => cut.Markup.Should().Contain("VENTAS DEL MES"));
-
-        cut.Markup.Should().Contain("var(--signal-success)");
-        cut.Markup.Should().Contain("var(--signal-danger)");
-        cut.Markup.Should().Contain("#0d6efd");
-        cut.Markup.Should().Contain("var(--ink-900)");
-    }
-
-    [Fact]
-    public void Caja_NewMovementForm_UsesVmInputAndVmSelectAndVmButton()
+    public void Caja_RegistroModal_Registrar_CallsAddMovementHandler()
     {
         var cut = RenderComponent<CajaTestHost>();
 
@@ -79,71 +66,59 @@ public class CajaShellTests : TestContext
 
         cut.WaitForAssertion(() => cut.Markup.Should().Contain("REGISTRAR MOVIMIENTO"));
 
-        var inputs = cut.FindComponents<VmInput>();
-        inputs.Should().Contain(i => i.Instance.Label == "FECHA DE REGISTRO");
-        inputs.Should().Contain(i => i.Instance.Label == "DESCRIPCIÓN");
-        inputs.Should().Contain(i => i.Instance.Label == "MONTO ($)");
+        var descripcionInput = cut.FindComponents<VmInput>().First(i => i.Instance.Label == "DESCRIPCIÓN");
+        descripcionInput.Instance.ValueChanged.InvokeAsync("Copec test");
 
-        var selects = cut.FindComponents<VmSelect>();
-        selects.Should().Contain(s => s.Instance.Label == "TIPO DE OPERACIÓN");
-        selects.Should().Contain(s => s.Instance.Label == "CATEGORÍA");
-        selects.Should().Contain(s => s.Instance.Label == "VINCULAR A ORDEN DE CARGA");
+        var montoInput = cut.FindComponents<VmInput>().First(i => i.Instance.Label == "MONTO ($)");
+        montoInput.Instance.ValueChanged.InvokeAsync("15000");
 
-        cut.Markup.Should().Contain("REGISTRAR OPERACIÓN_");
+        var registrarButton = cut.FindAll("button").First(b => b.TextContent.Contains("REGISTRAR"));
+        registrarButton.Click();
 
-        var buttons = cut.FindComponents<VmButton>();
-        buttons.Count.Should().BeGreaterThan(0);
+        _mockHandler.RegistrarCalled.Should().BeTrue();
     }
 
     [Fact]
-    public void Caja_MovementsList_HasInternalScrollContainer()
+    public void Caja_DetalleModal_OpensOnRowClick()
     {
         var cut = RenderComponent<CajaTestHost>();
 
-        cut.WaitForAssertion(() => cut.Markup.Should().Contain("MOVIMIENTOS DE"));
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Copec — Bencina"));
 
-        cut.Markup.Should().Contain("overflow-y: auto");
+        var row = cut.FindAll("tr").First(r => r.TextContent.Contains("Copec — Bencina"));
+        row.Click();
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("DETALLE DE MOVIMIENTO");
+            cut.Markup.Should().Contain("Copec — Bencina");
+            cut.Markup.Should().Contain("LOGISTICA");
+        });
     }
 
     [Fact]
-    public void Caja_ActionButtonsRow_UsesVmButton()
+    public void Caja_DetalleModal_Cerrar_ClosesModal()
     {
         var cut = RenderComponent<CajaTestHost>();
 
-        cut.WaitForAssertion(() => cut.Markup.Should().Contain("GASTOS FIJOS"));
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Copec — Bencina"));
 
-        var buttons = cut.FindComponents<VmButton>();
-        buttons.Should().Contain(b => cut.Markup.Contains("GASTOS FIJOS"));
-        buttons.Should().Contain(b => cut.Markup.Contains("ESTADO DE RESULTADOS"));
-    }
+        var row = cut.FindAll("tr").First(r => r.TextContent.Contains("Copec — Bencina"));
+        row.Click();
 
-    [Fact]
-    public void Caja_AplicarPendientesButton_HiddenWhenNoPendientes()
-    {
-        _mockHandler.SinPendientes = true;
-        var cut = RenderComponent<CajaTestHost>();
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("DETALLE DE MOVIMIENTO"));
 
-        cut.WaitForAssertion(() => cut.Markup.Should().Contain("GASTOS FIJOS"));
+        var cerrarButton = cut.FindAll("button").First(b => b.TextContent.Contains("CERRAR"));
+        cerrarButton.Click();
 
-        cut.Markup.Should().NotContain("APLICAR PENDIENTES");
-    }
-
-    [Fact]
-    public void Caja_NuevoMovimientoButton_DisabledWhenLocked()
-    {
-        _mockHandler.IsLocked = true;
-        var cut = RenderComponent<CajaTestHost>();
-
-        cut.WaitForAssertion(() => cut.Markup.Should().Contain("NUEVO MOVIMIENTO"));
-
-        var nuevoButton = cut.FindAll("button").First(b => b.TextContent.Contains("NUEVO MOVIMIENTO"));
-        nuevoButton.HasAttribute("disabled").Should().BeTrue();
+        cut.WaitForAssertion(() => cut.Markup.Should().NotContain("DETALLE DE MOVIMIENTO"));
     }
 
     private class CajaMockHttpMessageHandler : HttpMessageHandler
     {
         public bool SinPendientes { get; set; }
         public bool IsLocked { get; set; }
+        public bool RegistrarCalled { get; set; }
 
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
@@ -179,6 +154,14 @@ public class CajaShellTests : TestContext
                 {
                     new { Id = 1, Fecha = DateTime.Now, Descripcion = "Copec — Bencina", Monto = -18500m, Tipo = "GASTO", Categoria = "LOGISTICA", ImagenPath = (string?)null, ProductoId = (int?)null, Cantidad = 0, OrdenCargaId = (int?)null, CompraId = (int?)null, GastoRecurrenteId = (int?)null },
                     new { Id = 2, Fecha = DateTime.Now.AddDays(-1), Descripcion = "Inyección socio", Monto = 250000m, Tipo = "APORTE", Categoria = "APORTE_CAPITAL", ImagenPath = (string?)null, ProductoId = (int?)null, Cantidad = 0, OrdenCargaId = (int?)null, CompraId = (int?)null, GastoRecurrenteId = (int?)null }
+                });
+            }
+            else if (url.Contains("api/caja/registrar"))
+            {
+                RegistrarCalled = true;
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("{\"id\":99}")
                 });
             }
             else if (url.Contains("api/OrdenCarga/historial"))
