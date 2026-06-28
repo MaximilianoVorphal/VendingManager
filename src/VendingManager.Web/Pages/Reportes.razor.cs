@@ -8,6 +8,7 @@ using Microsoft.JSInterop;
 using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.WebUtilities;
 using VendingManager.Shared.DTOs;
+using VendingManager.Web.Shared;
 
 namespace VendingManager.Web.Pages
 {
@@ -58,6 +59,57 @@ namespace VendingManager.Web.Pages
                 .ToHashSet()) is { } allowedIds && allowedIds.Count > 0
                 ? (ListaMaquinas ?? new()).Where(m => allowedIds.Contains(m.Id)).ToList()
                 : new List<MaquinaSimpleDto>();
+
+        // --- HELPERS DE UI PARA VmInput / VmSelect ---
+        private string FechaInicioString
+        {
+            get => FechaInicio.ToString("yyyy-MM-dd");
+            set { if (DateTime.TryParse(value, out var d)) FechaInicio = d; }
+        }
+
+        private string FechaFinString
+        {
+            get => FechaFin.ToString("yyyy-MM-dd");
+            set { if (DateTime.TryParse(value, out var d)) FechaFin = d; }
+        }
+
+        private IEnumerable<VmSelect.VmSelectOption> TemplateOptions =>
+            new[] { new VmSelect.VmSelectOption("0", "-- NINGUNO --") }
+            .Concat(ListaTemplates?.Select(t => new VmSelect.VmSelectOption(t.Id.ToString(), t.Nombre.ToUpper())) ?? []);
+
+        private IEnumerable<VmSelect.VmSelectOption> MaquinaOptions
+        {
+            get
+            {
+                if (ListaMaquinasFiltradas.Count == 0 && TemplateSeleccionado > 0)
+                {
+                    return new[] { new VmSelect.VmSelectOption("0", "SIN MÁQUINAS CONFIGURADAS") };
+                }
+
+                return new[] { new VmSelect.VmSelectOption("0", ":: TODAS LAS UNIDADES ::") }
+                    .Concat(ListaMaquinasFiltradas.Select(m => new VmSelect.VmSelectOption(m.Id.ToString(), m.Nombre.ToUpper())));
+            }
+        }
+
+        private Task OnTemplateChanged(string? value)
+        {
+            if (int.TryParse(value, out int id))
+            {
+                TemplateSeleccionado = id;
+            }
+
+            return Task.CompletedTask;
+        }
+
+        private Task OnMaquinaChanged(string? value)
+        {
+            if (int.TryParse(value, out int id))
+            {
+                MaquinaSeleccionada = id;
+            }
+
+            return Task.CompletedTask;
+        }
 
         // --- CONTROL DE ORDEN ---
         private string ColumnaOrden = "Fecha";
