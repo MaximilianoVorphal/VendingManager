@@ -1,61 +1,64 @@
+using System;
+using System.Collections.Generic;
+using System.Security.Claims;
+using System.Threading;
+using System.Threading.Tasks;
 using Bunit;
+using Bunit.TestDoubles;
 using FluentAssertions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.Extensions.DependencyInjection;
-using System;
-using System.Collections.Generic;
-using System.Security.Claims;
-using System.Threading;
-using System.Threading.Tasks;
+using VendingManager.Web.Components;
 using VendingManager.Web.Layout;
 using VendingManager.Web.Services;
-using VendingManager.Web.Shared;
 using Xunit;
 
 namespace VendingManager.Tests.DesignV3;
 
-public class MainLayoutTests : TestContext
+public class MachineOnlineMountTests : TestContext
 {
-    public MainLayoutTests()
+    public MachineOnlineMountTests()
     {
         Services.AddAuthorizationCore();
         Services.AddSingleton<AuthenticationStateProvider, AuthenticatedAuthStateProvider>();
         Services.AddSingleton<IAuthorizationService, FakeAuthorizationService>();
         Services.AddSingleton<IMachineOnlineService>(new TestMachineOnlineService(new List<MachineOnlineStatus>
         {
-            new(1, "Máquina 001", true, DateTime.Now.AddMinutes(-2))
+            new(1, "Máquina A", true, DateTime.Now.AddMinutes(-2)),
+            new(2, "Máquina B", false, DateTime.Now.AddMinutes(-15))
         }));
         JSInterop.Mode = JSRuntimeMode.Loose;
     }
 
     [Fact]
-    public void MainLayout_RendersVmNavbar_AndNotNavMenu()
+    public void MainLayout_RendersMachineOnlinePanel_OnInformeVentas()
     {
+        var nav = Services.GetRequiredService<NavigationManager>() as FakeNavigationManager;
+        nav?.NavigateTo("/informe-ventas");
+
         var cut = RenderComponent<MainLayoutTestHost>(parameters => parameters
             .Add(p => p.BodyContent, (RenderFragment)(builder =>
                 builder.AddMarkupContent(0, "<p data-testid=\"body\">page body</p>"))));
 
-        cut.Markup.Should().Contain("VENDING");
-        cut.Markup.Should().Contain("page body");
-        cut.Markup.Should().NotContain("nav-links-container");
-        cut.Markup.Should().NotContain("industrial-navbar");
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("MÁQUINAS ONLINE"));
+        cut.Markup.Should().Contain("Máquina A");
+        cut.Markup.Should().Contain("Máquina B");
     }
 
     [Fact]
-    public async Task MainLayout_PreservesCascadingApi()
+    public void MainLayout_HidesMachineOnlinePanel_OnCaja()
     {
-        var cut = RenderComponent<MainLayoutTestHost>();
-        var instance = cut.FindComponent<MainLayout>().Instance;
+        var nav = Services.GetRequiredService<NavigationManager>() as FakeNavigationManager;
+        nav?.NavigateTo("/caja");
 
-        await cut.InvokeAsync(() => { instance.CollapseNavbar(); return Task.CompletedTask; });
-        await cut.InvokeAsync(() => { instance.ExpandNavbar(); return Task.CompletedTask; });
-        await cut.InvokeAsync(() => { instance.ToggleNavbarCollapse(); return Task.CompletedTask; });
+        var cut = RenderComponent<MainLayoutTestHost>(parameters => parameters
+            .Add(p => p.BodyContent, (RenderFragment)(builder =>
+                builder.AddMarkupContent(0, "<p data-testid=\"body\">page body</p>"))));
 
-        // La API simplemente no debe lanzar; el estado interno es un detalle de implementación.
-        true.Should().BeTrue();
+        cut.Markup.Should().NotContain("MÁQUINAS ONLINE");
     }
 
     private class MainLayoutTestHost : ComponentBase
@@ -79,9 +82,7 @@ public class MainLayoutTests : TestContext
     {
         public override Task<AuthenticationState> GetAuthenticationStateAsync()
         {
-            var identity = new ClaimsIdentity(
-                new[] { new Claim(ClaimTypes.Name, "test") },
-                "test");
+            var identity = new ClaimsIdentity(new[] { new Claim(ClaimTypes.Name, "test") }, "test");
             return Task.FromResult(new AuthenticationState(new ClaimsPrincipal(identity)));
         }
     }
