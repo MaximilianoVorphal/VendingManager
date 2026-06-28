@@ -1,5 +1,6 @@
 ﻿@inherits LayoutComponentBase
 @inject IJSRuntime JSRuntime
+@inject NavigationManager NavManager
 
 <CascadingValue Value="this">
     <div class="industrial-wrapper">
@@ -10,15 +11,42 @@
         </AuthorizeView>
 
         <main class="container-fluid px-3 px-lg-5">
-            <CustomErrorBoundary>
-                @Body
-            </CustomErrorBoundary>
+            <div style="display:flex;gap:1.5rem;align-items:flex-start;flex-wrap:wrap;">
+                <div style="flex:1;min-width:0;">
+                    <CustomErrorBoundary>
+                        @Body
+                    </CustomErrorBoundary>
+                </div>
+                <AuthorizeView>
+                    <Authorized>
+                        @if (ShowMachineOnlinePanel)
+                        {
+                            <aside style="flex:0 0 280px;max-width:100%;" role="complementary" aria-label="Máquinas online">
+                                <MachineOnlinePanel />
+                            </aside>
+                        }
+                    </Authorized>
+                </AuthorizeView>
+            </div>
         </main>
     </div>
 </CascadingValue>
 
 @code {
     private bool _navbarCollapsed;
+
+    private bool ShowMachineOnlinePanel
+    {
+        get
+        {
+            var path = new Uri(NavManager.Uri).AbsolutePath.Trim('/').ToLowerInvariant();
+            return path switch
+            {
+                "" or "informe-ventas" or "analisis-ventas" or "templates-recarga" => true,
+                _ => false
+            };
+        }
+    }
 
     /// <summary>
     /// Permite a páginas hijas colapsar la navbar para ganar espacio (ej: editor visual de slots).
