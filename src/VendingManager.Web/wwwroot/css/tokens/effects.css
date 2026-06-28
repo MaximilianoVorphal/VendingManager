@@ -1,0 +1,46 @@
+/* =========================================================================
+   EFFECTS — borders, radius, shadows, motion
+   The single most important rule of this brand: SQUARE CORNERS + 2px BLACK
+   BORDER + HARD (un-blurred) OFFSET SHADOW. No soft material elevation.
+   ========================================================================= */
+
+:root {
+  /* ---- RADIUS ---- */
+  --radius-0: 0;        /* DEFAULT. Everything is square. border-radius:0    */
+  --radius-soft: 6px;   /* ONLY the softer SlotCard subsystem (steppers etc) */
+  --radius-pill: 999px; /* rare — "fuente" status pill in modals             */
+
+  /* ---- BORDERS ---- */
+  --border-1: 1px solid var(--ink-900);          /* --industrial-border-light-ish */
+  --border-2: 2px solid var(--ink-900);          /* --industrial-border : THE border */
+  --border-3: 3px solid var(--ink-900);          /* page-header underline */
+  --border-hair: 1px solid var(--line-200);      /* table rows, soft dividers */
+
+  /* ---- SHADOWS (hard offsets — never blurred for the core system) ---- */
+  --shadow-card:    2px 2px 0 rgba(0, 0, 0, 0.1);   /* industrial-card        */
+  --shadow-btn:     2px 2px 0 rgba(0, 0, 0, 0.2);   /* button hover lift      */
+  --shadow-pop:     4px 4px 0 #000000;              /* dropdown / popover     */
+  --shadow-strong:  6px 6px 0 #000000;              /* emphasis / hero card   */
+  --shadow-soft:    0 1px 3px rgba(0, 0, 0, 0.05);  /* SlotCard subsystem only */
+
+  /* ---- MOTION ---- */
+  --ease-snap:  cubic-bezier(0.2, 0, 0, 1); /* @kind other */
+  --dur-fast:   0.15s;   /* @kind other */
+  --dur-base:   0.2s;    /* @kind other */
+  --dur-slow:   0.3s;    /* @kind other */
+
+  /* Signature interactions */
+  --lift-hover:  translateY(-2px);   /* @kind other */
+  --lift-card:   translateY(-5px);   /* @kind other */
+}
+
+/* Respect reduced motion globally for consumers of this system */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-fast: 0.001s; /* @kind other */
+    --dur-base: 0.001s; /* @kind other */
+    --dur-slow: 0.001s; /* @kind other */
+    --lift-hover: none; /* @kind other */
+    --lift-card: none; /* @kind other */
+  }
+}

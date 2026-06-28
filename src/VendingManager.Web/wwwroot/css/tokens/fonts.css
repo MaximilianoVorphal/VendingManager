@@ -1,0 +1,10 @@
+/* =========================================================================
+   FONTS — VendingManager Design System
+   The product UI uses Consolas / Courier New (monospace) + Segoe UI, which
+   are OS fonts, not webfonts. For portable, branded delivery we substitute:
+     · JetBrains Mono  → terminal / industrial monospace (Consolas/Courier)
+     · Space Grotesk   → mechanical grotesk for display + UI sans (Segoe UI)
+   Flagged substitution — see README "Visual Foundations / Typography".
+   ========================================================================= */
+
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,700;0,800;1,400&family=Space+Grotesk:wght@400;500;600;700&display=swap');
