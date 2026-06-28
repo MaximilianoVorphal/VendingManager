@@ -51,53 +51,24 @@
     <!-- RESUMEN DE KPI -->
     @if (Resumen != null)
     {
-        <div class="row g-3 mb-5">
-            <!-- 1. VENTAS (Operación) -->
+        <div class="row g-3 mb-4">
             <div class="col-md-3">
-                <div class="industrial-card p-3 h-100 position-relative">
-                    <div class="position-absolute top-0 end-0 bg-success text-white px-2 py-1 small fw-bold" style="font-size: 0.6rem;">OPERACIÓN</div>
-                    <small class="text-muted fw-bold text-uppercase">VENTAS DEL MES</small>
-                    <h3 class="text-success fw-bold mt-2">$@Resumen.IngresosVentas.ToString("N0")</h3>
-                    <small class="text-muted" style="font-size: 0.7rem;">Ingresos por operación</small>
-                </div>
+                <VmKpiCard Header="VENTAS DEL MES" Caption="Ingresos por operación" Value="@($"${Resumen.IngresosVentas:N0}")" ValueColor="var(--signal-success)" />
             </div>
-
-            <!-- 2. GASTOS (Salidas) -->
             <div class="col-md-3">
-                <div class="industrial-card p-3 h-100 position-relative">
-                    <div class="position-absolute top-0 end-0 bg-danger text-white px-2 py-1 small fw-bold" style="font-size: 0.6rem;">SALIDAS</div>
-                    <small class="text-muted fw-bold text-uppercase">GASTOS TOTALES</small>
-                    <h3 class="text-danger fw-bold mt-2">-$@Resumen.GastosOperativos.ToString("N0")</h3>
-                    <small class="text-muted" style="font-size: 0.7rem;">Bencina, Peajes, Mantención</small>
-                </div>
+                <VmKpiCard Header="GASTOS TOTALES" Caption="Bencina, Peajes, Mantención" Value="@($"-${Resumen.GastosOperativos:N0}")" ValueColor="var(--signal-danger)" />
             </div>
-
-            <!-- 3. APORTES (Financiamiento) -->
             <div class="col-md-3">
-                <div class="industrial-card p-3 h-100 position-relative">
-                    <div class="position-absolute top-0 end-0 bg-primary text-white px-2 py-1 small fw-bold" style="font-size: 0.6rem;">CAPITAL</div>
-                    <small class="text-muted fw-bold text-uppercase">APORTES / INYECCIONES</small>
-                    <h3 class="text-primary fw-bold mt-2">$@Resumen.AportesExtra.ToString("N0")</h3>
-                    <small class="text-muted" style="font-size: 0.7rem;">Capital ingresado externo</small>
-                </div>
+                <VmKpiCard Header="APORTES / INYECCIONES" Caption="Capital ingresado externo" Value="@($"${Resumen.AportesExtra:N0}")" ValueColor="#0d6efd" />
             </div>
-
-            <!-- 4. SALDO FINAL (Resultado) -->
             <div class="col-md-3">
-                <div class="industrial-card p-3 h-100 shadow" style="background-color: var(--industrial-black); color: var(--industrial-white);">
-                    <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-2">
-                        <small class="fw-bold text-uppercase">DISPONIBLE EN CAJA</small>
-                        <span class="badge rounded-0" style="background-color: var(--industrial-white); color: var(--industrial-black);">TOTAL</span>
-                    </div>
-                    <h4 class="fw-bold m-0">$@Resumen.SaldoFinal.ToString("N0")</h4>
-                    <small class="mt-2 d-block" style="color: rgba(255,255,255,0.5); font-size: 0.7rem;">Total Real (Incluye Histórico)</small>
-                </div>
+                <VmKpiCard Header="DISPONIBLE EN CAJA" Caption="Total Real (Incluye Histórico)" Value="@($"${Resumen.SaldoFinal:N0}")" ValueColor="var(--ink-900)" />
             </div>
         </div>
     }
     else
     {
-        <div class="row g-3 mb-5">
+        <div class="row g-3 mb-4">
             @for (int i = 0; i < 4; i++)
             {
                 <div class="col-md-3">
