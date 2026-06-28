@@ -197,7 +197,7 @@ var bgHeader = grupo.EsOrdenCarga ? "bg-warning-subtle" : "bg-white";
                                             <tbody class="bg-white">
                                                 @foreach (var mov in grupo.Items)
                                                 {
-                                                   <tr>
+                                                   <tr @onclick="() => AbrirModalDetalle(mov)" style="cursor: pointer;">
                                                         <td style="width: 15%;" class="ps-4 align-middle">
                                                             <small class="font-monospace text-muted">@mov.Fecha.ToString("HH:mm")</small>
                                                             @if(mov.Fecha.Date != grupo.Fecha.Date)
