@@ -2,6 +2,7 @@
 @inject HttpClient Http
 @inject NavigationManager NavManager
 @inject IJSRuntime JS
+@using System.Linq
 @using System.Net.Http.Headers
 
 <PageTitle>CENTRO DE COMANDO</PageTitle>
@@ -14,18 +15,10 @@
             <small class="text-muted fw-bold">TIEMPO REAL: @DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss")</small>
         </div>
         <div class="col-md-4">
-            <label class="fw-bold mb-1 small text-uppercase">:: SELECCIÓN DE UNIDAD ::</label>
-            <select class="form-select border-2 border-dark rounded-0 fw-bold bg-light text-uppercase py-2"
-                @onchange="CambiarMaquina">
-                <option value="0">:: TODAS LAS UNIDADES ::</option>
-                @if (ListaMaquinas != null)
-                {
-                    @foreach (var m in ListaMaquinas)
-                    {
-                        <option value="@m.Id">@m.Nombre.ToUpper()</option>
-                    }
-                }
-            </select>
+            <VmSelect Label=":: SELECCIÓN DE UNIDAD ::"
+                      Value="@MaquinaActualId.ToString()"
+                      ValueChanged="@CambiarMaquina"
+                      Options="@MaquinaOptions" />
         </div>
     </div>
 
@@ -40,90 +33,62 @@
     {
         <div class="row g-4 mb-5">
             <!-- DIARIO -->
-        <div class="col-md-4">
-                <div class="industrial-card card-hover h-100 position-relative cursor-pointer"
-                @onclick="@(() => IrAReporte("HOY"))" role="button">
-                    <div class="bg-dark text-white p-2 fw-bold text-center text-uppercase small"
-                    style="letter-spacing: 1px;">
-                        Reporte Diario (@DateTime.Now.ToString("dd/MM"))
-                    </div>
-                    <div class="p-4 text-center">
-                        <small class="text-muted text-uppercase fw-bold" style="font-size: 0.7rem;">Venta</small>
-                        <h1 class="display-5 fw-bold my-2 text-dark kpi-amount" style="letter-spacing: -2px;">
-                            $@Stats.Hoy.VentaTotal.ToString("N0")</h1>
-
-                        <div class="d-flex justify-content-between gap-2 mt-4 border-top border-dark pt-3">
-                            <div class="text-start lh-1">
-                                <span class="d-block text-uppercase text-dark fw-bold"
-                                style="font-size: 0.7rem;">Confirmado</span>
-                                <span class="fw-bold text-success">$@Stats.Hoy.PagadoTB.ToString("N0")</span>
-                            </div>
-                            <div class="text-end lh-1">
-                                <span class="d-block text-uppercase text-dark fw-bold"
-                                style="font-size: 0.7rem;">Transacciones</span>
-                                <span class="fw-bold">@Stats.Hoy.CantidadVentas</span>
-                            </div>
+            <div class="col-md-4">
+                <VmKpiCard Header="@($"Reporte Diario ({DateTime.Now.ToString("dd/MM")})")"
+                           Caption="Venta"
+                           Value="@($"${Stats.Hoy.VentaTotal.ToString("N0")}")"
+                           OnClick="@(() => IrAReporte("HOY"))">
+                    <FooterContent>
+                        <div class="text-start lh-1">
+                            <span class="d-block text-uppercase text-dark fw-bold" style="font-size: 0.7rem;">Confirmado</span>
+                            <span class="fw-bold text-success">$@Stats.Hoy.PagadoTB.ToString("N0")</span>
                         </div>
-                    </div>
-                </div>
+                        <div class="text-end lh-1">
+                            <span class="d-block text-uppercase text-dark fw-bold" style="font-size: 0.7rem;">Transacciones</span>
+                            <span class="fw-bold">@Stats.Hoy.CantidadVentas</span>
+                        </div>
+                    </FooterContent>
+                </VmKpiCard>
             </div>
 
             <!-- SEMANAL -->
-        <div class="col-md-4">
-                <div class="industrial-card card-hover h-100 cursor-pointer"
-                @onclick="@(() => IrAReporte("SEMANA"))" role="button">
-                    <div class="bg-secondary text-white p-2 fw-bold text-center text-uppercase small border-bottom border-dark"
-                    style="letter-spacing: 1px;">
-                        Reporte Semanal
-                    </div>
-                    <div class="p-4 text-center">
-                        <small class="text-muted text-uppercase fw-bold" style="font-size: 0.7rem;">Acumulado</small>
-                        <h1 class="display-5 fw-bold my-2 text-dark kpi-amount" style="letter-spacing: -2px;">
-                            $@Stats.Semana.VentaTotal.ToString("N0")</h1>
-
-                        <div class="d-flex justify-content-between gap-2 mt-4 border-top border-dark pt-3">
-                            <div class="text-start lh-1">
-                                <span class="d-block text-uppercase text-dark fw-bold"
-                                style="font-size: 0.7rem;">Confirmado</span>
-                                <span class="fw-bold text-success">$@Stats.Semana.PagadoTB.ToString("N0")</span>
-                            </div>
-                            <div class="text-end lh-1">
-                                <span class="d-block text-uppercase text-dark fw-bold"
-                                style="font-size: 0.7rem;">Pendiente</span>
-                                <span class="fw-bold text-danger">$@Stats.Semana.Pendiente.ToString("N0")</span>
-                            </div>
+            <div class="col-md-4">
+                <VmKpiCard Header="Reporte Semanal"
+                           HeaderVariant="secondary"
+                           Caption="Acumulado"
+                           Value="@($"${Stats.Semana.VentaTotal.ToString("N0")}")"
+                           OnClick="@(() => IrAReporte("SEMANA"))">
+                    <FooterContent>
+                        <div class="text-start lh-1">
+                            <span class="d-block text-uppercase text-dark fw-bold" style="font-size: 0.7rem;">Confirmado</span>
+                            <span class="fw-bold text-success">$@Stats.Semana.PagadoTB.ToString("N0")</span>
                         </div>
-                    </div>
-                </div>
+                        <div class="text-end lh-1">
+                            <span class="d-block text-uppercase text-dark fw-bold" style="font-size: 0.7rem;">Pendiente</span>
+                            <span class="fw-bold text-danger">$@Stats.Semana.Pendiente.ToString("N0")</span>
+                        </div>
+                    </FooterContent>
+                </VmKpiCard>
             </div>
 
             <!-- MENSUAL -->
-        <div class="col-md-4">
-                <div class="industrial-card card-hover h-100 cursor-pointer"
-                @onclick="@(() => IrAReporte("MES"))" role="button">
-                    <div class="p-2 fw-bold text-center border-bottom border-2 border-dark text-uppercase small"
-                    style="background-color: #dcdcdc; letter-spacing: 1px;">
-                        Reporte Mensual (@DateTime.Now.ToString("MMM").ToUpper())
-                    </div>
-                    <div class="p-4 text-center">
-                        <small class="text-muted text-uppercase fw-bold" style="font-size: 0.7rem;">Total Proyectado</small>
-                        <h1 class="display-5 fw-bold my-2 text-dark kpi-amount" style="letter-spacing: -2px;">
-                            $@Stats.Mes.VentaTotal.ToString("N0")</h1>
-
-                        <div class="d-flex justify-content-between gap-2 mt-4 border-top border-dark pt-3">
-                            <div class="text-start lh-1">
-                                <span class="d-block text-uppercase text-dark fw-bold" style="font-size: 0.7rem;">Total
-                                    Ingreso</span>
-                                <span class="fw-bold text-success">$@Stats.Mes.PagadoTB.ToString("N0")</span>
-                            </div>
-                            <div class="text-end lh-1">
-                                <span class="d-block text-uppercase text-dark fw-bold"
-                                style="font-size: 0.7rem;">Transacciones</span>
-                                <span class="fw-bold">@Stats.Mes.CantidadVentas</span>
-                            </div>
+            <div class="col-md-4">
+                <VmKpiCard Header="@($"Reporte Mensual ({DateTime.Now.ToString("MMM").ToUpper()})")"
+                           HeaderVariant="light"
+                           Caption="Total Proyectado"
+                           Value="@($"${Stats.Mes.VentaTotal.ToString("N0")}")"
+                           OnClick="@(() => IrAReporte("MES"))">
+                    <FooterContent>
+                        <div class="text-start lh-1">
+                            <span class="d-block text-uppercase text-dark fw-bold" style="font-size: 0.7rem;">Total Ingreso</span>
+                            <span class="fw-bold text-success">$@Stats.Mes.PagadoTB.ToString("N0")</span>
                         </div>
-                    </div>
-                </div>
+                        <div class="text-end lh-1">
+                            <span class="d-block text-uppercase text-dark fw-bold" style="font-size: 0.7rem;">Transacciones</span>
+                            <span class="fw-bold">@Stats.Mes.CantidadVentas</span>
+                        </div>
+                    </FooterContent>
+                </VmKpiCard>
             </div>
         </div>
 
@@ -395,9 +360,13 @@ backgroundColor = new[] { "#198754", "#dc3545" }
         try { ListaMaquinas = await Http.GetFromJsonAsync<List<MaquinaSimpleDto>>("api/Ventas/lista-maquinas"); } catch { }
     }
 
-    private async Task CambiarMaquina(ChangeEventArgs e)
+    private IEnumerable<VmSelect.VmSelectOption> MaquinaOptions =>
+        new[] { new VmSelect.VmSelectOption("0", ":: TODAS LAS UNIDADES ::") }
+        .Concat(ListaMaquinas?.Select(m => new VmSelect.VmSelectOption(m.Id.ToString(), m.Nombre.ToUpper())) ?? []);
+
+    private async Task CambiarMaquina(string? value)
     {
-        if (int.TryParse(e.Value?.ToString(), out int id))
+        if (int.TryParse(value, out int id))
         {
             MaquinaActualId = id;
             Stats = null;
