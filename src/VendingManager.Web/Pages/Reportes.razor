@@ -455,12 +455,8 @@
 {
     <div class="modal show d-block" style="background: rgba(0,0,0,0.5);" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content rounded-0 border-2 border-danger shadow-lg">
-                <div class="modal-header bg-danger text-white rounded-0 border-bottom border-dark">
-                    <h5 class="modal-title fw-bold text-uppercase"><i class="bi bi-radioactive me-2"></i>ZONA PELIGROSA</h5>
-                    <button type="button" class="btn-close btn-close-white" @onclick="CerrarModalAdmin"></button>
-                </div>
-                <div class="modal-body p-4" style="background-color: #fff0f0;">
+            <div class="modal-content border-0 bg-transparent shadow-none">
+                <VmCard Header="ZONA PELIGROSA" HeaderVariant="danger">
                     <div class="alert alert-danger border-danger rounded-0 mb-3 small fw-bold">
                         <i class="bi bi-exclamation-octagon-fill me-1"></i> ADVERTENCIA CRÍTICA<br/>
                         Esta acción ELIMINARÁ permanentemente las ventas en el rango seleccionado y RESTAURARÁ el stock de los productos afectados.<br/>
@@ -468,7 +464,7 @@
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label fw-bold small text-danger">1. SELECCIONAR MÁQUINA OBJETIVO:</label>
+                        <label class="form-label fw-bold small" style="color:var(--signal-danger);">1. SELECCIONAR MÁQUINA OBJETIVO:</label>
                         <select class="form-select border-danger rounded-0 fw-bold" @bind="AdminMaquinaId">
                             <option value="0">-- SELECCIONAR --</option>
                             @if (ListaMaquinas != null)
@@ -483,36 +479,36 @@
 
                     <div class="row g-2 mb-3">
                         <div class="col-6">
-                            <label class="form-label fw-bold small text-danger">2. DESDE:</label>
+                            <label class="form-label fw-bold small" style="color:var(--signal-danger);">2. DESDE:</label>
                             <input type="datetime-local" @bind="AdminFechaInicio" class="form-control border-danger rounded-0 fw-bold" />
                         </div>
                         <div class="col-6">
-                            <label class="form-label fw-bold small text-danger">3. HASTA:</label>
+                            <label class="form-label fw-bold small" style="color:var(--signal-danger);">3. HASTA:</label>
                             <input type="datetime-local" @bind="AdminFechaFin" class="form-control border-danger rounded-0 fw-bold" />
                         </div>
                     </div>
 
                     <div class="mb-3">
-                         <label class="form-label fw-bold small text-danger">4. CONFIRMACIÓN:</label>
-                         <input type="text" class="form-control border-danger rounded-0" placeholder="Escribe 'BORRAR' para confirmar" @bind="AdminConfirmacion" />
+                        <label class="form-label fw-bold small" style="color:var(--signal-danger);">4. CONFIRMACIÓN:</label>
+                        <input type="text" class="form-control border-danger rounded-0" placeholder="Escribe 'BORRAR' para confirmar" @bind="AdminConfirmacion" />
                     </div>
 
-                </div>
-                <div class="modal-footer bg-light rounded-0 border-top border-danger">
-                    <button type="button" class="btn btn-outline-dark rounded-0 fw-bold" @onclick="CerrarModalAdmin">CANCELAR</button>
-                    <button type="button" class="btn btn-danger rounded-0 fw-bold border-dark" 
-                        disabled="@(AdminMaquinaId == 0 || AdminConfirmacion != "BORRAR" || ProcesandoAdmin)"
-                        @onclick="EjecutarBorradoAdmin">
-                        @if (ProcesandoAdmin)
-                        {
-                            <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> <span>PROCESANDO...</span>
-                        }
-                        else
-                        {
-                            <span><i class="bi bi-trash-fill me-1"></i> ELIMINAR Y RESTAURAR STOCK</span>
-                        }
-                    </button>
-                </div>
+                    <div style="display:flex;justify-content:flex-end;gap:0.5rem;margin-top:1rem;">
+                        <VmButton Variant="outline" OnClick="CerrarModalAdmin">CANCELAR</VmButton>
+                        <VmButton Variant="danger" OnClick="EjecutarBorradoAdmin"
+                                  Disabled='@(AdminMaquinaId == 0 || AdminConfirmacion != "BORRAR" || ProcesandoAdmin)'>
+                            @if (ProcesandoAdmin)
+                            {
+                                <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                                <span>PROCESANDO...</span>
+                            }
+                            else
+                            {
+                                <span><i class="bi bi-trash-fill me-1"></i> ELIMINAR Y RESTAURAR STOCK</span>
+                            }
+                        </VmButton>
+                    </div>
+                </VmCard>
             </div>
         </div>
     </div>
