@@ -247,11 +247,26 @@
 
     private IEnumerable<VmSelect.VmSelectOption> MaquinaOptions =>
         new[] { new VmSelect.VmSelectOption("0", ":: TODAS LAS UNIDADES ::") }
-        .Concat(ListaMaquinas?.Select(m => new VmSelect.VmSelectOption(m.Id.ToString(), m.Nombre.ToUpper())) ?? []);
+        .Concat(MaquinasFiltradas.Select(m => new VmSelect.VmSelectOption(m.Id.ToString(), m.Nombre.ToUpper())));
 
     private IEnumerable<VmSelect.VmSelectOption> PlantillaOptions =>
         new[] { new VmSelect.VmSelectOption("0", ":: TODAS LAS PLANTILLAS ::") }
         .Concat(ListaPlantillas?.Select(p => new VmSelect.VmSelectOption(p.Id.ToString(), p.Nombre)) ?? []);
+
+    private IEnumerable<MaquinaSimpleDto> MaquinasFiltradas
+    {
+        get
+        {
+            if (ListaMaquinas == null) return [];
+            if (PlantillaSeleccionada == 0) return ListaMaquinas;
+
+            var plantilla = ListaPlantillas?.FirstOrDefault(p => p.Id == PlantillaSeleccionada);
+            if (plantilla == null) return ListaMaquinas;
+
+            var termino = plantilla.Nombre.Replace("PLANTILLA ", "", StringComparison.OrdinalIgnoreCase);
+            return ListaMaquinas.Where(m => m.Nombre.Contains(termino, StringComparison.OrdinalIgnoreCase));
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -288,6 +303,7 @@
         if (int.TryParse(value, out int id))
         {
             PlantillaSeleccionada = id;
+            MaquinaSeleccionada = 0;
             await CargarDatos();
         }
     }
@@ -303,7 +319,7 @@
         {
             string inicio = FechaInicio.ToString("yyyy-MM-dd");
             string fin = FechaFin.ToString("yyyy-MM-dd");
-            string url = $"api/Ventas/analisis-productos?inicio={inicio}&fin={fin}&maquinaId={MaquinaSeleccionada}&includePendientes={IncludePendientes}";
+            string url = $"api/Ventas/analisis-productos?inicio={inicio}&fin={fin}&maquinaId={MaquinaSeleccionada}&plantillaId={PlantillaSeleccionada}&includePendientes={IncludePendientes}";
 
             Productos = await Http.GetFromJsonAsync<List<AnalisisProductoDto>>(url);
             AplicarOrdenamiento();
