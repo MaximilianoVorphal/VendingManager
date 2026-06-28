@@ -190,28 +190,24 @@
                 </div>
                 <div class="modal-body">
                     <!-- Nombre y Descripción -->
-                <div class="row g-3 mb-4">
+                    <div class="row g-3 mb-4">
                         <div class="col-md-6">
-                            <label class="fw-bold small text-uppercase mb-1">NOMBRE DEL TEMPLATE:</label>
-                            <input type="text" @bind="TemplateActual.Nombre"
-                            class="form-control border-dark rounded-0 fw-bold" placeholder="Ej: Recarga Nuevo 3" />
+                            <VmInput Label="NOMBRE DEL TEMPLATE" @bind-Value="TemplateActual.Nombre" Placeholder="Ej: Recarga Nuevo 3" />
                         </div>
                         <div class="col-md-6">
-                            <label class="fw-bold small text-uppercase mb-1">DESCRIPCIÓN (OPCIONAL):</label>
-                            <input type="text" @bind="TemplateActual.Descripcion" class="form-control border-dark rounded-0"
-                            placeholder="Ej: Recarga semanal enero" />
+                            <VmInput Label="DESCRIPCIÓN (OPCIONAL)" @bind-Value="TemplateActual.Descripcion" Placeholder="Ej: Recarga semanal enero" />
                         </div>
                     </div>
 
                     <!-- Períodos por Máquina -->
-                <div class="border border-dark p-3 bg-light">
+                    <div class="border border-dark p-3 bg-light">
                         <div class="d-flex justify-content-between align-items-center mb-3">
                             <h6 class="fw-bold text-uppercase m-0">
                                 <i class="bi bi-clock-history me-1"></i> PERÍODOS POR MÁQUINA
                             </h6>
-                            <button class="btn btn-sm btn-dark rounded-0" @onclick="AgregarPeriodo">
-                                <i class="bi bi-plus-lg me-1"></i> Agregar Máquina
-                            </button>
+                            <VmButton Variant="dark" Size="sm" Icon="bi-plus-lg" OnClick="AgregarPeriodo">
+                                Agregar Máquina
+                            </VmButton>
                         </div>
 
                         @if (!PeriodosActuales.Any())
@@ -229,88 +225,74 @@
                                 <div class="card rounded-0 border-dark mb-2">
                                     <div class="card-body p-2">
                                         <div class="row g-2 align-items-end">
-                                             <div class="col-md-4 col-12">
-                                                 <label class="small fw-bold">MÁQUINA:</label>
-                                                 <select class="form-select border-dark rounded-0 text-truncate"
-                                         @bind="periodo.MaquinaId">
-                                                     <option value="0">-- Seleccionar --</option>
-                                                     @if (ListaMaquinas != null)
-                                                     {
-                                                         @foreach (var m in ListaMaquinas)
-                                                         {
-                                                             <option value="@m.Id">@m.Nombre</option>
-                                                         }
-                                                     }
-                                                 </select>
-                                             </div>
-<div class="col-md-4 col-12">
-                                                 <label class="small fw-bold">FECHA RECARGA:</label>
-                                                 <div class="input-group input-group-sm">
-                                                       <input type="date"
-                                                              class="form-control border-dark rounded-0 date-input"
-                                                              value="@periodo.FechaRecargaText"
-                                                              @onchange="(ChangeEventArgs e) => OnFechaRecargaDateChanged(index, e)" />
-                                                       <input type="text"
-                                                              class="form-control border-dark rounded-0 time-input font-monospace"
-                                                              value="@periodo.HoraRecargaText"
-                                                              placeholder="HH:mm"
-                                                              maxlength="5"
-                                                              @oninput="(ChangeEventArgs e) => OnFechaRecargaTimeInput(index, e)"
-                                                              @onchange="(ChangeEventArgs e) => OnFechaRecargaTimeBlur(index, e)" />
-                                                 </div>
-                                             </div>
-                                         <div class="col-md-2 col-12">
-                                             <div class="d-flex gap-1">
-                                                 <button class="btn btn-sm btn-outline-primary rounded-0 flex-fill"
-                                         @onclick="() => CargarSlotsParaPeriodo(index)"
-                                         disabled="@(periodo.MaquinaId == 0 || CargandoSlots)">
-                                                     <i class="bi bi-box-seam me-1"></i> Slots
-                                                 </button>
-                                                 <button class="btn btn-sm btn-outline-danger rounded-0"
-                                         @onclick="() => EliminarPeriodo(index)">
-                                                     <i class="bi bi-x-lg"></i>
-                                                 </button>
-                                             </div>
-                                         </div>
-                                     </div>
-
-                                    @if (periodo.SnapshotSlots.Any())
-                                    {
-                                        <div class="mt-3 p-3 bg-white border border-2 border-dark text-center shadow-sm">
-                                            <h6 class="fw-bold text-success mb-3 text-uppercase">
-                                                <i class="bi bi-check-circle-fill me-1"></i>
-                                                @periodo.SnapshotSlots.Count(s => s.ProductoId.HasValue && s.ProductoId > 0) productos configurados
-                                                <span class="text-muted ms-1">(de @periodo.SnapshotSlots.Count slots)</span>
-                                            </h6>
-                                             <button class="btn btn-warning rounded-0 fw-bold border-2 border-dark mb-2 px-4 py-2 text-uppercase btn-lg edit-slots-btn"
-                                                 onmousedown="this.style.transform='translate(2px, 2px)'; this.style.boxShadow='1px 1px 0px #000';"
-                                                 onmouseup="this.style.transform='none'; this.style.boxShadow='';"
-                                                 onmouseleave="this.style.transform='none'; this.style.boxShadow='';"
-                                                 @onclick="() => AbrirEdicionVisual(periodo)">
-                                                 <i class="bi bi-grid-3x3-gap-fill me-2"></i> EDITAR SLOTS (GRILLA)
-                                            </button>
-                                            <div class="mt-3 border-top border-dark pt-3">
-                                                <button class="btn btn-sm btn-outline-danger rounded-0 fw-bold"
-                                                    @onclick="() => periodo.SnapshotSlots.Clear()">
-                                                    <i class="bi bi-trash"></i> VACIAR MÁQUINA
-                                                </button>
+                                            <div class="col-md-4 col-12">
+                                                <VmSelect Label="MÁQUINA"
+                                                          Value="@periodo.MaquinaId.ToString()"
+                                                          ValueChanged="@(v => OnMaquinaChanged(index, v))"
+                                                          Options="@(ListaMaquinas?.Select(m => new VmSelect.VmSelectOption(m.Id.ToString(), m.Nombre)) ?? [])" />
+                                            </div>
+                                            <div class="col-md-4 col-12">
+                                                <VmInput Label="FECHA RECARGA" Type="date"
+                                                         Value="@periodo.FechaRecargaText"
+                                                         ValueChanged="@(v => OnFechaRecargaDateChanged(index, v))" />
+                                            </div>
+                                            <div class="col-md-2 col-12">
+                                                <VmInput Label="HORA" Type="text" Placeholder="HH:mm"
+                                                         Value="@periodo.HoraRecargaText"
+                                                         ValueChanged="@(v => OnHoraRecargaChanged(index, v))" />
+                                            </div>
+                                            <div class="col-md-2 col-12">
+                                                <div class="d-flex gap-1">
+                                                    <VmButton Variant="outline" Size="sm" Icon="bi-box-seam" OnClick="() => CargarSlotsParaPeriodo(index)" Disabled="@(periodo.MaquinaId == 0 || CargandoSlots)">
+                                                        Slots
+                                                    </VmButton>
+                                                    <VmButton Variant="danger" Size="sm" Icon="bi-x-lg" OnClick="() => EliminarPeriodo(index)">
+                                                    </VmButton>
+                                                </div>
                                             </div>
                                         </div>
-                                    }
+
+                                        @if (periodo.SnapshotSlots.Any())
+                                        {
+                                            <div class="mt-3 p-3 bg-white border border-2 border-dark text-center shadow-sm">
+                                                <h6 class="fw-bold text-success mb-3 text-uppercase">
+                                                    <i class="bi bi-check-circle-fill me-1"></i>
+                                                    @periodo.SnapshotSlots.Count(s => s.ProductoId.HasValue && s.ProductoId > 0) productos configurados
+                                                    <span class="text-muted ms-1">(de @periodo.SnapshotSlots.Count slots)</span>
+                                                </h6>
+                                                <div class="slot-grid mb-3">
+                                                    @foreach (var slot in periodo.SnapshotSlots)
+                                                    {
+                                                        <SlotCard Slot="slot" IsReadOnly="true" />
+                                                    }
+                                                </div>
+                                                <button class="btn btn-warning rounded-0 fw-bold border-2 border-dark mb-2 px-4 py-2 text-uppercase btn-lg edit-slots-btn"
+                                                    onmousedown="this.style.transform='translate(2px, 2px)'; this.style.boxShadow='1px 1px 0px #000';"
+                                                    onmouseup="this.style.transform='none'; this.style.boxShadow='';"
+                                                    onmouseleave="this.style.transform='none'; this.style.boxShadow='';"
+                                                    @onclick="() => AbrirEdicionVisual(periodo)">
+                                                    <i class="bi bi-grid-3x3-gap-fill me-2"></i> EDITAR SLOTS (GRILLA)
+                                                </button>
+                                                <div class="mt-3 border-top border-dark pt-3">
+                                                    <VmButton Variant="outline" Size="sm" Icon="bi-trash" OnClick="() => periodo.SnapshotSlots.Clear()">
+                                                        VACIAR MÁQUINA
+                                                    </VmButton>
+                                                </div>
+                                            </div>
+                                        }
+                                    </div>
                                 </div>
-                            </div>
+                            }
                         }
-                    }
-                </div>
+                    </div>
             </div>
             <div class="modal-footer border-top border-dark">
-                <button type="button" class="btn btn-secondary rounded-0" @onclick="CerrarModal">
+                <VmButton Variant="outline" OnClick="CerrarModal">
                     CANCELAR
-                </button>
-                <button type="button" class="btn btn-success rounded-0 fw-bold" @onclick="GuardarTemplate"
-                disabled="@Guardando">
+                </VmButton>
+                <VmButton Variant="success" OnClick="GuardarTemplate" Disabled="@Guardando">
                     @(Guardando ? "GUARDANDO..." : (EsEdicion ? "ACTUALIZAR" : "GUARDAR TEMPLATE"))
-                </button>
+                </VmButton>
             </div>
         </div>
     </div>
@@ -1564,9 +1546,24 @@ private async Task AbrirEdicionVisual(PeriodoFormModel periodo)
         }
     }
 
-    private void OnFechaRecargaDateChanged(int index, ChangeEventArgs e)
+    private void OnMaquinaChanged(int index, string? value)
     {
-        var dateVal = e.Value?.ToString();
+        if (index >= 0 && index < PeriodosActuales.Count && int.TryParse(value, out var id))
+        {
+            PeriodosActuales[index].MaquinaId = id;
+        }
+    }
+
+    private void OnHoraRecargaChanged(int index, string? value)
+    {
+        if (index < 0 || index >= PeriodosActuales.Count) return;
+        var p = PeriodosActuales[index];
+        p.HoraRecargaText = FormatearHoraMask(value ?? "");
+        p.SyncDateTimeFromRecarga();
+    }
+
+    private void OnFechaRecargaDateChanged(int index, string? dateVal)
+    {
         if (string.IsNullOrEmpty(dateVal) || index < 0 || index >= PeriodosActuales.Count) return;
         var p = PeriodosActuales[index];
 
