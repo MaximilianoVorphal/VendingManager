@@ -5,6 +5,17 @@
     50% { opacity: 0; }
 }
 
+@keyframes recToast {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
 /* === INLINE STYLE MIGRATIONS === */
 
 /* Template name truncation on desktop */
@@ -1278,4 +1289,29 @@
 .product-selector-item.active {
     background-color: #e8f5e9;
     border-left: 3px solid #198754;
+}
+
+/* === TOAST === */
+.rec-toast {
+    position: fixed;
+    bottom: 22px;
+    right: 22px;
+    z-index: 3000;
+    background: var(--ink-900);
+    color: #fff;
+    border: 2px solid var(--ink-900);
+    box-shadow: 5px 5px 0 rgba(0, 0, 0, 0.2);
+    padding: 13px 17px;
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: 0.82rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    animation: recToast 0.2s ease-out;
+}
+
+.rec-toast i {
+    color: var(--signal-success);
+    font-size: 1.05rem;
 }
