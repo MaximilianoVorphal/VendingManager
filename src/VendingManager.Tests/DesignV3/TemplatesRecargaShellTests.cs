@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -39,51 +40,62 @@ public class TemplatesRecargaShellTests : TestContext
     }
 
     [Fact]
-    public void Header_RendersInsideVmCard_WithDarkHeader()
+    public void Header_IsInline_WithBreadcrumbAndActions()
     {
         var cut = RenderComponent<TemplatesTestHost>();
 
         cut.WaitForAssertion(() =>
         {
-            cut.Markup.Should().Contain("TEMPLATES DE RECARGA");
-            cut.Markup.Should().Contain("var(--ink-900)");
+            cut.Markup.Should().Contain("Terreno · Recarga");
+            cut.Markup.Should().Contain("Templates de Recarga");
         });
 
         var vmCards = cut.FindComponents<VmCard>();
-        vmCards.Should().Contain(c =>
-            c.Instance.Header == "TEMPLATES DE RECARGA" &&
-            c.Instance.HeaderVariant == "dark");
+        vmCards.Should().NotContain(c => c.Instance.Header == "TEMPLATES DE RECARGA");
+
+        cut.Markup.Should().Contain("rec-header");
 
         var buttons = cut.FindComponents<VmButton>();
-        buttons.Should().Contain(b => cut.Markup.Contains("SINCRONIZAR TODO"));
-        buttons.Should().Contain(b => cut.Markup.Contains("PENDIENTES"));
-        buttons.Should().Contain(b => cut.Markup.Contains("NUEVO TEMPLATE"));
+        buttons.Should().Contain(b => b.Markup.Contains("Sincronizar todo"));
+        buttons.Should().Contain(b => b.Markup.Contains("Nuevo template"));
     }
 
     [Fact]
-    public void TemplateList_RendersAsVmCards()
+    public void TemplateList_RendersAsTable()
     {
         var cut = RenderComponent<TemplatesTestHost>();
 
         cut.WaitForAssertion(() => cut.Markup.Should().Contain("Template Activo"));
 
-        var vmCards = cut.FindComponents<VmCard>();
-        vmCards.Should().Contain(c => c.Instance.Header == "Template Activo");
-        vmCards.Should().Contain(c => c.Instance.Header == "Template Terminado");
+        var tables = cut.FindAll("table");
+        tables.Count.Should().Be(1);
+
+        cut.Markup.Should().NotContain("col-lg-4");
+
+        var headers = cut.FindAll("table thead th");
+        headers.Select(h => h.TextContent.Trim()).Should().Equal(
+            "Estado", "Recarga / Ruta", "Período", "Máquinas", "Carga", "Acciones");
+
+        var cssPath = Path.Combine(
+            AppContext.BaseDirectory, "..", "..", "..", "..", "..",
+            "src", "VendingManager.Web", "Pages", "TemplatesRecarga.razor.css");
+        var css = File.ReadAllText(Path.GetFullPath(cssPath));
+        css.Should().Contain(".rec-table thead th").And.Contain("position: sticky");
     }
 
     [Fact]
-    public void TemplateList_PendingCount_RendersAsVmBadgeWarning()
+    public void TemplateList_Estado_RendersAsInlineTag()
     {
         var cut = RenderComponent<TemplatesTestHost>();
 
         cut.WaitForAssertion(() => cut.Markup.Should().Contain("Template Activo"));
 
-        var badges = cut.FindComponents<VmBadge>();
-        badges.Should().Contain(b =>
-            b.Instance.Variant == "warning" &&
-            b.Markup.Contains("1") &&
-            b.Markup.Contains("PENDIENTE"));
+        var tbody = cut.Find("table tbody");
+        tbody.OuterHtml.Should().Contain("rec-tag--pend");
+        tbody.OuterHtml.Should().Contain("rec-tag--ok");
+
+        cut.FindComponents<VmBadge>().Should().BeEmpty(
+            because: "list view estado must be rendered as inline rec-tag, not VmBadge");
     }
 
     [Fact]
@@ -91,10 +103,10 @@ public class TemplatesRecargaShellTests : TestContext
     {
         var cut = RenderComponent<TemplatesTestHost>();
 
-        cut.WaitForAssertion(() => cut.Markup.Should().Contain("NUEVO TEMPLATE"));
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Nuevo template"));
 
         var nuevoButton = cut.FindComponents<VmButton>()
-            .First(b => b.Markup.Contains("NUEVO TEMPLATE"));
+            .First(b => b.Markup.Contains("Nuevo template"));
         nuevoButton.Find("button").Click();
 
         cut.WaitForAssertion(() =>
