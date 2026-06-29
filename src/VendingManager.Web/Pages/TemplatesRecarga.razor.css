@@ -1,5 +1,10 @@
 /* TemplatesRecarga.razor — Page-specific CSS (Blazor CSS Isolation) */
 
+/* === KEYFRAMES === */
+@keyframes recBlink {
+    50% { opacity: 0; }
+}
+
 /* === INLINE STYLE MIGRATIONS === */
 
 /* Template name truncation on desktop */
@@ -556,7 +561,7 @@
     justify-content: space-between;
     align-items: flex-end;
     gap: 18px;
-    border-bottom: var(--border-3);
+    border-bottom: 3px solid var(--ink-900);
     padding-bottom: 14px;
     flex-wrap: wrap;
 }
@@ -582,6 +587,10 @@
     letter-spacing: var(--tracking-tight);
     font-size: var(--fs-lg);
     line-height: var(--lh-tight);
+}
+
+.rec-cursor {
+    animation: recBlink 1s steps(1) infinite;
 }
 
 .rec-subtitle {
