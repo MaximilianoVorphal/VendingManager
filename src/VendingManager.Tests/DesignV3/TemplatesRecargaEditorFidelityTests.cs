@@ -285,6 +285,25 @@ public class TemplatesRecargaEditorFidelityTests : TestContext
         activeCount.Should().Be(1, "exactly one density button must be active by default");
     }
 
+    [Fact]
+    public void Editor_Toolbar_SearchAndDensity_CssProperties()
+    {
+        // Recarga.dc.html line 198: search input width:204px, mono 0.76rem, 2px black border
+        // Recarga.dc.html line 199-204: density toggle group, 2px black border
+        var cssPath = Path.Combine(
+            AppContext.BaseDirectory, "..", "..", "..", "..", "..",
+            "src", "VendingManager.Web", "Pages", "TemplatesRecarga.razor.css");
+        var css = File.ReadAllText(Path.GetFullPath(cssPath));
+
+        // Search: 204px wide
+        css.Should().MatchRegex(@"\.rec-search\s*\{[^}]*width:\s*204px");
+        // Search: 2px black border (or token)
+        css.Should().MatchRegex(@"\.rec-search\s*\{[^}]*border:\s*(?:2px\s+solid\s+var\(--ink-900\)|var\(--border-2\))");
+
+        // Density container: 2px black border
+        css.Should().MatchRegex(@"\.rec-density\s*\{[^}]*border:\s*(?:2px\s+solid\s+var\(--ink-900\)|var\(--border-2\))");
+    }
+
     // =====================================================================
     // TASK-3b.6: PISOS sections
     // =====================================================================
