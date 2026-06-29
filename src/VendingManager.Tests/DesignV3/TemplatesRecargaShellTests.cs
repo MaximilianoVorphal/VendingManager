@@ -157,6 +157,136 @@ public class TemplatesRecargaShellTests : TestContext
         vmSlotCards.Should().BeEmpty();
     }
 
+    [Fact]
+    public void SoloPendientes_FiltersTable()
+    {
+        var cut = RenderComponent<TemplatesTestHost>();
+
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Template Activo"));
+
+        var rowsBefore = cut.FindAll("table tbody tr");
+        rowsBefore.Count.Should().Be(2);
+
+        var pendientesButton = cut.FindAll("button")
+            .First(b => b.TextContent.Contains("Pendientes"));
+        pendientesButton.Click();
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.FindAll("table tbody tr").Count.Should().Be(1);
+            cut.Markup.Should().Contain("rec-pbtn--active");
+        });
+    }
+
+    [Fact]
+    public void Editor_OpensOnAbrirClick()
+    {
+        var cut = RenderComponent<TemplatesTestHost>();
+
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Template Activo"));
+
+        var abrirButton = cut.FindComponents<VmButton>()
+            .First(b => b.Markup.Contains("Abrir"));
+        abrirButton.Find("button").Click();
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("rec-topbar");
+            cut.Markup.Should().Contain("rec-rail");
+            cut.Markup.Should().Contain("MAQUINAS · 1");
+        });
+
+        cut.Markup.Should().Contain("Volver");
+        cut.FindComponents<VmButton>().Count(b =>
+            b.Markup.Contains("Editar") ||
+            b.Markup.Contains("Analizar stockout") ||
+            b.Markup.Contains("Sincronizar todo") ||
+            b.Markup.Contains("Finalizar")).Should().BeGreaterOrEqualTo(3);
+
+        var railCards = cut.FindAll(".rec-mcard");
+        railCards.Count.Should().Be(1);
+        railCards[0].InnerHtml.Should().Contain("<select");
+        railCards[0].InnerHtml.Should().Contain("configurados");
+    }
+
+    [Fact]
+    public void Editor_EstanteriaHeader_HasSearchAndToolbar()
+    {
+        var cut = RenderComponent<TemplatesTestHost>();
+
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Template Activo"));
+
+        cut.FindComponents<VmButton>().First(b => b.Markup.Contains("Abrir")).Find("button").Click();
+
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Buscar slot o producto"));
+
+        var density = cut.Find(".rec-density");
+        density.InnerHtml.Should().Contain("Comoda");
+        density.InnerHtml.Should().Contain("Compacta");
+
+        cut.FindComponents<VmButton>().Should().Contain(b => b.Markup.Contains("Foto recarga"));
+        cut.FindComponents<VmButton>().Should().Contain(b => b.Markup.Contains("Foto guia"));
+    }
+
+    [Fact]
+    public void Editor_DensityToggle_AddsIsCompact()
+    {
+        var cut = RenderComponent<TemplatesTestHost>();
+
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Template Activo"));
+
+        cut.FindComponents<VmButton>().First(b => b.Markup.Contains("Abrir")).Find("button").Click();
+
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("rec-grid"));
+
+        cut.Markup.Should().NotContain("rec-grid is-compact");
+
+        var compactaButton = cut.FindAll(".rec-density__btn")
+            .First(b => b.TextContent.Contains("Compacta"));
+        compactaButton.Click();
+
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("rec-grid is-compact"));
+    }
+
+    [Fact]
+    public void Editor_Estanteria_HasPisoAndSlots()
+    {
+        var cut = RenderComponent<TemplatesTestHost>();
+
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Template Activo"));
+
+        cut.FindComponents<VmButton>().First(b => b.Markup.Contains("Abrir")).Find("button").Click();
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("PISO 1");
+            cut.Markup.Should().Contain("rec-slot");
+        });
+
+        cut.Markup.Should().Contain("Slot A1");
+        cut.Markup.Should().Contain("−");
+        cut.Markup.Should().Contain("+");
+        cut.Markup.Should().Contain("MAX");
+    }
+
+    [Fact]
+    public void Editor_BottomBar_TotalsAndActions()
+    {
+        var cut = RenderComponent<TemplatesTestHost>();
+
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Template Activo"));
+
+        cut.FindComponents<VmButton>().First(b => b.Markup.Contains("Abrir")).Find("button").Click();
+
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Carga maquina"));
+
+        cut.Markup.Should().Contain("u.");
+
+        cut.FindComponents<VmButton>().Should().Contain(b => b.Markup.Contains("Vaciar maquina"));
+        cut.FindComponents<VmButton>().Should().Contain(b => b.Markup.Contains("Reset"));
+        cut.FindComponents<VmButton>().Should().Contain(b => b.Markup.Contains("Guardar carga"));
+    }
+
     private class TemplatesMockHttpMessageHandler : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
