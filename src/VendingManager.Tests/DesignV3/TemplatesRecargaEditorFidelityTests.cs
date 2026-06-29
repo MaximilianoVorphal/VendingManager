@@ -453,8 +453,12 @@ public class TemplatesRecargaEditorFidelityTests : TestContext
         // "Carga maquina" small mono uppercase
         bottom.InnerHtml.Should().Contain("Carga maquina");
 
-        // "{units} / {cap} u." large sans
-        bottom.InnerHtml.Should().MatchRegex(@"\d+\s*/\s*\d+\s*u\.");
+        // Totals: bold units + muted cap "u." (split across nested span)
+        var totals = bottom.QuerySelector(".rec-bottombar-totals");
+        totals.Should().NotBeNull("bottom bar must have a totals element");
+        var cap = bottom.QuerySelector(".rec-bottombar-cap");
+        cap.Should().NotBeNull("totals must have a muted cap span");
+        cap!.TextContent.Should().Contain("u.");
 
         // Buttons
         cut.FindComponents<VmButton>().Should().Contain(b => b.Markup.Contains("Vaciar maquina"));
@@ -472,6 +476,18 @@ public class TemplatesRecargaEditorFidelityTests : TestContext
 
         // --border-2 token resolves to 2px solid var(--ink-900).
         css.Should().MatchRegex(@"\.rec-bottombar\s*\{[^}]*border-top:\s*(?:2px\s+solid\s+var\(--ink-900\)|var\(--border-2\))");
+    }
+
+    [Fact]
+    public void Editor_BottomBar_CapPart_HasMutedStyle()
+    {
+        // Recarga.dc.html line 256: / {cap} u. in muted color
+        var cssPath = Path.Combine(
+            AppContext.BaseDirectory, "..", "..", "..", "..", "..",
+            "src", "VendingManager.Web", "Pages", "TemplatesRecarga.razor.css");
+        var css = File.ReadAllText(Path.GetFullPath(cssPath));
+
+        css.Should().MatchRegex(@"\.rec-bottombar-cap\s*\{[^}]*color:\s*var\(--text-muted\)");
     }
 
     // =====================================================================
