@@ -42,7 +42,7 @@
             var path = new Uri(NavManager.Uri).AbsolutePath.Trim('/').ToLowerInvariant();
             return path switch
             {
-                "" or "informe-ventas" or "analisis-ventas" or "templates-recarga" => true,
+                "" or "informe-ventas" or "analisis-ventas" => true,
                 _ => false
             };
         }

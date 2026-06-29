@@ -61,6 +61,19 @@ public class MachineOnlineMountTests : TestContext
         cut.Markup.Should().NotContain("MÁQUINAS ONLINE");
     }
 
+    [Fact]
+    public void MainLayout_HidesMachineOnlinePanel_OnTemplatesRecarga()
+    {
+        var nav = Services.GetRequiredService<NavigationManager>() as FakeNavigationManager;
+        nav?.NavigateTo("/templates-recarga");
+
+        var cut = RenderComponent<MainLayoutTestHost>(parameters => parameters
+            .Add(p => p.BodyContent, (RenderFragment)(builder =>
+                builder.AddMarkupContent(0, "<p data-testid=\"body\">page body</p>"))));
+
+        cut.WaitForAssertion(() => cut.Markup.Should().NotContain("MÁQUINAS ONLINE"));
+    }
+
     private class MainLayoutTestHost : ComponentBase
     {
         [Parameter] public RenderFragment? BodyContent { get; set; }
