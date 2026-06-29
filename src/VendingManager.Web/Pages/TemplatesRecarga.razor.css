@@ -616,8 +616,8 @@
 }
 
 .rec-slot-vacio-tag {
-    background: #fde047;
-    color: #92400e;
+    background: var(--slot-vacio-bg);
+    color: var(--slot-vacio-ink);
     font-family: var(--font-mono);
     font-size: 0.56rem;
     font-weight: var(--fw-bold);
@@ -640,7 +640,7 @@
     width: 100%;
     text-align: left;
     background: var(--bg-surface-inset);
-    border: 1px solid #e5e7eb;
+    border: 1px solid var(--slot-pick-border);
     border-radius: 6px;
     padding: 9px 11px;
     cursor: pointer;

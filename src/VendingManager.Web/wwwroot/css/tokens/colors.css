@@ -33,6 +33,11 @@
   --tint-pack:    #fef3cd;  /* desglosed pack (EAN) row                     */
   --tint-empty:   #fef9c3;  /* empty slot card                              */
 
+  /* Slot card subsystem (industrial-terminal exception — softer than core) */
+  --slot-vacio-bg:  #fde047;  /* "Vacío" tag background on SlotCard         */
+  --slot-vacio-ink: #92400e;  /* "Vacío" tag foreground on SlotCard         */
+  --slot-pick-border: #e5e7eb;/* SlotCard product-pick button border         */
+
   /* =====================================================================
      SEMANTIC ALIASES — prefer these in components
      ===================================================================== */
