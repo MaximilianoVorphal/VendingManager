@@ -1045,8 +1045,10 @@
 
 .rec-slot {
     background: var(--paper-0);
-    border: var(--border-1);
-    border-radius: var(--radius-soft);
+    /* SlotCard is the design system EXCEPTION: 1px gray border + radius 6px + soft shadow.
+       Documented in design system handoff: "SlotCard es la excepción al sistema brutalista". */
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
     box-shadow: var(--shadow-soft);
     padding: 12px 14px;
     display: flex;

@@ -364,13 +364,14 @@ public class TemplatesRecargaEditorFidelityTests : TestContext
         var css = File.ReadAllText(Path.GetFullPath(cssPath));
 
         // − and + buttons: 44x42, 2px black border
+        // --border-2 token resolves to 2px solid var(--ink-900).
         css.Should().MatchRegex(@"\.rec-slot-step\s*\{[^}]*width:\s*44px");
         css.Should().MatchRegex(@"\.rec-slot-step\s*\{[^}]*height:\s*42px");
-        css.Should().MatchRegex(@"\.rec-slot-step\s*\{[^}]*border:\s*2px\s+solid\s+var\(--ink-900\)");
+        css.Should().MatchRegex(@"\.rec-slot-step\s*\{[^}]*border:\s*(?:2px\s+solid\s+var\(--ink-900\)|var\(--border-2\))");
 
         // MÁX button: 42px height, 2px black border, black bg
         css.Should().MatchRegex(@"\.rec-slot-max\s*\{[^}]*height:\s*42px");
-        css.Should().MatchRegex(@"\.rec-slot-max\s*\{[^}]*border:\s*2px\s+solid\s+var\(--ink-900\)");
+        css.Should().MatchRegex(@"\.rec-slot-max\s*\{[^}]*border:\s*(?:2px\s+solid\s+var\(--ink-900\)|var\(--border-2\))");
         css.Should().MatchRegex(@"\.rec-slot-max\s*\{[^}]*background:\s*var\(--ink-900\)");
         css.Should().MatchRegex(@"\.rec-slot-max\s*\{[^}]*color:\s*var\(--paper-0\)");
     }
@@ -407,7 +408,8 @@ public class TemplatesRecargaEditorFidelityTests : TestContext
             "src", "VendingManager.Web", "Pages", "TemplatesRecarga.razor.css");
         var css = File.ReadAllText(Path.GetFullPath(cssPath));
 
-        css.Should().MatchRegex(@"\.rec-bottombar\s*\{[^}]*border-top:\s*2px\s+solid\s+var\(--ink-900\)");
+        // --border-2 token resolves to 2px solid var(--ink-900).
+        css.Should().MatchRegex(@"\.rec-bottombar\s*\{[^}]*border-top:\s*(?:2px\s+solid\s+var\(--ink-900\)|var\(--border-2\))");
     }
 
     // =====================================================================

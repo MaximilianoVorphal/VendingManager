@@ -343,7 +343,7 @@
                             </div>
                             <div class="d-flex gap-2">
                                 <input type="date" class="form-control form-control-sm border-2 border-dark rounded-0" style="flex:1;min-width:0;font-family:var(--font-mono);font-size:0.7rem;" value="@periodo.FechaRecargaText" @onchange="e => OnFechaRecargaDateChanged(idx, e.Value?.ToString())" @onclick:stopPropagation="true" />
-                                <input type="text" class="form-control form-control-sm border-2 border-dark rounded-0" style="width:84px;font-family:var(--font-mono);font-size:0.7rem;" value="@periodo.HoraRecargaText" @onchange="e => OnHoraRecargaChanged(idx, e.Value?.ToString())" @onclick:stopPropagation="true" />
+                                <input type="time" class="form-control form-control-sm border-2 border-dark rounded-0" style="width:84px;font-family:var(--font-mono);font-size:0.7rem;" value="@periodo.HoraRecargaText" @onchange="e => OnHoraRecargaChanged(idx, e.Value?.ToString())" @onclick:stopPropagation="true" />
                             </div>
                             <div class="rec-carga">
                                 <div class="rec-bar"><div class="rec-bar__fill rec-bar--@(pct >= 80 ? "good" : pct >= 30 ? "warning" : "danger")" style="width:@pct%"></div></div>
