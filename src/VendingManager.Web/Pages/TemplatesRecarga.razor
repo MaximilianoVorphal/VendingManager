@@ -277,7 +277,7 @@
         <!-- Top bar -->
         <div class="rec-topbar d-flex justify-content-between align-items-center flex-wrap gap-3 pb-3 mb-4">
             <div class="d-flex align-items-center gap-3 flex-wrap">
-                <VmButton Variant="dark" Icon="bi-arrow-left" OnClick="CerrarEdicionVisual">Volver</VmButton>
+                <VmButton Variant="outline" Icon="bi-arrow-left" OnClick="CerrarEdicionVisual">Volver</VmButton>
                 <h2 class="rec-title m-0">@maquinaNombre</h2>
                 <span class="rec-tag rec-tag--@estadoVariant">@estado</span>
                 <small class="rec-subtitle">@descripcion</small>
@@ -288,11 +288,11 @@
                 <VmButton Variant="outline" Size="sm" Icon="bi-arrow-repeat" OnClick="SincronizarTemplateActual">Sincronizar todo</VmButton>
                 @if (templateActual?.Estado == EstadoTemplate.Terminado)
                 {
-                    <span class="rec-finalizado"><i class="bi bi-check-circle"></i>Finalizado</span>
+                    <span class="rec-finalizado"><i class="bi bi-check2-circle"></i>Finalizado</span>
                 }
                 else
                 {
-                    <VmButton Variant="dark" Size="sm" Icon="bi-check-circle" OnClick="TerminarTemplateActual">Finalizar</VmButton>
+                    <VmButton Variant="dark" Size="sm" Icon="bi-check2-circle" OnClick="TerminarTemplateActual">Finalizar</VmButton>
                 }
             </div>
         </div>
