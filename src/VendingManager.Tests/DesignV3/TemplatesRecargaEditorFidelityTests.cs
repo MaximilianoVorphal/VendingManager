@@ -232,6 +232,19 @@ public class TemplatesRecargaEditorFidelityTests : TestContext
         css.Should().MatchRegex(@"\.rec-icon-tile\s*\{[^}]*color:\s*var\(--paper-0\)");
     }
 
+    [Fact]
+    public void Editor_EstanteriaHeader_CssHasTwoPxBlackBottomBorder()
+    {
+        // Recarga.dc.html line 189: border-bottom:2px solid var(--ink-900)
+        // --border-2 token resolves to 2px solid var(--ink-900).
+        var cssPath = Path.Combine(
+            AppContext.BaseDirectory, "..", "..", "..", "..", "..",
+            "src", "VendingManager.Web", "Pages", "TemplatesRecarga.razor.css");
+        var css = File.ReadAllText(Path.GetFullPath(cssPath));
+
+        css.Should().MatchRegex(@"\.rec-est-header\s*\{[^}]*border-bottom:\s*(?:2px\s+solid\s+var\(--ink-900\)|var\(--border-2\))");
+    }
+
     // =====================================================================
     // TASK-3b.5: Estanteria toolbar
     // =====================================================================
