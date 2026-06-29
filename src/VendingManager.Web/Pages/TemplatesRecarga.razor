@@ -277,7 +277,7 @@
         <!-- Top bar -->
         <div class="rec-topbar d-flex justify-content-between align-items-center flex-wrap gap-3 pb-3 mb-4">
             <div class="d-flex align-items-center gap-3 flex-wrap">
-                <VmButton Variant="dark" Icon="bi-arrow-left" OnClick="CerrarEdicionVisual">Volver</VmButton>
+                <VmButton Variant="outline" Icon="bi-arrow-left" OnClick="CerrarEdicionVisual">Volver</VmButton>
                 <h2 class="rec-title m-0">@maquinaNombre</h2>
                 <span class="rec-tag rec-tag--@estadoVariant">@estado</span>
                 <small class="rec-subtitle">@descripcion</small>
@@ -288,11 +288,11 @@
                 <VmButton Variant="outline" Size="sm" Icon="bi-arrow-repeat" OnClick="SincronizarTemplateActual">Sincronizar todo</VmButton>
                 @if (templateActual?.Estado == EstadoTemplate.Terminado)
                 {
-                    <span class="rec-finalizado"><i class="bi bi-check-circle"></i>Finalizado</span>
+                    <span class="rec-finalizado"><i class="bi bi-check2-circle"></i>Finalizado</span>
                 }
                 else
                 {
-                    <VmButton Variant="dark" Size="sm" Icon="bi-check-circle" OnClick="TerminarTemplateActual">Finalizar</VmButton>
+                    <VmButton Variant="dark" Size="sm" Icon="bi-check2-circle" OnClick="TerminarTemplateActual">Finalizar</VmButton>
                 }
             </div>
         </div>
@@ -343,7 +343,7 @@
                             </div>
                             <div class="d-flex gap-2">
                                 <input type="date" class="form-control form-control-sm border-2 border-dark rounded-0" style="flex:1;min-width:0;font-family:var(--font-mono);font-size:0.7rem;" value="@periodo.FechaRecargaText" @onchange="e => OnFechaRecargaDateChanged(idx, e.Value?.ToString())" @onclick:stopPropagation="true" />
-                                <input type="text" class="form-control form-control-sm border-2 border-dark rounded-0" style="width:84px;font-family:var(--font-mono);font-size:0.7rem;" value="@periodo.HoraRecargaText" @onchange="e => OnHoraRecargaChanged(idx, e.Value?.ToString())" @onclick:stopPropagation="true" />
+                                <input type="time" class="form-control form-control-sm border-2 border-dark rounded-0" style="width:84px;font-family:var(--font-mono);font-size:0.7rem;" value="@periodo.HoraRecargaText" @onchange="e => OnHoraRecargaChanged(idx, e.Value?.ToString())" @onclick:stopPropagation="true" />
                             </div>
                             <div class="rec-carga">
                                 <div class="rec-bar"><div class="rec-bar__fill rec-bar--@(pct >= 80 ? "good" : pct >= 30 ? "warning" : "danger")" style="width:@pct%"></div></div>
@@ -462,7 +462,7 @@
                     }
                     <div class="d-flex align-items-center gap-3 flex-wrap">
                         <small class="rec-subtitle">Carga maquina</small>
-                        <span class="rec-bottombar-totals">@bottomUnits / @bottomCap u.</span>
+                        <span class="rec-bottombar-totals">@bottomUnits <span class="rec-bottombar-cap">/ @bottomCap u.</span></span>
                         @if (bottomVacios > 0)
                         {
                             <span class="rec-bottombar-vacios">@bottomVacios slots vacios</span>
