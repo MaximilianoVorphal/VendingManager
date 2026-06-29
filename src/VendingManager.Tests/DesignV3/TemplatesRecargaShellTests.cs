@@ -193,7 +193,7 @@ public class TemplatesRecargaShellTests : TestContext
         {
             cut.Markup.Should().Contain("rec-topbar");
             cut.Markup.Should().Contain("rec-rail");
-            cut.Markup.Should().Contain("MAQUINAS · 1");
+            cut.Markup.Should().Contain("MÁQUINAS · 1");
         });
 
         cut.Markup.Should().Contain("Volver");
