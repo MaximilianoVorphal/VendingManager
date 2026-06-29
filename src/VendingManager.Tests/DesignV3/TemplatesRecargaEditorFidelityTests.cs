@@ -209,9 +209,9 @@ public class TemplatesRecargaEditorFidelityTests : TestContext
         iconTile.Should().NotBeNull("estanteria header must have a grid icon tile");
         iconTile!.ClassList.Should().Contain("rec-icon-tile");
 
-        // Title: "Estanteria · Maquina {id}" (uppercase via CSS)
-        header.InnerHtml.Should().Contain("Estanteria");
-        header.InnerHtml.Should().Contain("Maquina");
+        // Title: "Estantería · Máquina {id}" (uppercase via CSS)
+        header.InnerHtml.Should().Contain("Estantería");
+        header.InnerHtml.Should().Contain("Máquina");
 
         // Subtitle: "{pct}% LLENO · {N} SLOTS"
         header.InnerHtml.Should().Contain("LLENO");
@@ -438,6 +438,29 @@ public class TemplatesRecargaEditorFidelityTests : TestContext
         cut.Markup.Should().Contain("$1.200");
     }
 
+    [Fact]
+    public void Editor_SlotCard_ShowsDash_WhenSlotHasNoPrice()
+    {
+        // REQ-FID-2 dash scenario: empty/no-price slots must render $— in the
+        // price span (not omit it). Mock data: slot A1 has ProductoId=null,
+        // Estado=0 (Vacio) — marked with .rec-slot-empty class.
+        var cut = RenderComponent<EditorFidelityTestHost>();
+        OpenEditor(cut);
+
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("rec-slot-empty"));
+
+        // The empty slot card must contain a price span with $— text.
+        // Use regex on the full markup to scope the assertion to the empty
+        // slot's HTML (Bunit.IElement.QuerySelector scoping is unreliable
+        // across bunit versions, so a markup-level regex is the safest
+        // approach to assert the price span lives INSIDE the empty slot).
+        // The regex uses [\s\S] instead of . to match across newlines because
+        // Blazor renders the slot HTML across multiple lines.
+        cut.Markup.Should().MatchRegex(
+            @"<div\s+class=""rec-slot\s+rec-slot-empty""[^>]*>[\s\S]*?<span\s+class=""rec-slot-price[^""]*""[^>]*>\s*\$\u2014\s*</span>[\s\S]*?</div>",
+            "empty slot must render a <span class='rec-slot-price'>$—</span> per REQ-FID-2");
+    }
+
     // =====================================================================
     // TASK-3b.8: Bottom bar
     // =====================================================================
@@ -450,8 +473,8 @@ public class TemplatesRecargaEditorFidelityTests : TestContext
 
         var bottom = cut.Find(".rec-bottombar");
 
-        // "Carga maquina" small mono uppercase
-        bottom.InnerHtml.Should().Contain("Carga maquina");
+        // "Carga máquina" small mono uppercase
+        bottom.InnerHtml.Should().Contain("Carga máquina");
 
         // Totals: bold units + muted cap "u." (split across nested span)
         var totals = bottom.QuerySelector(".rec-bottombar-totals");
@@ -461,7 +484,7 @@ public class TemplatesRecargaEditorFidelityTests : TestContext
         cap!.TextContent.Should().Contain("u.");
 
         // Buttons
-        cut.FindComponents<VmButton>().Should().Contain(b => b.Markup.Contains("Vaciar maquina"));
+        cut.FindComponents<VmButton>().Should().Contain(b => b.Markup.Contains("Vaciar máquina"));
         cut.FindComponents<VmButton>().Should().Contain(b => b.Markup.Contains("Reset"));
         cut.FindComponents<VmButton>().Should().Contain(b => b.Markup.Contains("Guardar carga"));
     }
@@ -537,7 +560,7 @@ public class TemplatesRecargaEditorFidelityTests : TestContext
                         ProductoNombre = "",
                         CantidadInicial = 0,
                         CapacidadSlot = 5,
-                        Estado = 1
+                        Estado = 0
                     },
                     new
                     {
@@ -546,7 +569,7 @@ public class TemplatesRecargaEditorFidelityTests : TestContext
                         ProductoNombre = "Coca Cola",
                         CantidadInicial = 3,
                         CapacidadSlot = 5,
-                        Estado = 0
+                        Estado = 2
                     }
                 });
                 return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
@@ -589,7 +612,7 @@ public class TemplatesRecargaEditorFidelityTests : TestContext
                                         ProductoNombre = "",
                                         CantidadInicial = 0,
                                         CapacidadSlot = 5,
-                                        Estado = 1
+                                        Estado = 0
                                     },
                                     new
                                     {
@@ -599,7 +622,7 @@ public class TemplatesRecargaEditorFidelityTests : TestContext
                                         ProductoNombre = "Coca Cola",
                                         CantidadInicial = 3,
                                         CapacidadSlot = 5,
-                                        Estado = 0
+                                        Estado = 2
                                     }
                                 }
                             }
