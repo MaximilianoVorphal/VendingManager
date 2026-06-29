@@ -209,9 +209,9 @@ public class TemplatesRecargaEditorFidelityTests : TestContext
         iconTile.Should().NotBeNull("estanteria header must have a grid icon tile");
         iconTile!.ClassList.Should().Contain("rec-icon-tile");
 
-        // Title: "Estanteria · Maquina {id}" (uppercase via CSS)
-        header.InnerHtml.Should().Contain("Estanteria");
-        header.InnerHtml.Should().Contain("Maquina");
+        // Title: "Estantería · Máquina {id}" (uppercase via CSS)
+        header.InnerHtml.Should().Contain("Estantería");
+        header.InnerHtml.Should().Contain("Máquina");
 
         // Subtitle: "{pct}% LLENO · {N} SLOTS"
         header.InnerHtml.Should().Contain("LLENO");
@@ -473,8 +473,8 @@ public class TemplatesRecargaEditorFidelityTests : TestContext
 
         var bottom = cut.Find(".rec-bottombar");
 
-        // "Carga maquina" small mono uppercase
-        bottom.InnerHtml.Should().Contain("Carga maquina");
+        // "Carga máquina" small mono uppercase
+        bottom.InnerHtml.Should().Contain("Carga máquina");
 
         // Totals: bold units + muted cap "u." (split across nested span)
         var totals = bottom.QuerySelector(".rec-bottombar-totals");
@@ -484,7 +484,7 @@ public class TemplatesRecargaEditorFidelityTests : TestContext
         cap!.TextContent.Should().Contain("u.");
 
         // Buttons
-        cut.FindComponents<VmButton>().Should().Contain(b => b.Markup.Contains("Vaciar maquina"));
+        cut.FindComponents<VmButton>().Should().Contain(b => b.Markup.Contains("Vaciar máquina"));
         cut.FindComponents<VmButton>().Should().Contain(b => b.Markup.Contains("Reset"));
         cut.FindComponents<VmButton>().Should().Contain(b => b.Markup.Contains("Guardar carga"));
     }

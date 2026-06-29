@@ -322,7 +322,7 @@
             <aside class="rec-rail">
                 <div class="rec-rail-header px-3 py-2">
                     <span class="rec-cell-mono">MÁQUINAS · @(PeriodosActuales.Count)</span>
-                    <small class="rec-subtitle">Periodo por maquina · clic para ver grilla</small>
+                    <small class="rec-subtitle">Período por máquina · clic para ver grilla</small>
                 </div>
                 <div style="flex: 1; min-height: 0; overflow: auto; padding: 11px; display: flex; flex-direction: column; gap: 11px;">
                     @for (int i = 0; i < PeriodosActuales.Count; i++)
@@ -339,7 +339,7 @@
                                         <option value="@m.Id">@m.Nombre</option>
                                     }
                                 </select>
-                                <button class="rec-mcard-del" @onclick="() => EliminarPeriodo(idx)" @onclick:stopPropagation="true" aria-label="Quitar maquina"><i class="bi bi-trash"></i></button>
+                                <button class="rec-mcard-del" @onclick="() => EliminarPeriodo(idx)" @onclick:stopPropagation="true" aria-label="Quitar máquina"><i class="bi bi-trash"></i></button>
                             </div>
                             <div class="d-flex gap-2">
                                 <input type="date" class="form-control form-control-sm border-2 border-dark rounded-0" style="flex:1;min-width:0;font-family:var(--font-mono);font-size:0.7rem;" value="@periodo.FechaRecargaText" @onchange="e => OnFechaRecargaDateChanged(idx, e.Value?.ToString())" @onclick:stopPropagation="true" />
@@ -353,14 +353,14 @@
                                 <small class="rec-mcard-config">@stats.configured/@stats.total configurados</small>
                                 @if (stats.vacios > 0)
                                 {
-                                    <span class="rec-mcard-vacios">@stats.vacios vacios</span>
+                                    <span class="rec-mcard-vacios">@stats.vacios vacíos</span>
                                 }
                             </div>
                         </div>
                     }
                 </div>
                 <div style="flex-shrink: 0; border-top: var(--border-2); padding: 11px;">
-                    <VmButton Variant="outline" Icon="bi-plus-lg" Block="true" OnClick="AgregarPeriodo">Agregar maquina</VmButton>
+                    <VmButton Variant="outline" Icon="bi-plus-lg" Block="true" OnClick="AgregarPeriodo">Agregar máquina</VmButton>
                 </div>
             </aside>
 
@@ -370,7 +370,7 @@
                     <div class="d-flex align-items-center gap-3">
                         <div class="rec-icon-tile"><i class="bi bi-grid-3x3-gap-fill"></i></div>
                         <div>
-                            <h3 class="m-0">Estanteria · Maquina @(PeriodoEnEdicionVisual.MaquinaId)</h3>
+                            <h3 class="m-0">Estantería · Máquina @(PeriodoEnEdicionVisual.MaquinaId)</h3>
                             <small class="rec-subtitle">@(GetEstanteriaPct())% LLENO · @(PeriodoEnEdicionVisual.SnapshotSlots.Count) SLOTS</small>
                         </div>
                     </div>
@@ -399,7 +399,7 @@
                     @if (!filteredSlots.Any())
                     {
                         <div class="rec-no-rows">
-                            <p>Ningun slot coincide con "@SlotSearch"</p>
+                            <p>Ningún slot coincide con "@SlotSearch"</p>
                         </div>
                     }
                     else
@@ -423,7 +423,7 @@
                                                     <span class="rec-slot-id">Slot @slot.NumeroSlot</span>
                                                     @if (empty)
                                                     {
-                                                        <span class="rec-slot-vacio-tag">Vacio</span>
+                                                        <span class="rec-slot-vacio-tag">Vacío</span>
                                                     }
                                                 </div>
                                                 @if (MostrarPrecios)
@@ -468,15 +468,15 @@
                         var bottomVacios = bottomSlots.Count(s => s.Estado == EstadoSlot.Vacio);
                     }
                     <div class="d-flex align-items-center gap-3 flex-wrap">
-                        <small class="rec-subtitle">Carga maquina</small>
+                        <small class="rec-subtitle">Carga máquina</small>
                         <span class="rec-bottombar-totals">@bottomUnits <span class="rec-bottombar-cap">/ @bottomCap u.</span></span>
                         @if (bottomVacios > 0)
                         {
-                            <span class="rec-bottombar-vacios">@bottomVacios slots vacios</span>
+                            <span class="rec-bottombar-vacios">@bottomVacios slots vacíos</span>
                         }
                     </div>
                     <div class="d-flex gap-2 flex-wrap">
-                        <VmButton Variant="danger" Size="sm" Icon="bi-trash" OnClick="VaciarMaquina">Vaciar maquina</VmButton>
+                        <VmButton Variant="danger" Size="sm" Icon="bi-trash" OnClick="VaciarMaquina">Vaciar máquina</VmButton>
                         <VmButton Variant="outline" Size="sm" Icon="bi-arrow-counterclockwise" OnClick="ResetSlots">Reset</VmButton>
                         <VmButton Variant="dark" Size="sm" Icon="bi-save" OnClick="GuardarCarga">Guardar carga</VmButton>
                     </div>
