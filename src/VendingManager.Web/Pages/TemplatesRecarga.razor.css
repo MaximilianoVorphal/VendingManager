@@ -1306,7 +1306,7 @@
     right: 22px;
     z-index: 3000;
     background: var(--ink-900);
-    color: #fff;
+    color: var(--paper-0);
     border: 2px solid var(--ink-900);
     box-shadow: 5px 5px 0 rgba(0, 0, 0, 0.2);
     padding: 13px 17px;
