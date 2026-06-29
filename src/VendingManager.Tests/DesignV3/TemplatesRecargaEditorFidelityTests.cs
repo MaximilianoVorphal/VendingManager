@@ -341,6 +341,22 @@ public class TemplatesRecargaEditorFidelityTests : TestContext
         css.Should().MatchRegex(@"\.rec-grid\s*\{[^}]*gap:\s*12px");
     }
 
+    [Fact]
+    public void Editor_Pisos_PisoTagCss_BlackBgWhiteMono()
+    {
+        // Recarga.dc.html line 214: background:var(--ink-900); color:#fff; font-family:var(--font-mono);
+        // font-size:0.7rem; padding:4px 12px; text-transform:uppercase
+        var cssPath = Path.Combine(
+            AppContext.BaseDirectory, "..", "..", "..", "..", "..",
+            "src", "VendingManager.Web", "Pages", "TemplatesRecarga.razor.css");
+        var css = File.ReadAllText(Path.GetFullPath(cssPath));
+
+        css.Should().MatchRegex(@"\.rec-piso-tag\s*\{[^}]*background:\s*var\(--ink-900\)");
+        css.Should().MatchRegex(@"\.rec-piso-tag\s*\{[^}]*color:\s*var\(--paper-0\)");
+        css.Should().MatchRegex(@"\.rec-piso-tag\s*\{[^}]*padding:\s*4px\s+12px");
+        css.Should().MatchRegex(@"\.rec-piso-tag\s*\{[^}]*text-transform:\s*uppercase");
+    }
+
     // =====================================================================
     // TASK-3b.7: Slot card
     // =====================================================================
