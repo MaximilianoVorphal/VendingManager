@@ -1173,6 +1173,12 @@
     font-size: var(--fs-lg);
 }
 
+.rec-bottombar-cap {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    font-weight: 400;
+}
+
 .rec-bottombar-vacios {
     background: var(--signal-warning);
     color: var(--ink-900);
