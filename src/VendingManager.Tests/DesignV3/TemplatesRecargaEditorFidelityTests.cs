@@ -424,6 +424,20 @@ public class TemplatesRecargaEditorFidelityTests : TestContext
         css.Should().MatchRegex(@"\.rec-slot-max\s*\{[^}]*color:\s*var\(--paper-0\)");
     }
 
+    [Fact]
+    public void Editor_SlotCard_PriceDisplays_WhenSlotHasProduct()
+    {
+        // REQ-11: price displayed as $N.NNN when slot has matching ProductoId
+        // Mock data: slot A2 has ProductoId=1 with PrecioVenta=1200
+        var cut = RenderComponent<EditorFidelityTestHost>();
+        OpenEditor(cut);
+
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("rec-slot"));
+
+        // The slot card with product should show the formatted price
+        cut.Markup.Should().Contain("$1.200");
+    }
+
     // =====================================================================
     // TASK-3b.8: Bottom bar
     // =====================================================================
