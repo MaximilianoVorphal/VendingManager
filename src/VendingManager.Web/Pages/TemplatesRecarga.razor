@@ -21,8 +21,8 @@
     <div class="rec-header d-flex justify-content-between align-items-end flex-wrap gap-3 pb-3 mb-4">
         <div>
             <span class="rec-breadcrumb">Terreno · Recarga</span>
-            <h1 class="rec-title">Templates de Recarga</h1>
-            <small class="rec-subtitle">Defini periodos por maquina y carga el planograma</small>
+            <h1 class="rec-title">Templates de Recarga<span class="rec-cursor">_</span></h1>
+            <small class="rec-subtitle">Definí períodos por máquina y cargá el planograma</small>
         </div>
         <div class="d-flex gap-2 flex-wrap header-actions">
             <button class="rec-pbtn @(SoloPendientes ? "rec-pbtn--active" : "")" @onclick="() => SoloPendientes = !SoloPendientes">
@@ -100,13 +100,21 @@
                                 }
                             </td>
                             <td>
-                                <span class="rec-cell-mono">@template.FechaRecargaMin?.ToString("dd/MM/yyyy") - @template.FechaFinMax?.ToString("dd/MM/yyyy")</span>
+                                @if (template.FechaRecargaMin?.Date == template.FechaFinMax?.Date)
+                                {
+                                    <span class="rec-cell-mono">@template.FechaRecargaMin?.ToString("dd/MM/yyyy")</span>
+                                }
+                                else
+                                {
+                                    <span class="rec-cell-mono">@template.FechaRecargaMin?.ToString("dd/MM/yyyy") - @template.FechaFinMax?.ToString("dd/MM/yyyy")</span>
+                                }
                             </td>
                             <td>
                                 <div class="rec-chips">
                                     @foreach (var periodo in template.Periodos)
                                     {
-                                        <span>@periodo.MaquinaId</span>
+                                        var idStr = periodo.MaquinaId.ToString();
+                                        <span>@idStr.Substring(Math.Max(0, idStr.Length - 4))</span>
                                     }
                                 </div>
                             </td>
