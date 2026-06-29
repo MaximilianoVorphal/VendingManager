@@ -38,15 +38,15 @@ public class TemplatesRecargaModalTests : TestContext
     }
 
     [Fact]
-    public void EliminarModal_OpensOnEliminarClick_WithDangerAndOutlineButtons()
+    public void EliminarModal_OpensOnRowTrashClick_WithDangerAndOutlineButtons()
     {
         var cut = RenderComponent<TemplatesTestHost>();
 
         cut.WaitForAssertion(() => cut.Markup.Should().Contain("Template Activo"));
 
-        var eliminarButton = cut.FindComponents<VmButton>()
-            .First(b => b.Markup.Contains("ELIMINAR"));
-        eliminarButton.Find("button").Click();
+        var eliminarButton = cut.FindAll("button")
+            .First(b => b.InnerHtml.Contains("bi-trash"));
+        eliminarButton.Click();
 
         cut.WaitForAssertion(() => cut.Markup.Should().Contain("ELIMINAR TEMPLATE"));
 
@@ -63,14 +63,14 @@ public class TemplatesRecargaModalTests : TestContext
     }
 
     [Fact]
-    public void SincronizarGlobalModal_OpensOnSyncAllClick_WithDarkAndOutlineButtons()
+    public void SincronizarGlobalModal_OpensOnHeaderSyncAllClick_WithDarkAndOutlineButtons()
     {
         var cut = RenderComponent<TemplatesTestHost>();
 
-        cut.WaitForAssertion(() => cut.Markup.Should().Contain("SINCRONIZAR TODO"));
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Template Activo"));
 
         var syncAllButton = cut.FindComponents<VmButton>()
-            .First(b => b.Markup.Contains("SINCRONIZAR TODO") && b.Instance.Variant == "dark");
+            .First(b => b.Markup.Contains("Sincronizar todo") && b.Instance.Variant == "dark");
         syncAllButton.Find("button").Click();
 
         cut.WaitForAssertion(() => cut.Markup.Should().Contain("SINCRONIZAR TODOS LOS TEMPLATES"));
@@ -88,14 +88,20 @@ public class TemplatesRecargaModalTests : TestContext
     }
 
     [Fact]
-    public void SincronizarTemplateModal_OpensOnCardSyncClick_WithWarningAndOutlineButtons()
+    public void SincronizarTemplateModal_OpensOnEditorSyncClick_WithWarningAndOutlineButtons()
     {
         var cut = RenderComponent<TemplatesTestHost>();
 
         cut.WaitForAssertion(() => cut.Markup.Should().Contain("Template Activo"));
 
+        cut.FindComponents<VmButton>().First(b => b.Markup.Contains("Abrir")).Find("button").Click();
+
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("rec-editor"));
+
         var syncButton = cut.FindComponents<VmButton>()
-            .First(b => b.Markup.Contains("SINCRONIZAR TODO") && b.Instance.Variant == "warning");
+            .First(b =>
+                b.Markup.Contains("Sincronizar todo") &&
+                b.Instance.Variant == "outline");
         syncButton.Find("button").Click();
 
         cut.WaitForAssertion(() => cut.Markup.Should().Contain("CONFIRMAR SINCRONIZACIÓN"));
@@ -113,14 +119,14 @@ public class TemplatesRecargaModalTests : TestContext
     }
 
     [Fact]
-    public void PendientesModal_OpensOnPendientesClick_WithWarningBadgeAndDarkConfigurar()
+    public void PendientesModal_OpensOnRowSlotsPendientesClick_WithWarningBadgeAndDarkConfigurar()
     {
         var cut = RenderComponent<TemplatesTestHost>();
 
-        cut.WaitForAssertion(() => cut.Markup.Should().Contain("PENDIENTES"));
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Template Activo"));
 
         var pendientesButton = cut.FindComponents<VmButton>()
-            .First(b => b.Markup.Contains("PENDIENTES") && b.Instance.Variant == "warning");
+            .First(b => b.Markup.Contains("Slots pendientes"));
         pendientesButton.Find("button").Click();
 
         cut.WaitForAssertion(() => cut.Markup.Should().Contain("SLOTS PENDIENTES DE CONFIGURAR"));
@@ -132,7 +138,7 @@ public class TemplatesRecargaModalTests : TestContext
 
         var badges = cut.FindComponents<VmBadge>();
         badges.Should().Contain(b =>
-            b.Instance.Variant == "warning" && b.Markup.Contains("PENDIENTE"));
+            b.Instance.Variant == "warning" && b.Markup.Contains("Pendiente"));
 
         var buttons = cut.FindComponents<VmButton>();
         buttons.Should().Contain(b =>
