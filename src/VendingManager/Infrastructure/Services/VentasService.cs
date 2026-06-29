@@ -23,7 +23,7 @@ namespace VendingManager.Infrastructure.Services
         {
             return await context.Productos
                 .OrderBy(p => p.Nombre)
-                .Select(p => new ProductoSimpleDto { Id = p.Id, Nombre = p.Nombre })
+                .Select(p => new ProductoSimpleDto { Id = p.Id, Nombre = p.Nombre, PrecioVenta = p.PrecioVenta })
                 .ToListAsync();
         }
 
