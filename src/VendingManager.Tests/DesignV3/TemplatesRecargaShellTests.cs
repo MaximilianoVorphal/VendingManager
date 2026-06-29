@@ -278,11 +278,11 @@ public class TemplatesRecargaShellTests : TestContext
 
         cut.FindComponents<VmButton>().First(b => b.Markup.Contains("Abrir")).Find("button").Click();
 
-        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Carga maquina"));
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Carga máquina"));
 
         cut.Markup.Should().Contain("u.");
 
-        cut.FindComponents<VmButton>().Should().Contain(b => b.Markup.Contains("Vaciar maquina"));
+        cut.FindComponents<VmButton>().Should().Contain(b => b.Markup.Contains("Vaciar máquina"));
         cut.FindComponents<VmButton>().Should().Contain(b => b.Markup.Contains("Reset"));
         cut.FindComponents<VmButton>().Should().Contain(b => b.Markup.Contains("Guardar carga"));
     }
