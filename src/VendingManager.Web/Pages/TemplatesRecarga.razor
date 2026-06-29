@@ -122,15 +122,10 @@
                             <td>
                                 <div class="rec-actions">
                                     <VmButton Variant="outline" Size="sm" Icon="bi-pencil" OnClick="() => AbrirModalEditar(template)"></VmButton>
-                                    <VmButton Variant="outline" Size="sm" Icon="bi-trash" OnClick="() => TemplateAEliminar = template"></VmButton>
                                     <VmButton Variant="danger" Size="sm" Icon="bi-graph-up" OnClick="() => AnalizarTemplate(template.Id)">Stockout</VmButton>
                                     @if (firstPeriodo != null)
                                     {
                                         <VmButton Variant="dark" Size="sm" Icon="bi-box-arrow-in-right" OnClick="() => AbrirEdicionVisual(template, firstPeriodo)">Abrir</VmButton>
-                                    }
-                                    @if (pendiente)
-                                    {
-                                        <VmButton Variant="outline" Size="sm" Icon="bi-exclamation-circle" OnClick="async () => { TemplateAEliminar = null; await MostrarPendientes(); }">Slots pendientes</VmButton>
                                     }
                                 </div>
                             </td>
@@ -518,55 +513,6 @@
         }
     </div>
 
-    <!-- Floating Action Panel (right side) -->
-    <div class="slot-action-panel">
-        <InputFile OnChange="HandleOcrPhotoUpload" accept="image/*" class="d-none" id="ocrRecargaFileInput" disabled="@ProcesandoOcr" />
-        <button class="slot-action-btn slot-action-btn--primary" @onclick="TriggerOcrUpload" disabled="@ProcesandoOcr"
-                title="Fotos legibles tardan ~5s. Formatos: JPG, PNG, HEIC. Máx 10MB.">
-            @if (_fotoOcrLoading)
-            {
-                <span class="spinner-border spinner-border-sm"></span>
-            }
-            else
-            {
-                <i class="bi bi-camera-fill"></i>
-            }
-            <span class="slot-action-label">FOTO RECARGA</span>
-        </button>
-
-        @if (string.IsNullOrEmpty(FotoGuiaUrl))
-        {
-            <InputFile OnChange="HandleFotoGuiaUpload" accept="image/*" class="d-none" id="fotoGuiaFileInput" />
-            <button class="slot-action-btn slot-action-btn--secondary" @onclick="TriggerFotoGuiaUpload"
-                    title="Cargar foto de referencia (productos)">
-                @if (_fotoGuiaLoading)
-                {
-                    <span class="spinner-border spinner-border-sm"></span>
-                }
-                else
-                {
-                    <i class="bi bi-image"></i>
-                }
-                <span class="slot-action-label">FOTO GUÍA</span>
-            </button>
-        }
-        else
-        {
-            <button class="slot-action-btn slot-action-btn--info" @onclick="MostrarFotoGuiaModal"
-                    title="Ver foto guía">
-                <i class="bi bi-eye"></i>
-                <span class="slot-action-label">VER GUÍA</span>
-            </button>
-        }
-
-        <div class="slot-action-divider"></div>
-
-        <button class="slot-action-btn slot-action-btn--save" @onclick="CerrarEdicionVisual"
-                title="Guardar cambios y volver">
-            <i class="bi bi-save"></i>
-            <span class="slot-action-label">GUARDAR</span>
-        </button>
-    </div>
 }
 
 <!-- MODAL FOTO GUÍA (Photo 2 — reference only, never sent to backend) -->
@@ -623,63 +569,6 @@
                         </button>
                     </div>
                 </div>
-            </div>
-        </div>
-    </div>
-}
-
-<!-- MODAL SLOTS PENDIENTES -->
-@if (MostrarModalPendientes)
-{
-    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5); z-index: 1110;">
-        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
-            <div class="modal-content border-0 bg-transparent shadow-none">
-                <VmCard Header="SLOTS PENDIENTES DE CONFIGURAR" HeaderVariant="dark">
-                    @if (SlotsPendientes == null || !SlotsPendientes.Any())
-                    {
-                        <div class="text-center py-4">
-                            <i class="bi bi-check-circle-fill fs-1 text-success"></i>
-                            <p class="fw-bold mt-2">No hay slots pendientes</p>
-                        </div>
-                    }
-                    else
-                    {
-                        <div class="industrial-stack-table">
-                            <table class="table table-sm table-borderless m-0">
-                                <thead class="text-uppercase small text-muted border-bottom border-dark">
-                                    <tr>
-                                        <th class="fw-bold">Template</th>
-                                        <th class="fw-bold">Máquina</th>
-                                        <th class="fw-bold text-center">Slot</th>
-                                        <th class="fw-bold text-center">Estado</th>
-                                        <th class="fw-bold text-center">Acción</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach (var pend in SlotsPendientes)
-                                    {
-                                        <tr class="border-bottom border-light">
-                                            <td class="fw-bold" data-label="Template">@pend.TemplateNombre</td>
-                                            <td data-label="Máquina">@pend.MaquinaNombre</td>
-                                            <td class="text-center font-monospace fw-bold" data-label="Slot">@pend.NumeroSlot</td>
-                                            <td class="text-center" data-label="Estado">
-                                                <VmBadge Variant="warning">Pendiente</VmBadge>
-                                            </td>
-                                            <td class="text-center" data-label="Acción">
-                                                <VmButton Variant="dark" Size="sm" Icon="bi-pencil" OnClick="() => IrAPendiente(pend)">
-                                                    CONFIGURAR
-                                                </VmButton>
-                                            </td>
-                                        </tr>
-                                    }
-                                </tbody>
-                            </table>
-                        </div>
-                    }
-                    <div style="display:flex;justify-content:flex-end;gap:0.5rem;margin-top:1rem;">
-                        <VmButton Variant="outline" OnClick="CerrarModalPendientes">CERRAR</VmButton>
-                    </div>
-                </VmCard>
             </div>
         </div>
     </div>
@@ -757,39 +646,6 @@
                         <VmButton Variant="outline" OnClick="CerrarModalSincronizar" Disabled="@Sincronizando">CANCELAR</VmButton>
                         <VmButton Variant="warning" OnClick="SincronizarVentas" Disabled="@Sincronizando">
                             @(Sincronizando ? "SINCRONIZANDO..." : "SÍ, SINCRONIZAR")
-                        </VmButton>
-                    </div>
-                </VmCard>
-            </div>
-        </div>
-    </div>
-}
-
-<!-- MODAL CONFIRMAR ELIMINACIÓN DE TEMPLATE -->
-@if (TemplateAEliminar != null)
-{
-    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5); z-index: 1120; position: fixed; top: 0; left: 0; width: 100%; height: 100%;">
-        <div class="modal-dialog modal-dialog-centered" style="z-index: 1121;">
-            <div class="modal-content border-0 bg-transparent shadow-none">
-                <VmCard Header="ELIMINAR TEMPLATE" HeaderVariant="danger">
-                    <div class="text-center p-2">
-                        <p class="fs-5 fw-bold">¿Estás seguro de eliminar el template <span class="text-danger">@TemplateAEliminar.Nombre</span>?</p>
-                        <p class="text-muted small">Esta acción eliminará todos los períodos, slots configurados y fotos asociadas.</p>
-                        <p class="text-danger fw-bold small"><i class="bi bi-info-circle-fill me-1"></i>No se puede deshacer.</p>
-                    </div>
-                    <div style="display:flex;justify-content:flex-end;gap:0.5rem;margin-top:1rem;">
-                        <VmButton Variant="outline" OnClick="CancelarEliminacion" Disabled="@Eliminando">CANCELAR</VmButton>
-                        <VmButton Variant="danger" OnClick="EliminarTemplateConfirmado" Disabled="@Eliminando">
-                            @if (Eliminando)
-                            {
-                                <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                                <text>SÍ, ELIMINANDO...</text>
-                            }
-                            else
-                            {
-                                <i class="bi bi-trash-fill me-2"></i>
-                                <text>SÍ, ELIMINAR</text>
-                            }
                         </VmButton>
                     </div>
                 </VmCard>
@@ -1547,10 +1403,6 @@
         await CerrarEdicionVisual();
     }
 
-    // Pendientes
-    private bool MostrarModalPendientes = false;
-    private List<PendingSlotInfo> SlotsPendientes = new();
-
     // Sincronización
     private bool MostrarModalSincronizar = false;
     private int TemplateIdSincronizar = 0;
@@ -1573,10 +1425,6 @@
     private TemplateFormModel TemplateActual = new();
     private List<PeriodoFormModel> PeriodosActuales = new();
     private List<ProductoSimpleDto>? ListaProductos;
-
-    // Delete confirmation
-    private TemplateRecargaDto? TemplateAEliminar;
-    private bool Eliminando = false;
 
     // Product selector for slot editing
     private SnapshotSlotFormModel? SlotConProductoSelector;
@@ -2060,106 +1908,6 @@
         }
     }
 
-    private void CancelarEliminacion()
-    {
-        TemplateAEliminar = null;
-        Eliminando = false;
-    }
-
-    private async Task EliminarTemplateConfirmado()
-    {
-        if (TemplateAEliminar == null) return;
-        var id = TemplateAEliminar.Id;
-        MensajeError = "";
-        MensajeExito = "";
-        Eliminando = true;
-
-        try
-        {
-            var response = await Http.DeleteAsync($"api/TemplateRecarga/{id}");
-            if (response.IsSuccessStatusCode)
-            {
-                MensajeExito = "Template eliminado";
-                TemplateAEliminar = null;
-                await CargarTemplates();
-            }
-            else
-            {
-                var error = await response.Content.ReadAsStringAsync();
-                MensajeError = "Error al eliminar: " + error;
-            }
-        }
-        catch (Exception ex)
-        {
-            MensajeError = "Error al eliminar: " + ex.Message;
-        }
-        finally
-        {
-            Eliminando = false;
-            TemplateAEliminar = null;
-        }
-    }
-
-    private async Task MostrarPendientes()
-    {
-        SlotsPendientes = new List<PendingSlotInfo>();
-        if (Templates == null) return;
-
-        foreach (var t in Templates)
-        {
-            foreach (var p in t.Periodos)
-            {
-                foreach (var s in p.SnapshotSlots.Where(s => s.Estado == EstadoSlot.Pendiente))
-                {
-                    SlotsPendientes.Add(new PendingSlotInfo
-                    {
-                        TemplateId = t.Id,
-                        TemplateNombre = t.Nombre,
-                        PeriodoId = p.Id,
-                        MaquinaId = p.MaquinaId,
-                        MaquinaNombre = p.MaquinaNombre,
-                        NumeroSlot = s.NumeroSlot
-                    });
-                }
-            }
-        }
-
-        await LockScroll();
-        MostrarModalPendientes = true;
-    }
-
-    private async Task CerrarModalPendientes()
-    {
-        await UnlockScroll();
-        MostrarModalPendientes = false;
-    }
-
-    private async Task IrAPendiente(PendingSlotInfo info)
-    {
-        await CerrarModalPendientes();
-
-        var template = Templates?.FirstOrDefault(t => t.Id == info.TemplateId);
-        if (template == null) return;
-
-        // Abrir edición del template
-        await AbrirModalEditar(template);
-        StateHasChanged();
-
-        // Buscar el índice del período que tiene el slot pendiente
-        var periodoIndex = PeriodosActuales.FindIndex(p => p.Id == info.PeriodoId);
-        if (periodoIndex < 0) return;
-
-        // Cargar slots del período
-        await CargarSlotsParaPeriodo(periodoIndex);
-
-        // Abrir el editor visual
-        if (periodoIndex < PeriodosActuales.Count)
-        {
-            await AbrirEdicionVisual(PeriodosActuales[periodoIndex]);
-        }
-        StateHasChanged();
-    }
-
     private void AnalizarTemplate(int id)
     {
         NavManager.NavigateTo($"/stockout-dashboard?templateId={id}");
@@ -2424,16 +2172,6 @@
         public int CantidadInicial { get; set; }
         public int CapacidadSlot { get; set; }
         public EstadoSlot Estado { get; set; } = EstadoSlot.Vacio;
-    }
-
-    public class PendingSlotInfo
-    {
-        public int TemplateId { get; set; }
-        public string TemplateNombre { get; set; } = "";
-        public int PeriodoId { get; set; }
-        public int MaquinaId { get; set; }
-        public string MaquinaNombre { get; set; } = "";
-        public string NumeroSlot { get; set; } = "";
     }
 
     }
