@@ -341,7 +341,7 @@
                         var periodo = PeriodosActuales[i];
                         var stats = GetPeriodoStats(periodo);
                         var pct = stats.cap > 0 ? (stats.units * 100 / stats.cap) : 0;
-                        <div class="rec-mcard @(i == ActiveMachineIndex ? "rec-mcard-active" : "")" @onclick="() => ActiveMachineIndex = idx">
+                        <div class="rec-mcard @(i == ActiveMachineIndex ? "rec-mcard-active" : "")" @onclick="() => SeleccionarMaquinaEnRail(idx)">
                             <div class="d-flex align-items-center gap-2">
                                 <select class="rec-mcard__select" value="@periodo.MaquinaId" @onchange="e => OnMaquinaChanged(idx, e.Value?.ToString())" @onclick:stopPropagation="true">
                                     @foreach (var m in ListaMaquinas ?? new List<MaquinaSimpleDto>())
@@ -395,12 +395,88 @@
                     </div>
                 </div>
 
-                <div class="rec-floors" id="rec-floors-placeholder">
-                    <!-- Populated in Commit 4 -->
+                <div class="rec-floors">
+                    @{
+                        var editorSlots = PeriodoEnEdicionVisual.SnapshotSlots.ToList();
+                        var search = SlotSearch.Trim();
+                        var filteredSlots = string.IsNullOrEmpty(search)
+                            ? editorSlots
+                            : editorSlots.Where(s =>
+                                s.NumeroSlot.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+                                (!string.IsNullOrEmpty(s.ProductoNombre) && s.ProductoNombre.Contains(search, StringComparison.OrdinalIgnoreCase))).ToList();
+                        var floors = filteredSlots.GroupBy(s => (int.TryParse(s.NumeroSlot, out var n) ? n - 1 : 0) / 10).OrderBy(g => g.Key);
+                    }
+                    @if (!filteredSlots.Any())
+                    {
+                        <div class="rec-no-rows">
+                            <p>Ningun slot coincide con "@SlotSearch"</p>
+                        </div>
+                    }
+                    else
+                    {
+                        @foreach (var floor in floors)
+                        {
+                            <section class="rec-piso mb-4">
+                                <div class="d-flex align-items-center gap-3 mb-3">
+                                    <span class="rec-piso-tag">PISO @(floor.Key + 1)</span>
+                                    <span style="flex:1;height:2px;background:var(--ink-900);opacity:0.15;"></span>
+                                    <small class="rec-subtitle">@(floor.Count()) slots</small>
+                                </div>
+                                <div class="rec-grid @(DensidadCompacta ? "is-compact" : "")">
+                                    @foreach (var slot in floor.OrderBy(s => int.TryParse(s.NumeroSlot, out var n) ? n : 999))
+                                    {
+                                        var empty = slot.Estado == EstadoSlot.Vacio;
+                                        var pct = slot.CapacidadSlot > 0 ? Math.Min(100, slot.CantidadInicial * 100 / slot.CapacidadSlot) : 0;
+                                        <div class="rec-slot @(empty ? "rec-slot-empty" : "")">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <span class="rec-slot-id">Slot @slot.NumeroSlot</span>
+                                                @if (empty)
+                                                {
+                                                    <span class="rec-slot-vacio-tag">Vacio</span>
+                                                }
+                                            </div>
+                                            <button class="rec-slot-pick" @onclick="() => OnChangeProductForSlot(slot)">
+                                                <span>@(empty ? "— Elegir producto —" : slot.ProductoNombre)</span>
+                                                <i class="bi bi-search"></i>
+                                            </button>
+                                            <div class="rec-carga">
+                                                <div class="rec-bar"><div class="rec-bar__fill rec-bar--@(pct >= 80 ? "good" : pct >= 30 ? "warning" : "danger")" style="width:@pct%"></div></div>
+                                                <span class="rec-cell-mono">@slot.CantidadInicial/@slot.CapacidadSlot</span>
+                                            </div>
+                                            <div class="d-flex align-items-center gap-2">
+                                                <button class="rec-slot-step" @onclick="() => OnSlotQuantityChanged(slot, slot.CantidadInicial - 1)">−</button>
+                                                <span class="rec-slot-qty">@slot.CantidadInicial</span>
+                                                <button class="rec-slot-step" @onclick="() => OnSlotQuantityChanged(slot, slot.CantidadInicial + 1)">+</button>
+                                                <button class="rec-slot-max" @onclick="() => OnSlotQuantityChanged(slot, slot.CapacidadSlot)">MAX</button>
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            </section>
+                        }
+                    }
                 </div>
 
-                <div class="rec-bottombar" id="rec-bottombar-placeholder">
-                    <!-- Populated in Commit 4 -->
+                <div class="rec-bottombar d-flex justify-content-between align-items-center flex-wrap gap-3 px-3 py-2">
+                    @{
+                        var bottomSlots = PeriodoEnEdicionVisual.SnapshotSlots;
+                        var bottomCap = bottomSlots.Sum(s => s.CapacidadSlot);
+                        var bottomUnits = bottomSlots.Sum(s => s.CantidadInicial);
+                        var bottomVacios = bottomSlots.Count(s => s.Estado == EstadoSlot.Vacio);
+                    }
+                    <div class="d-flex align-items-center gap-3 flex-wrap">
+                        <small class="rec-subtitle">Carga maquina</small>
+                        <span class="rec-bottombar-totals">@bottomUnits / @bottomCap u.</span>
+                        @if (bottomVacios > 0)
+                        {
+                            <span class="rec-bottombar-vacios">@bottomVacios slots vacios</span>
+                        }
+                    </div>
+                    <div class="d-flex gap-2 flex-wrap">
+                        <VmButton Variant="danger" Size="sm" Icon="bi-trash" OnClick="VaciarMaquina">Vaciar maquina</VmButton>
+                        <VmButton Variant="outline" Size="sm" Icon="bi-arrow-counterclockwise" OnClick="ResetSlots">Reset</VmButton>
+                        <VmButton Variant="dark" Size="sm" Icon="bi-save" OnClick="GuardarCarga">Guardar carga</VmButton>
+                    </div>
                 </div>
             </section>
         </div>
@@ -1428,6 +1504,47 @@
     private async Task TerminarTemplateActual()
     {
         if (_currentTemplateId > 0) await TerminarTemplate(_currentTemplateId);
+    }
+
+    private void SeleccionarMaquinaEnRail(int index)
+    {
+        if (index >= 0 && index < PeriodosActuales.Count)
+        {
+            ActiveMachineIndex = index;
+            PeriodoEnEdicionVisual = PeriodosActuales[index];
+            StateHasChanged();
+        }
+    }
+
+    private void VaciarMaquina()
+    {
+        if (PeriodoEnEdicionVisual == null) return;
+        foreach (var slot in PeriodoEnEdicionVisual.SnapshotSlots)
+        {
+            slot.ProductoId = null;
+            slot.ProductoNombre = "";
+            slot.CantidadInicial = 0;
+            slot.Estado = EstadoSlot.Vacio;
+        }
+        StateHasChanged();
+    }
+
+    private void ResetSlots()
+    {
+        if (PeriodoEnEdicionVisual == null) return;
+        foreach (var slot in PeriodoEnEdicionVisual.SnapshotSlots)
+        {
+            slot.CantidadInicial = 0;
+            if (slot.Estado == EstadoSlot.Lleno && slot.ProductoId.HasValue && slot.ProductoId > 0)
+                slot.Estado = EstadoSlot.Pendiente;
+        }
+        StateHasChanged();
+    }
+
+    private async Task GuardarCarga()
+    {
+        // Persisted save flows through the edit modal / full template save.
+        await CerrarEdicionVisual();
     }
 
     // Pendientes
