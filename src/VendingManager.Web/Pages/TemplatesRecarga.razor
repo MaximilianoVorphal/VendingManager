@@ -15,42 +15,27 @@
 
 @if (PeriodoEnEdicionVisual == null)
 {
-<div class="industrial-wrapper container-fluid px-4 mt-4">
+<div class="rec-page">
 
     <!-- HEADER -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <VmCard Header="TEMPLATES DE RECARGA" HeaderVariant="dark">
-                <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
-                    <div>
-                        <h2 class="m-0 fw-bold text-uppercase templates-title" style="font-family:var(--font-sans);letter-spacing:-1px;">
-                            <i class="bi bi-calendar-range me-2"></i>TEMPLATES DE RECARGA
-                        </h2>
-                        <small class="text-muted fw-bold" style="font-family:var(--font-mono);">DEFINE PERÍODOS ESPECÍFICOS POR MÁQUINA PARA ANÁLISIS</small>
-                    </div>
-                    <div class="d-flex gap-2 flex-wrap header-actions">
-                        <VmButton Variant="dark" Icon="bi-arrow-repeat" OnClick="AbrirModalSincronizarGlobal">
-                            SINCRONIZAR TODO
-                        </VmButton>
-                        <VmButton Variant="warning" Icon="bi-exclamation-circle" OnClick="MostrarPendientes">
-                            PENDIENTES
-                        </VmButton>
-                        <div class="d-none d-md-block">
-                            <VmButton Variant="success" Icon="bi-plus-lg" OnClick="AbrirModalCrear">
-                                NUEVO TEMPLATE
-                            </VmButton>
-                        </div>
-                    </div>
-                </div>
-            </VmCard>
+    <div class="rec-header d-flex justify-content-between align-items-end flex-wrap gap-3 pb-3 mb-4">
+        <div>
+            <span class="rec-breadcrumb">Terreno · Recarga</span>
+            <h1 class="rec-title">Templates de Recarga</h1>
+            <small class="rec-subtitle">Defini periodos por maquina y carga el planograma</small>
         </div>
-    </div>
-
-    <!-- FAB: NUEVO TEMPLATE on mobile (<768px) -->
-    <div class="fab-container">
-        <button class="fab-btn btn border-dark shadow-lg" @onclick="AbrirModalCrear" title="Nuevo Template">
-            <i class="bi bi-plus-lg"></i>
-        </button>
+        <div class="d-flex gap-2 flex-wrap header-actions">
+            <button class="rec-pbtn @(SoloPendientes ? "rec-pbtn--active" : "")" @onclick="() => SoloPendientes = !SoloPendientes">
+                <i class="bi bi-exclamation-circle"></i>
+                Pendientes · @(Templates?.Count(t => t.CantidadSlotsPendientes > 0) ?? 0)
+            </button>
+            <VmButton Variant="dark" Icon="bi-arrow-repeat" OnClick="AbrirModalSincronizarGlobal">
+                Sincronizar todo
+            </VmButton>
+            <VmButton Variant="dark" Icon="bi-plus-lg" OnClick="AbrirModalCrear">
+                Nuevo template
+            </VmButton>
+        </div>
     </div>
 
     @if (!string.IsNullOrEmpty(MensajeError))
@@ -74,103 +59,92 @@
             <p class="mt-2 fw-bold text-uppercase loading-letter-spacing">Cargando Templates...</p>
         </div>
     }
-    else if (Templates != null && Templates.Any())
+    else if (TemplatesFiltrados != null && TemplatesFiltrados.Any())
     {
-        <div class="row g-4">
-            @foreach (var template in Templates)
-            {
-                <div class="col-12 col-md-6 col-lg-4">
-                    @{
-                        var cardStyle = "height:100%;";
-                        if (template.CantidadSlotsPendientes > 0) cardStyle += "border-left:4px solid var(--signal-warning);";
-                    }
-                    <VmCard Header="@template.Nombre" HeaderVariant="dark" Style="@cardStyle">
-                        <div class="d-flex justify-content-between align-items-start mb-2 flex-wrap gap-2">
-                            @if (template.CantidadSlotsPendientes > 0)
-                            {
-                                <VmBadge Variant="warning">
-                                    <span>@template.CantidadSlotsPendientes</span>
-                                    <span> PENDIENTE</span>
-                                </VmBadge>
-                            }
-                            else
-                            {
-                                <span></span>
-                            }
-                            <div class="d-flex gap-1 flex-nowrap">
-                                <VmButton Variant="outline" Size="sm" Icon="bi-pencil" OnClick="() => AbrirModalEditar(template)">EDITAR</VmButton>
-                                <VmButton Variant="danger" Size="sm" Icon="bi-trash" OnClick="() => TemplateAEliminar = template">ELIMINAR</VmButton>
-                            </div>
-                        </div>
-                        <div>
-                            @if (!string.IsNullOrEmpty(template.Descripcion))
-                            {
-                                <p class="text-muted small mb-2">@template.Descripcion</p>
-                            }
-                            <div class="mb-3">
-                                <small class="text-muted">
-                                    <i class="bi bi-calendar me-1"></i>
-                                    @template.FechaRecargaMin?.ToString("dd/MM/yyyy") -
-                                    @template.FechaFinMax?.ToString("dd/MM/yyyy")
-                                </small>
-                            </div>
-
-                            <h6 class="fw-bold text-uppercase small mb-2">
-                                <i class="bi bi-geo-alt me-1"></i> @template.CantidadMaquinas Máquinas
-                            </h6>
-
-                            <div class="period-list">
-                                @foreach (var periodo in template.Periodos)
+        <div class="rec-table-wrap">
+            <table class="rec-table">
+                <thead>
+                    <tr>
+                        <th>Estado</th>
+                        <th>Recarga / Ruta</th>
+                        <th>Período</th>
+                        <th>Máquinas</th>
+                        <th>Carga</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var template in TemplatesFiltrados)
+                    {
+                        var pendiente = template.CantidadSlotsPendientes > 0;
+                        var slots = template.Periodos.SelectMany(p => p.SnapshotSlots).ToList();
+                        var totalSlots = slots.Count;
+                        var filledSlots = slots.Count(s => s.Estado != EstadoSlot.Vacio);
+                        var pct = totalSlots > 0 ? (filledSlots * 100 / totalSlots) : 0;
+                        var firstPeriodo = template.Periodos.FirstOrDefault();
+                        <tr class="rec-trow @(pendiente ? "rec-trow-pend" : "")">
+                            <td>
+                                <span class="rec-tag rec-tag--@(GetEstadoTagVariant(template))">@GetEstadoDisplay(template)</span>
+                            </td>
+                            <td>
+                                @if (firstPeriodo != null)
                                 {
-                                    <div class="d-flex justify-content-between align-items-center border-bottom py-1 small">
-                                        <span class="fw-bold">@periodo.MaquinaNombre</span>
-                                        <span class="font-monospace text-muted">
-                                            @periodo.FechaRecarga.ToString("dd/MM HH:mm")
-                                        </span>
+                                    <button class="rec-name-btn" @onclick="() => AbrirEdicionVisual(template, firstPeriodo)">
+                                        <span>@template.Nombre</span>
+                                        <span>@template.Descripcion</span>
+                                    </button>
+                                }
+                                else
+                                {
+                                    <span class="rec-cell-mono">@template.Nombre</span>
+                                }
+                            </td>
+                            <td>
+                                <span class="rec-cell-mono">@template.FechaRecargaMin?.ToString("dd/MM/yyyy") - @template.FechaFinMax?.ToString("dd/MM/yyyy")</span>
+                            </td>
+                            <td>
+                                <div class="rec-chips">
+                                    @foreach (var periodo in template.Periodos)
+                                    {
+                                        <span>@periodo.MaquinaId</span>
+                                    }
+                                </div>
+                            </td>
+                            <td>
+                                <div class="rec-carga">
+                                    <div class="rec-bar">
+                                        <div class="rec-bar__fill rec-bar--@(pct >= 80 ? "good" : pct >= 30 ? "warning" : "danger")" style="width:@pct%"></div>
                                     </div>
-                                }
-                            </div>
-                        </div>
-                        <div class="d-flex flex-column gap-2 mt-3 pt-3" style="border-top:1px solid var(--ink-900);">
-                            <!-- State badge + transition controls -->
-                            <div class="d-flex align-items-center justify-content-between mb-1">
-                                <VmBadge Variant="@GetEstadoBadgeVariant(template)">
-                                    @GetEstadoDisplay(template)
-                                </VmBadge>
-                                @if (template.Estado == EstadoTemplate.Pendiente)
-                                {
-                                    <VmButton Variant="success" Size="sm" Icon="bi-check-circle" OnClick="() => TerminarTemplate(template.Id)">
-                                        FINALIZAR
-                                    </VmButton>
-                                }
-                                else if (template.Estado == EstadoTemplate.Terminado && !template.EsActivo)
-                                {
-                                    <VmButton Variant="outline" Size="sm" Icon="bi-arrow-counterclockwise" OnClick="() => ReabrirTemplate(template.Id)">
-                                        REABRIR
-                                    </VmButton>
-                                }
-                            </div>
-
-                            <VmButton Variant="danger" Icon="bi-graph-up" Block="true" OnClick="() => AnalizarTemplate(template.Id)">
-                                ANALIZAR STOCKOUT
-                            </VmButton>
-                            <VmButton Variant="warning" Icon="bi-arrow-repeat" Block="true" OnClick="() => AbrirModalSincronizar(template.Id)" Disabled="@_syncCtors.Any()">
-                                SINCRONIZAR TODO
-                            </VmButton>
-                        </div>
-                    </VmCard>
-                </div>
-            }
+                                    <span class="rec-cell-mono">@pct%</span>
+                                </div>
+                                <small class="rec-carga-label">@filledSlots / @totalSlots u.</small>
+                            </td>
+                            <td>
+                                <div class="rec-actions">
+                                    <VmButton Variant="outline" Size="sm" Icon="bi-pencil" OnClick="() => AbrirModalEditar(template)"></VmButton>
+                                    <VmButton Variant="outline" Size="sm" Icon="bi-trash" OnClick="() => TemplateAEliminar = template"></VmButton>
+                                    <VmButton Variant="danger" Size="sm" Icon="bi-graph-up" OnClick="() => AnalizarTemplate(template.Id)">Stockout</VmButton>
+                                    @if (firstPeriodo != null)
+                                    {
+                                        <VmButton Variant="dark" Size="sm" Icon="bi-box-arrow-in-right" OnClick="() => AbrirEdicionVisual(template, firstPeriodo)">Abrir</VmButton>
+                                    }
+                                    @if (pendiente)
+                                    {
+                                        <VmButton Variant="outline" Size="sm" Icon="bi-exclamation-circle" OnClick="async () => { TemplateAEliminar = null; await MostrarPendientes(); }">Slots pendientes</VmButton>
+                                    }
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
         </div>
     }
     else
     {
-        <div class="text-center py-5 border border-dark border-2 bg-light">
-            <i class="bi bi-calendar-x fs-1 text-muted"></i>
-            <p class="mt-2 fw-bold text-uppercase">No hay templates creados</p>
-            <button class="btn btn-dark rounded-0 fw-bold" @onclick="AbrirModalCrear">
-                <i class="bi bi-plus-lg me-1"></i> CREAR PRIMER TEMPLATE
-            </button>
+        <div class="rec-no-rows">
+            <p>Sin recargas que coincidan con el filtro</p>
+            <button class="rec-pbtn" @onclick="AbrirModalCrear">Crear primer template</button>
         </div>
     }
 
@@ -303,16 +277,34 @@
 <!-- EDICIÓN VISUAL DE SLOTS (Full-page inline, no modal) -->
 @if (PeriodoEnEdicionVisual != null)
 {
-    var maq = ListaMaquinas?.FirstOrDefault(m => m.Id == PeriodoEnEdicionVisual.MaquinaId)?.Nombre ?? "MÁQUINA";
-    <div class="slot-editor-wrapper bg-light p-3 p-md-4" style="position: relative;">
-        <!-- Header -->
-        <div class="d-flex justify-content-between align-items-center mb-4 border-bottom border-3 border-dark pb-3">
-            <h4 class="fw-bold text-uppercase m-0">
-                <i class="bi bi-grid-3x3-gap-fill me-2"></i> ESTANTERÍA — @maq
-            </h4>
-            <button class="btn btn-dark rounded-0 fw-bold" @onclick="CerrarEdicionVisual">
-                <i class="bi bi-arrow-left me-1"></i> VOLVER
-            </button>
+    var templateActual = Templates?.FirstOrDefault(t => t.Id == _currentTemplateId);
+    var estado = templateActual != null ? GetEstadoDisplay(templateActual) : "PENDIENTE";
+    var estadoVariant = templateActual != null ? GetEstadoTagVariant(templateActual) : "pend";
+    var descripcion = templateActual?.Descripcion ?? "";
+    var maquinaNombre = ListaMaquinas?.FirstOrDefault(m => m.Id == PeriodoEnEdicionVisual.MaquinaId)?.Nombre ?? $"Máquina {PeriodoEnEdicionVisual.MaquinaId}";
+
+    <div class="rec-editor">
+        <!-- Top bar -->
+        <div class="rec-topbar d-flex justify-content-between align-items-center flex-wrap gap-3 pb-3 mb-4">
+            <div class="d-flex align-items-center gap-3 flex-wrap">
+                <VmButton Variant="dark" Icon="bi-arrow-left" OnClick="CerrarEdicionVisual">Volver</VmButton>
+                <h2 class="rec-title m-0">@maquinaNombre</h2>
+                <span class="rec-tag rec-tag--@estadoVariant">@estado</span>
+                <small class="rec-subtitle">@descripcion</small>
+            </div>
+            <div class="d-flex gap-2 flex-wrap">
+                <VmButton Variant="outline" Size="sm" Icon="bi-pencil" OnClick="AbrirModalEditarActual">Editar</VmButton>
+                <VmButton Variant="danger" Size="sm" Icon="bi-graph-up" OnClick="AnalizarTemplateActual">Analizar stockout</VmButton>
+                <VmButton Variant="outline" Size="sm" Icon="bi-arrow-repeat" OnClick="SincronizarTemplateActual">Sincronizar todo</VmButton>
+                @if (templateActual?.Estado == EstadoTemplate.Terminado)
+                {
+                    <span class="rec-finalizado"><i class="bi bi-check-circle"></i>Finalizado</span>
+                }
+                else
+                {
+                    <VmButton Variant="dark" Size="sm" Icon="bi-check-circle" OnClick="TerminarTemplateActual">Finalizar</VmButton>
+                }
+            </div>
         </div>
 
         @if (ProcesandoOcr)
@@ -334,74 +326,160 @@
                 <i class="bi bi-info-circle-fill me-2"></i> @MensajeInfoOcr
             </div>
         }
-        @{
-            var validSlots = PeriodoEnEdicionVisual.SnapshotSlots.ToList();
-            var shelves = validSlots.GroupBy(s => (int.TryParse(s.NumeroSlot, out var n) ? n - 1 : 0) / 10).OrderBy(g => g.Key);
-        }
 
-        @if (!validSlots.Any())
-        {
-            <div class="text-center py-5">
-                <h5 class="text-muted fw-bold">NO HAY SLOTS CONFIGURADOS</h5>
-                <p class="text-muted small">Esta máquina no tiene slots cargados. Volvé al paso anterior y usá el botón <strong>Slots</strong> para cargarlos desde la configuración de la máquina.</p>
-            </div>
-        }
-        else
-        {
-            <div class="d-flex flex-column gap-4 machine-chassis">
-                @foreach (var shelf in shelves)
-                {
-                    int bgIndex = shelf.Key % 2;
+        <div class="rec-split">
+            <!-- Rail de maquinas -->
+            <aside class="rec-rail">
+                <div class="rec-rail-header px-3 py-2">
+                    <span class="rec-cell-mono">MÁQUINAS · @(PeriodosActuales.Count)</span>
+                    <small class="rec-subtitle">Periodo por maquina · clic para ver grilla</small>
+                </div>
+                <div style="flex: 1; min-height: 0; overflow: auto; padding: 11px; display: flex; flex-direction: column; gap: 11px;">
+                    @for (int i = 0; i < PeriodosActuales.Count; i++)
+                    {
+                        var idx = i;
+                        var periodo = PeriodosActuales[i];
+                        var stats = GetPeriodoStats(periodo);
+                        var pct = stats.cap > 0 ? (stats.units * 100 / stats.cap) : 0;
+                        <div class="rec-mcard @(i == ActiveMachineIndex ? "rec-mcard-active" : "")" @onclick="() => SeleccionarMaquinaEnRail(idx)">
+                            <div class="d-flex align-items-center gap-2">
+                                <select class="rec-mcard__select" value="@periodo.MaquinaId" @onchange="e => OnMaquinaChanged(idx, e.Value?.ToString())" @onclick:stopPropagation="true">
+                                    @foreach (var m in ListaMaquinas ?? new List<MaquinaSimpleDto>())
+                                    {
+                                        <option value="@m.Id">@m.Nombre</option>
+                                    }
+                                </select>
+                                <button class="rec-mcard-del" @onclick="() => EliminarPeriodo(idx)" @onclick:stopPropagation="true" aria-label="Quitar maquina"><i class="bi bi-trash"></i></button>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <input type="date" class="form-control form-control-sm border-2 border-dark rounded-0" style="flex:1;min-width:0;font-family:var(--font-mono);font-size:0.7rem;" value="@periodo.FechaRecargaText" @onchange="e => OnFechaRecargaDateChanged(idx, e.Value?.ToString())" @onclick:stopPropagation="true" />
+                                <input type="text" class="form-control form-control-sm border-2 border-dark rounded-0" style="width:84px;font-family:var(--font-mono);font-size:0.7rem;" value="@periodo.HoraRecargaText" @onchange="e => OnHoraRecargaChanged(idx, e.Value?.ToString())" @onclick:stopPropagation="true" />
+                            </div>
+                            <div class="rec-carga">
+                                <div class="rec-bar"><div class="rec-bar__fill rec-bar--@(pct >= 80 ? "good" : pct >= 30 ? "warning" : "danger")" style="width:@pct%"></div></div>
+                                <span class="rec-cell-mono">@stats.units/@stats.cap</span>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <small class="rec-mcard-config">@stats.configured/@stats.total configurados</small>
+                                @if (stats.vacios > 0)
+                                {
+                                    <span class="rec-mcard-vacios">@stats.vacios vacios</span>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+                <div style="flex-shrink: 0; border-top: var(--border-2); padding: 11px;">
+                    <VmButton Variant="outline" Icon="bi-plus-lg" Block="true" OnClick="AgregarPeriodo">Agregar maquina</VmButton>
+                </div>
+            </aside>
 
-                    <div class="shelf-container p-3 border border-3 border-dark bg-white shadow-sm" style="@(bgIndex == 1 ? "background-color: #fafafa !important;" : "")">
-                        <div class="badge bg-dark text-white rounded-0 px-3 py-2 mb-3 fs-6">PISO @(shelf.Key + 1)</div>
-                        <div class="slot-grid">
-                            @foreach (var slot in shelf.OrderBy(s => int.TryParse(s.NumeroSlot, out var n) ? n : 999))
-                            {
-                                var estaResaltado = SlotsResaltados.Contains(slot.NumeroSlot);
-                                <SlotCard
-                                    Slot="slot"
-                                    IsOcrHighlighted="estaResaltado"
-                                    IsReadOnly="false"
-                                    OnQuantityChanged="(qty) => OnSlotQuantityChanged(slot, qty)"
-                                    OnChangeProductRequested="() => OnChangeProductForSlot(slot)"
-                                    OnEmptySlotRequested="() => OnEmptySlot(slot)" />
-                            }
+            <!-- Estanteria -->
+            <section class="rec-estanteria">
+                <div class="rec-est-header d-flex justify-content-between align-items-center flex-wrap gap-3 px-3 py-2">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="rec-icon-tile"><i class="bi bi-grid-3x3-gap-fill"></i></div>
+                        <div>
+                            <h3 class="m-0">Estanteria · Maquina @(PeriodoEnEdicionVisual.MaquinaId)</h3>
+                            <small class="rec-subtitle">@(GetEstanteriaPct())% LLENO · @(PeriodoEnEdicionVisual.SnapshotSlots.Count) SLOTS</small>
                         </div>
                     </div>
-                }
-            </div>
-
-            @if (UltimosSlotsNoCoincidentes.Any())
-            {
-                <div class="mt-4 p-3 border border-2 border-warning bg-warning bg-opacity-10 rounded-0">
-                    <h6 class="fw-bold text-uppercase mb-2">
-                        <i class="bi bi-exclamation-triangle-fill text-warning me-2"></i>
-                        Slots sin coincidencia (@UltimosSlotsNoCoincidentes.Count)
-                    </h6>
-                    <small class="text-muted mb-2 d-block">Estos slots fueron detectados en la foto pero no existen en la máquina. Revisalos manualmente.</small>
-                    <div class="table-responsive">
-                        <table class="table table-sm table-borderless m-0 small">
-                            <thead>
-                                <tr class="text-uppercase text-muted">
-                                    <th>Slot (OCR)</th>
-                                    <th>Cantidad</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var unmatched in UltimosSlotsNoCoincidentes)
-                                {
-                                    <tr>
-                                        <td class="font-monospace fw-bold">@unmatched.SlotNumber</td>
-                                        <td class="fw-bold">@unmatched.Quantity</td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
+                    <div class="d-flex gap-2 flex-wrap align-items-center">
+                        <input class="rec-search" placeholder="Buscar slot o producto..." @bind="SlotSearch" @bind:event="oninput" />
+                        <div class="rec-density">
+                            <button class="rec-density__btn @(DensidadCompacta ? "" : "active")" @onclick="() => DensidadCompacta = false">Comoda</button>
+                            <button class="rec-density__btn @(DensidadCompacta ? "active" : "")" @onclick="() => DensidadCompacta = true">Compacta</button>
+                        </div>
+                        <VmButton Variant="outline" Size="sm" Icon="bi-camera" OnClick="TriggerOcrUpload">Foto recarga</VmButton>
+                        <VmButton Variant="outline" Size="sm" Icon="bi-image" OnClick="TriggerFotoGuiaUpload">Foto guia</VmButton>
                     </div>
                 </div>
-            }
-        }
+
+                <div class="rec-floors">
+                    @{
+                        var editorSlots = PeriodoEnEdicionVisual.SnapshotSlots.ToList();
+                        var search = SlotSearch.Trim();
+                        var filteredSlots = string.IsNullOrEmpty(search)
+                            ? editorSlots
+                            : editorSlots.Where(s =>
+                                s.NumeroSlot.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+                                (!string.IsNullOrEmpty(s.ProductoNombre) && s.ProductoNombre.Contains(search, StringComparison.OrdinalIgnoreCase))).ToList();
+                        var floors = filteredSlots.GroupBy(s => (int.TryParse(s.NumeroSlot, out var n) ? n - 1 : 0) / 10).OrderBy(g => g.Key);
+                    }
+                    @if (!filteredSlots.Any())
+                    {
+                        <div class="rec-no-rows">
+                            <p>Ningun slot coincide con "@SlotSearch"</p>
+                        </div>
+                    }
+                    else
+                    {
+                        @foreach (var floor in floors)
+                        {
+                            <section class="rec-piso mb-4">
+                                <div class="d-flex align-items-center gap-3 mb-3">
+                                    <span class="rec-piso-tag">PISO @(floor.Key + 1)</span>
+                                    <span style="flex:1;height:2px;background:var(--ink-900);opacity:0.15;"></span>
+                                    <small class="rec-subtitle">@(floor.Count()) slots</small>
+                                </div>
+                                <div class="rec-grid @(DensidadCompacta ? "is-compact" : "")">
+                                    @foreach (var slot in floor.OrderBy(s => int.TryParse(s.NumeroSlot, out var n) ? n : 999))
+                                    {
+                                        var empty = slot.Estado == EstadoSlot.Vacio;
+                                        var pct = slot.CapacidadSlot > 0 ? Math.Min(100, slot.CantidadInicial * 100 / slot.CapacidadSlot) : 0;
+                                        <div class="rec-slot @(empty ? "rec-slot-empty" : "")">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <span class="rec-slot-id">Slot @slot.NumeroSlot</span>
+                                                @if (empty)
+                                                {
+                                                    <span class="rec-slot-vacio-tag">Vacio</span>
+                                                }
+                                            </div>
+                                            <button class="rec-slot-pick" @onclick="() => OnChangeProductForSlot(slot)">
+                                                <span>@(empty ? "— Elegir producto —" : slot.ProductoNombre)</span>
+                                                <i class="bi bi-search"></i>
+                                            </button>
+                                            <div class="rec-carga">
+                                                <div class="rec-bar"><div class="rec-bar__fill rec-bar--@(pct >= 80 ? "good" : pct >= 30 ? "warning" : "danger")" style="width:@pct%"></div></div>
+                                                <span class="rec-cell-mono">@slot.CantidadInicial/@slot.CapacidadSlot</span>
+                                            </div>
+                                            <div class="d-flex align-items-center gap-2">
+                                                <button class="rec-slot-step" @onclick="() => OnSlotQuantityChanged(slot, slot.CantidadInicial - 1)">−</button>
+                                                <span class="rec-slot-qty">@slot.CantidadInicial</span>
+                                                <button class="rec-slot-step" @onclick="() => OnSlotQuantityChanged(slot, slot.CantidadInicial + 1)">+</button>
+                                                <button class="rec-slot-max" @onclick="() => OnSlotQuantityChanged(slot, slot.CapacidadSlot)">MAX</button>
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            </section>
+                        }
+                    }
+                </div>
+
+                <div class="rec-bottombar d-flex justify-content-between align-items-center flex-wrap gap-3 px-3 py-2">
+                    @{
+                        var bottomSlots = PeriodoEnEdicionVisual.SnapshotSlots;
+                        var bottomCap = bottomSlots.Sum(s => s.CapacidadSlot);
+                        var bottomUnits = bottomSlots.Sum(s => s.CantidadInicial);
+                        var bottomVacios = bottomSlots.Count(s => s.Estado == EstadoSlot.Vacio);
+                    }
+                    <div class="d-flex align-items-center gap-3 flex-wrap">
+                        <small class="rec-subtitle">Carga maquina</small>
+                        <span class="rec-bottombar-totals">@bottomUnits / @bottomCap u.</span>
+                        @if (bottomVacios > 0)
+                        {
+                            <span class="rec-bottombar-vacios">@bottomVacios slots vacios</span>
+                        }
+                    </div>
+                    <div class="d-flex gap-2 flex-wrap">
+                        <VmButton Variant="danger" Size="sm" Icon="bi-trash" OnClick="VaciarMaquina">Vaciar maquina</VmButton>
+                        <VmButton Variant="outline" Size="sm" Icon="bi-arrow-counterclockwise" OnClick="ResetSlots">Reset</VmButton>
+                        <VmButton Variant="dark" Size="sm" Icon="bi-save" OnClick="GuardarCarga">Guardar carga</VmButton>
+                    </div>
+                </div>
+            </section>
+        </div>
 
         <!-- PRODUCT SELECTOR OVERLAY (for slot product change) -->
         @if (SlotConProductoSelector != null && ListaProductos != null)
@@ -437,8 +515,6 @@
                     </div>
                 </div>
             </div>
-        }
-
         }
     </div>
 
@@ -727,6 +803,12 @@
 
     private PeriodoFormModel? PeriodoEnEdicionVisual;
 
+    // Design v3 list/editor state
+    private bool SoloPendientes = false;
+    private bool DensidadCompacta = false;
+    private int ActiveMachineIndex = 0;
+    private IEnumerable<TemplateRecargaDto>? TemplatesFiltrados => SoloPendientes ? Templates?.Where(t => t.CantidadSlotsPendientes > 0) : Templates;
+
     // OCR-related state
     private bool ProcesandoOcr = false;
     private string MensajeErrorOcr = "";
@@ -773,9 +855,43 @@
     private string FotoGuiaZoomDisplay =>
         _fotoGuiaZoom.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture);
 
-private async Task AbrirEdicionVisual(PeriodoFormModel periodo)
+    private async Task AbrirEdicionVisual(PeriodoFormModel periodo)
     {
         PeriodoEnEdicionVisual = periodo;
+        ActiveMachineIndex = PeriodosActuales.FindIndex(p => p.Id == periodo.Id);
+        if (ActiveMachineIndex < 0) ActiveMachineIndex = 0;
+        await OpenEditorCommon();
+    }
+
+    private async Task AbrirEdicionVisual(TemplateRecargaDto template, PeriodoRecargaDto periodo)
+    {
+        _currentTemplateId = template.Id;
+        PeriodosActuales = template.Periodos.Select(p => new PeriodoFormModel
+        {
+            Id = p.Id,
+            MaquinaId = p.MaquinaId,
+            FechaRecarga = p.FechaRecarga,
+            SnapshotSlots = p.SnapshotSlots.Select(s => new SnapshotSlotFormModel
+            {
+                NumeroSlot = s.NumeroSlot,
+                ProductoId = s.ProductoId,
+                ProductoNombre = s.ProductoNombre,
+                CantidadInicial = s.CantidadInicial,
+                CapacidadSlot = s.CapacidadSlot,
+                Estado = s.Estado
+            }).ToList()
+        }).ToList();
+        foreach (var p in PeriodosActuales) p.SyncDisplayFromDateTime();
+        ActiveMachineIndex = PeriodosActuales.FindIndex(p => p.Id == periodo.Id);
+        if (ActiveMachineIndex < 0) ActiveMachineIndex = 0;
+        PeriodoEnEdicionVisual = PeriodosActuales[ActiveMachineIndex];
+        await OpenEditorCommon();
+    }
+
+    private async Task OpenEditorCommon()
+    {
+        var periodo = PeriodoEnEdicionVisual;
+        if (periodo == null) return;
         // Reset OCR state when opening
         ProcesandoOcr = false;
         MensajeErrorOcr = "";
@@ -1345,6 +1461,92 @@ private async Task AbrirEdicionVisual(PeriodoFormModel periodo)
             : "DESCONOCIDO";
     }
 
+    private string GetEstadoTagVariant(TemplateRecargaDto template) => template.Estado switch
+    {
+        EstadoTemplate.Terminado => "ok",
+        _ => "pend"
+    };
+
+    private (int units, int cap, int configured, int total, int vacios) GetPeriodoStats(PeriodoFormModel periodo)
+    {
+        var slots = periodo.SnapshotSlots;
+        var cap = slots.Sum(s => s.CapacidadSlot);
+        var units = slots.Sum(s => s.CantidadInicial);
+        var configured = slots.Count(s => s.Estado != EstadoSlot.Vacio);
+        var vacios = slots.Count(s => s.Estado == EstadoSlot.Vacio);
+        return (units, cap, configured, slots.Count, vacios);
+    }
+
+    private int GetEstanteriaPct()
+    {
+        var slots = PeriodoEnEdicionVisual?.SnapshotSlots ?? new List<SnapshotSlotFormModel>();
+        var cap = slots.Sum(s => s.CapacidadSlot);
+        var units = slots.Sum(s => s.CantidadInicial);
+        return cap > 0 ? (units * 100 / cap) : 0;
+    }
+
+    private async Task AbrirModalEditarActual()
+    {
+        var template = Templates?.FirstOrDefault(t => t.Id == _currentTemplateId);
+        if (template != null) await AbrirModalEditar(template);
+    }
+
+    private void AnalizarTemplateActual()
+    {
+        if (_currentTemplateId > 0) AnalizarTemplate(_currentTemplateId);
+    }
+
+    private async Task SincronizarTemplateActual()
+    {
+        if (_currentTemplateId > 0) await AbrirModalSincronizar(_currentTemplateId);
+    }
+
+    private async Task TerminarTemplateActual()
+    {
+        if (_currentTemplateId > 0) await TerminarTemplate(_currentTemplateId);
+    }
+
+    private void SeleccionarMaquinaEnRail(int index)
+    {
+        if (index >= 0 && index < PeriodosActuales.Count)
+        {
+            ActiveMachineIndex = index;
+            PeriodoEnEdicionVisual = PeriodosActuales[index];
+            StateHasChanged();
+        }
+    }
+
+    private void VaciarMaquina()
+    {
+        if (PeriodoEnEdicionVisual == null) return;
+        foreach (var slot in PeriodoEnEdicionVisual.SnapshotSlots)
+        {
+            slot.ProductoId = null;
+            slot.ProductoNombre = "";
+            slot.CantidadInicial = 0;
+            slot.Estado = EstadoSlot.Vacio;
+        }
+        StateHasChanged();
+    }
+
+    private void ResetSlots()
+    {
+        if (PeriodoEnEdicionVisual == null) return;
+        foreach (var slot in PeriodoEnEdicionVisual.SnapshotSlots)
+        {
+            slot.CantidadInicial = 0;
+            if (slot.Estado == EstadoSlot.Lleno && slot.ProductoId.HasValue && slot.ProductoId > 0)
+                slot.Estado = EstadoSlot.Pendiente;
+        }
+        StateHasChanged();
+    }
+
+    private async Task GuardarCarga()
+    {
+        // Persisted save flows through the edit modal / full template save.
+        await CerrarEdicionVisual();
+    }
+
     // Pendientes
     private bool MostrarModalPendientes = false;
     private List<PendingSlotInfo> SlotsPendientes = new();
@@ -1379,6 +1581,7 @@ private async Task AbrirEdicionVisual(PeriodoFormModel periodo)
     // Product selector for slot editing
     private SnapshotSlotFormModel? SlotConProductoSelector;
     private string ProductoSearch = "";
+    private string SlotSearch = "";
 
     protected override async Task OnInitializedAsync()
     {
