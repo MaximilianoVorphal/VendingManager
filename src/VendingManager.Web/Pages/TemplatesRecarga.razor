@@ -25,16 +25,16 @@
             <small class="rec-subtitle">Defini periodos por maquina y carga el planograma</small>
         </div>
         <div class="d-flex gap-2 flex-wrap header-actions">
+            <button class="rec-pbtn @(SoloPendientes ? "rec-pbtn--active" : "")" @onclick="() => SoloPendientes = !SoloPendientes">
+                <i class="bi bi-exclamation-circle"></i>
+                Pendientes · @(Templates?.Count(t => t.CantidadSlotsPendientes > 0) ?? 0)
+            </button>
             <VmButton Variant="dark" Icon="bi-arrow-repeat" OnClick="AbrirModalSincronizarGlobal">
                 Sincronizar todo
             </VmButton>
             <VmButton Variant="dark" Icon="bi-plus-lg" OnClick="AbrirModalCrear">
                 Nuevo template
             </VmButton>
-            <button class="rec-pbtn @(SoloPendientes ? "rec-pbtn--active" : "")" @onclick="() => SoloPendientes = !SoloPendientes">
-                <i class="bi bi-exclamation-circle"></i>
-                Pendientes · @(Templates?.Count(t => t.CantidadSlotsPendientes > 0) ?? 0)
-            </button>
         </div>
     </div>
 
@@ -331,7 +331,7 @@
             <!-- Rail de maquinas -->
             <aside class="rec-rail">
                 <div class="rec-rail-header px-3 py-2">
-                    <span class="rec-cell-mono">MAQUINAS · @(PeriodosActuales.Count)</span>
+                    <span class="rec-cell-mono">MÁQUINAS · @(PeriodosActuales.Count)</span>
                     <small class="rec-subtitle">Periodo por maquina · clic para ver grilla</small>
                 </div>
                 <div style="flex: 1; min-height: 0; overflow: auto; padding: 11px; display: flex; flex-direction: column; gap: 11px;">
