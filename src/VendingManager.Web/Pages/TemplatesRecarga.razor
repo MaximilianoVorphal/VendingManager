@@ -426,9 +426,16 @@
                                                         <span class="rec-slot-vacio-tag">Vacio</span>
                                                     }
                                                 </div>
-                                                @if (MostrarPrecios && slot.ProductoId.HasValue && _preciosByProductoId.TryGetValue(slot.ProductoId.Value, out var slotPrice) && slotPrice > 0)
+                                                @if (MostrarPrecios)
                                                 {
-                                                    <span class="rec-slot-price">@slotPrice.ToString("C0", new CultureInfo("es-CL"))</span>
+                                                    @if (slot.ProductoId.HasValue && _preciosByProductoId.TryGetValue(slot.ProductoId.Value, out var slotPrice) && slotPrice > 0)
+                                                    {
+                                                        <span class="rec-slot-price">@slotPrice.ToString("C0", new CultureInfo("es-CL"))</span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="rec-slot-price rec-slot-price--dash">$—</span>
+                                                    }
                                                 }
                                             </div>
                                             <button class="rec-slot-pick" @onclick="() => OnChangeProductForSlot(slot)">
