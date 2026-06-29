@@ -4,6 +4,7 @@
 @using VendingManager.Shared.DTOs
 @using VendingManager.Shared.Enums
 @using Microsoft.AspNetCore.Components.Forms
+@using System.Globalization
 @using VendingManager.Web.Layout
 @using VendingManager.Web.Components.Shared
 @attribute [Authorize(Roles = Roles.Admin)]
@@ -432,10 +433,16 @@
                                         var pct = slot.CapacidadSlot > 0 ? Math.Min(100, slot.CantidadInicial * 100 / slot.CapacidadSlot) : 0;
                                         <div class="rec-slot @(empty ? "rec-slot-empty" : "")">
                                             <div class="d-flex justify-content-between align-items-center">
-                                                <span class="rec-slot-id">Slot @slot.NumeroSlot</span>
-                                                @if (empty)
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <span class="rec-slot-id">Slot @slot.NumeroSlot</span>
+                                                    @if (empty)
+                                                    {
+                                                        <span class="rec-slot-vacio-tag">Vacio</span>
+                                                    }
+                                                </div>
+                                                @if (MostrarPrecios && slot.ProductoId.HasValue && _preciosByProductoId.TryGetValue(slot.ProductoId.Value, out var slotPrice) && slotPrice > 0)
                                                 {
-                                                    <span class="rec-slot-vacio-tag">Vacio</span>
+                                                    <span class="rec-slot-price">@slotPrice.ToString("C0", new CultureInfo("es-CL"))</span>
                                                 }
                                             </div>
                                             <button class="rec-slot-pick" @onclick="() => OnChangeProductForSlot(slot)">
@@ -1433,6 +1440,8 @@
     private TemplateFormModel TemplateActual = new();
     private List<PeriodoFormModel> PeriodosActuales = new();
     private List<ProductoSimpleDto>? ListaProductos;
+    private Dictionary<int, decimal> _preciosByProductoId = new();
+    private bool MostrarPrecios = true;
 
     // Product selector for slot editing
     private SnapshotSlotFormModel? SlotConProductoSelector;
@@ -1445,6 +1454,7 @@
         await CargarMaquinas();
         await CargarProductos();
         await CargarTemplates();
+        BuildPreciosByProductoId();
     }
 
     private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
@@ -1481,6 +1491,18 @@
             ListaProductos = await Http.GetFromJsonAsync<List<ProductoSimpleDto>>("api/Ventas/lista-productos");
         }
         catch { }
+    }
+
+    private void BuildPreciosByProductoId()
+    {
+        _preciosByProductoId.Clear();
+        if (ListaProductos != null)
+        {
+            foreach (var p in ListaProductos)
+            {
+                _preciosByProductoId[p.Id] = p.PrecioVenta;
+            }
+        }
     }
 
     private async Task CargarTemplates()
