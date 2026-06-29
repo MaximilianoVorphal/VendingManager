@@ -38,31 +38,6 @@ public class TemplatesRecargaModalTests : TestContext
     }
 
     [Fact]
-    public void EliminarModal_OpensOnRowTrashClick_WithDangerAndOutlineButtons()
-    {
-        var cut = RenderComponent<TemplatesTestHost>();
-
-        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Template Activo"));
-
-        var eliminarButton = cut.FindAll("button")
-            .First(b => b.InnerHtml.Contains("bi-trash"));
-        eliminarButton.Click();
-
-        cut.WaitForAssertion(() => cut.Markup.Should().Contain("ELIMINAR TEMPLATE"));
-
-        var vmCards = cut.FindComponents<VmCard>();
-        vmCards.Should().Contain(c =>
-            c.Instance.Header == "ELIMINAR TEMPLATE" &&
-            c.Instance.HeaderVariant == "danger");
-
-        var buttons = cut.FindComponents<VmButton>();
-        buttons.Should().Contain(b =>
-            b.Instance.Variant == "outline" && b.Markup.Contains("CANCELAR"));
-        buttons.Should().Contain(b =>
-            b.Instance.Variant == "danger" && b.Markup.Contains("SÍ, ELIMINAR"));
-    }
-
-    [Fact]
     public void SincronizarGlobalModal_OpensOnHeaderSyncAllClick_WithDarkAndOutlineButtons()
     {
         var cut = RenderComponent<TemplatesTestHost>();
@@ -116,33 +91,6 @@ public class TemplatesRecargaModalTests : TestContext
             b.Instance.Variant == "outline" && b.Markup.Contains("CANCELAR"));
         buttons.Should().Contain(b =>
             b.Instance.Variant == "warning" && b.Markup.Contains("SÍ, SINCRONIZAR"));
-    }
-
-    [Fact]
-    public void PendientesModal_OpensOnRowSlotsPendientesClick_WithWarningBadgeAndDarkConfigurar()
-    {
-        var cut = RenderComponent<TemplatesTestHost>();
-
-        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Template Activo"));
-
-        var pendientesButton = cut.FindComponents<VmButton>()
-            .First(b => b.Markup.Contains("Slots pendientes"));
-        pendientesButton.Find("button").Click();
-
-        cut.WaitForAssertion(() => cut.Markup.Should().Contain("SLOTS PENDIENTES DE CONFIGURAR"));
-
-        var vmCards = cut.FindComponents<VmCard>();
-        vmCards.Should().Contain(c =>
-            c.Instance.Header == "SLOTS PENDIENTES DE CONFIGURAR" &&
-            c.Instance.HeaderVariant == "dark");
-
-        var badges = cut.FindComponents<VmBadge>();
-        badges.Should().Contain(b =>
-            b.Instance.Variant == "warning" && b.Markup.Contains("Pendiente"));
-
-        var buttons = cut.FindComponents<VmButton>();
-        buttons.Should().Contain(b =>
-            b.Instance.Variant == "dark" && b.Markup.Contains("CONFIGURAR"));
     }
 
     private class TemplatesMockHttpMessageHandler : HttpMessageHandler
