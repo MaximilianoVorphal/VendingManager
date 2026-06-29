@@ -114,9 +114,10 @@ public class TemplatesRecargaEditorFidelityTests : TestContext
         var css = File.ReadAllText(Path.GetFullPath(cssPath));
 
         // Rail: flex: 0 0 326px; width: 326px; border-right: 2px solid var(--ink-900)
+        // --border-2 token resolves to 2px solid var(--ink-900).
         css.Should().MatchRegex(@"\.rec-rail\s*\{[^}]*flex:\s*0\s+0\s+326px");
         css.Should().MatchRegex(@"\.rec-rail\s*\{[^}]*width:\s*326px");
-        css.Should().MatchRegex(@"\.rec-rail\s*\{[^}]*border-right:\s*2px\s+solid\s+var\(--ink-900\)");
+        css.Should().MatchRegex(@"\.rec-rail\s*\{[^}]*border-right:\s*(?:2px\s+solid\s+var\(--ink-900\)|var\(--border-2\))");
 
         // Split container: flex
         css.Should().MatchRegex(@"\.rec-split\s*\{[^}]*display:\s*flex");
