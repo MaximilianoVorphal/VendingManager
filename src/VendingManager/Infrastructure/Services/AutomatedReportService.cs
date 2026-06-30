@@ -12,6 +12,7 @@ namespace VendingManager.Infrastructure.Services
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IConfiguration _configuration;
         private readonly IServiceProvider _serviceProvider; // Para obtener ExcelService scoped
+        private readonly LastSyncTracker _lastSyncTracker;
 
         // Hora programada: 23:00 (11 PM)
         private readonly TimeSpan _scheduledTime = new TimeSpan(23, 0, 0);
@@ -20,12 +21,14 @@ namespace VendingManager.Infrastructure.Services
             ILogger<AutomatedReportService> logger,
             IHttpClientFactory httpClientFactory,
             IConfiguration configuration,
-            IServiceProvider serviceProvider)
+            IServiceProvider serviceProvider,
+            LastSyncTracker lastSyncTracker)
         {
             _logger = logger;
             _httpClientFactory = httpClientFactory;
             _configuration = configuration;
             _serviceProvider = serviceProvider;
+            _lastSyncTracker = lastSyncTracker;
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -79,6 +82,7 @@ namespace VendingManager.Infrastructure.Services
                         {
                             var resultado = await syncService.SincronizarDesdePortal(m.Id);
                             _logger.LogInformation($"[AutoSync] MÃ¡quina '{m.Nombre}': {resultado}");
+                            _lastSyncTracker.SetLastSync(DateTime.Now);
                         }
                         catch (Exception ex)
                         {
