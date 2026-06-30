@@ -1,0 +1,522 @@
+/* =========================================================================
+   vm-recarga.css — Capa de CLASES para la pantalla "Templates de Recarga"
+   -------------------------------------------------------------------------
+   POR QUÉ EXISTE ESTE ARCHIVO
+   Los componentes Vm* (Button, Badge, SlotCard…) son los ÁTOMOS del sistema.
+   Pero la pantalla de Recarga es ~80% layout y controles compuestos que NO
+   tienen componente: el scaffold (paddings exactos), el rail de máquinas, la
+   barra de herramientas, el toggle segmentado, el stepper, los chips de
+   estado. Si esos se re-tipean "a ojo" en cada página → DRIFT (márgenes
+   corridos, botones con el color equivocado).
+
+   Esta hoja es la ÚNICA fuente de verdad de esa geometría. Aplicás la clase
+   y obtenés el valor exacto del diseño. No vuelvas a escribir estos px inline.
+
+   Todos los valores fuera de la escala de spacing (22/26/13/11px, rail 326px)
+   están declarados como variables --rec-* abajo: son intencionales, no mágicos.
+   Colores/tipos/bordes siempre vía tokens del sistema (--ink-900, --font-mono…).
+   ========================================================================= */
+
+:root {
+  /* Spacing real de la pantalla (fuera de la escala 0.25rem, a propósito) */
+  --rec-list-pad:      22px 26px;   /* padding del contenedor de la lista     */
+  --rec-list-max:      1500px;      /* ancho máximo de la lista, centrada     */
+  --rec-bar-pad:       13px 24px;   /* padding de la barra superior del editor*/
+  --rec-rail-w:        326px;       /* ancho fijo del rail de máquinas        */
+  --rec-band-h:        62px;        /* alto mínimo de las bandas de cabecera  */
+  --rec-foot-h:        66px;        /* alto mínimo de las bandas de pie       */
+  --rec-card-min:      246px;       /* ancho mínimo del slot (densidad cómoda)*/
+  --rec-card-min-cmp:  184px;       /* ancho mínimo del slot (densidad compacta)*/
+}
+
+/* =========================================================================
+   1. SCAFFOLD — contenedores de página
+   ========================================================================= */
+
+/* Raíz de la vista (debajo del navbar): ocupa el alto restante */
+.rec-view {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg-canvas);
+  font-family: var(--font-sans);
+}
+
+/* --- Vista 1: lista de recargas --- */
+.rec-list {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: var(--rec-list-max);
+  margin: 0 auto;
+  padding: var(--rec-list-pad);
+  overflow: hidden;
+}
+.rec-list__head {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 18px;
+  border-bottom: var(--border-3);
+  padding-bottom: 14px;
+  flex-wrap: wrap;
+}
+.rec-list__actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+/* --- Vista 2: editor a ancho completo --- */
+.rec-editor {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  overflow: hidden;
+}
+/* Barra superior del editor (Volver · título · acciones) */
+.rec-bar {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: var(--rec-bar-pad);
+  border-bottom: var(--border-3);
+  background: var(--paper-0);
+  flex-wrap: nowrap;
+  overflow: hidden;
+}
+.rec-bar__left  { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.rec-bar__title { margin: 0; font-family: var(--font-mono); font-weight: var(--fw-bold); text-transform: uppercase; letter-spacing: -0.5px; font-size: 1.25rem; }
+.rec-bar__actions { display: flex; gap: 8px; flex-wrap: nowrap; overflow-x: auto; flex-shrink: 0; }
+
+/* Split master-detail */
+.rec-split { flex: 1; min-height: 0; display: flex; }
+
+/* =========================================================================
+   2. PAGE HEADER (eyebrow + título + subtítulo) — vista lista
+   ========================================================================= */
+.rec-eyebrow {
+  display: inline-block;
+  background: var(--ink-900);
+  color: var(--paper-0);
+  font-family: var(--font-mono);
+  font-weight: var(--fw-bold);
+  font-size: 0.6rem;
+  letter-spacing: 2px;
+  padding: 3px 9px;
+  text-transform: uppercase;
+  margin-bottom: 9px;
+}
+.rec-title {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-weight: var(--fw-bold);
+  text-transform: uppercase;
+  letter-spacing: -1px;
+  font-size: 1.7rem;
+  line-height: 1;
+}
+.rec-title__cursor { animation: recBlink 1s steps(1) infinite; }
+.rec-subtitle {
+  margin: 6px 0 0;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+/* =========================================================================
+   3. RAIL DE MÁQUINAS (columna izquierda del editor)
+   ========================================================================= */
+.rec-rail {
+  flex: 0 0 var(--rec-rail-w);
+  width: var(--rec-rail-w);
+  border-right: var(--border-2);
+  background: var(--paper-50);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.rec-rail__head {
+  flex-shrink: 0;
+  min-height: var(--rec-band-h);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 8px 14px;
+  border-bottom: var(--border-2);
+}
+.rec-rail__title { font-family: var(--font-mono); font-weight: var(--fw-bold); text-transform: uppercase; font-size: 0.86rem; letter-spacing: 0.5px; }
+.rec-rail__hint  { font-family: var(--font-mono); font-size: 0.66rem; color: var(--text-muted); text-transform: uppercase; }
+.rec-rail__body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 11px;
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+.rec-rail__foot {
+  flex-shrink: 0;
+  min-height: var(--rec-foot-h);
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  border-top: var(--border-2);
+  padding: 11px;
+}
+
+/* Tarjeta de máquina en el rail */
+.rec-mcard {
+  border: var(--border-2);
+  background: var(--paper-0);
+  padding: 11px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  cursor: pointer;
+  transition: box-shadow var(--dur-fast) var(--ease-snap);
+}
+.rec-mcard:hover { box-shadow: 3px 3px 0 var(--ink-900); }
+.rec-mcard.is-active {
+  box-shadow: inset 5px 0 0 var(--signal-success);
+  background: var(--paper-0);
+  outline: 1px solid var(--ink-900);
+}
+.rec-mcard__row { display: flex; align-items: center; gap: 7px; }
+
+/* =========================================================================
+   4. ESTANTERÍA (columna derecha del editor)
+   ========================================================================= */
+.rec-shelf {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.rec-shelf__head {
+  flex-shrink: 0;
+  min-height: var(--rec-band-h);
+  box-sizing: border-box;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  border-bottom: var(--border-2);
+  background: var(--paper-0);
+  flex-wrap: wrap;
+}
+.rec-shelf__tools { display: flex; gap: 8px; align-items: center; flex-wrap: nowrap; overflow-x: auto; flex-shrink: 0; }
+.rec-shelf__body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  background: var(--bg-surface-inset);
+  padding: 16px;
+}
+.rec-shelf__foot {
+  flex-shrink: 0;
+  min-height: var(--rec-foot-h);
+  box-sizing: border-box;
+  border-top: var(--border-2);
+  background: var(--paper-0);
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.rec-shelf__foot-actions { margin-left: auto; display: flex; gap: 8px; flex-wrap: nowrap; overflow-x: auto; }
+
+/* Cuadro de ícono (la "grilla" 34x34 junto al título de estantería) */
+.rec-iconbox {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  background: var(--ink-900);
+  color: var(--paper-0);
+  flex-shrink: 0;
+}
+
+/* Etiqueta de piso + regla */
+.rec-floor { margin-bottom: 18px; }
+.rec-floor__head { display: flex; align-items: center; gap: 10px; margin-bottom: 11px; }
+.rec-floor__tag {
+  display: inline-block;
+  background: var(--ink-900);
+  color: var(--paper-0);
+  font-family: var(--font-mono);
+  font-weight: var(--fw-bold);
+  font-size: 0.7rem;
+  letter-spacing: 1px;
+  padding: 4px 12px;
+  text-transform: uppercase;
+}
+.rec-floor__rule { flex: 1; height: 2px; background: var(--ink-900); opacity: 0.15; }
+.rec-floor__sum  { font-family: var(--font-mono); font-size: 0.64rem; color: var(--text-muted); text-transform: uppercase; }
+
+/* Grilla de slots (densidad cómoda por defecto; .is-compact reduce) */
+.rec-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--rec-card-min), 1fr));
+  gap: 12px;
+}
+.rec-grid.is-compact { grid-template-columns: repeat(auto-fill, minmax(var(--rec-card-min-cmp), 1fr)); gap: 8px; }
+
+/* =========================================================================
+   5. CONTROLES NO-ATÓMICOS (la causa #1 de botones mal coloreados)
+   ========================================================================= */
+
+/* --- 5a. Botón "Volver" / botón outline alto fijo --- */
+.rec-back {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 42px;
+  padding: 0 14px;
+  border: var(--border-2);
+  background: var(--paper-0);
+  color: var(--ink-900);
+  font-family: var(--font-mono);
+  font-weight: var(--fw-bold);
+  text-transform: uppercase;
+  font-size: 0.74rem;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  border-radius: var(--radius-0);
+  flex-shrink: 0;
+}
+.rec-back:hover { background: var(--paper-50); }
+
+/* --- 5b. Pill "Pendientes" (toggle) --- */
+.rec-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--paper-0);
+  color: var(--ink-900);
+  border: var(--border-2);
+  font-family: var(--font-mono);
+  font-weight: var(--fw-bold);
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  letter-spacing: 0.5px;
+  padding: 9px 12px;
+  cursor: pointer;
+  border-radius: var(--radius-0);
+}
+.rec-pill:hover { background: var(--paper-50); }
+.rec-pill.is-on { background: var(--signal-warning); color: var(--ink-900); }
+
+/* --- 5c. Toggle segmentado (Cómoda / Compacta) --- */
+.rec-segment { display: flex; border: var(--border-2); }
+.rec-segment > button {
+  font-family: var(--font-mono);
+  font-weight: var(--fw-bold);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  padding: 7px 10px;
+  border: none;
+  background: var(--paper-0);
+  color: var(--ink-900);
+  cursor: pointer;
+}
+.rec-segment > button + button { border-left: var(--border-2); }
+.rec-segment > button.is-active { background: var(--ink-900); color: var(--paper-0); }
+
+/* --- 5d. Botón-ícono cuadrado (papelera, escáner) --- */
+.rec-iconbtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border: var(--border-2);
+  background: var(--paper-0);
+  color: var(--ink-900);
+  cursor: pointer;
+  border-radius: var(--radius-0);
+  font-size: 0.9rem;
+}
+.rec-iconbtn--danger { border-color: var(--signal-danger); color: var(--signal-danger); }
+.rec-iconbtn--dark   { background: var(--ink-900); color: var(--paper-0); }
+
+/* --- 5e. Stepper de slot (− / valor / + / Máx) --- */
+.rec-stepper { display: flex; align-items: center; gap: 7px; }
+.rec-stepper__btn {
+  width: 44px;
+  height: 42px;
+  border: var(--border-2);
+  background: var(--paper-0);
+  color: var(--ink-900);
+  font-size: 1.35rem;
+  font-weight: var(--fw-bold);
+  cursor: pointer;
+  border-radius: var(--radius-0);
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.rec-stepper__btn:disabled { color: var(--line-300); cursor: not-allowed; }
+.rec-stepper__val {
+  min-width: 38px;
+  text-align: center;
+  font-family: var(--font-sans);
+  font-weight: var(--fw-bold);
+  font-size: 1.3rem;
+}
+.rec-stepper__max {
+  margin-left: auto;
+  height: 42px;
+  padding: 0 15px;
+  border: var(--border-2);
+  background: var(--ink-900);
+  color: var(--paper-0);
+  font-family: var(--font-mono);
+  font-weight: var(--fw-bold);
+  text-transform: uppercase;
+  font-size: 0.74rem;
+  letter-spacing: 1px;
+  cursor: pointer;
+  border-radius: var(--radius-0);
+}
+
+/* --- 5f. Chip de estado "Finalizado" (outline de color) --- */
+.rec-status {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 38px;
+  padding: 0 14px;
+  border: 2px solid var(--signal-success);
+  background: var(--paper-0);
+  color: var(--signal-success);
+  font-family: var(--font-mono);
+  font-weight: var(--fw-bold);
+  text-transform: uppercase;
+  font-size: 0.74rem;
+  letter-spacing: 0.5px;
+}
+
+/* --- 5g. Badge de estado pequeño en tabla / barra (1px border) --- */
+.rec-badge {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  font-weight: var(--fw-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 3px 8px;
+  border: 1px solid var(--ink-900);
+  white-space: nowrap;
+}
+.rec-badge--ok      { background: var(--signal-success); color: var(--paper-0); }
+.rec-badge--pending { background: var(--signal-warning); color: var(--ink-900); }
+
+/* Mini-badge "vacíos" (warning) */
+.rec-tag-empty {
+  background: var(--signal-warning);
+  color: var(--ink-900);
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  font-weight: var(--fw-bold);
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border: 1px solid var(--ink-900);
+}
+
+/* Input de búsqueda industrial */
+.rec-search {
+  border: var(--border-2);
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  padding: 7px 10px;
+  border-radius: var(--radius-0);
+  width: 204px;
+  outline: none;
+}
+
+/* =========================================================================
+   6. TABLA DE RECARGAS (vista lista)
+   ========================================================================= */
+.rec-tablewrap {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  margin-top: 16px;
+  border: var(--border-2);
+  background: var(--paper-0);
+}
+.rec-table { width: 100%; border-collapse: collapse; min-width: 880px; }
+.rec-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--ink-900);
+  color: var(--paper-0);
+  font-family: var(--font-mono);
+  font-weight: var(--fw-bold);
+  text-transform: uppercase;
+  font-size: 0.64rem;
+  letter-spacing: 1px;
+  text-align: left;
+  padding: 11px 14px;
+}
+.rec-table th.is-right { text-align: right; }
+.rec-table td { padding: 13px 14px; vertical-align: middle; border-bottom: var(--border-hair); }
+.rec-trow:hover { background: var(--paper-50); }
+.rec-trow.is-pending { background: var(--tint-pending); }
+
+/* Barra de progreso de carga (lista y rail) */
+.rec-progress { flex: 1; min-width: 40px; height: 6px; background: var(--line-200); border-radius: 4px; overflow: hidden; }
+.rec-progress > span { display: block; height: 100%; border-radius: 4px; transition: width var(--dur-slow); }
+.rec-progress > .fill-good    { background: var(--fill-good); }
+.rec-progress > .fill-warning { background: var(--fill-warning); }
+.rec-progress > .fill-danger  { background: var(--fill-danger); }
+
+/* Estado vacío (sin filas / sin slots) */
+.rec-empty {
+  padding: 48px 20px;
+  text-align: center;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  font-size: 0.8rem;
+}
+
+/* =========================================================================
+   7. RESPONSIVE + MOTION
+   ========================================================================= */
+@keyframes recBlink { 50% { opacity: 0; } }
+
+@media (max-width: 1000px) {
+  .rec-split { flex-direction: column; }
+  .rec-rail {
+    flex: none;
+    width: 100%;
+    border-right: none;
+    border-bottom: var(--border-2);
+    max-height: 260px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rec-title__cursor { animation: none; }
+}

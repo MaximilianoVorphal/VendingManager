@@ -1,0 +1,37 @@
+@* =========================================================================
+   VmSegmented — Toggle segmentado (ej. "Cómoda / Compacta")
+   Usa las clases de vm-recarga.css (.rec-segment). El estado activo se
+   invierte a negro automáticamente — no hay que colorearlo a mano.
+
+   Props:
+   - Options:  lista de (Key, Label)
+   - Value:    key activa            (soporta @bind-Value)
+   - ValueChanged: EventCallback<string>
+
+   Uso:
+   <VmSegmented @bind-Value="_density"
+                Options="@(new[]{ ("comoda","Cómoda"), ("compacta","Compacta") })" />
+   ========================================================================= *@
+
+@code {
+    [Parameter] public IEnumerable<(string Key, string Label)> Options { get; set; } = Array.Empty<(string, string)>();
+    [Parameter] public string Value { get; set; } = "";
+    [Parameter] public EventCallback<string> ValueChanged { get; set; }
+
+    private async Task Select(string key)
+    {
+        Value = key;
+        await ValueChanged.InvokeAsync(key);
+    }
+}
+
+<div class="rec-segment">
+    @foreach (var opt in Options)
+    {
+        <button type="button"
+                class="@(opt.Key == Value ? "is-active" : null)"
+                @onclick="() => Select(opt.Key)">
+            @opt.Label
+        </button>
+    }
+</div>

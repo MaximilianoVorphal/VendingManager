@@ -28,7 +28,10 @@ public class TemplatesRecargaTokenAuditTests_Full
 
     private static string CssContent => File.ReadAllText(CssPath);
 
-    private const string SlotCardExceptionComment = "SlotCard is the design system EXCEPTION";
+    // The .rec-slot design system exception comment in the project CSS
+    // (TemplatesRecarga.razor.css) uses the word "EXCEPTION" in its
+    // header comment.
+    private const string SlotCardExceptionComment = "EXCEPTION";
 
     [Fact]
     public void FullFile_NoHexLiterals_OutsideDocumentedException()
