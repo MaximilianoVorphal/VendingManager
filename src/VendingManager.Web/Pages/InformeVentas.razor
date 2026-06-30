@@ -70,7 +70,7 @@
                     else
                     {
                         <span style="width:7px;height:7px;border-radius:50%;background:var(--signal-success);"></span>
-                        <text>Sincronizado @_lastSync</text>
+                        <text>Sincronizado @LastSyncLabel</text>
                     }
                 </span>
             </div>
@@ -341,10 +341,20 @@
     private string _hasta = DateTime.Today.ToString("yyyy-MM-dd");
     private OpRow? _detail;
     private bool _syncing = false;
-    private string _lastSync = "hace 6 min";
+    private DateTime? _lastSyncAt;
+    private string LastSyncLabel => _lastSyncAt is null ? "nunca" : TimeAgoHelper.Format(_lastSyncAt.Value, DateTime.Now);
     private string? _error;
     private string? _success;
     private CancellationTokenSource? _loadCts;
+    private CancellationTokenSource? _pollingCts;
+
+    /// <summary>Polling interval in milliseconds. Exposed for testing.</summary>
+    [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
+    [Parameter] public int PollingIntervalMs { get; set; } = 30_000;
+
+    /// <summary>Current polling CancellationTokenSource. Exposed for testing.</summary>
+    [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
+    public CancellationTokenSource? PollingCts => _pollingCts;
 
     // ── API state ─────────────────────────────────────────────────────────────
     private ReporteDto? _reporte;
@@ -441,6 +451,46 @@
         await CargarMaquinas();
         _loadCts = new CancellationTokenSource();
         await CargarReportesAsync(_loadCts.Token);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _pollingCts = new CancellationTokenSource();
+            await RefreshLastSyncAsync();
+            StateHasChanged();
+
+            _ = Task.Run(async () =>
+            {
+                while (!_pollingCts.Token.IsCancellationRequested)
+                {
+                    try
+                    {
+                        await Task.Delay(PollingIntervalMs, _pollingCts.Token);
+                        await RefreshLastSyncAsync();
+                        await InvokeAsync(StateHasChanged);
+                    }
+                    catch (OperationCanceledException) { break; }
+                    catch { /* silent */ }
+                }
+            });
+        }
+    }
+
+    private record LastSyncResponse(DateTime? LastSync);
+
+    private async Task RefreshLastSyncAsync()
+    {
+        try
+        {
+            var resp = await Http.GetFromJsonAsync<LastSyncResponse>("api/Ventas/last-sync");
+            if (resp?.LastSync is not null)
+            {
+                _lastSyncAt = resp.LastSync.Value.ToLocalTime();
+            }
+        }
+        catch { /* silent */ }
     }
 
     private async Task CargarMaquinas()
@@ -544,6 +594,8 @@
     // ── IDisposable ───────────────────────────────────────────────────────────
     public void Dispose()
     {
+        _pollingCts?.Cancel();
+        _pollingCts?.Dispose();
         _loadCts?.Cancel();
         _loadCts?.Dispose();
     }
@@ -623,6 +675,7 @@
             {
                 var msg = await response.Content.ReadAsStringAsync(ct);
                 _success = "Sincronización completada: " + msg;
+                _lastSyncAt = DateTime.Now;
                 _loadCts?.Cancel();
                 _loadCts = new CancellationTokenSource();
                 await CargarReportesAsync(_loadCts.Token);
@@ -641,7 +694,6 @@
         finally
         {
             _syncing = false;
-            _lastSync = "recién";
             StateHasChanged();
         }
     }
