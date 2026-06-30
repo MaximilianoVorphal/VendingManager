@@ -524,6 +524,71 @@ public class InformeVentasPageTests : TestContext
         }, TimeSpan.FromSeconds(1));
     }
 
+    // ── Verify-fix: polling tests ─────────────────────────────────────────
+
+    [Fact]
+    public void LastSync_Polling_SurvivesAfter_Sincronizar()
+    {
+        var cut = RenderComponent<InformeVentas>(p => p.Add(c => c.PollingIntervalMs, 100));
+
+        cut.WaitForAssertion(() =>
+        {
+            _mockHandler.Requests.Should().Contain(r => r.Contains("reporte-rango"));
+        });
+
+        // Capture last-sync count before user action
+        var lastSyncBefore = _mockHandler.Requests.Count(r => r.Contains("last-sync"));
+
+        // User action: click Sincronizar
+        cut.Find("button:contains('Sincronizar')").Click();
+
+        cut.WaitForAssertion(() =>
+        {
+            _mockHandler.Requests.Should().Contain(r => r.Contains("sync-portal"));
+        }, TimeSpan.FromSeconds(2));
+
+        // After user action, polling should still be running.
+        // With 100ms interval, wait 500ms — should see at least 1 more last-sync request.
+        Thread.Sleep(500);
+
+        var lastSyncAfter = _mockHandler.Requests.Count(r => r.Contains("last-sync"));
+        lastSyncAfter.Should().BeGreaterThan(lastSyncBefore,
+            "polling should survive after Sincronizar — _pollingCts must NOT be cancelled by user actions");
+    }
+
+    [Fact]
+    public void LastSync_PollingCts_IsCreated_OnFirstRender()
+    {
+        var cut = RenderComponent<InformeVentas>();
+
+        cut.WaitForAssertion(() =>
+        {
+            _mockHandler.Requests.Should().Contain(r => r.Contains("reporte-rango"));
+        });
+
+        // PollingCts should be created and NOT cancelled after first render
+        cut.Instance.PollingCts.Should().NotBeNull("polling CTS should be created on first render");
+        cut.Instance.PollingCts!.IsCancellationRequested.Should().BeFalse("polling CTS should not be cancelled while component is alive");
+    }
+
+    [Fact]
+    public void LastSync_PollingCts_IsCancelled_OnDispose()
+    {
+        var cut = RenderComponent<InformeVentas>();
+
+        cut.WaitForAssertion(() =>
+        {
+            _mockHandler.Requests.Should().Contain(r => r.Contains("reporte-rango"));
+        });
+
+        var pollingCts = cut.Instance.PollingCts;
+        pollingCts.Should().NotBeNull();
+
+        cut.Dispose();
+
+        pollingCts!.IsCancellationRequested.Should().BeTrue("polling CTS should be cancelled on Dispose");
+    }
+
     // ── WU-2: Last-sync polling tests ──────────────────────────────────────
 
     [Fact]
