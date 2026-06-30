@@ -1,0 +1,390 @@
+@page "/conciliacion-v2"
+@using System.Globalization
+
+@* =============================================================================
+   Conciliación — port fiel de templates/conciliacion/Conciliacion.dc.html.
+   Las tres pestañas (Cuadre / Comprobantes / Saldo) colapsan en una sola
+   pantalla sin scroll: cuadre = libro único con scroll interno a la izquierda,
+   comprobante del documento seleccionado a la derecha, totales en la franja de
+   KPIs y saldo a devolver como barra de acción permanente abajo.
+   Ruta "fullscreen" en MainLayout. Datos demo idénticos al template (el cableado
+   real a HttpClient es el paso siguiente). Estilos inline con var(--token)
+   copiados del template; el bloque <style> cubre keyframes, hover y responsive.
+   ============================================================================= *@
+
+<style>
+    @@keyframes conBlink { 50% { opacity: 0; } }
+    @@keyframes conFade { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+    .con-cursor { animation: conBlink 1s steps(1) infinite; }
+    .con-modal { animation: conFade .15s ease-out; }
+    .con-row:hover { background: var(--bg-surface-inset) !important; }
+    @@media (prefers-reduced-motion: reduce) {
+        .con-cursor, .con-modal { animation: none !important; }
+    }
+    @@media (max-width: 1080px) {
+        .con-work { flex-direction: column !important; }
+        .con-comprobante {
+            flex: none !important; width: 100% !important; max-width: none !important;
+            border-top: 2px solid var(--ink-900);
+        }
+    }
+    /* El título y su cursor parpadeante no deben poder seleccionarse. */
+    .con-page [data-cuadre-title] { user-select: none; }
+    /* Foco solo visible con teclado (accesible), no la caja al click de mouse. */
+    .con-page :is(button, select, input):focus:not(:focus-visible) { outline: none; }
+    .con-page :is(button, select, input):focus-visible {
+        outline: 2px solid var(--ink-900); outline-offset: 2px;
+    }
+</style>
+
+<div class="con-page" style="flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden;padding:0.9rem 1.25rem 0.9rem;gap:0.7rem;">
+
+    <!-- ===== HEADER: selector + acciones ===== -->
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;flex-shrink:0;">
+        <div style="display:flex;align-items:center;gap:10px;">
+            <button style="display:flex;align-items:center;gap:10px;background:var(--ink-900);color:var(--paper-0);border:2px solid var(--ink-900);border-radius:0;cursor:pointer;font-family:var(--font-mono);font-weight:700;font-size:0.86rem;text-transform:uppercase;letter-spacing:0.5px;padding:0.5rem 0.9rem;">
+                <i class="bi bi-bank"></i> $273.000 — Jose Miguel <span style="opacity:0.7;">▾</span>
+            </button>
+            <span style="font-family:var(--font-mono);font-weight:700;font-size:0.62rem;text-transform:uppercase;letter-spacing:1px;background:var(--signal-success);color:#fff;padding:4px 9px;">Abierta</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <VmButton Variant="outline" Bar="true" Icon="bi-bank">Transferencia</VmButton>
+            <VmButton Variant="outline" Bar="true" Icon="bi-cart">Compra</VmButton>
+            <VmButton Variant="outline" Bar="true" Icon="bi-receipt">Gasto</VmButton>
+            <VmButton Variant="dark" Bar="true" Icon="bi-box-arrow-up-right">Ir a caja</VmButton>
+        </div>
+    </div>
+
+    <!-- ===== FRANJA KPI (totales del cuadre, siempre visibles) ===== -->
+    <div style="display:grid;grid-template-columns:1.1fr 1fr 1fr 1fr 1.25fr;gap:0;border:2px solid var(--ink-900);background:var(--paper-0);flex-shrink:0;">
+        <!-- Identidad -->
+        <div style="padding:0.7rem 0.9rem;border-right:1px solid var(--line-200);display:flex;flex-direction:column;gap:4px;">
+            <span style="font-family:var(--font-mono);font-weight:700;font-size:0.92rem;text-transform:uppercase;letter-spacing:-0.3px;">Jose Miguel</span>
+            <span style="font-family:var(--font-mono);font-size:0.68rem;color:var(--text-muted);">03/02/2026 · Rendición abierta</span>
+        </div>
+        <!-- Transferido -->
+        <div style="padding:0.7rem 0.9rem;border-right:1px solid var(--line-200);text-align:center;display:flex;flex-direction:column;gap:3px;justify-content:center;">
+            <span style="font-family:var(--font-mono);font-weight:700;font-size:0.6rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);">Transferido</span>
+            <span style="font-family:var(--font-sans);font-weight:700;font-size:1.25rem;letter-spacing:-1px;line-height:1;color:var(--signal-success);">+$273.000</span>
+        </div>
+        <!-- Compras -->
+        <div style="padding:0.7rem 0.9rem;border-right:1px solid var(--line-200);text-align:center;display:flex;flex-direction:column;gap:3px;justify-content:center;">
+            <span style="font-family:var(--font-mono);font-weight:700;font-size:0.6rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);">Compras</span>
+            <span style="font-family:var(--font-sans);font-weight:700;font-size:1.25rem;letter-spacing:-1px;line-height:1;color:var(--signal-danger);">-$238.034</span>
+        </div>
+        <!-- Gastos -->
+        <div style="padding:0.7rem 0.9rem;border-right:1px solid var(--line-200);text-align:center;display:flex;flex-direction:column;gap:3px;justify-content:center;">
+            <span style="font-family:var(--font-mono);font-weight:700;font-size:0.6rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);">Gastos</span>
+            <span style="font-family:var(--font-sans);font-weight:700;font-size:1.25rem;letter-spacing:-1px;line-height:1;color:var(--signal-danger);">-$30.000</span>
+        </div>
+        <!-- Diferencia -->
+        <div style="padding:0.7rem 0.95rem;background:var(--signal-warning);display:flex;align-items:center;justify-content:space-between;gap:10px;">
+            <div style="display:flex;flex-direction:column;gap:2px;">
+                <span style="font-family:var(--font-mono);font-weight:700;font-size:0.6rem;text-transform:uppercase;letter-spacing:1px;color:rgba(0,0,0,0.65);">Diferencia</span>
+                <span style="font-family:var(--font-sans);font-weight:700;font-size:1.45rem;letter-spacing:-1px;line-height:1;color:var(--ink-900);">$4.966</span>
+            </div>
+            <span style="font-family:var(--font-mono);font-weight:700;font-size:0.58rem;text-transform:uppercase;letter-spacing:0.5px;background:var(--ink-900);color:#fff;padding:4px 8px;">Positiva</span>
+        </div>
+    </div>
+
+    <!-- ===== ÁREA DE TRABAJO: cuadre (izq) + comprobante (der) ===== -->
+    <div class="con-work" style="flex:1;min-height:0;display:flex;gap:0.7rem;">
+
+        <!-- ---------- IZQUIERDA: CUADRE (libro único con scroll interno) ---------- -->
+        <div style="flex:1.45;min-width:0;display:flex;flex-direction:column;border:2px solid var(--ink-900);box-shadow:var(--shadow-card);background:var(--paper-0);">
+            <!-- barra negra: título + progreso + filtro -->
+            <div style="flex-shrink:0;background:var(--ink-900);color:var(--paper-0);display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:0.5rem 0.85rem;">
+                <div style="display:flex;align-items:center;gap:12px;">
+                    <span data-cuadre-title style="font-family:var(--font-mono);font-weight:700;text-transform:uppercase;letter-spacing:1px;font-size:0.92rem;"><i class="bi bi-table"></i> Cuadre<span class="con-cursor">_</span></span>
+                    <span style="font-family:var(--font-mono);font-weight:700;font-size:0.62rem;text-transform:uppercase;letter-spacing:0.5px;background:var(--signal-success);color:#fff;padding:3px 7px;">Transf. @TransfDone/1</span>
+                    @if (DocsDone == DocsTotal)
+                    {
+                        <span style="font-family:var(--font-mono);font-weight:700;font-size:0.62rem;text-transform:uppercase;letter-spacing:0.5px;background:var(--signal-success);color:#fff;padding:3px 7px;">Docs @DocsDone/@DocsTotal</span>
+                    }
+                    else
+                    {
+                        <span style="font-family:var(--font-mono);font-weight:700;font-size:0.62rem;text-transform:uppercase;letter-spacing:0.5px;background:var(--signal-warning);color:var(--ink-900);padding:3px 7px;">Docs @DocsDone/@DocsTotal</span>
+                    }
+                </div>
+                <div style="display:flex;gap:0;border:2px solid var(--paper-0);">
+                    @foreach (var f in Filtros)
+                    {
+                        var on = _filter == f.Key;
+                        <button @onclick="() => _filter = f.Key" style="font-family:var(--font-mono);font-weight:700;font-size:0.64rem;text-transform:uppercase;letter-spacing:0.5px;padding:4px 9px;border:none;border-radius:0;cursor:pointer;background:@(on ? "var(--paper-0)" : "transparent");color:@(on ? "var(--ink-900)" : "var(--paper-0)");">@f.Label</button>
+                    }
+                </div>
+            </div>
+
+            <!-- lista scrolleable -->
+            <div style="flex:1;min-height:0;overflow:auto;background:var(--bg-surface-inset);">
+                @foreach (var sec in BuildSections())
+                {
+                    <!-- cabecera de sección (sub-tabla) -->
+                    <div style="position:sticky;top:0;z-index:2;display:flex;justify-content:space-between;align-items:center;gap:10px;background:var(--ink-900);color:var(--paper-0);padding:6px 12px;border-bottom:1px solid var(--line-200);">
+                        <span style="display:flex;align-items:center;gap:9px;font-family:var(--font-mono);font-weight:700;font-size:0.72rem;text-transform:uppercase;letter-spacing:1px;"><i class="bi @sec.Icon"></i>@sec.Title <span style="background:var(--paper-0);color:var(--ink-900);padding:1px 7px;">@sec.Count</span></span>
+                        <span style="font-family:var(--font-mono);font-weight:700;font-size:0.78rem;color:@(sec.TotalPos ? "#7ee2a8" : "#ff9aa3");">Total @sec.TotalFmt</span>
+                    </div>
+                    <!-- filas -->
+                    @foreach (var r in sec.Rows)
+                    {
+                        <div class="con-row" @onclick="() => _selectedId = r.Id" style="position:relative;display:flex;align-items:center;gap:11px;padding:9px 12px 9px 14px;border-bottom:1px solid var(--line-200);background:var(--paper-0);cursor:pointer;">
+                            @if (r.Selected)
+                            {
+                                <div style="position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--ink-900);"></div>
+                            }
+                            <div style="flex-shrink:0;width:38px;height:46px;border:1px solid var(--ink-900);background-image:repeating-linear-gradient(45deg,#f0f0f0,#f0f0f0 5px,#e2e2e2 5px,#e2e2e2 10px);display:flex;align-items:center;justify-content:center;">
+                                <i class="bi @r.ThumbIcon" style="font-size:0.95rem;color:var(--ink-700);"></i>
+                            </div>
+                            <div style="flex:1;min-width:0;">
+                                <div style="font-family:var(--font-sans);font-weight:600;font-size:0.82rem;text-transform:uppercase;letter-spacing:-0.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">@r.Titulo</div>
+                                <div style="font-family:var(--font-mono);font-size:0.66rem;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">@r.Sub</div>
+                            </div>
+                            <span style="flex-shrink:0;font-family:var(--font-mono);font-weight:700;font-size:0.56rem;text-transform:uppercase;letter-spacing:0.4px;border:1px solid var(--ink-900);padding:2px 6px;">@r.TipoTag</span>
+                            <span style="flex-shrink:0;width:96px;text-align:right;font-family:var(--font-mono);font-weight:700;font-size:0.84rem;color:@(r.MontoPos ? "var(--signal-success)" : "var(--signal-danger)");">@r.MontoFmt</span>
+                            <div style="flex-shrink:0;width:34px;display:flex;justify-content:center;">
+                                @if (r.Verified)
+                                {
+                                    <i class="bi bi-check-circle-fill" style="font-size:1.05rem;color:var(--signal-success);"></i>
+                                }
+                                else
+                                {
+                                    <span style="width:16px;height:16px;border:2px solid var(--signal-warning);border-radius:50%;background:var(--tint-pending);"></span>
+                                }
+                            </div>
+                        </div>
+                    }
+                }
+            </div>
+        </div>
+
+        <!-- ---------- DERECHA: COMPROBANTE del documento seleccionado ---------- -->
+        @{ var sel = BuildSel(); }
+        <div class="con-comprobante" style="flex:1;min-width:330px;max-width:440px;display:flex;flex-direction:column;border:2px solid var(--ink-900);box-shadow:var(--shadow-card);background:var(--paper-0);">
+            <div style="flex-shrink:0;background:var(--ink-900);color:var(--paper-0);display:flex;justify-content:space-between;align-items:center;padding:0.5rem 0.85rem;">
+                <span style="font-family:var(--font-mono);font-weight:700;text-transform:uppercase;letter-spacing:1px;font-size:0.92rem;"><i class="bi bi-card-image"></i> Comprobante</span>
+                <span style="font-family:var(--font-mono);font-weight:700;font-size:0.62rem;text-transform:uppercase;letter-spacing:0.5px;border:1px solid var(--paper-0);padding:3px 7px;">@sel.KindLabel</span>
+            </div>
+
+            <div style="flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;">
+                <!-- foto / imagen del comprobante -->
+                <div style="flex:1 1 120px;min-height:120px;margin:0.85rem;border:2px solid var(--ink-900);background-image:repeating-linear-gradient(45deg,#fafafa,#fafafa 9px,#eee 9px,#eee 18px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;">
+                    <i class="bi @sel.BigIcon" style="font-size:2rem;color:var(--text-muted);"></i>
+                    <span style="font-family:var(--font-mono);font-weight:700;font-size:0.7rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);">@sel.ImgCaption</span>
+                </div>
+
+                <!-- datos del documento -->
+                <div style="padding:0 0.95rem 0.5rem;">
+                    <div style="font-family:var(--font-sans);font-weight:700;font-size:1rem;text-transform:uppercase;letter-spacing:-0.3px;line-height:1.15;margin-bottom:8px;">@sel.Titulo</div>
+                    <div style="display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-family:var(--font-mono);font-size:0.74rem;align-items:baseline;">
+                        <span style="color:var(--text-muted);font-weight:700;text-transform:uppercase;font-size:0.62rem;">@sel.F1Label</span><span style="font-weight:700;text-align:right;">@sel.F1</span>
+                        <span style="color:var(--text-muted);font-weight:700;text-transform:uppercase;font-size:0.62rem;">@sel.F2Label</span><span style="font-weight:700;text-align:right;">@sel.F2</span>
+                        <span style="color:var(--text-muted);font-weight:700;text-transform:uppercase;font-size:0.62rem;">Tipo</span><span style="font-weight:700;text-align:right;text-transform:uppercase;">@sel.TipoTag</span>
+                        <span style="color:var(--text-muted);font-weight:700;text-transform:uppercase;font-size:0.62rem;">Monto</span>
+                        <span style="font-weight:700;text-align:right;font-size:0.95rem;color:@(sel.MontoPos ? "var(--signal-success)" : "var(--signal-danger)");">@sel.MontoFmt</span>
+                    </div>
+                </div>
+
+                <!-- selector de archivo -->
+                <div style="margin:0 0.95rem 0.7rem;display:flex;border:1px solid var(--ink-900);">
+                    <span style="background:var(--bg-surface-inset);border-right:1px solid var(--ink-900);font-family:var(--font-mono);font-weight:700;font-size:0.64rem;text-transform:uppercase;letter-spacing:0.5px;padding:7px 10px;white-space:nowrap;">Elegir archivo</span>
+                    <span style="flex:1;font-family:var(--font-mono);font-size:0.68rem;color:var(--text-muted);padding:7px 10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">@sel.FileName</span>
+                </div>
+            </div>
+
+            <!-- acciones de verificación (pie fijo del panel) -->
+            <div style="flex-shrink:0;border-top:2px solid var(--ink-900);padding:0.7rem 0.85rem;">
+                @if (sel.Verified)
+                {
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <div style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;background:var(--signal-success);color:#fff;font-family:var(--font-mono);font-weight:700;font-size:0.8rem;text-transform:uppercase;letter-spacing:1px;padding:9px;"><i class="bi bi-check-circle-fill"></i> Verificada</div>
+                        <button @onclick="Unverify" style="font-family:var(--font-mono);font-weight:700;font-size:0.66rem;text-transform:uppercase;letter-spacing:0.5px;background:transparent;color:var(--text-muted);border:1px solid var(--line-200);border-radius:0;cursor:pointer;padding:9px 11px;">Quitar</button>
+                    </div>
+                }
+                else
+                {
+                    <div style="display:flex;gap:9px;">
+                        <button @onclick="Unverify" style="flex-shrink:0;display:flex;align-items:center;gap:6px;font-family:var(--font-mono);font-weight:700;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.5px;background:var(--paper-0);color:var(--signal-danger);border:2px solid var(--signal-danger);border-radius:0;cursor:pointer;padding:9px 12px;"><i class="bi bi-x-lg"></i> Rechazar</button>
+                        <button @onclick="VerifyAndNext" style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;font-family:var(--font-mono);font-weight:700;font-size:0.78rem;text-transform:uppercase;letter-spacing:0.5px;background:var(--ink-900);color:#fff;border:2px solid var(--ink-900);border-radius:0;cursor:pointer;padding:9px;"><i class="bi bi-check2-all"></i> Verificar y seguir</button>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== BARRA SALDO A DEVOLVER (acción permanente) ===== -->
+    <div style="flex-shrink:0;display:flex;align-items:stretch;border:2px solid var(--ink-900);background:var(--signal-warning);">
+        <div style="display:flex;align-items:center;gap:14px;padding:0.6rem 1rem;flex:1;flex-wrap:wrap;">
+            <span style="font-family:var(--font-mono);font-weight:700;font-size:0.7rem;text-transform:uppercase;letter-spacing:1px;color:var(--ink-900);"><i class="bi bi-arrow-counterclockwise"></i> Saldo a devolver</span>
+            <span style="font-family:var(--font-mono);font-size:0.72rem;color:rgba(0,0,0,0.7);">Transferido <b>+$273.000</b>  −  Compras + Gastos <b>-$268.034</b></span>
+            @if (AllDone)
+            {
+                <span style="font-family:var(--font-mono);font-weight:700;font-size:0.6rem;text-transform:uppercase;letter-spacing:0.5px;background:var(--signal-success);color:#fff;padding:3px 8px;">Conciliado</span>
+            }
+            else
+            {
+                <span style="font-family:var(--font-mono);font-weight:700;font-size:0.6rem;text-transform:uppercase;letter-spacing:0.5px;background:var(--ink-900);color:#fff;padding:3px 8px;">Pendiente · @DocsRemaining doc(s)</span>
+            }
+        </div>
+        <div style="display:flex;align-items:center;gap:14px;padding:0.5rem 1rem;border-left:2px solid var(--ink-900);">
+            <span style="font-family:var(--font-sans);font-weight:700;font-size:1.7rem;letter-spacing:-1.5px;line-height:1;color:var(--ink-900);">$4.966</span>
+        </div>
+        <button @onclick="() => _modalOpen = true" style="display:flex;align-items:center;gap:9px;font-family:var(--font-mono);font-weight:700;font-size:0.82rem;text-transform:uppercase;letter-spacing:0.5px;background:var(--ink-900);color:#fff;border:none;border-left:2px solid var(--ink-900);border-radius:0;cursor:pointer;padding:0 1.4rem;"><i class="bi bi-arrow-counterclockwise"></i> Registrar devolución</button>
+    </div>
+</div>
+
+<!-- ===== MODAL: confirmación de devolución ===== -->
+@if (_modalOpen)
+{
+    <div style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:2000;display:flex;align-items:center;justify-content:center;padding:16px;" @onclick="() => _modalOpen = false">
+        <div class="con-modal" style="width:100%;max-width:420px;background:var(--paper-0);border:2px solid var(--ink-900);box-shadow:4px 4px 0 #000;" @onclick:stopPropagation="true">
+            <div style="background:var(--ink-900);color:#fff;display:flex;justify-content:space-between;align-items:center;padding:0.6rem 0.9rem;font-family:var(--font-mono);font-weight:700;text-transform:uppercase;letter-spacing:1px;">
+                <span>Registrar devolución</span>
+                <span style="cursor:pointer;font-size:1.2rem;line-height:1;" @onclick="() => _modalOpen = false">×</span>
+            </div>
+            <div style="padding:1.2rem;text-align:center;">
+                <div style="font-family:var(--font-sans);font-weight:700;font-size:2.4rem;letter-spacing:-1.5px;color:var(--ink-900);">$4.966</div>
+                <p style="font-family:var(--font-mono);font-size:0.78rem;color:var(--text-secondary);margin:0.5rem 0 1.2rem;">Saldo a devolver por Jose Miguel. Esta acción cierra la rendición.</p>
+                <div style="display:flex;gap:10px;">
+                    <VmButton Variant="outline" Block="true" OnClick="() => _modalOpen = false">Cancelar</VmButton>
+                    <VmButton Variant="dark" Block="true" OnClick="() => _modalOpen = false">Confirmar</VmButton>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    // ── Estado de UI ──────────────────────────────────────────────────────────
+    private string _selectedId = "t1";
+    private string _filter = "TODOS";
+    private readonly HashSet<string> _verified = new() { "t1" }; // la transferencia llega verificada
+    private bool _modalOpen;
+
+    // ── Modelos ───────────────────────────────────────────────────────────────
+    private record Doc(string Id, string DocNum, string Prov, int Monto, string TipoTag, string Kind);
+    private record RowVm(string Id, string Titulo, string Sub, string TipoTag, string MontoFmt, bool MontoPos, string ThumbIcon, bool Verified, bool Selected);
+    private record SectionVm(string Title, string Icon, int Count, string TotalFmt, bool TotalPos, IReadOnlyList<RowVm> Rows);
+    private record SelVm(string KindLabel, string BigIcon, string ImgCaption, string Titulo, string F1Label, string F1, string F2Label, string F2, string TipoTag, string MontoFmt, bool MontoPos, string FileName, bool Verified);
+    private record FiltroVm(string Key, string Label);
+
+    // ── Datos del cuadre (idénticos al template) ──────────────────────────────
+    private const string TransferTitulo = "Jose Miguel Aguilera Vigil";
+    private const string TransferSub = "RUT 15.851.081-2 · 03/02/2026";
+    private const string TransferTipoTag = "En uso";
+    private const int TransferMonto = 273000;
+
+    private static readonly Doc[] Compras =
+    [
+        new("c1", "748943",    "ALVI-Alvi Supermercado Mayorista S.A",              72380,  "Mercadería", "COMPRA"),
+        new("c2", "121713",    "Victor Rojas Alfaro",                                21680,  "Mercadería", "COMPRA"),
+        new("c3", "000197719", "Distribuidora de Licores y Bebidas El Molino Ltda.", 112074, "Mercadería", "COMPRA"),
+        new("c4", "48701505",  "Acuenta",                                            20000,  "Mercadería", "COMPRA"),
+        new("c5", "757",       "Confitería La Gracia SPA",                           11900,  "Mercadería", "COMPRA"),
+    ];
+
+    private static readonly Doc[] Gastos =
+    [
+        new("g1", "s/n", "Sociedad Henriquez SPA", 30000, "Gasto general", "GASTO"),
+    ];
+
+    private static readonly Doc[] Docs = [.. Compras, .. Gastos];
+
+    private static readonly FiltroVm[] Filtros =
+    [
+        new("TODOS", "Todos"),
+        new("COMPRAS", "Compras"),
+        new("GASTOS", "Gastos"),
+        new("PENDIENTES", "Pend."),
+    ];
+
+    // ── Progreso ──────────────────────────────────────────────────────────────
+    private bool IsV(string id) => _verified.Contains(id);
+    private int DocsTotal => Docs.Length;
+    private int DocsDone => Docs.Count(d => IsV(d.Id));
+    private int DocsRemaining => DocsTotal - DocsDone;
+    private int TransfDone => IsV("t1") ? 1 : 0;
+    private bool AllDone => DocsRemaining == 0 && TransfDone == 1;
+
+    // ── Formato de moneda (es-CL: punto como separador de miles) ──────────────
+    private static readonly NumberFormatInfo Nfi = new() { NumberGroupSeparator = ".", NumberDecimalDigits = 0 };
+    private static string Signed(int n) => (n > 0 ? "+$" : "-$") + Math.Abs(n).ToString("N0", Nfi);
+
+    // ── Construcción de secciones según el filtro ─────────────────────────────
+    private RowVm DocRow(Doc d) => new(
+        d.Id, d.Prov.ToUpperInvariant(), "Nº " + d.DocNum + " · 03/02/2026", d.TipoTag,
+        Signed(-d.Monto), false, "bi-receipt", IsV(d.Id), _selectedId == d.Id);
+
+    private RowVm TransferRow() => new(
+        "t1", TransferTitulo, TransferSub, TransferTipoTag,
+        Signed(TransferMonto), true, "bi-bank", IsV("t1"), _selectedId == "t1");
+
+    private List<SectionVm> BuildSections()
+    {
+        var filter = _filter;
+        var showTransf = filter == "TODOS" || (filter == "PENDIENTES" && !IsV("t1"));
+        var showCompras = filter == "TODOS" || filter == "COMPRAS" || filter == "PENDIENTES";
+        var showGastos = filter == "TODOS" || filter == "GASTOS" || filter == "PENDIENTES";
+        IEnumerable<Doc> KeepPend(IEnumerable<Doc> list) => filter == "PENDIENTES" ? list.Where(d => !IsV(d.Id)) : list;
+
+        var sections = new List<SectionVm>();
+        if (showTransf)
+        {
+            sections.Add(new("Transferencias", "bi-bank", 1, Signed(273000), true, [TransferRow()]));
+        }
+        if (showCompras)
+        {
+            var rows = KeepPend(Compras).Select(DocRow).ToList();
+            if (rows.Count > 0)
+            {
+                sections.Add(new("Compras", "bi-cart", rows.Count, Signed(-238034), false, rows));
+            }
+        }
+        if (showGastos)
+        {
+            var rows = KeepPend(Gastos).Select(DocRow).ToList();
+            if (rows.Count > 0)
+            {
+                sections.Add(new("Gastos", "bi-receipt", rows.Count, Signed(-30000), false, rows));
+            }
+        }
+        return sections;
+    }
+
+    // ── Panel derecho: documento seleccionado ─────────────────────────────────
+    private SelVm BuildSel()
+    {
+        if (_selectedId == "t1")
+        {
+            return new("Transferencia", "bi-bank", "Comprobante transferencia",
+                TransferTitulo, "Para", TransferTitulo, "RUT beneficiario", "15.851.081-2",
+                TransferTipoTag, Signed(TransferMonto), true, "transferencia_273000.pdf", IsV("t1"));
+        }
+        var d = Docs.FirstOrDefault(x => x.Id == _selectedId) ?? Docs[0];
+        return new(d.Kind == "GASTO" ? "Gasto" : "Compra", "bi-receipt", "Foto boleta",
+            d.Prov.ToUpperInvariant(), "Nº documento", d.DocNum, "Fecha", "03/02/2026",
+            d.TipoTag, Signed(-d.Monto), false, "No se eligió ningún archivo", IsV(d.Id));
+    }
+
+    // ── Acciones de verificación ──────────────────────────────────────────────
+    private void VerifyAndNext()
+    {
+        var current = _selectedId;
+        _verified.Add(current);
+
+        string[] order = ["t1", .. Docs.Select(x => x.Id)];
+        var start = Array.IndexOf(order, current);
+        var next = current;
+        for (var i = 1; i < order.Length; i++)
+        {
+            var id = order[(start + i) % order.Length];
+            if (!IsV(id) && id != current)
+            {
+                next = id;
+                break;
+            }
+        }
+        _selectedId = next;
+    }
+
+    private void Unverify() => _verified.Remove(_selectedId);
+}
