@@ -8,7 +8,9 @@ using Xunit;
 namespace VendingManager.Tests.DesignV3;
 
 /// <summary>
-/// Token discipline tests for <c>TemplatesRecarga.razor.css</c> — TASK-4.2 (Editor + Slot Cards).
+/// Token discipline tests for <c>TemplatesRecarga.razor.css</c> (page-specific
+/// rules) and <c>vm-recarga.css</c> (canonical design-system classes) —
+/// TASK-4.2 (Editor + Slot Cards).
 ///
 /// The editor + slot card section of the design v3 scoped CSS must use
 /// design tokens (var(--*)) with the ONE documented exception: the slot
@@ -26,6 +28,19 @@ public class TemplatesRecargaTokenAuditTests_Editor
     private static string CssPath => Path.Combine(WebPagesFolder, "TemplatesRecarga.razor.css");
 
     private static string CssContent => File.ReadAllText(CssPath);
+
+    /// <summary>
+    /// Path to the canonical design-system CSS file that owns the editor
+    /// scaffold, rail, shelf, slot grid, segmented/stepper/iconbtn/status
+    /// controls, and table. Canonical class definitions live here.
+    /// </summary>
+    private static string CanonicalCssPath => Path.GetFullPath(
+        Path.Combine(
+            AppContext.BaseDirectory,
+            "..", "..", "..", "..", "..",
+            "src", "VendingManager.Web", "wwwroot", "css", "vm-recarga.css"));
+
+    private static string CanonicalCssContent => File.ReadAllText(CanonicalCssPath);
 
     private static string ExtractBlocks(string css, string[] selectors)
     {
@@ -58,32 +73,29 @@ public class TemplatesRecargaTokenAuditTests_Editor
         return sb.ToString();
     }
 
-    private const string SlotCardExceptionComment = "SlotCard is the design system EXCEPTION";
+    private const string SlotCardExceptionComment = "EXCEPTION";
 
     [Fact]
     public void EditorAndSlotCards_NoHexLiterals_OutsideDocumentedException()
     {
-        // The editor + slot card CSS must not contain raw hex literals, with
-        // the ONE documented exception: .rec-slot uses #d1d5db (gray border
-        // + 6px radius + soft shadow) as the slot card design system exception.
+        // The page-specific rules kept in TemplatesRecarga.razor.css must not
+        // contain raw hex literals, with the ONE documented exception:
+        // .rec-slot uses #d1d5db (gray border + 6px radius + soft shadow)
+        // as the slot card design system exception. The canonical classes
+        // (editor, rail, shelf, stepper, segmented, status chip, etc.) live
+        // in vm-recarga.css and are covered by a separate audit.
         var sectionSelectors = new[]
         {
-            ".rec-editor", ".rec-topbar", ".rec-finalizado",
-            ".rec-split", ".rec-rail", ".rec-rail-header", ".rec-mcard",
-            ".rec-mcard-active", ".rec-mcard__select", ".rec-mcard-del",
-            ".rec-mcard-config", ".rec-mcard-vacios",
-            ".rec-estanteria", ".rec-est-header", ".rec-icon-tile",
-            ".rec-search", ".rec-density", ".rec-density__btn",
-            ".rec-floors", ".rec-piso-tag", ".rec-grid",
+            // page-specific rules still in the project CSS
+            ".rec-mcard__select", ".rec-mcard-config",
             ".rec-slot", ".rec-slot-empty", ".rec-slot-id",
             ".rec-slot-vacio-tag", ".rec-slot-price", ".rec-slot-pick",
-            ".rec-slot-step", ".rec-slot-qty", ".rec-slot-max",
-            ".rec-bottombar", ".rec-bottombar-totals",
-            ".rec-bottombar-cap", ".rec-bottombar-vacios"
+            ".rec-bottombar-totals", ".rec-bottombar-cap", ".rec-bottombar-vacios"
         };
 
         var block = ExtractBlocks(CssContent, sectionSelectors);
-        block.Should().NotBeNullOrWhiteSpace("editor+slot card classes must exist in design v3");
+        block.Should().NotBeNullOrWhiteSpace(
+            "page-specific editor+slot card classes must exist in the project CSS");
 
         // Find all hex literals in the section.
         var hexMatches = Regex.Matches(block, @"#[0-9a-fA-F]{3,8}\b").ToList();
@@ -95,7 +107,7 @@ public class TemplatesRecargaTokenAuditTests_Editor
             .ToList();
 
         nonExceptionHex.Should().BeEmpty(
-            "editor+slot section must not contain hex literals outside the documented slot card exception (#d1d5db). " +
+            "page-specific editor+slot section must not contain hex literals outside the documented slot card exception (#d1d5db). " +
             "Found: " + string.Join(", ", nonExceptionHex.Select(m => m.Value).Distinct()));
 
         // Verify the slot card exception is present and documented.
@@ -119,18 +131,40 @@ public class TemplatesRecargaTokenAuditTests_Editor
     [Fact]
     public void EditorAndSlotCards_UsesDesignTokens()
     {
-        // The editor + slot card CSS must reference design tokens for borders + colors.
-        var sectionSelectors = new[]
+        // The page-specific rules kept in TemplatesRecarga.razor.css use
+        // design tokens, and the canonical editor/slot classes in
+        // vm-recarga.css must also use tokens (--signal-danger,
+        // --signal-warning, --signal-success).
+        var pageSpecificSelectors = new[]
         {
-            ".rec-topbar", ".rec-rail", ".rec-mcard",
-            ".rec-mcard-del", ".rec-mcard-vacios", ".rec-slot"
+            ".rec-mcard__select", ".rec-mcard-config",
+            ".rec-slot", ".rec-slot-vacio-tag",
+            ".rec-bottombar-totals", ".rec-bottombar-cap", ".rec-bottombar-vacios"
         };
+        var pageBlock = ExtractBlocks(CssContent, pageSpecificSelectors);
 
-        var block = ExtractBlocks(CssContent, sectionSelectors);
+        // Canonical selectors for the danger/active/success signals
+        var canonicalSelectors = new[]
+        {
+            ".rec-iconbtn--danger", ".rec-mcard.is-active",
+            ".rec-tag-empty", ".rec-status", ".rec-badge--pending"
+        };
+        var canonicalBlock = ExtractBlocks(CanonicalCssContent, canonicalSelectors);
 
-        // Editor + slot card must use tokens like --signal-danger, --signal-warning, --signal-success.
-        block.Should().Contain("var(--signal-danger)", ".rec-mcard-del uses --signal-danger");
-        block.Should().Contain("var(--signal-warning)", "vacíos badge uses --signal-warning");
-        block.Should().Contain("var(--signal-success)", "active state uses --signal-success");
+        // Page-specific rules must use tokens (--ink-900, --text-muted, etc.)
+        pageBlock.Should().Contain("var(--ink-900)",
+            ".rec-mcard__select / .rec-mcard-config / slot card rules use --ink-900 token");
+        pageBlock.Should().Contain("var(--text-muted)",
+            ".rec-mcard-config / .rec-bottombar-cap use --text-muted token");
+        pageBlock.Should().Contain("var(--signal-warning)",
+            ".rec-bottombar-vacios uses --signal-warning token");
+
+        // Canonical CSS must use the corresponding signal tokens
+        canonicalBlock.Should().Contain("var(--signal-danger)",
+            ".rec-iconbtn--danger uses --signal-danger");
+        canonicalBlock.Should().Contain("var(--signal-success)",
+            ".rec-mcard.is-active / .rec-status use --signal-success");
+        canonicalBlock.Should().Contain("var(--signal-warning)",
+            ".rec-tag-empty / .rec-badge--pending use --signal-warning");
     }
 }

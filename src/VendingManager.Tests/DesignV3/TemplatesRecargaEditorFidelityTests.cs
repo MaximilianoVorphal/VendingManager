@@ -25,6 +25,13 @@ namespace VendingManager.Tests.DesignV3;
 /// <summary>
 /// PR3b editor fidelity tests (REQ-FID-2). One test per task; each describes a
 /// specific fidelity requirement from Recarga.dc.html lines 124-268.
+///
+/// The editor scaffold (rec-editor, rec-bar, rec-rail, rec-shelf, rec-floor,
+/// rec-grid, rec-iconbox, rec-mcard, rec-status, rec-iconbtn, rec-stepper,
+/// rec-segment, rec-badge, rec-progress, rec-empty, rec-tag-empty) lives in
+/// the canonical <c>vm-recarga.css</c>. The page-specific rules
+/// (rec-mcard__select, rec-mcard-config, rec-slot*, rec-bottombar-*,
+/// rec-toast, rec-name-btn, etc.) stay in <c>TemplatesRecarga.razor.css</c>.
 /// </summary>
 public class TemplatesRecargaEditorFidelityTests : TestContext
 {
@@ -43,12 +50,29 @@ public class TemplatesRecargaEditorFidelityTests : TestContext
         JSInterop.Mode = JSRuntimeMode.Loose;
     }
 
+    private static string ProjectCssPath => Path.GetFullPath(
+        Path.Combine(
+            AppContext.BaseDirectory, "..", "..", "..", "..", "..",
+            "src", "VendingManager.Web", "Pages", "TemplatesRecarga.razor.css"));
+
+    /// <summary>
+    /// Canonical design-system CSS — owner of the editor scaffold, the
+    /// rail/shelf, the floor/slot grid, the segmented/stepper/status/
+    /// iconbtn controls, the badges and progress bar, and the toast-free
+    /// keyframes (recBlink).
+    /// </summary>
+    private static string CanonicalCssPath => Path.GetFullPath(
+        Path.Combine(
+            AppContext.BaseDirectory, "..", "..", "..", "..", "..",
+            "src", "VendingManager.Web", "wwwroot", "css", "vm-recarga.css"));
+
     private void OpenEditor(IRenderedComponent<EditorFidelityTestHost> cut)
     {
         cut.WaitForAssertion(() => cut.Markup.Should().Contain("Template Activo"));
         var abrir = cut.FindComponents<VmButton>().First(b => b.Markup.Contains("Abrir"));
         abrir.Find("button").Click();
-        cut.WaitForAssertion(() => cut.Markup.Should().Contain("rec-topbar"));
+        // Editor top bar is .rec-bar in the canonical CSS (was .rec-topbar).
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("rec-bar"));
     }
 
     // =====================================================================
@@ -59,14 +83,12 @@ public class TemplatesRecargaEditorFidelityTests : TestContext
     public void Editor_Topbar_HasThreePxBlackBottomBorder()
     {
         // Recarga.dc.html line 128: border-bottom:3px solid var(--ink-900)
-        // Implementation uses --border-3 token which resolves to 3px solid var(--ink-900).
-        var cssPath = Path.Combine(
-            AppContext.BaseDirectory, "..", "..", "..", "..", "..",
-            "src", "VendingManager.Web", "Pages", "TemplatesRecarga.razor.css");
-        var css = File.ReadAllText(Path.GetFullPath(cssPath));
+        // Canonical .rec-bar uses --border-3 token which resolves to
+        // 3px solid var(--ink-900). The selector is .rec-bar (was .rec-topbar).
+        var css = File.ReadAllText(CanonicalCssPath);
 
-        css.Should().Contain(".rec-topbar");
-        css.Should().MatchRegex(@"\.rec-topbar\s*\{[^}]*border-bottom:\s*(?:3px\s+solid\s+var\(--ink-900\)|var\(--border-3\))");
+        css.Should().Contain(".rec-bar");
+        css.Should().MatchRegex(@"\.rec-bar\s*\{[^}]*border-bottom:\s*(?:3px\s+solid\s+var\(--ink-900\)|var\(--border-3\))");
     }
 
     [Fact]
@@ -75,15 +97,17 @@ public class TemplatesRecargaEditorFidelityTests : TestContext
         var cut = RenderComponent<EditorFidelityTestHost>();
         OpenEditor(cut);
 
-        var topbar = cut.Find(".rec-topbar");
+        // Editor top bar is .rec-bar (was .rec-topbar).
+        var topbar = cut.Find(".rec-bar");
 
         // Left side: Volver button (outline)
         topbar.InnerHtml.Should().Contain("Volver");
-        topbar.QuerySelector(".rec-topbar .btn-outline-dark, .rec-topbar button[aria-label*='Volver'], .rec-topbar > div:first-child button")
+        topbar.QuerySelector(".rec-bar .btn-outline-dark, .rec-bar button[aria-label*='Volver'], .rec-bar > div:first-child button")
             .Should().NotBeNull("Volver button must be present in topbar");
 
-        // Center: title + status badge + description
-        topbar.InnerHtml.Should().Contain("rec-tag");
+        // Center: title + status badge + description.
+        // Canonical badge class is .rec-badge (was .rec-tag).
+        topbar.InnerHtml.Should().Contain("rec-badge");
         topbar.InnerHtml.Should().Contain("PENDIENTE");
 
         // Right: action buttons in order
@@ -108,15 +132,16 @@ public class TemplatesRecargaEditorFidelityTests : TestContext
         var cut = RenderComponent<EditorFidelityTestHost>();
         OpenEditor(cut);
 
-        var cssPath = Path.Combine(
-            AppContext.BaseDirectory, "..", "..", "..", "..", "..",
-            "src", "VendingManager.Web", "Pages", "TemplatesRecarga.razor.css");
-        var css = File.ReadAllText(Path.GetFullPath(cssPath));
+        // All editor scaffold rules now live in the canonical CSS. The
+        // rail width is driven by --rec-rail-w (defined as 326px in :root).
+        var css = File.ReadAllText(CanonicalCssPath);
 
-        // Rail: flex: 0 0 326px; width: 326px; border-right: 2px solid var(--ink-900)
-        // --border-2 token resolves to 2px solid var(--ink-900).
-        css.Should().MatchRegex(@"\.rec-rail\s*\{[^}]*flex:\s*0\s+0\s+326px");
-        css.Should().MatchRegex(@"\.rec-rail\s*\{[^}]*width:\s*326px");
+        // --rec-rail-w: 326px in :root (the canonical CSS uses the token).
+        css.Should().MatchRegex(@":root\s*\{[^}]*--rec-rail-w:\s*326px");
+
+        // .rec-rail uses the var() token, not the literal 326px.
+        css.Should().MatchRegex(@"\.rec-rail\s*\{[^}]*flex:\s*0\s+0\s+var\(--rec-rail-w\)");
+        css.Should().MatchRegex(@"\.rec-rail\s*\{[^}]*width:\s*var\(--rec-rail-w\)");
         css.Should().MatchRegex(@"\.rec-rail\s*\{[^}]*border-right:\s*(?:2px\s+solid\s+var\(--ink-900\)|var\(--border-2\))");
 
         // Split container: flex
@@ -145,10 +170,12 @@ public class TemplatesRecargaEditorFidelityTests : TestContext
         card.QuerySelector("select").Should().NotBeNull("each rail card must have a machine select");
         card.InnerHtml.Should().Contain("<option");
 
-        // 32x32 trash button (red border)
+        // Trash button is now rendered by <VmIconButton Variant="danger"> which
+        // produces a <button class="rec-iconbtn rec-iconbtn--danger">.
         var trashButton = card.QuerySelector("button[aria-label*='Quitar'], button[aria-label*='Maquina']");
         trashButton.Should().NotBeNull("each rail card must have a trash button");
-        trashButton!.ClassList.Should().Contain("rec-mcard-del");
+        trashButton!.ClassList.Should().Contain("rec-iconbtn");
+        trashButton.ClassList.Should().Contain("rec-iconbtn--danger");
 
         // Date input
         card.QuerySelector("input[type='date']").Should().NotBeNull("rail card must have a date input");
@@ -156,8 +183,8 @@ public class TemplatesRecargaEditorFidelityTests : TestContext
         // Time input (per design: type='time')
         card.QuerySelector("input[type='time']").Should().NotBeNull("rail card must have a time input (type='time')");
 
-        // Bar + units/cap
-        card.InnerHtml.Should().Contain("rec-bar");
+        // Bar (loading bar = .rec-progress with .fill-* child) + units/cap
+        card.InnerHtml.Should().Contain("rec-progress");
         card.InnerHtml.Should().Contain("/");
 
         // Config label
@@ -167,29 +194,28 @@ public class TemplatesRecargaEditorFidelityTests : TestContext
     [Fact]
     public void Editor_RailCard_TrashButton_HasRedBorder()
     {
-        var cssPath = Path.Combine(
-            AppContext.BaseDirectory, "..", "..", "..", "..", "..",
-            "src", "VendingManager.Web", "Pages", "TemplatesRecarga.razor.css");
-        var css = File.ReadAllText(Path.GetFullPath(cssPath));
+        // Canonical .rec-iconbtn--danger has width:32px; height:32px;
+        // border-color: var(--signal-danger) (red).
+        var css = File.ReadAllText(CanonicalCssPath);
 
-        css.Should().MatchRegex(@"\.rec-mcard-del\s*\{[^}]*width:\s*32px");
-        css.Should().MatchRegex(@"\.rec-mcard-del\s*\{[^}]*height:\s*32px");
-        css.Should().MatchRegex(@"\.rec-mcard-del\s*\{[^}]*border:\s*2px\s+solid\s+var\(--signal-danger\)");
+        css.Should().MatchRegex(@"\.rec-iconbtn\s*\{[^}]*width:\s*32px");
+        css.Should().MatchRegex(@"\.rec-iconbtn\s*\{[^}]*height:\s*32px");
+        css.Should().MatchRegex(@"\.rec-iconbtn--danger\s*\{[^}]*border-color:\s*var\(--signal-danger\)");
     }
 
     [Fact]
     public void Editor_RailCard_HoverAndActiveStates()
     {
-        var cssPath = Path.Combine(
-            AppContext.BaseDirectory, "..", "..", "..", "..", "..",
-            "src", "VendingManager.Web", "Pages", "TemplatesRecarga.razor.css");
-        var css = File.ReadAllText(Path.GetFullPath(cssPath));
+        // Canonical .rec-mcard:hover has a 3px 3px 0 hard-offset shadow;
+        // .rec-mcard.is-active has an inset 5px 0 0 --signal-success
+        // accent + outline.
+        var css = File.ReadAllText(CanonicalCssPath);
 
         // Hover: 3px 3px 0 shadow
         css.Should().MatchRegex(@"\.rec-mcard:hover\s*\{[^}]*box-shadow:\s*3px\s+3px\s+0");
 
-        // Active: 5px 0 0 inset green
-        css.Should().MatchRegex(@"\.rec-mcard-active\s*\{[^}]*box-shadow:\s*inset\s+5px\s+0\s+0\s+var\(--signal-success\)");
+        // Active: 5px 0 0 inset green (canonical uses .is-active on .rec-mcard)
+        css.Should().MatchRegex(@"\.rec-mcard\.is-active\s*\{[^}]*box-shadow:\s*inset\s+5px\s+0\s+0\s+var\(--signal-success\)");
     }
 
     // =====================================================================
@@ -202,12 +228,14 @@ public class TemplatesRecargaEditorFidelityTests : TestContext
         var cut = RenderComponent<EditorFidelityTestHost>();
         OpenEditor(cut);
 
-        var header = cut.Find(".rec-est-header");
+        // Canonical estanteria header class is .rec-shelf__head
+        // (was .rec-est-header).
+        var header = cut.Find(".rec-shelf__head");
 
-        // Black 34x34 grid icon tile
-        var iconTile = header.QuerySelector(".rec-icon-tile");
-        iconTile.Should().NotBeNull("estanteria header must have a grid icon tile");
-        iconTile!.ClassList.Should().Contain("rec-icon-tile");
+        // Black 34x34 grid icon box (was .rec-icon-tile, now .rec-iconbox)
+        var iconBox = header.QuerySelector(".rec-iconbox");
+        iconBox.Should().NotBeNull("estanteria header must have a grid icon box");
+        iconBox!.ClassList.Should().Contain("rec-iconbox");
 
         // Title: "Estantería · Máquina {id}" (uppercase via CSS)
         header.InnerHtml.Should().Contain("Estantería");
@@ -221,28 +249,24 @@ public class TemplatesRecargaEditorFidelityTests : TestContext
     [Fact]
     public void Editor_EstanteriaHeader_IconTileCss_Black34x34()
     {
-        var cssPath = Path.Combine(
-            AppContext.BaseDirectory, "..", "..", "..", "..", "..",
-            "src", "VendingManager.Web", "Pages", "TemplatesRecarga.razor.css");
-        var css = File.ReadAllText(Path.GetFullPath(cssPath));
+        // Canonical .rec-iconbox is the 34x34 black icon container
+        // (was .rec-icon-tile). It lives in vm-recarga.css.
+        var css = File.ReadAllText(CanonicalCssPath);
 
-        css.Should().MatchRegex(@"\.rec-icon-tile\s*\{[^}]*width:\s*34px");
-        css.Should().MatchRegex(@"\.rec-icon-tile\s*\{[^}]*height:\s*34px");
-        css.Should().MatchRegex(@"\.rec-icon-tile\s*\{[^}]*background:\s*var\(--ink-900\)");
-        css.Should().MatchRegex(@"\.rec-icon-tile\s*\{[^}]*color:\s*var\(--paper-0\)");
+        css.Should().MatchRegex(@"\.rec-iconbox\s*\{[^}]*width:\s*34px");
+        css.Should().MatchRegex(@"\.rec-iconbox\s*\{[^}]*height:\s*34px");
+        css.Should().MatchRegex(@"\.rec-iconbox\s*\{[^}]*background:\s*var\(--ink-900\)");
+        css.Should().MatchRegex(@"\.rec-iconbox\s*\{[^}]*color:\s*var\(--paper-0\)");
     }
 
     [Fact]
     public void Editor_EstanteriaHeader_CssHasTwoPxBlackBottomBorder()
     {
-        // Recarga.dc.html line 189: border-bottom:2px solid var(--ink-900)
-        // --border-2 token resolves to 2px solid var(--ink-900).
-        var cssPath = Path.Combine(
-            AppContext.BaseDirectory, "..", "..", "..", "..", "..",
-            "src", "VendingManager.Web", "Pages", "TemplatesRecarga.razor.css");
-        var css = File.ReadAllText(Path.GetFullPath(cssPath));
+        // Canonical .rec-shelf__head has border-bottom: var(--border-2) which
+        // resolves to 2px solid var(--ink-900) (was .rec-est-header).
+        var css = File.ReadAllText(CanonicalCssPath);
 
-        css.Should().MatchRegex(@"\.rec-est-header\s*\{[^}]*border-bottom:\s*(?:2px\s+solid\s+var\(--ink-900\)|var\(--border-2\))");
+        css.Should().MatchRegex(@"\.rec-shelf__head\s*\{[^}]*border-bottom:\s*(?:2px\s+solid\s+var\(--ink-900\)|var\(--border-2\))");
     }
 
     // =====================================================================
@@ -255,16 +279,17 @@ public class TemplatesRecargaEditorFidelityTests : TestContext
         var cut = RenderComponent<EditorFidelityTestHost>();
         OpenEditor(cut);
 
-        // Search input
+        // Search input (canonical class .rec-search)
         var search = cut.Find("input.rec-search");
         search.Should().NotBeNull("toolbar must have a search input");
         search.GetAttribute("placeholder").Should().Contain("Buscar");
 
-        // Density toggle
-        var density = cut.Find(".rec-density");
-        density.Should().NotBeNull();
-        density.InnerHtml.Should().Contain("Comoda");
-        density.InnerHtml.Should().Contain("Compacta");
+        // Density toggle is now <VmSegmented> which renders .rec-segment
+        // (was .rec-density).
+        var segment = cut.Find(".rec-segment");
+        segment.Should().NotBeNull();
+        segment.InnerHtml.Should().Contain("Cómoda");
+        segment.InnerHtml.Should().Contain("Compacta");
 
         // Photo buttons
         cut.FindComponents<VmButton>().Should().Contain(b => b.Markup.Contains("Foto recarga"));
@@ -277,11 +302,14 @@ public class TemplatesRecargaEditorFidelityTests : TestContext
         var cut = RenderComponent<EditorFidelityTestHost>();
         OpenEditor(cut);
 
-        var densityButtons = cut.FindAll(".rec-density__btn");
-        densityButtons.Count.Should().Be(2);
+        // VmSegmented renders the two buttons as direct children of
+        // .rec-segment, with .is-active on the selected one (was
+        // .rec-density__btn with .active).
+        var segmentButtons = cut.FindAll(".rec-segment > button");
+        segmentButtons.Count.Should().Be(2);
 
-        // Exactly one of them should be active initially (Comoda)
-        var activeCount = densityButtons.Count(b => b.ClassList.Contains("active"));
+        // Exactly one of them should be active initially (Cómoda)
+        var activeCount = segmentButtons.Count(b => b.ClassList.Contains("is-active"));
         activeCount.Should().Be(1, "exactly one density button must be active by default");
     }
 
@@ -289,19 +317,17 @@ public class TemplatesRecargaEditorFidelityTests : TestContext
     public void Editor_Toolbar_SearchAndDensity_CssProperties()
     {
         // Recarga.dc.html line 198: search input width:204px, mono 0.76rem, 2px black border
-        // Recarga.dc.html line 199-204: density toggle group, 2px black border
-        var cssPath = Path.Combine(
-            AppContext.BaseDirectory, "..", "..", "..", "..", "..",
-            "src", "VendingManager.Web", "Pages", "TemplatesRecarga.razor.css");
-        var css = File.ReadAllText(Path.GetFullPath(cssPath));
+        // Recarga.dc.html line 199-204: density toggle group, 2px black border.
+        // Both rules now live in the canonical CSS (vm-recarga.css).
+        var css = File.ReadAllText(CanonicalCssPath);
 
         // Search: 204px wide
         css.Should().MatchRegex(@"\.rec-search\s*\{[^}]*width:\s*204px");
         // Search: 2px black border (or token)
         css.Should().MatchRegex(@"\.rec-search\s*\{[^}]*border:\s*(?:2px\s+solid\s+var\(--ink-900\)|var\(--border-2\))");
 
-        // Density container: 2px black border
-        css.Should().MatchRegex(@"\.rec-density\s*\{[^}]*border:\s*(?:2px\s+solid\s+var\(--ink-900\)|var\(--border-2\))");
+        // Segment container: 2px black border
+        css.Should().MatchRegex(@"\.rec-segment\s*\{[^}]*border:\s*(?:2px\s+solid\s+var\(--ink-900\)|var\(--border-2\))");
     }
 
     // =====================================================================
@@ -316,7 +342,8 @@ public class TemplatesRecargaEditorFidelityTests : TestContext
 
         // PISO N tag
         cut.Markup.Should().Contain("PISO 1");
-        var pisoTag = cut.Find(".rec-piso-tag");
+        // Canonical piso tag class is .rec-floor__tag (was .rec-piso-tag)
+        var pisoTag = cut.Find(".rec-floor__tag");
         pisoTag.Should().NotBeNull();
         pisoTag.TextContent.Should().MatchRegex(@"PISO\s+\d+");
 
@@ -331,13 +358,15 @@ public class TemplatesRecargaEditorFidelityTests : TestContext
     [Fact]
     public void Editor_Pisos_GridTemplate_MinMax246px()
     {
-        var cssPath = Path.Combine(
-            AppContext.BaseDirectory, "..", "..", "..", "..", "..",
-            "src", "VendingManager.Web", "Pages", "TemplatesRecarga.razor.css");
-        var css = File.ReadAllText(Path.GetFullPath(cssPath));
+        // .rec-grid lives in the canonical CSS. The minmax uses
+        // var(--rec-card-min) which is defined as 246px in :root.
+        var css = File.ReadAllText(CanonicalCssPath);
 
-        // grid-template-columns: repeat(auto-fill, minmax(246px, 1fr))
-        css.Should().MatchRegex(@"\.rec-grid\s*\{[^}]*grid-template-columns:\s*repeat\(auto-fill,\s*minmax\(246px,\s*1fr\)\)");
+        // :root defines --rec-card-min: 246px
+        css.Should().MatchRegex(@":root\s*\{[^}]*--rec-card-min:\s*246px");
+
+        // .rec-grid uses the var() token, not the literal 246px.
+        css.Should().MatchRegex(@"\.rec-grid\s*\{[^}]*grid-template-columns:\s*repeat\(auto-fill,\s*minmax\(var\(--rec-card-min\),\s*1fr\)\)");
         css.Should().MatchRegex(@"\.rec-grid\s*\{[^}]*gap:\s*12px");
     }
 
@@ -346,15 +375,13 @@ public class TemplatesRecargaEditorFidelityTests : TestContext
     {
         // Recarga.dc.html line 214: background:var(--ink-900); color:#fff; font-family:var(--font-mono);
         // font-size:0.7rem; padding:4px 12px; text-transform:uppercase
-        var cssPath = Path.Combine(
-            AppContext.BaseDirectory, "..", "..", "..", "..", "..",
-            "src", "VendingManager.Web", "Pages", "TemplatesRecarga.razor.css");
-        var css = File.ReadAllText(Path.GetFullPath(cssPath));
+        // Canonical class is .rec-floor__tag (was .rec-piso-tag) in vm-recarga.css.
+        var css = File.ReadAllText(CanonicalCssPath);
 
-        css.Should().MatchRegex(@"\.rec-piso-tag\s*\{[^}]*background:\s*var\(--ink-900\)");
-        css.Should().MatchRegex(@"\.rec-piso-tag\s*\{[^}]*color:\s*var\(--paper-0\)");
-        css.Should().MatchRegex(@"\.rec-piso-tag\s*\{[^}]*padding:\s*4px\s+12px");
-        css.Should().MatchRegex(@"\.rec-piso-tag\s*\{[^}]*text-transform:\s*uppercase");
+        css.Should().MatchRegex(@"\.rec-floor__tag\s*\{[^}]*background:\s*var\(--ink-900\)");
+        css.Should().MatchRegex(@"\.rec-floor__tag\s*\{[^}]*color:\s*var\(--paper-0\)");
+        css.Should().MatchRegex(@"\.rec-floor__tag\s*\{[^}]*padding:\s*4px\s+12px");
+        css.Should().MatchRegex(@"\.rec-floor__tag\s*\{[^}]*text-transform:\s*uppercase");
     }
 
     // =====================================================================
@@ -375,28 +402,32 @@ public class TemplatesRecargaEditorFidelityTests : TestContext
         // SLOT NN label
         slot.InnerHtml.Should().MatchRegex(@"Slot\s+\w+");
 
-        // Product picker button
+        // Product picker button (kept selector in page-specific CSS)
         var picker = slot.QuerySelector(".rec-slot-pick");
         picker.Should().NotBeNull("slot card must have a product picker button");
 
-        // Bar + qty/cap
-        slot.InnerHtml.Should().Contain("rec-bar");
+        // Bar (loading bar = .rec-progress) + qty/cap
+        slot.InnerHtml.Should().Contain("rec-progress");
         slot.InnerHtml.Should().Contain("/");
 
-        // Stepper controls
-        slot.InnerHtml.Should().Contain("−");
-        slot.InnerHtml.Should().Contain("+");
-        slot.InnerHtml.Should().Contain("MAX");
+        // Stepper controls are now rendered by <VmStepper> which produces
+        // − / value / + / Máx inside a .rec-stepper container.
+        var stepper = slot.QuerySelector(".rec-stepper");
+        stepper.Should().NotBeNull("slot card must have a stepper");
+        stepper!.InnerHtml.Should().Contain("−");
+        stepper.InnerHtml.Should().Contain("+");
+        // Markup-side text is "Máx" (Spanish); text-transform:uppercase
+        // is a CSS effect and does not alter the rendered text.
+        stepper.InnerHtml.Should().Contain("Máx");
     }
 
     [Fact]
     public void Editor_SlotCard_BorderException_OnePxGrayWithSoftShadow()
     {
-        // The slot card is the design system EXCEPTION: 1px solid #d1d5db + radius 6px + soft shadow
-        var cssPath = Path.Combine(
-            AppContext.BaseDirectory, "..", "..", "..", "..", "..",
-            "src", "VendingManager.Web", "Pages", "TemplatesRecarga.razor.css");
-        var css = File.ReadAllText(Path.GetFullPath(cssPath));
+        // The slot card is the design system EXCEPTION: 1px solid #d1d5db
+        // + radius 6px + soft shadow. The .rec-slot rule stays in the
+        // project CSS (page-specific).
+        var css = File.ReadAllText(ProjectCssPath);
 
         css.Should().MatchRegex(@"\.rec-slot\s*\{[^}]*border:\s*1px\s+solid\s+#d1d5db");
         css.Should().MatchRegex(@"\.rec-slot\s*\{[^}]*border-radius:\s*6px");
@@ -406,22 +437,22 @@ public class TemplatesRecargaEditorFidelityTests : TestContext
     [Fact]
     public void Editor_SlotCard_StepperButtons_44x42WithTwoPxBorder()
     {
-        var cssPath = Path.Combine(
-            AppContext.BaseDirectory, "..", "..", "..", "..", "..",
-            "src", "VendingManager.Web", "Pages", "TemplatesRecarga.razor.css");
-        var css = File.ReadAllText(Path.GetFullPath(cssPath));
+        // Canonical .rec-stepper__btn (was .rec-slot-step) is 44×42 with
+        // 2px black border; .rec-stepper__max (was .rec-slot-max) is 42px
+        // tall with black bg + paper-0 text.
+        var css = File.ReadAllText(CanonicalCssPath);
 
         // − and + buttons: 44x42, 2px black border
         // --border-2 token resolves to 2px solid var(--ink-900).
-        css.Should().MatchRegex(@"\.rec-slot-step\s*\{[^}]*width:\s*44px");
-        css.Should().MatchRegex(@"\.rec-slot-step\s*\{[^}]*height:\s*42px");
-        css.Should().MatchRegex(@"\.rec-slot-step\s*\{[^}]*border:\s*(?:2px\s+solid\s+var\(--ink-900\)|var\(--border-2\))");
+        css.Should().MatchRegex(@"\.rec-stepper__btn\s*\{[^}]*width:\s*44px");
+        css.Should().MatchRegex(@"\.rec-stepper__btn\s*\{[^}]*height:\s*42px");
+        css.Should().MatchRegex(@"\.rec-stepper__btn\s*\{[^}]*border:\s*(?:2px\s+solid\s+var\(--ink-900\)|var\(--border-2\))");
 
         // MÁX button: 42px height, 2px black border, black bg
-        css.Should().MatchRegex(@"\.rec-slot-max\s*\{[^}]*height:\s*42px");
-        css.Should().MatchRegex(@"\.rec-slot-max\s*\{[^}]*border:\s*(?:2px\s+solid\s+var\(--ink-900\)|var\(--border-2\))");
-        css.Should().MatchRegex(@"\.rec-slot-max\s*\{[^}]*background:\s*var\(--ink-900\)");
-        css.Should().MatchRegex(@"\.rec-slot-max\s*\{[^}]*color:\s*var\(--paper-0\)");
+        css.Should().MatchRegex(@"\.rec-stepper__max\s*\{[^}]*height:\s*42px");
+        css.Should().MatchRegex(@"\.rec-stepper__max\s*\{[^}]*border:\s*(?:2px\s+solid\s+var\(--ink-900\)|var\(--border-2\))");
+        css.Should().MatchRegex(@"\.rec-stepper__max\s*\{[^}]*background:\s*var\(--ink-900\)");
+        css.Should().MatchRegex(@"\.rec-stepper__max\s*\{[^}]*color:\s*var\(--paper-0\)");
     }
 
     [Fact]
@@ -471,7 +502,8 @@ public class TemplatesRecargaEditorFidelityTests : TestContext
         var cut = RenderComponent<EditorFidelityTestHost>();
         OpenEditor(cut);
 
-        var bottom = cut.Find(".rec-bottombar");
+        // Canonical bottom bar class is .rec-shelf__foot (was .rec-bottombar).
+        var bottom = cut.Find(".rec-shelf__foot");
 
         // "Carga máquina" small mono uppercase
         bottom.InnerHtml.Should().Contain("Carga máquina");
@@ -492,23 +524,20 @@ public class TemplatesRecargaEditorFidelityTests : TestContext
     [Fact]
     public void Editor_BottomBar_HasTwoPxBlackTopBorder()
     {
-        var cssPath = Path.Combine(
-            AppContext.BaseDirectory, "..", "..", "..", "..", "..",
-            "src", "VendingManager.Web", "Pages", "TemplatesRecarga.razor.css");
-        var css = File.ReadAllText(Path.GetFullPath(cssPath));
+        // Canonical .rec-shelf__foot has border-top: var(--border-2) which
+        // resolves to 2px solid var(--ink-900) (was .rec-bottombar).
+        var css = File.ReadAllText(CanonicalCssPath);
 
         // --border-2 token resolves to 2px solid var(--ink-900).
-        css.Should().MatchRegex(@"\.rec-bottombar\s*\{[^}]*border-top:\s*(?:2px\s+solid\s+var\(--ink-900\)|var\(--border-2\))");
+        css.Should().MatchRegex(@"\.rec-shelf__foot\s*\{[^}]*border-top:\s*(?:2px\s+solid\s+var\(--ink-900\)|var\(--border-2\))");
     }
 
     [Fact]
     public void Editor_BottomBar_CapPart_HasMutedStyle()
     {
         // Recarga.dc.html line 256: / {cap} u. in muted color
-        var cssPath = Path.Combine(
-            AppContext.BaseDirectory, "..", "..", "..", "..", "..",
-            "src", "VendingManager.Web", "Pages", "TemplatesRecarga.razor.css");
-        var css = File.ReadAllText(Path.GetFullPath(cssPath));
+        // .rec-bottombar-cap stays in the project CSS (page-specific font choice).
+        var css = File.ReadAllText(ProjectCssPath);
 
         css.Should().MatchRegex(@"\.rec-bottombar-cap\s*\{[^}]*color:\s*var\(--text-muted\)");
     }

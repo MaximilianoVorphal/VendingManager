@@ -1,0 +1,26 @@
+@* =========================================================================
+   VmStatusChip — Chip de estado con outline de color (ej. "Finalizado").
+   Altura 38px para alinear con botones sm de la barra. Color via tokens.
+   Usa .rec-status de vm-recarga.css; el color se sobreescribe con Color.
+
+   Props:
+   - Icon:  clase Bootstrap Icon (ej. "bi-check2-circle")
+   - Color: token de color del borde/texto (default: var(--signal-success))
+
+   Uso:
+   <VmStatusChip Icon="bi-check2-circle">Finalizado</VmStatusChip>
+   ========================================================================= *@
+
+@code {
+    [Parameter] public string? Icon { get; set; }
+    [Parameter] public string Color { get; set; } = "var(--signal-success)";
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}
+
+<span class="rec-status" style="border-color:@Color;color:@Color;">
+    @if (!string.IsNullOrEmpty(Icon))
+    {
+        <i class="bi @Icon" aria-hidden="true"></i>
+    }
+    @ChildContent
+</span>

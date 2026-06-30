@@ -39,6 +39,20 @@ public class TemplatesRecargaShellTests : TestContext
         JSInterop.Mode = JSRuntimeMode.Loose;
     }
 
+    private static string ProjectCssPath => Path.GetFullPath(
+        Path.Combine(
+            AppContext.BaseDirectory, "..", "..", "..", "..", "..",
+            "src", "VendingManager.Web", "Pages", "TemplatesRecarga.razor.css"));
+
+    /// <summary>
+    /// Canonical design-system CSS — owner of the list scaffold, table,
+    /// header, segmented/stepper/status classes, and the editor scaffold.
+    /// </summary>
+    private static string CanonicalCssPath => Path.GetFullPath(
+        Path.Combine(
+            AppContext.BaseDirectory, "..", "..", "..", "..", "..",
+            "src", "VendingManager.Web", "wwwroot", "css", "vm-recarga.css"));
+
     [Fact]
     public void Header_IsInline_WithBreadcrumbAndActions()
     {
@@ -53,7 +67,8 @@ public class TemplatesRecargaShellTests : TestContext
         var vmCards = cut.FindComponents<VmCard>();
         vmCards.Should().NotContain(c => c.Instance.Header == "TEMPLATES DE RECARGA");
 
-        cut.Markup.Should().Contain("rec-header");
+        // Canonical list header class is .rec-list__head (was .rec-header).
+        cut.Markup.Should().Contain("rec-list__head");
 
         var buttons = cut.FindComponents<VmButton>();
         buttons.Should().Contain(b => b.Markup.Contains("Sincronizar todo"));
@@ -76,11 +91,10 @@ public class TemplatesRecargaShellTests : TestContext
         headers.Select(h => h.TextContent.Trim()).Should().Equal(
             "Estado", "Recarga / Ruta", "Período", "Máquinas", "Carga", "Acciones");
 
-        var cssPath = Path.Combine(
-            AppContext.BaseDirectory, "..", "..", "..", "..", "..",
-            "src", "VendingManager.Web", "Pages", "TemplatesRecarga.razor.css");
-        var css = File.ReadAllText(Path.GetFullPath(cssPath));
-        css.Should().Contain(".rec-table thead th").And.Contain("position: sticky");
+        // Table sticky header lives in the canonical CSS (vm-recarga.css).
+        // The selector is ".rec-table th" (applies to all th inside .rec-table).
+        var css = File.ReadAllText(CanonicalCssPath);
+        css.Should().Contain(".rec-table th").And.Contain("position: sticky");
     }
 
     [Fact]
@@ -91,11 +105,14 @@ public class TemplatesRecargaShellTests : TestContext
         cut.WaitForAssertion(() => cut.Markup.Should().Contain("Template Activo"));
 
         var tbody = cut.Find("table tbody");
-        tbody.OuterHtml.Should().Contain("rec-tag--pend");
-        tbody.OuterHtml.Should().Contain("rec-tag--ok");
+        // Canonical badge modifier names (were rec-tag--ok / rec-tag--pend).
+        // GetEstadoTagVariant returns "ok" / "pending" so the rendered
+        // class matches the CSS rule .rec-badge--ok / .rec-badge--pending.
+        tbody.OuterHtml.Should().Contain("rec-badge--pending");
+        tbody.OuterHtml.Should().Contain("rec-badge--ok");
 
         cut.FindComponents<VmBadge>().Should().BeEmpty(
-            because: "list view estado must be rendered as inline rec-tag, not VmBadge");
+            because: "list view estado must be rendered as inline rec-badge, not VmBadge");
     }
 
     [Fact]
@@ -174,7 +191,10 @@ public class TemplatesRecargaShellTests : TestContext
         cut.WaitForAssertion(() =>
         {
             cut.FindAll("table tbody tr").Count.Should().Be(1);
-            cut.Markup.Should().Contain("rec-pbtn--active");
+            // Canonical "on" state for the pendientes pill is the .is-on
+            // modifier on .rec-pill (was .rec-pbtn--active).
+            cut.Markup.Should().Contain("rec-pill");
+            cut.Markup.Should().Contain("is-on");
         });
     }
 
@@ -191,7 +211,9 @@ public class TemplatesRecargaShellTests : TestContext
 
         cut.WaitForAssertion(() =>
         {
-            cut.Markup.Should().Contain("rec-topbar");
+            // Editor top bar is .rec-bar in the canonical CSS
+            // (was .rec-topbar in the project CSS).
+            cut.Markup.Should().Contain("rec-bar");
             cut.Markup.Should().Contain("rec-rail");
             cut.Markup.Should().Contain("MÁQUINAS · 1");
         });
@@ -220,9 +242,11 @@ public class TemplatesRecargaShellTests : TestContext
 
         cut.WaitForAssertion(() => cut.Markup.Should().Contain("Buscar slot o producto"));
 
-        var density = cut.Find(".rec-density");
-        density.InnerHtml.Should().Contain("Comoda");
-        density.InnerHtml.Should().Contain("Compacta");
+        // The density toggle is now a <VmSegmented> component which renders
+        // a .rec-segment container (was .rec-density).
+        var segment = cut.Find(".rec-segment");
+        segment.InnerHtml.Should().Contain("Cómoda");
+        segment.InnerHtml.Should().Contain("Compacta");
 
         cut.FindComponents<VmButton>().Should().Contain(b => b.Markup.Contains("Foto recarga"));
         cut.FindComponents<VmButton>().Should().Contain(b => b.Markup.Contains("Foto guia"));
@@ -241,7 +265,9 @@ public class TemplatesRecargaShellTests : TestContext
 
         cut.Markup.Should().NotContain("rec-grid is-compact");
 
-        var compactaButton = cut.FindAll(".rec-density__btn")
+        // The VmSegmented renders the buttons as direct children of
+        // .rec-segment. Click the "Compacta" one.
+        var compactaButton = cut.FindAll(".rec-segment > button")
             .First(b => b.TextContent.Contains("Compacta"));
         compactaButton.Click();
 
@@ -266,7 +292,9 @@ public class TemplatesRecargaShellTests : TestContext
         cut.Markup.Should().Contain("Slot A1");
         cut.Markup.Should().Contain("−");
         cut.Markup.Should().Contain("+");
-        cut.Markup.Should().Contain("MAX");
+        // VmStepper renders "Máx" (Spanish) — text-transform:uppercase
+        // is a CSS effect, not in the markup.
+        cut.Markup.Should().Contain("Máx");
     }
 
     [Fact]
@@ -465,21 +493,20 @@ public class TemplatesRecargaShellTests : TestContext
 
         cut.WaitForAssertion(() => cut.Markup.Should().Contain("Templates de Recarga"));
 
-        // The h1 title must contain a blinking cursor span with underscore
-        cut.Find("h1.rec-title").InnerHtml.Should().Contain("rec-cursor");
+        // Canonical cursor class is .rec-title__cursor (was .rec-cursor).
+        cut.Find("h1.rec-title").InnerHtml.Should().Contain("rec-title__cursor");
         cut.Find("h1.rec-title").InnerHtml.Should().Contain("_");
     }
 
     [Fact]
     public void ListView_CSS_HasRecBlinkKeyframe()
     {
-        var cssPath = Path.Combine(
-            AppContext.BaseDirectory, "..", "..", "..", "..", "..",
-            "src", "VendingManager.Web", "Pages", "TemplatesRecarga.razor.css");
-        var css = File.ReadAllText(Path.GetFullPath(cssPath));
+        // The @keyframes recBlink + .rec-title__cursor are now in the
+        // canonical CSS (vm-recarga.css).
+        var css = File.ReadAllText(CanonicalCssPath);
 
         css.Should().Contain("@keyframes recBlink");
-        css.Should().Contain(".rec-cursor");
+        css.Should().Contain(".rec-title__cursor");
     }
 
     [Fact]
@@ -545,22 +572,19 @@ public class TemplatesRecargaShellTests : TestContext
     [Fact]
     public void ListView_Header_Has3pxBlackDivider()
     {
-        var cssPath = Path.Combine(
-            AppContext.BaseDirectory, "..", "..", "..", "..", "..",
-            "src", "VendingManager.Web", "Pages", "TemplatesRecarga.razor.css");
-        var css = File.ReadAllText(Path.GetFullPath(cssPath));
+        // The .rec-list__head has border-bottom: var(--border-3) which
+        // resolves to 3px solid var(--ink-900).
+        var css = File.ReadAllText(CanonicalCssPath);
 
-        // The rec-header must have border-bottom: 3px solid var(--ink-900)
-        css.Should().Contain("border-bottom: 3px solid var(--ink-900)");
+        css.Should().Contain(".rec-list__head");
+        css.Should().MatchRegex(@"\.rec-list__head\s*\{[^}]*border-bottom:\s*(?:3px\s+solid\s+var\(--ink-900\)|var\(--border-3\))");
     }
 
     [Fact]
     public void ListView_TableHeader_IsStickyBlackWithWhiteUppercaseMono()
     {
-        var cssPath = Path.Combine(
-            AppContext.BaseDirectory, "..", "..", "..", "..", "..",
-            "src", "VendingManager.Web", "Pages", "TemplatesRecarga.razor.css");
-        var css = File.ReadAllText(Path.GetFullPath(cssPath));
+        // Table header lives in the canonical CSS (vm-recarga.css).
+        var css = File.ReadAllText(CanonicalCssPath);
 
         // Table header: position:sticky; top:0; background:var(--ink-900); color:var(--paper-0);
         // font-family:var(--font-mono); text-transform:uppercase

@@ -1,0 +1,38 @@
+@* =========================================================================
+   VmStepper — Control − / valor / + / Máx para cantidad de un slot.
+   Botones de 44×42 (hit target táctil), borde 2px negro, "Máx" relleno negro.
+   Usa las clases .rec-stepper de vm-recarga.css.
+
+   Props:
+   - Quantity: cantidad actual
+   - Capacity: máximo
+   - ShowMax:  muestra el botón "Máx"          (default: true)
+   - OnChange: EventCallback<int> con el nuevo valor
+
+   Uso:
+   <VmStepper Quantity="@s.Cantidad" Capacity="@s.Capacidad"
+              OnChange="q => Set(s, q)" />
+   ========================================================================= *@
+
+@code {
+    [Parameter] public int Quantity { get; set; }
+    [Parameter] public int Capacity { get; set; } = 10;
+    [Parameter] public bool ShowMax { get; set; } = true;
+    [Parameter] public EventCallback<int> OnChange { get; set; }
+
+    private Task Dec() => OnChange.InvokeAsync(Math.Max(0, Quantity - 1));
+    private Task Inc() => OnChange.InvokeAsync(Math.Min(Capacity, Quantity + 1));
+    private Task Max() => OnChange.InvokeAsync(Capacity);
+}
+
+<div class="rec-stepper">
+    <button type="button" class="rec-stepper__btn" aria-label="Restar"
+            disabled="@(Quantity <= 0)" @onclick="Dec">−</button>
+    <span class="rec-stepper__val">@Quantity</span>
+    <button type="button" class="rec-stepper__btn" aria-label="Sumar"
+            disabled="@(Quantity >= Capacity)" @onclick="Inc">+</button>
+    @if (ShowMax)
+    {
+        <button type="button" class="rec-stepper__max" @onclick="Max">Máx</button>
+    }
+</div>
