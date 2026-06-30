@@ -1,0 +1,370 @@
+@page "/analisis-productos-v2"
+@using System.Globalization
+
+@* =============================================================================
+   Análisis de Productos — port fiel de templates/analisis-productos/AnalisisProductos.dc.html.
+   Barra de comando (unidad + plantilla + rango + incluir desconocidos) y el
+   Ranking de Productos con clasificación ABC/Pareto (regla 80/20), tendencia vs
+   período anterior, ingresos, ganancia y margen %. Columnas ordenables, fila de
+   totales fija, toggle Producto / Categoría. Sin scroll de página: la tabla
+   scrollea internamente. Ruta "fullscreen" en MainLayout. Datos demo idénticos
+   al template (backend después).
+   ============================================================================= *@
+
+<style>
+    @@keyframes apBlink { 50% { opacity: 0; } }
+    .ap-cursor { animation: apBlink 1s steps(1) infinite; }
+    .ap-row:hover { background: var(--paper-50) !important; }
+    .ap-th { user-select: none; }
+    .ap-th.ap-sortable { cursor: pointer; }
+    .ap-th.ap-sortable:hover { background: var(--ink-900) !important; }
+    .ap-row-unk td { background: #fff9e6; }
+    .ap-row-unk:hover td { background: #fff3cd; }
+    @@media (prefers-reduced-motion: reduce) { .ap-cursor { animation: none !important; } }
+    @@media (max-width: 920px) {
+        .ap-cmd { flex-direction: column !important; align-items: stretch !important; }
+        .ap-cmd > * { width: 100% !important; }
+    }
+    .ap-page h1 { user-select: none; }
+    .ap-page :is(button, select, input):focus:not(:focus-visible) { outline: none; }
+    .ap-page :is(button, select, input):focus-visible {
+        outline: 2px solid var(--ink-900); outline-offset: 2px;
+    }
+</style>
+
+<div class="ap-page" style="flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden;padding:0.95rem 1.4rem 1.1rem;">
+
+    <!-- ===== Header ===== -->
+    <div style="flex-shrink:0;border-bottom:3px solid var(--ink-900);padding-bottom:11px;">
+        <div style="display:inline-block;background:var(--ink-900);color:#fff;font-family:var(--font-mono);font-weight:700;font-size:0.58rem;letter-spacing:2px;padding:3px 9px;text-transform:uppercase;margin-bottom:7px;">Gestión · Productos</div>
+        <h1 style="margin:0;font-family:var(--font-mono);font-weight:700;text-transform:uppercase;letter-spacing:-1px;font-size:1.55rem;line-height:1;">Análisis de Productos<span class="ap-cursor">_</span></h1>
+        <p style="margin:5px 0 0;font-family:var(--font-mono);font-size:0.68rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.4px;">Detalle estratégico de ventas y rendimiento</p>
+    </div>
+
+    <!-- ===== Barra de comando ===== -->
+    <div style="flex-shrink:0;border:2px solid var(--ink-900);background:var(--paper-50);box-shadow:var(--shadow-card);padding:0.55rem 1rem;margin:10px 0;">
+        <div class="ap-cmd" style="display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap;">
+            <div style="min-width:240px;">
+                <VmSelect Label="Unidad" @bind-Value="_unit" Options="UnitOptions" />
+            </div>
+            <div style="min-width:240px;">
+                <VmSelect Label="Plantilla" @bind-Value="_plantilla" Options="PlantillaOptions" />
+            </div>
+            <div style="display:flex;flex-direction:column;gap:0.35rem;">
+                <label style="font-family:var(--font-mono);font-size:0.66rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Desde</label>
+                <input type="date" value="@_desde" @onchange="e => _desde = e.Value?.ToString() ?? _desde" style="font-family:var(--font-mono);font-size:0.8rem;font-weight:700;border:2px solid var(--ink-900);border-radius:0;background:var(--paper-0);padding:0.45rem 0.6rem;outline:none;" />
+            </div>
+            <div style="display:flex;flex-direction:column;gap:0.35rem;">
+                <label style="font-family:var(--font-mono);font-size:0.66rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Hasta</label>
+                <input type="date" value="@_hasta" @onchange="e => _hasta = e.Value?.ToString() ?? _hasta" style="font-family:var(--font-mono);font-size:0.8rem;font-weight:700;border:2px solid var(--ink-900);border-radius:0;background:var(--paper-0);padding:0.45rem 0.6rem;outline:none;" />
+            </div>
+            <div style="flex:1;min-width:160px;display:flex;justify-content:flex-end;">
+                <VmButton Variant="dark" Icon="bi-bar-chart-line-fill" Width="190px">Analizar</VmButton>
+            </div>
+        </div>
+        <!-- Incluir pendientes / desconocidos -->
+        <label style="display:inline-flex;align-items:center;gap:9px;margin-top:7px;cursor:pointer;">
+            <button @onclick="() => _incluir = !_incluir" role="checkbox" aria-checked="@(_incluir ? "true" : "false")" style="width:20px;height:20px;flex-shrink:0;border:2px solid var(--ink-900);border-radius:0;background:@(_incluir ? "var(--ink-900)" : "var(--paper-0)");color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:0.7rem;line-height:1;">
+                @if (_incluir)
+                {
+                    <i class="bi bi-check-lg"></i>
+                }
+            </button>
+            <span style="font-family:var(--font-mono);font-weight:700;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.4px;"><i class="bi bi-question-circle" style="color:var(--text-muted);margin-right:5px;"></i>Incluir pendientes / desconocidos <span style="color:var(--text-muted);font-weight:400;">(ventas sin producto asignado)</span></span>
+        </label>
+    </div>
+
+    <!-- ===== Ranking ===== -->
+    @{
+        var rows = BuildRows();
+        var totUnid = rows.Sum(r => r.Unid);
+        var totIng = rows.Sum(r => r.Ing);
+        var totGan = rows.Sum(r => r.Gan);
+        var totMargen = totIng != 0 ? (double)totGan / totIng * 100 : 0;
+    }
+    <section style="flex:1;min-height:0;display:flex;flex-direction:column;border:2px solid var(--ink-900);box-shadow:var(--shadow-card);background:var(--paper-0);overflow:hidden;">
+
+        <!-- Header negro de la tarjeta -->
+        <div style="flex-shrink:0;background:var(--ink-900);color:#fff;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:0.5rem 0.85rem;">
+            <div style="font-family:var(--font-mono);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;font-size:0.86rem;display:flex;align-items:center;gap:8px;"><i class="bi bi-list-ol"></i>@(_vista == "categoria" ? "Ranking por Categoría" : "Ranking de Productos")</div>
+            <div style="display:flex;gap:8px;align-items:center;">
+                <!-- Toggle Producto / Categoría -->
+                <div style="display:flex;border:2px solid var(--paper-0);">
+                    <button @onclick='() => _vista = "producto"' style="font-family:var(--font-mono);font-weight:700;font-size:0.64rem;text-transform:uppercase;letter-spacing:0.5px;padding:4px 10px;border:none;border-radius:0;cursor:pointer;background:@(_vista == "producto" ? "var(--paper-0)" : "transparent");color:@(_vista == "producto" ? "var(--ink-900)" : "#fff");">Producto</button>
+                    <button @onclick='() => _vista = "categoria"' style="font-family:var(--font-mono);font-weight:700;font-size:0.64rem;text-transform:uppercase;letter-spacing:0.5px;padding:4px 10px;border:none;border-left:2px solid var(--paper-0);border-radius:0;cursor:pointer;background:@(_vista == "categoria" ? "var(--paper-0)" : "transparent");color:@(_vista == "categoria" ? "var(--ink-900)" : "#fff");">Categoría</button>
+                </div>
+                <span style="font-family:var(--font-mono);font-weight:700;font-size:0.7rem;text-transform:uppercase;border:1px solid rgba(255,255,255,0.55);color:#fff;padding:3px 9px;">@rows.Count ítems</span>
+            </div>
+        </div>
+
+        <!-- Leyenda ABC / Tendencia -->
+        <div style="flex-shrink:0;display:flex;gap:28px;flex-wrap:wrap;padding:0.7rem 0.85rem;border-bottom:2px solid var(--ink-900);background:var(--paper-50);font-family:var(--font-mono);font-size:0.66rem;line-height:1.55;">
+            <div style="flex:1;min-width:300px;">
+                <strong style="letter-spacing:0.3px;">ABC</strong> — Clasificación Pareto (regla 80/20):
+                <span style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;background:var(--signal-success);color:#fff;font-weight:700;font-size:0.6rem;vertical-align:-3px;margin:0 2px;">A</span> = generan el 80% del revenue acumulado&nbsp;
+                <span style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;background:var(--signal-warning);color:var(--ink-900);font-weight:700;font-size:0.6rem;vertical-align:-3px;margin:0 2px;">B</span> = siguiente 15%&nbsp;
+                <span style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;background:var(--signal-danger);color:#fff;font-weight:700;font-size:0.6rem;vertical-align:-3px;margin:0 2px;">C</span> = resto.
+            </div>
+            <div style="flex:1;min-width:300px;">
+                <strong style="letter-spacing:0.3px;">TENDENCIA</strong> — vs período anterior de igual duración:
+                <span style="color:var(--signal-success);font-weight:700;">▲ +X%</span> = mejoró&nbsp;
+                <span style="color:var(--signal-danger);font-weight:700;">▼ -X%</span> = empeoró&nbsp;
+                <span style="color:var(--text-muted);font-weight:700;">→</span> = igual&nbsp;
+                <span style="color:var(--text-muted);font-weight:700;">—</span> = sin datos previos.
+            </div>
+        </div>
+
+        <!-- Tabla -->
+        <div style="flex:1;min-height:0;overflow:auto;">
+            <table class="ap-tbl" style="width:100%;border-collapse:collapse;">
+                <thead style="position:sticky;top:0;z-index:2;">
+                    <tr style="background:var(--ink-700);color:#fff;font-family:var(--font-mono);text-transform:uppercase;font-size:0.62rem;letter-spacing:0.5px;">
+                        <th class="ap-th ap-sortable" @onclick='() => SortBy("prod")' style="text-align:left;padding:8px 12px;font-weight:700;background:var(--ink-700);">Producto@(Caret("prod"))</th>
+                        <th class="ap-th ap-sortable" @onclick='() => SortBy("abc")' style="text-align:left;padding:8px 12px;font-weight:700;background:var(--ink-700);">ABC@(Caret("abc"))</th>
+                        <th class="ap-th ap-sortable" @onclick='() => SortBy("tend")' style="text-align:left;padding:8px 12px;font-weight:700;background:var(--ink-700);">Tendencia@(Caret("tend"))</th>
+                        <th class="ap-th ap-sortable" @onclick='() => SortBy("unid")' style="text-align:right;padding:8px 12px;font-weight:700;background:var(--ink-700);">Total Unid.@(Caret("unid"))</th>
+                        <th class="ap-th ap-sortable" @onclick='() => SortBy("ing")' style="text-align:right;padding:8px 12px;font-weight:700;background:var(--ink-700);">Ingresos@(Caret("ing"))</th>
+                        <th class="ap-th ap-sortable" @onclick='() => SortBy("gan")' style="text-align:right;padding:8px 12px;font-weight:700;background:var(--ink-700);">Ganancia@(Caret("gan"))</th>
+                        <th class="ap-th ap-sortable" @onclick='() => SortBy("margen")' style="text-align:right;padding:8px 12px;font-weight:700;background:var(--ink-700);">Margen %@(Caret("margen"))</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var r in rows)
+                    {
+                        var margen = r.Ing != 0 ? (double)r.Gan / r.Ing * 100 : 0;
+                        <tr class="ap-row @(r.Unknown ? "ap-row-unk" : "")" style="border-bottom:1px solid var(--line-200);">
+                            <td style="font-family:var(--font-sans);font-weight:600;font-size:0.84rem;text-transform:uppercase;letter-spacing:-0.2px;">@r.Prod</td>
+                            <td>
+                                <span style="display:inline-flex;align-items:center;gap:7px;">
+                                    @{
+                                        var (abcBg, abcColor) = AbcStyle(r.Abc);
+                                    }
+                                    <span style="display:inline-flex;align-items:center;justify-content:center;width:19px;height:19px;background:@abcBg;color:@abcColor;font-family:var(--font-mono);font-weight:700;font-size:0.66rem;">@r.Abc</span>
+                                    <span style="font-family:var(--font-mono);font-size:0.72rem;color:var(--text-muted);">@(r.Unknown ? "—" : r.CumPct.ToString("F1", Inv) + "%")</span>
+                                </span>
+                            </td>
+                            <td style="white-space:nowrap;font-family:var(--font-mono);font-weight:700;font-size:0.78rem;">
+                                @if (r.T is null)
+                                {
+                                    <span style="color:var(--text-muted);">—</span>
+                                }
+                                else if (r.T > 0)
+                                {
+                                    <span style="color:var(--signal-success);">▲ @TrendText(r.T)</span>
+                                }
+                                else if (r.T < 0)
+                                {
+                                    <span style="color:var(--signal-danger);">▼ @TrendText(r.T)</span>
+                                }
+                                else
+                                {
+                                    <span style="color:var(--text-muted);">→ @TrendText(r.T)</span>
+                                }
+                            </td>
+                            <td style="text-align:right;font-family:var(--font-mono);font-weight:700;font-size:0.82rem;">@r.Unid.ToString("N0", Nfi)</td>
+                            <td style="text-align:right;font-family:var(--font-mono);font-weight:700;font-size:0.8rem;">@Fmt(r.Ing)</td>
+                            <td style="text-align:right;font-family:var(--font-mono);font-weight:700;font-size:0.8rem;">
+                                <span style="color:@(r.Gan >= 0 ? "var(--signal-success)" : "var(--signal-danger)");">@Fmt(r.Gan)</span>
+                            </td>
+                            <td style="text-align:right;">
+                                <span style="display:inline-block;min-width:52px;text-align:center;background:@(margen >= 45 ? "var(--signal-success)" : "var(--signal-warning)");color:@(margen >= 45 ? "#fff" : "var(--ink-900)");font-family:var(--font-mono);font-weight:700;font-size:0.68rem;padding:3px 8px;">@margen.ToString("F1", Inv)%</span>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+                <tfoot style="position:sticky;bottom:0;z-index:2;">
+                    <tr style="background:var(--ink-900);color:#fff;font-family:var(--font-mono);font-weight:700;text-transform:uppercase;font-size:0.74rem;letter-spacing:0.4px;">
+                        <td colspan="3" style="padding:9px 12px;">Totales · @rows.Count ítems</td>
+                        <td style="text-align:right;padding:9px 12px;">@totUnid.ToString("N0", Nfi)</td>
+                        <td style="text-align:right;padding:9px 12px;">@Fmt(totIng)</td>
+                        <td style="text-align:right;padding:9px 12px;color:#5fd08a;">@Fmt(totGan)</td>
+                        <td style="text-align:right;padding:9px 12px;">@totMargen.ToString("F1", Inv)%</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </section>
+</div>
+
+@code {
+    // ── Estado de UI ──────────────────────────────────────────────────────────
+    private string _unit = "0";
+    private string _plantilla = "0";
+    private string _desde = "2026-05-29";
+    private string _hasta = "2026-06-28";
+    private bool _incluir;
+    private string _vista = "producto";
+    private string _sortKey = "ing";
+    private string _sortDir = "desc";
+
+    private static readonly VmSelect.VmSelectOption[] UnitOptions =
+    [
+        new("0", ":: Todas las unidades ::"),
+        new("1", "Máquina 0012 — Café+Snack"),
+        new("2", "Máquina 0022 — Snack"),
+        new("3", "Máquina 0023 — Snack"),
+    ];
+
+    private static readonly VmSelect.VmSelectOption[] PlantillaOptions =
+    [
+        new("0", ":: Plantilla actual ::"),
+        new("1", "Planograma Café+Snack v3"),
+        new("2", "Verano — Bebidas frías"),
+        new("3", "Alta rotación — Snacks"),
+    ];
+
+    // ── Datos: [ nombre, categoría, unidades, ingresos, ganancia, tendencia% (null = sin datos) ] ──
+    private record Product(string Prod, string Cat, int Unid, int Ing, int Gan, double? T);
+
+    private static readonly Product[] Products =
+    [
+        new("Coca Cola 580cc", "Bebidas", 206, 282830, 98256, -21.7),
+        new("Coca Cola Lata", "Bebidas", 159, 156750, 47514, -9.4),
+        new("Score Gorila Lata 473cc", "Energéticas", 66, 88380, 32095, -19.5),
+        new("Lays XS 22 grs", "Snacks Salados", 36, 42410, 26930, 123.1),
+        new("Pap Lata 350cc", "Bebidas", 33, 33000, 13796, 37.5),
+        new("Limón Soda 500cc", "Bebidas", 24, 31680, 11520, -44.0),
+        new("Caja Jugo Watts", "Jugos", 30, 31330, 23747, 27.2),
+        new("Tuareg / Din Don", "Confites", 27, 30120, 15418, -4.6),
+        new("Limón Soda Lata 350cc", "Bebidas", 30, 30000, 12567, 36.4),
+        new("Kem Piña 500cc", "Bebidas", 24, 29670, 9510, 11.2),
+        new("Cachantun (Light/Normal)", "Aguas", 34, 28000, 15896, -3.4),
+        new("Maní Confitado", "Confites", 25, 26560, 26560, 435.5),
+        new("Pinguinos", "Snacks Dulces", 29, 25700, 5448, 1876.9),
+        new("Gatored", "Bebidas", 16, 23840, 10526, 74.0),
+        new("Cachantun Extra Gas", "Aguas", 16, 21380, 15673, 29.0),
+        new("Maní Salado", "Snacks Salados", 21, 21000, 21000, 1809.1),
+        new("Super 8", "Snacks Dulces", 28, 19600, 7200, 8.0),
+        new("Nestlé Chandelle", "Snacks Dulces", 14, 16800, 9100, -12.0),
+        new("Agua Mineral 500cc", "Aguas", 22, 15400, 6200, 0),
+        new("Ramitas Quemaditas", "Snacks Salados", 19, 13300, 5800, 15.0),
+        new("Trident Menta", "Confites", 31, 12400, 8900, -6.0),
+        new("Doritos Queso", "Snacks Salados", 11, 11000, 4300, 22.0),
+        new("Red Bull 250cc", "Energéticas", 6, 9600, 2100, -30.0),
+        new("Galleta Morocha", "Snacks Dulces", 13, 7800, 3400, 5.0),
+        new("Chocman", "Snacks Dulces", 9, 5400, 2200, 0),
+        new("Chicle Bazooka", "Confites", 14, 2800, 1500, null),
+    ];
+
+    // Item de trabajo: lleva clasificación ABC y % acumulado calculados sobre ingresos.
+    private sealed class Item
+    {
+        public required string Prod;
+        public required string Cat;
+        public int Unid;
+        public int Ing;
+        public int Gan;
+        public double? T;
+        public bool Unknown;
+        public double CumPct;
+        public string Abc = "";
+    }
+
+    // ── Formato (es-CL) ───────────────────────────────────────────────────────
+    private static readonly NumberFormatInfo Nfi = new() { NumberGroupSeparator = ".", NumberDecimalDigits = 0 };
+    private static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
+    private static string Fmt(int n) => (n < 0 ? "-$" : "$") + Math.Abs(n).ToString("N0", Nfi);
+
+    private static string TrendText(double? t)
+    {
+        if (t is null) return "";
+        var sign = t > 0 ? "+" : (t < 0 ? "-" : "");
+        return sign + Math.Abs(t.Value).ToString("F1", Inv) + "%";
+    }
+
+    private static (string Bg, string Color) AbcStyle(string abc) => abc switch
+    {
+        "A" => ("var(--signal-success)", "#fff"),
+        "B" => ("var(--signal-warning)", "var(--ink-900)"),
+        "C" => ("var(--signal-danger)", "#fff"),
+        _ => ("var(--ink-500)", "#fff"),
+    };
+
+    private string Caret(string k) => _sortKey == k ? (_sortDir == "desc" ? " ▼" : " ▲") : "";
+
+    private void SortBy(string key)
+    {
+        if (_sortKey == key)
+        {
+            _sortDir = _sortDir == "desc" ? "asc" : "desc";
+        }
+        else
+        {
+            _sortKey = key;
+            _sortDir = key == "prod" ? "asc" : "desc"; // texto asc, números desc
+        }
+    }
+
+    // ── Construcción del ranking ──────────────────────────────────────────────
+    private List<Item> BuildRows()
+    {
+        // 1. base (producto) o agregado por categoría
+        List<Item> items;
+        if (_vista == "categoria")
+        {
+            items = Products
+                .GroupBy(p => p.Cat)
+                .Select(g =>
+                {
+                    var withT = g.Where(p => p.T is not null).ToList();
+                    var tw = withT.Sum(p => p.T!.Value * p.Ing);
+                    var tn = withT.Sum(p => p.Ing);
+                    return new Item
+                    {
+                        Prod = g.Key,
+                        Cat = g.Key,
+                        Unid = g.Sum(p => p.Unid),
+                        Ing = g.Sum(p => p.Ing),
+                        Gan = g.Sum(p => p.Gan),
+                        T = tn != 0 ? tw / tn : null,
+                    };
+                })
+                .ToList();
+        }
+        else
+        {
+            items = Products
+                .Select(p => new Item { Prod = p.Prod, Cat = p.Cat, Unid = p.Unid, Ing = p.Ing, Gan = p.Gan, T = p.T })
+                .ToList();
+        }
+
+        // 2. fila de desconocidos (opcional)
+        if (_incluir)
+        {
+            items.Add(new Item { Prod = "— Sin identificar / Pendiente", Cat = "—", Unid = 57, Ing = 48430, Gan = 14529, T = null, Unknown = true });
+        }
+
+        // 3. ABC / Pareto: acumulado sobre ingresos descendentes
+        var totIng = items.Sum(p => p.Ing);
+        var byRev = items.OrderByDescending(p => p.Ing).ToList();
+        double cum = 0;
+        foreach (var p in byRev)
+        {
+            cum += p.Ing;
+            p.CumPct = totIng != 0 ? cum / totIng * 100 : 0;
+            if (p.Unknown) p.Abc = "?";
+            else if (p.CumPct <= 80) p.Abc = "A";
+            else if (p.CumPct <= 95) p.Abc = "B";
+            else p.Abc = "C";
+        }
+
+        // 4. orden de despliegue
+        var dir = _sortDir == "asc" ? 1 : -1;
+        Comparison<Item> cmp = _sortKey switch
+        {
+            "prod" => (a, b) => string.Compare(a.Prod, b.Prod, StringComparison.OrdinalIgnoreCase) * dir,
+            "abc" => (a, b) => (AbcRank(a.Abc) - AbcRank(b.Abc) is var d && d != 0 ? d : (b.Ing - a.Ing > 0 ? 1 : b.Ing - a.Ing < 0 ? -1 : 0)) * dir,
+            "tend" => (a, b) => (a.T ?? -1e9).CompareTo(b.T ?? -1e9) * dir,
+            "unid" => (a, b) => a.Unid.CompareTo(b.Unid) * dir,
+            "ing" => (a, b) => a.Ing.CompareTo(b.Ing) * dir,
+            "gan" => (a, b) => a.Gan.CompareTo(b.Gan) * dir,
+            "margen" => (a, b) => Margen(a).CompareTo(Margen(b)) * dir,
+            _ => (a, b) => -a.Ing.CompareTo(b.Ing),
+        };
+        byRev.Sort(cmp);
+        return byRev;
+    }
+
+    private static int AbcRank(string abc) => abc switch { "A" => 0, "B" => 1, "C" => 2, _ => 3 };
+    private static double Margen(Item p) => p.Ing != 0 ? (double)p.Gan / p.Ing : 0;
+}
