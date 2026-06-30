@@ -1,0 +1,469 @@
+@page "/informe-ventas-v2"
+@using System.Globalization
+
+@* =============================================================================
+   Informe de Ventas — port fiel de templates/ventas/Ventas.dc.html.
+   Layout sin scroll de página: la ruta es "fullscreen" en MainLayout, el scroll
+   vive dentro de la tabla de operaciones y del rail de análisis.
+   Datos demo idénticos al template (el cableado real a HttpClient es el paso
+   siguiente). Estilos inline con var(--token) copiados del template; el bloque
+   <style> cubre solo lo que inline no puede: keyframes, hover y responsive.
+   ============================================================================= *@
+
+<style>
+    @@keyframes ivBlink { 50% { opacity: 0; } }
+    @@keyframes ivFade { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+    @@keyframes ivBack { from { opacity: 0; } to { opacity: 1; } }
+    @@keyframes ivSpin { to { transform: rotate(360deg); } }
+    .iv-cursor { animation: ivBlink 1s steps(1) infinite; }
+    .iv-spin { display: inline-block; animation: ivSpin .8s linear infinite; }
+    .iv-tbl td { padding: 8px 12px; }
+    .iv-tbl.iv-compacta td { padding: 3px 12px; }
+    .iv-row:hover { background: var(--paper-50) !important; }
+    .iv-modal-back { animation: ivBack .15s ease-out; }
+    .iv-modal { animation: ivFade .15s ease-out; }
+    @@media (prefers-reduced-motion: reduce) {
+        .iv-cursor, .iv-spin, .iv-modal, .iv-modal-back { animation: none !important; }
+    }
+    @@media (max-width: 1080px) {
+        .iv-body { flex-direction: column !important; }
+        .iv-rail {
+            flex: none !important; width: 100% !important;
+            border-left: none !important; border-top: 2px solid var(--ink-900) !important;
+            max-height: 320px;
+        }
+    }
+    /* El título y su cursor parpadeante no deben poder seleccionarse. */
+    .iv-page h1 { user-select: none; }
+    /* Foco solo visible con teclado (accesible), no la caja al click de mouse. */
+    .iv-page :is(button, select, input, [role="switch"]):focus:not(:focus-visible) { outline: none; }
+    .iv-page :is(button, select, input, [role="switch"]):focus-visible {
+        outline: 2px solid var(--ink-900); outline-offset: 2px;
+    }
+</style>
+
+<div class="iv-page" style="flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden;padding:0.95rem 1.4rem 1.1rem;">
+
+    <!-- ===== Header + barra de comando ===== -->
+    <div style="flex-shrink:0;display:flex;justify-content:space-between;align-items:flex-end;gap:14px;flex-wrap:wrap;border-bottom:3px solid var(--ink-900);padding-bottom:11px;">
+        <div>
+            <div style="display:inline-block;background:var(--ink-900);color:#fff;font-family:var(--font-mono);font-weight:700;font-size:0.58rem;letter-spacing:2px;padding:3px 9px;text-transform:uppercase;margin-bottom:7px;">Gestión · Ventas</div>
+            <h1 style="margin:0;font-family:var(--font-mono);font-weight:700;text-transform:uppercase;letter-spacing:-1px;font-size:1.55rem;line-height:1;">Informe de Ventas<span class="iv-cursor">_</span></h1>
+            <p style="margin:5px 0 0;font-family:var(--font-mono);font-size:0.68rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.4px;">Análisis de rendimiento y transacciones</p>
+        </div>
+        <div style="display:flex;gap:9px;align-items:center;flex-wrap:wrap;justify-content:flex-end;">
+            <!-- Estado de sincronización -->
+            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px;padding-right:2px;">
+                <span style="font-family:var(--font-mono);font-weight:700;font-size:0.56rem;text-transform:uppercase;letter-spacing:0.6px;color:var(--text-muted);">Fuente · OurVend</span>
+                <span style="display:flex;align-items:center;gap:5px;font-family:var(--font-mono);font-weight:700;font-size:0.62rem;text-transform:uppercase;letter-spacing:0.4px;">
+                    @if (_syncing)
+                    {
+                        <span style="width:7px;height:7px;border-radius:50%;background:var(--signal-warning);"></span>
+                        <text>Sincronizando…</text>
+                    }
+                    else
+                    {
+                        <span style="width:7px;height:7px;border-radius:50%;background:var(--signal-success);"></span>
+                        <text>Sincronizado @_lastSync</text>
+                    }
+                </span>
+            </div>
+            <!-- Botón de sincronización -->
+            @if (_syncing)
+            {
+                <button disabled style="display:inline-flex;align-items:center;justify-content:center;gap:0.5rem;font-family:var(--font-mono);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;line-height:1;border-radius:0;border:2px solid var(--ink-900);background:transparent;color:var(--ink-900);padding:0.5rem 1rem;font-size:var(--fs-sm);opacity:0.65;cursor:wait;">
+                    <i class="bi bi-arrow-repeat iv-spin"></i>Sincronizando…
+                </button>
+            }
+            else
+            {
+                <VmButton Variant="outline" Bar="true" Width="160px" Icon="bi-cloud-arrow-down" OnClick="Sincronizar">Sincronizar</VmButton>
+            }
+            <span style="width:1px;height:30px;background:var(--line-300);"></span>
+            <VmButton Variant="outline" Bar="true" Width="160px" Icon="bi-file-earmark-spreadsheet" OnClick="Exportar">Exportar XLS</VmButton>
+            <VmButton Variant="dark" Bar="true" Width="160px" Icon="bi-play-fill" OnClick="Ejecutar">Ejecutar query</VmButton>
+        </div>
+    </div>
+
+    <!-- Strip de filtros -->
+    <div style="flex-shrink:0;display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap;padding:10px 0 12px;">
+        <div style="min-width:230px;">
+            <VmSelect Label="Unidad" @bind-Value="_unit" Options="UnitOptions" />
+        </div>
+        <div style="display:flex;flex-direction:column;gap:0.35rem;">
+            <label style="font-family:var(--font-mono);font-size:0.66rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Desde</label>
+            <input type="date" value="@_desde" @onchange="e => _desde = e.Value?.ToString() ?? _desde" style="font-family:var(--font-mono);font-size:0.8rem;font-weight:700;border:2px solid var(--ink-900);border-radius:0;background:var(--paper-0);padding:0.45rem 0.6rem;outline:none;" />
+        </div>
+        <div style="display:flex;flex-direction:column;gap:0.35rem;">
+            <label style="font-family:var(--font-mono);font-size:0.66rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Hasta</label>
+            <input type="date" value="@_hasta" @onchange="e => _hasta = e.Value?.ToString() ?? _hasta" style="font-family:var(--font-mono);font-size:0.8rem;font-weight:700;border:2px solid var(--ink-900);border-radius:0;background:var(--paper-0);padding:0.45rem 0.6rem;outline:none;" />
+        </div>
+        <!-- Ventas fantasma toggle -->
+        <div style="display:flex;align-items:center;gap:9px;margin-left:auto;border:2px solid var(--ink-900);padding:0.4rem 0.7rem;background:var(--paper-0);">
+            <button @onclick="ToggleFantasma" role="switch" aria-checked="@(_fantasma ? "true" : "false")"
+                    style="position:relative;width:44px;height:23px;border-radius:999px;border:2px solid var(--ink-900);cursor:pointer;background:@(_fantasma ? "var(--signal-danger)" : "var(--paper-100)");padding:0;flex-shrink:0;">
+                <span style="position:absolute;top:1px;left:@(_fantasma ? "22px" : "1px");width:15px;height:15px;border-radius:50%;background:#fff;border:1px solid var(--ink-900);"></span>
+            </button>
+            <span style="font-family:var(--font-mono);font-weight:700;font-size:0.64rem;text-transform:uppercase;letter-spacing:0.4px;line-height:1.15;">Incluir ventas fantasma<br><span style="color:var(--text-muted);font-weight:400;">Diferencias Transbank</span></span>
+        </div>
+    </div>
+
+    <!-- ===== KPIs ===== -->
+    <div style="flex-shrink:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;margin-bottom:12px;">
+
+        <!-- Utilidad -->
+        <div style="border:2px solid var(--ink-900);background:var(--ink-900);padding:0.8rem 0.95rem;display:flex;flex-direction:column;gap:0.4rem;">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+                <span style="font-family:var(--font-mono);font-weight:700;font-size:0.66rem;text-transform:uppercase;letter-spacing:0.5px;color:rgba(255,255,255,0.72);">Utilidad (real / pagada)</span>
+                <span style="font-family:var(--font-mono);font-weight:700;font-size:0.6rem;text-transform:uppercase;border:1px solid rgba(255,255,255,0.55);color:#fff;padding:2px 7px;">Margen @Margen</span>
+            </div>
+            <span style="font-family:var(--font-sans);font-weight:700;font-size:1.85rem;letter-spacing:-1px;line-height:1;color:#fff;">@UtilidadFmt</span>
+            <small style="font-family:var(--font-mono);font-size:0.66rem;color:rgba(255,255,255,0.5);text-transform:uppercase;">Ganancia neta del período</small>
+        </div>
+
+        <!-- Ventas confirmadas -->
+        <div style="border:2px solid var(--ink-900);background:var(--paper-0);padding:0.8rem 0.95rem;display:flex;flex-direction:column;gap:0.4rem;">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+                <span style="font-family:var(--font-mono);font-weight:700;font-size:0.66rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-secondary);">Ventas confirmadas</span>
+                <span style="font-family:var(--font-mono);font-weight:700;font-size:0.6rem;text-transform:uppercase;background:var(--signal-success);color:#fff;padding:2px 7px;">@TxCount tx</span>
+            </div>
+            <span style="font-family:var(--font-sans);font-weight:700;font-size:1.85rem;letter-spacing:-1px;line-height:1;color:var(--signal-success);">@VentasFmt</span>
+            <small style="font-family:var(--font-mono);font-size:0.66rem;color:var(--text-muted);text-transform:uppercase;">Total operado en el rango</small>
+        </div>
+
+        <!-- Diferencias Transbank -->
+        @if (_fantasma)
+        {
+            <div style="border:2px solid var(--ink-900);background:var(--tint-danger);padding:0.8rem 0.95rem;display:flex;flex-direction:column;gap:0.4rem;">
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+                    <span style="font-family:var(--font-mono);font-weight:700;font-size:0.66rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-secondary);">Diferencias Transbank</span>
+                    <span style="font-family:var(--font-mono);font-weight:700;font-size:0.6rem;text-transform:uppercase;background:var(--signal-danger);color:#fff;padding:2px 7px;">@DifCount alertas</span>
+                </div>
+                <span style="font-family:var(--font-sans);font-weight:700;font-size:1.85rem;letter-spacing:-1px;line-height:1;color:var(--signal-danger);">@DifFmt</span>
+                <small style="font-family:var(--font-mono);font-size:0.66rem;color:var(--signal-danger);text-transform:uppercase;">Cargos sin venta asociada</small>
+            </div>
+        }
+        else
+        {
+            <div style="border:2px solid var(--ink-900);background:var(--paper-0);padding:0.8rem 0.95rem;display:flex;flex-direction:column;gap:0.4rem;">
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+                    <span style="font-family:var(--font-mono);font-weight:700;font-size:0.66rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-secondary);">Diferencias Transbank</span>
+                    <span style="font-family:var(--font-mono);font-weight:700;font-size:0.6rem;text-transform:uppercase;border:1px solid var(--ink-900);color:var(--ink-900);padding:2px 7px;">Sin errores</span>
+                </div>
+                <span style="font-family:var(--font-sans);font-weight:700;font-size:1.85rem;letter-spacing:-1px;line-height:1;color:var(--ink-900);">$0</span>
+                <small style="font-family:var(--font-mono);font-size:0.66rem;color:var(--text-muted);text-transform:uppercase;">Conciliación cuadrada</small>
+            </div>
+        }
+
+        <!-- Pendiente / cash -->
+        <div style="border:2px solid var(--ink-900);background:var(--paper-0);padding:0.8rem 0.95rem;display:flex;flex-direction:column;gap:0.4rem;border-left:6px solid var(--signal-warning);">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+                <span style="font-family:var(--font-mono);font-weight:700;font-size:0.66rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-secondary);">Pendiente / cash</span>
+                <span style="font-family:var(--font-mono);font-weight:700;font-size:0.6rem;text-transform:uppercase;background:var(--signal-warning);color:var(--ink-900);padding:2px 7px;">Por confirmar</span>
+            </div>
+            <span style="font-family:var(--font-sans);font-weight:700;font-size:1.85rem;letter-spacing:-1px;line-height:1;color:var(--ink-900);">@PendienteFmt</span>
+            <small style="font-family:var(--font-mono);font-size:0.66rem;color:var(--text-muted);text-transform:uppercase;">Efectivo aún no arqueado</small>
+        </div>
+    </div>
+
+    <!-- ===== Cuerpo: tabla + panel de análisis ===== -->
+    <div class="iv-body" style="flex:1;min-height:0;display:flex;gap:12px;overflow:hidden;">
+
+        <!-- Detalle de operaciones -->
+        <section style="flex:1;min-width:0;display:flex;flex-direction:column;border:2px solid var(--ink-900);box-shadow:var(--shadow-card);background:var(--paper-0);overflow:hidden;">
+            <div style="flex-shrink:0;background:var(--ink-900);color:#fff;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:0.5rem 0.85rem;">
+                <div style="font-family:var(--font-mono);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;font-size:0.86rem;display:flex;align-items:center;gap:8px;"><i class="bi bi-table"></i>Detalle de operaciones <span style="color:rgba(255,255,255,0.55);font-weight:400;font-size:0.78rem;">@FilteredOps.Count ítems</span></div>
+                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                    <select @bind="_estado" style="border:2px solid var(--paper-0);background:var(--paper-0);color:var(--ink-900);font-family:var(--font-mono);font-weight:700;font-size:0.68rem;text-transform:uppercase;padding:4px 8px;border-radius:0;cursor:pointer;">
+                        <option value="TODOS">Todos</option>
+                        <option value="CONF">Confirmadas</option>
+                        <option value="PEND">Pendientes</option>
+                        <option value="DIFF">Diferencias</option>
+                    </select>
+                    <div style="display:flex;align-items:center;background:var(--paper-0);border:2px solid var(--paper-0);padding:0 8px;">
+                        <i class="bi bi-search" style="color:var(--ink-500);font-size:0.78rem;"></i>
+                        <input type="text" placeholder="Filtrar producto…" @bind="_search" @bind:event="oninput" style="border:none;background:transparent;color:var(--ink-900);font-family:var(--font-mono);font-size:0.74rem;padding:5px 6px;width:140px;outline:none;" />
+                    </div>
+                </div>
+            </div>
+
+            <div style="flex:1;min-height:0;overflow:auto;">
+                <table class="iv-tbl" style="width:100%;border-collapse:collapse;">
+                    <thead style="position:sticky;top:0;z-index:2;">
+                        <tr style="background:var(--ink-700);color:#fff;font-family:var(--font-mono);text-transform:uppercase;font-size:0.62rem;letter-spacing:0.5px;">
+                            <th style="text-align:left;padding:7px 12px;font-weight:700;">Fecha local</th>
+                            <th style="text-align:left;padding:7px 12px;font-weight:700;">Unidad</th>
+                            <th style="text-align:center;padding:7px 12px;font-weight:700;">Slot</th>
+                            <th style="text-align:left;padding:7px 12px;font-weight:700;">Producto</th>
+                            <th style="text-align:right;padding:7px 12px;font-weight:700;">Monto</th>
+                            <th style="text-align:right;padding:7px 12px;font-weight:700;">Ganancia</th>
+                            <th style="text-align:center;padding:7px 12px;font-weight:700;">Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var o in FilteredOps)
+                        {
+                            <tr class="iv-row" @onclick="() => OpenDetail(o)" style="border-bottom:1px solid var(--line-200);cursor:pointer;">
+                                <td style="font-family:var(--font-mono);font-size:0.74rem;color:var(--text-secondary);white-space:nowrap;">@o.Fecha</td>
+                                <td style="font-family:var(--font-mono);font-weight:700;font-size:0.76rem;">@o.Unidad</td>
+                                <td style="text-align:center;font-family:var(--font-mono);font-size:0.74rem;color:var(--text-muted);">@o.Slot</td>
+                                <td style="font-family:var(--font-sans);font-weight:600;font-size:0.8rem;text-transform:uppercase;">@o.Prod</td>
+                                <td style="text-align:right;font-family:var(--font-mono);font-weight:700;font-size:0.78rem;">@Fmt(o.Monto)</td>
+                                <td style="text-align:right;font-family:var(--font-mono);font-weight:700;font-size:0.78rem;">
+                                    <span style="color:@(o.Gan >= 0 ? "var(--signal-success)" : "var(--signal-danger)");">@FmtGan(o.Gan)</span>
+                                </td>
+                                <td style="text-align:center;">
+                                    @switch (o.Estado)
+                                    {
+                                        case "CONF":
+                                            <span style="font-family:var(--font-mono);font-weight:700;font-size:0.6rem;background:var(--signal-success);color:#fff;padding:2px 7px;text-transform:uppercase;">Conf</span>
+                                            break;
+                                        case "PEND":
+                                            <span style="font-family:var(--font-mono);font-weight:700;font-size:0.6rem;background:var(--signal-warning);color:var(--ink-900);padding:2px 7px;text-transform:uppercase;">Pend</span>
+                                            break;
+                                        case "DIFF":
+                                            <span style="font-family:var(--font-mono);font-weight:700;font-size:0.6rem;background:var(--signal-danger);color:#fff;padding:2px 7px;text-transform:uppercase;">Diff</span>
+                                            break;
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+                @if (FilteredOps.Count == 0)
+                {
+                    <div style="padding:2.5rem 1rem;text-align:center;font-family:var(--font-mono);font-size:0.78rem;color:var(--text-muted);text-transform:uppercase;">Sin operaciones para este filtro_</div>
+                }
+            </div>
+        </section>
+
+        <!-- Panel de análisis (rail lateral con pestañas) -->
+        <aside class="iv-rail" style="flex:0 0 360px;display:flex;flex-direction:column;border:2px solid var(--ink-900);box-shadow:var(--shadow-card);background:var(--paper-0);overflow:hidden;">
+            <div style="flex-shrink:0;display:flex;border-bottom:2px solid var(--ink-900);">
+                <button @onclick='() => _tab = "maquinas"' style="flex:1;font-family:var(--font-mono);font-weight:700;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.5px;padding:0.6rem 0.4rem;border:none;border-radius:0;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;background:@(_tab == "maquinas" ? "var(--ink-900)" : "var(--paper-0)");color:@(_tab == "maquinas" ? "#fff" : "var(--ink-900)");"><i class="bi bi-hdd-stack"></i>Por máquina</button>
+                <button @onclick='() => _tab = "productos"' style="flex:1;font-family:var(--font-mono);font-weight:700;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.5px;padding:0.6rem 0.4rem;border:none;border-left:2px solid var(--ink-900);border-radius:0;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;background:@(_tab == "productos" ? "var(--ink-900)" : "var(--paper-0)");color:@(_tab == "productos" ? "#fff" : "var(--ink-900)");"><i class="bi bi-star"></i>Top productos</button>
+            </div>
+
+            @if (_tab == "maquinas")
+            {
+                <!-- Rendimiento por máquina -->
+                <div style="flex:1;min-height:0;overflow:auto;padding:0.6rem;">
+                    @foreach (var m in Maquinas)
+                    {
+                        <div style="border:1px solid var(--line-200);box-shadow:var(--shadow-card);margin-bottom:8px;padding:0.65rem 0.75rem;">
+                            <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;">
+                                <span style="font-family:var(--font-mono);font-weight:700;font-size:0.74rem;text-transform:uppercase;">@m.Codigo</span>
+                                <span style="font-family:var(--font-mono);font-size:0.6rem;color:var(--text-muted);text-transform:uppercase;">@m.Tipo</span>
+                            </div>
+                            <div style="height:7px;background:var(--paper-100);border:1px solid var(--ink-900);margin:8px 0 7px;overflow:hidden;">
+                                <div style="height:100%;background:var(--signal-success);width:@(BarPct(m.Total))%;"></div>
+                            </div>
+                            <div style="display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:0.66rem;">
+                                <span style="color:var(--text-muted);text-transform:uppercase;">@m.Vtas vtas · @Fmt(m.Total)</span>
+                                <span style="font-weight:700;color:var(--signal-success);">@Fmt(m.Gan)</span>
+                            </div>
+                        </div>
+                    }
+                    <div style="border-top:2px solid var(--ink-900);margin-top:4px;padding-top:9px;display:flex;justify-content:space-between;align-items:baseline;">
+                        <span style="font-family:var(--font-mono);font-weight:700;font-size:0.66rem;text-transform:uppercase;color:var(--text-muted);">Total flota</span>
+                        <span style="font-family:var(--font-sans);font-weight:700;font-size:1.15rem;letter-spacing:-0.5px;">@VentasFmt</span>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <!-- Top productos -->
+                <div style="flex:1;min-height:0;overflow:auto;">
+                    <table style="width:100%;border-collapse:collapse;">
+                        <thead style="position:sticky;top:0;">
+                            <tr style="background:var(--ink-700);color:#fff;font-family:var(--font-mono);text-transform:uppercase;font-size:0.6rem;letter-spacing:0.5px;">
+                                <th style="text-align:left;padding:7px 10px;font-weight:700;">#</th>
+                                <th style="text-align:left;padding:7px 6px;font-weight:700;">Producto</th>
+                                <th style="text-align:right;padding:7px 8px;font-weight:700;">Cant</th>
+                                <th style="text-align:right;padding:7px 10px;font-weight:700;">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @{ var rank = 0; }
+                            @foreach (var p in Productos)
+                            {
+                                rank++;
+                                <tr class="iv-row" style="border-bottom:1px solid var(--line-200);">
+                                    <td style="padding:6px 10px;font-family:var(--font-mono);font-weight:700;font-size:0.7rem;color:var(--text-muted);">@rank.ToString("D2")</td>
+                                    <td style="padding:6px 6px;font-family:var(--font-sans);font-weight:600;font-size:0.74rem;text-transform:uppercase;">@p.Prod</td>
+                                    <td style="padding:6px 8px;text-align:right;font-family:var(--font-mono);font-size:0.72rem;">@p.Cant</td>
+                                    <td style="padding:6px 10px;text-align:right;font-family:var(--font-mono);font-weight:700;font-size:0.72rem;">@Fmt(p.Total)</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </aside>
+    </div>
+</div>
+
+<!-- ===== MODAL: detalle de operación ===== -->
+@if (_detail is not null)
+{
+    var d = _detail!;
+    <div class="iv-modal-back" style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:2000;display:flex;align-items:flex-start;justify-content:center;padding:8vh 16px;overflow:auto;" @onclick="CloseDetail">
+        <div class="iv-modal" style="width:100%;max-width:420px;background:var(--paper-0);border:2px solid var(--ink-900);box-shadow:4px 4px 0 #000;" @onclick:stopPropagation="true">
+            <div style="background:var(--ink-900);color:#fff;display:flex;justify-content:space-between;align-items:center;padding:0.6rem 0.9rem;font-family:var(--font-mono);font-weight:700;text-transform:uppercase;letter-spacing:1px;">
+                <span>Detalle de operación</span>
+                <span style="cursor:pointer;font-size:1.2rem;line-height:1;" @onclick="CloseDetail">×</span>
+            </div>
+            <div style="padding:1.2rem;">
+                <div style="text-align:center;margin-bottom:1rem;">
+                    <div style="font-family:var(--font-mono);font-size:0.66rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">@d.Prod</div>
+                    <div style="font-family:var(--font-sans);font-weight:700;font-size:2.1rem;letter-spacing:-1px;">@Fmt(d.Monto)</div>
+                </div>
+                <div style="display:grid;grid-template-columns:auto 1fr;gap:8px 16px;font-family:var(--font-mono);font-size:0.78rem;align-items:baseline;">
+                    <span style="color:var(--text-muted);font-weight:700;text-transform:uppercase;font-size:0.64rem;">Fecha local</span><span style="font-weight:600;">@d.Fecha</span>
+                    <span style="color:var(--text-muted);font-weight:700;text-transform:uppercase;font-size:0.64rem;">Unidad</span><span style="font-weight:600;">@d.Unidad</span>
+                    <span style="color:var(--text-muted);font-weight:700;text-transform:uppercase;font-size:0.64rem;">Slot</span><span style="font-weight:600;">@d.Slot</span>
+                    <span style="color:var(--text-muted);font-weight:700;text-transform:uppercase;font-size:0.64rem;">Ganancia</span><span style="font-weight:700;">@FmtGan(d.Gan)</span>
+                    <span style="color:var(--text-muted);font-weight:700;text-transform:uppercase;font-size:0.64rem;">Estado</span><span style="font-weight:700;text-transform:uppercase;">@EstadoLabel(d.Estado)</span>
+                </div>
+                <div style="margin-top:1.1rem;border:2px dashed var(--line-200);background:repeating-linear-gradient(45deg,#fafafa,#fafafa 8px,#f0f0f0 8px,#f0f0f0 16px);padding:0.85rem;text-align:center;font-family:var(--font-mono);font-size:0.7rem;color:var(--text-muted);text-transform:uppercase;">
+                    <i class="bi bi-upc-scan"></i> Trazabilidad Transbank · @EstadoLabel(d.Estado)
+                </div>
+                <div style="display:flex;gap:10px;margin-top:1.1rem;">
+                    <VmButton Variant="outline" Icon="bi-receipt" Block="true" OnClick="CloseDetail">Ver comprobante</VmButton>
+                    <VmButton Variant="dark" Icon="bi-check2" Block="true" OnClick="CloseDetail">Conciliar</VmButton>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    // ── Estado de UI ──────────────────────────────────────────────────────────
+    private string _unit = "0";
+    private string _search = "";
+    private string _estado = "TODOS";
+    private string _tab = "maquinas";
+    private bool _fantasma = false;
+    private string _desde = "2026-05-29";
+    private string _hasta = "2026-06-28";
+    private Op? _detail;
+    private bool _syncing = false;
+    private string _lastSync = "hace 6 min";
+
+    // ── KPIs (estáticos en el template; se calcularían de datos reales) ───────
+    private const string UtilidadFmt = "$569.470";
+    private const string Margen = "46.0%";
+    private const string VentasFmt = "$1.237.360";
+    private const string TxCount = "1.101";
+    private const string DifFmt = "-$2.460";
+    private const int DifCount = 2;
+    private const string PendienteFmt = "$1.188.930";
+
+    // ── Modelos ───────────────────────────────────────────────────────────────
+    private record Op(string Fecha, string Unidad, string Slot, string Prod, int Monto, int Gan, string Estado);
+    private record Maquina(string Codigo, string Tipo, int Vtas, int Total, int Gan);
+    private record Producto(string Prod, int Cant, int Total);
+
+    private static readonly VmSelect.VmSelectOption[] UnitOptions =
+    [
+        new("0", ":: Todas las unidades ::"),
+        new("1", "Máquina 0012 — Café+Snack"),
+        new("2", "Máquina 0022 — Snack"),
+        new("3", "Máquina 0023 — Snack"),
+    ];
+
+    private static readonly Op[] Base =
+    [
+        new("27/06/2026 08:37", "0022", "40",  "Coca Cola 580cc",          1190, 291, "PEND"),
+        new("27/06/2026 08:36", "0022", "41",  "Score Gorila Lata 473cc",  1490, 632, "PEND"),
+        new("27/06/2026 08:36", "0022", "14",  "Natur Arroz",              850,  850, "CONF"),
+        new("27/06/2026 08:36", "0022", "5",   "Tuareg / Din Don",         1390, 845, "PEND"),
+        new("27/06/2026 05:14", "0022", "44",  "Score Gorila Lata 473cc",  1490, 632, "CONF"),
+        new("27/06/2026 01:53", "0022", "17",  "Pinguinos",                650,  -48, "PEND"),
+        new("27/06/2026 01:52", "0022", "17",  "Pinguinos",                650,  -48, "PEND"),
+        new("26/06/2026 21:23", "0022", "11",  "Costa Choco Chips",        1000, 300, "CONF"),
+        new("26/06/2026 21:22", "0022", "11",  "Costa Choco Chips",        1000, 300, "PEND"),
+        new("26/06/2026 21:22", "0022", "41",  "Score Gorila Lata 473cc",  1490, 632, "PEND"),
+        new("26/06/2026 21:00", "0012", "105", "Tuareg / Din Don",         1000, 455, "CONF"),
+        new("26/06/2026 18:30", "0022", "55",  "Bilz Lata 350cc",          1000, 418, "PEND"),
+        new("26/06/2026 17:45", "0023", "22",  "Coca Cola Lata",           990,  520, "CONF"),
+        new("26/06/2026 16:10", "0023", "8",   "Lays XS 22 grs",           700,  180, "PEND"),
+        new("26/06/2026 14:02", "0012", "33",  "Cachantun (Light/Normal)", 1000, 420, "CONF"),
+        new("26/06/2026 11:18", "0023", "12",  "Caja Jugo Watts",          1100, 360, "PEND"),
+    ];
+
+    private static readonly Op[] Phantom =
+    [
+        new("27/06/2026 03:11", "0022", "—", "Venta fantasma (Transbank)", 1230, 0, "DIFF"),
+        new("25/06/2026 19:40", "0023", "—", "Venta fantasma (Transbank)", 1230, 0, "DIFF"),
+    ];
+
+    private static readonly Maquina[] Maquinas =
+    [
+        new("2410280012", "Café + Snack", 435, 486610, 257805),
+        new("2410280023", "Snack",        439, 470650, 192781),
+        new("2410280022", "Snack",        284, 280100, 118884),
+    ];
+
+    private static readonly Producto[] Productos =
+    [
+        new("Coca Cola 580cc", 206, 282830),
+        new("Coca Cola Lata", 159, 156750),
+        new("Score Gorila Lata 473cc", 66, 88380),
+        new("— Sin identificar", 57, 48430),
+        new("Lays XS 22 grs", 36, 42410),
+        new("Cachantun (Light/Normal)", 34, 28000),
+        new("Pap Lata 350cc", 33, 33000),
+        new("Caja Jugo Watts", 30, 31330),
+        new("Limón Soda Lata 350cc", 30, 30000),
+        new("Pinguinos", 29, 25700),
+    ];
+
+    private const int MaxMaquinaTotal = 486610;
+
+    // ── Derivados ─────────────────────────────────────────────────────────────
+    private IReadOnlyList<Op> FilteredOps
+    {
+        get
+        {
+            var all = _fantasma ? Phantom.Concat(Base) : Base;
+            var q = _search.Trim().ToLowerInvariant();
+            return all
+                .Where(o => (_estado == "TODOS" || o.Estado == _estado)
+                            && (q == "" || o.Prod.ToLowerInvariant().Contains(q)))
+                .ToList();
+        }
+    }
+
+    // ── Formato de moneda (es-CL: punto como separador de miles) ──────────────
+    private static readonly NumberFormatInfo Nfi = new() { NumberGroupSeparator = ".", NumberDecimalDigits = 0 };
+    private static string Fmt(int n) => (n < 0 ? "-$" : "$") + Math.Abs(n).ToString("N0", Nfi);
+    private static string FmtGan(int g) => (g >= 0 ? "$" : "-$") + Math.Abs(g).ToString("N0", Nfi);
+
+    private static int BarPct(int total) => (int)Math.Round((double)total / MaxMaquinaTotal * 100);
+
+    private static string EstadoLabel(string estado) => estado switch
+    {
+        "CONF" => "Confirmada",
+        "PEND" => "Pendiente / cash",
+        "DIFF" => "Diferencia Transbank",
+        _ => estado,
+    };
+
+    // ── Acciones ──────────────────────────────────────────────────────────────
+    private void ToggleFantasma() => _fantasma = !_fantasma;
+    private void OpenDetail(Op o) => _detail = o;
+    private void CloseDetail() => _detail = null;
+    private void Exportar() { /* TODO: exportar XLS */ }
+    private void Ejecutar() { /* TODO: ejecutar query con filtros reales */ }
+
+    private async Task Sincronizar()
+    {
+        if (_syncing) return;
+        _syncing = true;
+        StateHasChanged();
+        await Task.Delay(1600);
+        _syncing = false;
+        _lastSync = "recién";
+    }
+}
