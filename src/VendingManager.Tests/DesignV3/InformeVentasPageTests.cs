@@ -423,6 +423,115 @@ public class InformeVentasPageTests : TestContext
         }, TimeSpan.FromSeconds(2));
     }
 
+    // ── WU-3: cancellation and date validation tests ────────────────────────
+
+    [Fact]
+    public void Sincronizar_CancelsInFlightRequest_OnDispose()
+    {
+        _mockHandler.SyncDelayMs = 5000; // Very slow — gives time to dispose
+        var cut = RenderComponent<InformeVentas>();
+
+        cut.WaitForAssertion(() =>
+        {
+            _mockHandler.Requests.Should().Contain(r => r.Contains("reporte-rango"));
+        });
+
+        cut.Find("button:contains('Sincronizar')").Click();
+
+        // Give the request time to start
+        Thread.Sleep(200);
+
+        // Dispose the component — should cancel the in-flight request
+        cut.Dispose();
+
+        // Wait for the slow request to finish (or be cancelled)
+        Thread.Sleep(1000);
+
+        // The sync request should NOT have completed successfully (no success message)
+        // If cancellation works, the mock handler's Task.Delay throws OperationCanceledException
+        // and the catch block in Sincronizar sets _error. But since we disposed, StateHasChanged
+        // won't render. The key proof: the CancellationToken was passed (tracked below).
+        _mockHandler.LastSyncCancellationToken.Should().NotBeNull();
+        _mockHandler.LastSyncCancellationToken!.Value.IsCancellationRequested.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Sincronizar_WithInvalidHasta_ShowsError_DoesNotPost()
+    {
+        var cut = RenderComponent<InformeVentas>();
+
+        cut.WaitForAssertion(() =>
+        {
+            _mockHandler.Requests.Should().Contain(r => r.Contains("reporte-rango"));
+        });
+
+        // Set _hasta to an invalid date via the input
+        var hastaInput = cut.Find("input[type='date']:nth-of-type(2)");
+        hastaInput.Change("no-es-fecha");
+
+        var requestsBefore = _mockHandler.Requests.Count(r => r.Contains("sync-portal"));
+
+        cut.Find("button:contains('Sincronizar')").Click();
+
+        cut.WaitForAssertion(() =>
+        {
+            // Should show error about invalid date
+            cut.Markup.Should().Contain("Fecha Hasta inválida");
+            // Should NOT have made a sync-portal request
+            _mockHandler.Requests.Count(r => r.Contains("sync-portal")).Should().Be(requestsBefore);
+        }, TimeSpan.FromSeconds(1));
+    }
+
+    [Fact]
+    public void Exportar_WithInvalidHasta_ShowsError_DoesNotGet()
+    {
+        var cut = RenderComponent<InformeVentas>();
+
+        cut.WaitForAssertion(() =>
+        {
+            _mockHandler.Requests.Should().Contain(r => r.Contains("reporte-rango"));
+        });
+
+        // Set _hasta to an invalid date
+        var hastaInput = cut.Find("input[type='date']:nth-of-type(2)");
+        hastaInput.Change("no-es-fecha");
+
+        var requestsBefore = _mockHandler.Requests.Count(r => r.Contains("exportar"));
+
+        cut.Find("button:contains('Exportar XLS')").Click();
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("Fecha Hasta inválida");
+            _mockHandler.Requests.Count(r => r.Contains("exportar")).Should().Be(requestsBefore);
+        }, TimeSpan.FromSeconds(1));
+    }
+
+    [Fact]
+    public void Exportar_WithInvalidDesde_ShowsError_DoesNotGet()
+    {
+        var cut = RenderComponent<InformeVentas>();
+
+        cut.WaitForAssertion(() =>
+        {
+            _mockHandler.Requests.Should().Contain(r => r.Contains("reporte-rango"));
+        });
+
+        // Set _desde to an invalid date
+        var desdeInput = cut.Find("input[type='date']:nth-of-type(1)");
+        desdeInput.Change("bad-date");
+
+        var requestsBefore = _mockHandler.Requests.Count(r => r.Contains("exportar"));
+
+        cut.Find("button:contains('Exportar XLS')").Click();
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("Fecha Desde inválida");
+            _mockHandler.Requests.Count(r => r.Contains("exportar")).Should().Be(requestsBefore);
+        }, TimeSpan.FromSeconds(1));
+    }
+
     // ── Mock handler ───────────────────────────────────────────────────────────
 
     private class InformeVentasMockHandler : HttpMessageHandler
@@ -436,6 +545,7 @@ public class InformeVentasPageTests : TestContext
         public bool SyncReturnsOk { get; set; }
         public bool SyncReturnsError500 { get; set; }
         public int SyncDelayMs { get; set; }
+        public CancellationToken? LastSyncCancellationToken { get; set; }
 
         // Export behavior
         public bool ExportReturnsOk { get; set; }
@@ -458,6 +568,8 @@ public class InformeVentasPageTests : TestContext
             // ── sync-portal (POST) ──
             if (url.Contains("sync-portal"))
             {
+                LastSyncCancellationToken = cancellationToken;
+
                 if (SyncDelayMs > 0)
                     await Task.Delay(SyncDelayMs, cancellationToken);
 
