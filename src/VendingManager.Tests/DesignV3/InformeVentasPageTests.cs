@@ -581,19 +581,22 @@ public class InformeVentasPageTests : TestContext
             _mockHandler.Requests.Should().Contain(r => r.Contains("reporte-rango"));
         });
 
-        // Wait for polling to run at least once
-        Thread.Sleep(300);
-        var lastSyncBefore = _mockHandler.Requests.Count(r => r.Contains("last-sync"));
-        lastSyncBefore.Should().BeGreaterThan(0, "polling should have run at least once before dispose");
+        // Wait for polling to stabilize — let several cycles pass
+        Thread.Sleep(600);
 
-        // Call Dispose directly on the component instance
+        // Dispose — this cancels _pollingCts
         ((IDisposable)cut.Instance).Dispose();
 
-        // Wait more than the polling interval
-        Thread.Sleep(400);
+        // Capture count AFTER dispose but with a small settle window
+        Thread.Sleep(50);
+        var lastSyncAtDispose = _mockHandler.Requests.Count(r => r.Contains("last-sync"));
+        lastSyncAtDispose.Should().BeGreaterThan(0, "polling should have run before dispose");
+
+        // Wait well beyond the polling interval
+        Thread.Sleep(500);
         var lastSyncAfter = _mockHandler.Requests.Count(r => r.Contains("last-sync"));
 
-        lastSyncAfter.Should().Be(lastSyncBefore,
+        lastSyncAfter.Should().Be(lastSyncAtDispose,
             "polling should stop after Dispose — no more last-sync requests expected");
     }
 
@@ -646,7 +649,8 @@ public class InformeVentasPageTests : TestContext
     [Fact]
     public void LastSync_PollingCancellation_OnDispose()
     {
-        var cut = RenderComponent<InformeVentas>();
+        // Use short polling interval so we can verify actual cancellation
+        var cut = RenderComponent<InformeVentas>(p => p.Add(c => c.PollingIntervalMs, 100));
 
         // Wait for initial load
         cut.WaitForAssertion(() =>
@@ -654,13 +658,16 @@ public class InformeVentasPageTests : TestContext
             _mockHandler.Requests.Should().Contain(r => r.Contains("reporte-rango"));
         });
 
+        // Wait for polling to run at least once
+        Thread.Sleep(300);
         var requestsBefore = _mockHandler.Requests.Count(r => r.Contains("last-sync"));
+        requestsBefore.Should().BeGreaterThan(0, "polling should have run at least once with 100ms interval");
 
-        // Dispose the component (should cancel the polling loop)
-        cut.Dispose();
+        // Call Dispose directly — bUnit doesn't trigger Blazor's IDisposable
+        ((IDisposable)cut.Instance).Dispose();
 
-        // Wait a bit — no more requests should arrive
-        Thread.Sleep(500);
+        // Wait more than the polling interval
+        Thread.Sleep(400);
 
         var requestsAfter = _mockHandler.Requests.Count(r => r.Contains("last-sync"));
         requestsAfter.Should().Be(requestsBefore, "disposed component should not make more polling requests");
