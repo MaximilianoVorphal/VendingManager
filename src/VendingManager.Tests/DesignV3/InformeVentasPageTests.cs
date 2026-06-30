@@ -574,19 +574,27 @@ public class InformeVentasPageTests : TestContext
     [Fact]
     public void LastSync_PollingCts_IsCancelled_OnDispose()
     {
-        var cut = RenderComponent<InformeVentas>();
+        var cut = RenderComponent<InformeVentas>(p => p.Add(c => c.PollingIntervalMs, 100));
 
         cut.WaitForAssertion(() =>
         {
             _mockHandler.Requests.Should().Contain(r => r.Contains("reporte-rango"));
         });
 
-        var pollingCts = cut.Instance.PollingCts;
-        pollingCts.Should().NotBeNull();
+        // Wait for polling to run at least once
+        Thread.Sleep(300);
+        var lastSyncBefore = _mockHandler.Requests.Count(r => r.Contains("last-sync"));
+        lastSyncBefore.Should().BeGreaterThan(0, "polling should have run at least once before dispose");
 
-        cut.Dispose();
+        // Call Dispose directly on the component instance
+        ((IDisposable)cut.Instance).Dispose();
 
-        pollingCts!.IsCancellationRequested.Should().BeTrue("polling CTS should be cancelled on Dispose");
+        // Wait more than the polling interval
+        Thread.Sleep(400);
+        var lastSyncAfter = _mockHandler.Requests.Count(r => r.Contains("last-sync"));
+
+        lastSyncAfter.Should().Be(lastSyncBefore,
+            "polling should stop after Dispose — no more last-sync requests expected");
     }
 
     // ── WU-2: Last-sync polling tests ──────────────────────────────────────

@@ -346,6 +346,15 @@
     private string? _error;
     private string? _success;
     private CancellationTokenSource? _loadCts;
+    private CancellationTokenSource? _pollingCts;
+
+    /// <summary>Polling interval in milliseconds. Exposed for testing.</summary>
+    [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
+    [Parameter] public int PollingIntervalMs { get; set; } = 30_000;
+
+    /// <summary>Current polling CancellationTokenSource. Exposed for testing.</summary>
+    [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
+    public CancellationTokenSource? PollingCts => _pollingCts;
 
     // ── API state ─────────────────────────────────────────────────────────────
     private ReporteDto? _reporte;
@@ -448,16 +457,17 @@
     {
         if (firstRender)
         {
+            _pollingCts = new CancellationTokenSource();
             await RefreshLastSyncAsync();
             StateHasChanged();
 
             _ = Task.Run(async () =>
             {
-                while (!(_loadCts?.IsCancellationRequested ?? true))
+                while (!_pollingCts.Token.IsCancellationRequested)
                 {
                     try
                     {
-                        await Task.Delay(30000, _loadCts.Token);
+                        await Task.Delay(PollingIntervalMs, _pollingCts.Token);
                         await RefreshLastSyncAsync();
                         await InvokeAsync(StateHasChanged);
                     }
@@ -584,6 +594,8 @@
     // ── IDisposable ───────────────────────────────────────────────────────────
     public void Dispose()
     {
+        _pollingCts?.Cancel();
+        _pollingCts?.Dispose();
         _loadCts?.Cancel();
         _loadCts?.Dispose();
     }
