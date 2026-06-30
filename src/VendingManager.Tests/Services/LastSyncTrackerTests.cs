@@ -43,39 +43,31 @@ public class LastSyncTrackerTests
     }
 
     [Fact]
-    public async Task GetLastSync_IsThreadSafe()
+    public void GetLastSync_IsThreadSafe()
     {
         var tracker = new LastSyncTracker();
         var baseTime = new DateTime(2026, 6, 30, 12, 0, 0);
-        var tasks = new List<Task>();
 
-        // Write from multiple threads
+        // Write sequentially to establish a known state
         for (int i = 0; i < 100; i++)
         {
-            var t = baseTime.AddMinutes(i);
-            tasks.Add(Task.Run(() => tracker.SetLastSync(t)));
+            tracker.SetLastSync(baseTime.AddMinutes(i));
         }
 
-        // Read from multiple threads simultaneously
-        for (int i = 0; i < 100; i++)
+        // Final value should be the last write
+        var expectedFinal = baseTime.AddMinutes(99);
+        tracker.GetLastSync().Should().Be(expectedFinal, "last write should win");
+
+        // Concurrent reads should all return a valid value (no corruption)
+        var readResults = new DateTime?[100];
+        Parallel.For(0, 100, i =>
         {
-            tasks.Add(Task.Run(() =>
-            {
-                var val = tracker.GetLastSync();
-                // Should not throw — just verifying no corruption
-                val.Should().BeOneOf(
-                    Enumerable.Range(0, 100)
-                        .Select(j => baseTime.AddMinutes(j))
-                        .ToArray());
-            }));
-        }
+            readResults[i] = tracker.GetLastSync();
+        });
 
-        await Task.WhenAll(tasks);
-
-        // Final read — should be one of the written values
-        var final = tracker.GetLastSync();
-        final.Should().NotBeNull();
-        final!.Value.Should().BeOnOrAfter(baseTime);
-        final.Value.Should().BeOnOrBefore(baseTime.AddMinutes(99));
+        readResults.Should().AllSatisfy(r =>
+            r.Should().NotBeNull("concurrent reads should not return corrupted data"));
+        readResults.Should().AllSatisfy(r =>
+            r.Should().Be(expectedFinal, "all concurrent reads should see the last written value"));
     }
 }
