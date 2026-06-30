@@ -29,9 +29,12 @@ body {
     --industrial-border: 2px solid var(--industrial-black);
     --industrial-border-light: 1px solid var(--industrial-gray-200);
 
-    /* Typography */
-    --industrial-font-primary: 'Consolas', 'Courier New', monospace;
-    --industrial-font-secondary: 'Segoe UI', Consolas, monospace;
+    /* Typography — alias the legacy industrial tokens to the design-system
+       token stack (JetBrains Mono / Space Grotesk). These resolve to
+       var(--font-mono) / var(--font-sans) defined in tokens/typography.css,
+       which falls back to Consolas / Segoe UI if the webfonts never load. */
+    --industrial-font-primary: var(--font-mono);
+    --industrial-font-secondary: var(--font-sans);
 }
 
 /* =========================================
@@ -53,7 +56,7 @@ body {
     height: 100vh;
     display: flex;
     flex-direction: column;
-    font-family: 'Segoe UI', Consolas, monospace;
+    font-family: var(--font-sans);
 }
 
 /* Main content area: takes all remaining height after navbar, scrolls internally */
@@ -87,7 +90,7 @@ body {
 
 /* El Logo (Texto a la izquierda) */
 .brand-logo {
-    font-family: 'Consolas', monospace;
+    font-family: var(--font-mono);
     font-weight: 900;
     font-size: 1.5rem;
     letter-spacing: -1px;
@@ -106,7 +109,7 @@ body {
 
 /* Los Enlaces (Botones de navegación) */
 .industrial-link {
-    font-family: 'Consolas', monospace;
+    font-family: var(--font-mono);
     font-weight: bold;
     color: #000000;
     text-decoration: none;
@@ -266,7 +269,7 @@ body {
 .industrial-dropdown-toggle {
     cursor: pointer;
     /* Hereda estilos de .industrial-link */
-    font-family: 'Consolas', monospace;
+    font-family: var(--font-mono);
     font-weight: bold;
     color: #000000;
     text-decoration: none;
@@ -403,7 +406,7 @@ body {
     align-items: center;
     justify-content: center;
     z-index: 9999;
-    font-family: 'Consolas', monospace;
+    font-family: var(--font-mono);
 }
 
 .spinner {
