@@ -432,7 +432,16 @@ public class InformeVentasPageTests : TestContext
         public object? ReporteResponse { get; set; }
         public bool ReturnError500 { get; set; }
 
-        protected override Task<HttpResponseMessage> SendAsync(
+        // Sync-portal behavior
+        public bool SyncReturnsOk { get; set; }
+        public bool SyncReturnsError500 { get; set; }
+        public int SyncDelayMs { get; set; }
+
+        // Export behavior
+        public bool ExportReturnsOk { get; set; }
+        public bool ExportReturnsError500 { get; set; }
+
+        protected override async Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request, CancellationToken cancellationToken)
         {
             var url = request.RequestUri?.ToString() ?? "";
@@ -440,10 +449,49 @@ public class InformeVentasPageTests : TestContext
 
             if (ReturnError500)
             {
-                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.InternalServerError)
+                return new HttpResponseMessage(HttpStatusCode.InternalServerError)
                 {
                     Content = new StringContent("Internal Server Error")
-                });
+                };
+            }
+
+            // ── sync-portal (POST) ──
+            if (url.Contains("sync-portal"))
+            {
+                if (SyncDelayMs > 0)
+                    await Task.Delay(SyncDelayMs, cancellationToken);
+
+                if (SyncReturnsError500)
+                {
+                    return new HttpResponseMessage(HttpStatusCode.InternalServerError)
+                    {
+                        Content = new StringContent("Error interno del servidor")
+                    };
+                }
+
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("Sincronización ALT Exitosa. 16 ventas importadas.")
+                };
+            }
+
+            // ── exportar (GET) ──
+            if (url.Contains("exportar"))
+            {
+                if (ExportReturnsError500)
+                {
+                    return new HttpResponseMessage(HttpStatusCode.InternalServerError)
+                    {
+                        Content = new StringContent("Error al generar archivo")
+                    };
+                }
+
+                // Return dummy xlsx bytes (PK zip header)
+                var xlsxBytes = new byte[] { 0x50, 0x4B, 0x03, 0x04 };
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new ByteArrayContent(xlsxBytes)
+                };
             }
 
             string json;
@@ -507,13 +555,13 @@ public class InformeVentasPageTests : TestContext
             }
             else
             {
-                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound));
+                return new HttpResponseMessage(HttpStatusCode.NotFound);
             }
 
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            return new HttpResponseMessage(HttpStatusCode.OK)
             {
                 Content = new StringContent(json)
-            });
+            };
         }
     }
 }
