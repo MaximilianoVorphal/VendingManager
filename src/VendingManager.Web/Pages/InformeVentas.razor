@@ -1,12 +1,17 @@
 @page "/informe-ventas-v2"
+@inject HttpClient Http
+@implements IDisposable
 @using System.Globalization
+@using System.Net.Http.Json
+@using VendingManager.Shared.DTOs
+@using VendingManager.Web.Components.Shared
 
 @* =============================================================================
    Informe de Ventas — port fiel de templates/ventas/Ventas.dc.html.
    Layout sin scroll de página: la ruta es "fullscreen" en MainLayout, el scroll
    vive dentro de la tabla de operaciones y del rail de análisis.
-   Datos demo idénticos al template (el cableado real a HttpClient es el paso
-   siguiente). Estilos inline con var(--token) copiados del template; el bloque
+   Cableado a HttpClient contra api/Ventas/* endpoints.
+   Estilos inline con var(--token) copiados del template; el bloque
    <style> cubre solo lo que inline no puede: keyframes, hover y responsive.
    ============================================================================= *@
 
@@ -81,32 +86,29 @@
             }
             <span style="width:1px;height:30px;background:var(--line-300);"></span>
             <VmButton Variant="outline" Bar="true" Width="160px" Icon="bi-file-earmark-spreadsheet" OnClick="Exportar">Exportar XLS</VmButton>
-            <VmButton Variant="dark" Bar="true" Width="160px" Icon="bi-play-fill" OnClick="Ejecutar">Ejecutar query</VmButton>
+            <VmButton Variant="dark" Bar="true" Width="160px" Icon="bi-play-fill" OnClick="EjecutarQuery">Ejecutar query</VmButton>
         </div>
     </div>
 
     <!-- Strip de filtros -->
     <div style="flex-shrink:0;display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap;padding:10px 0 12px;">
         <div style="min-width:230px;">
-            <VmSelect Label="Unidad" @bind-Value="_unit" Options="UnitOptions" />
+            <VmSelect Label="Unidad" Value="_unit" Options="UnitOptions" ValueChanged="@((string v) => { _unit = v; _ = OnFilterChanged(); })" />
         </div>
         <div style="display:flex;flex-direction:column;gap:0.35rem;">
             <label style="font-family:var(--font-mono);font-size:0.66rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Desde</label>
-            <input type="date" value="@_desde" @onchange="e => _desde = e.Value?.ToString() ?? _desde" style="font-family:var(--font-mono);font-size:0.8rem;font-weight:700;border:2px solid var(--ink-900);border-radius:0;background:var(--paper-0);padding:0.45rem 0.6rem;outline:none;" />
+            <input type="date" value="@_desde" @onchange="e => { _desde = e.Value?.ToString() ?? _desde; _ = OnFilterChanged(); }" style="font-family:var(--font-mono);font-size:0.8rem;font-weight:700;border:2px solid var(--ink-900);border-radius:0;background:var(--paper-0);padding:0.45rem 0.6rem;outline:none;" />
         </div>
         <div style="display:flex;flex-direction:column;gap:0.35rem;">
             <label style="font-family:var(--font-mono);font-size:0.66rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Hasta</label>
-            <input type="date" value="@_hasta" @onchange="e => _hasta = e.Value?.ToString() ?? _hasta" style="font-family:var(--font-mono);font-size:0.8rem;font-weight:700;border:2px solid var(--ink-900);border-radius:0;background:var(--paper-0);padding:0.45rem 0.6rem;outline:none;" />
-        </div>
-        <!-- Ventas fantasma toggle -->
-        <div style="display:flex;align-items:center;gap:9px;margin-left:auto;border:2px solid var(--ink-900);padding:0.4rem 0.7rem;background:var(--paper-0);">
-            <button @onclick="ToggleFantasma" role="switch" aria-checked="@(_fantasma ? "true" : "false")"
-                    style="position:relative;width:44px;height:23px;border-radius:999px;border:2px solid var(--ink-900);cursor:pointer;background:@(_fantasma ? "var(--signal-danger)" : "var(--paper-100)");padding:0;flex-shrink:0;">
-                <span style="position:absolute;top:1px;left:@(_fantasma ? "22px" : "1px");width:15px;height:15px;border-radius:50%;background:#fff;border:1px solid var(--ink-900);"></span>
-            </button>
-            <span style="font-family:var(--font-mono);font-weight:700;font-size:0.64rem;text-transform:uppercase;letter-spacing:0.4px;line-height:1.15;">Incluir ventas fantasma<br><span style="color:var(--text-muted);font-weight:400;">Diferencias Transbank</span></span>
+            <input type="date" value="@_hasta" @onchange="e => { _hasta = e.Value?.ToString() ?? _hasta; _ = OnFilterChanged(); }" style="font-family:var(--font-mono);font-size:0.8rem;font-weight:700;border:2px solid var(--ink-900);border-radius:0;background:var(--paper-0);padding:0.45rem 0.6rem;outline:none;" />
         </div>
     </div>
+
+    @if (_error is not null)
+    {
+        <IndustrialAlert Message="@_error" Variant="IndustrialAlert.AlertVariant.Danger" />
+    }
 
     <!-- ===== KPIs ===== -->
     <div style="flex-shrink:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;margin-bottom:12px;">
@@ -132,28 +134,14 @@
         </div>
 
         <!-- Diferencias Transbank -->
-        @if (_fantasma)
-        {
-            <div style="border:2px solid var(--ink-900);background:var(--tint-danger);padding:0.8rem 0.95rem;display:flex;flex-direction:column;gap:0.4rem;">
-                <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
-                    <span style="font-family:var(--font-mono);font-weight:700;font-size:0.66rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-secondary);">Diferencias Transbank</span>
-                    <span style="font-family:var(--font-mono);font-weight:700;font-size:0.6rem;text-transform:uppercase;background:var(--signal-danger);color:#fff;padding:2px 7px;">@DifCount alertas</span>
-                </div>
-                <span style="font-family:var(--font-sans);font-weight:700;font-size:1.85rem;letter-spacing:-1px;line-height:1;color:var(--signal-danger);">@DifFmt</span>
-                <small style="font-family:var(--font-mono);font-size:0.66rem;color:var(--signal-danger);text-transform:uppercase;">Cargos sin venta asociada</small>
+        <div style="border:2px solid var(--ink-900);background:var(--paper-0);padding:0.8rem 0.95rem;display:flex;flex-direction:column;gap:0.4rem;">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+                <span style="font-family:var(--font-mono);font-weight:700;font-size:0.66rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-secondary);">Diferencias Transbank</span>
+                <span style="font-family:var(--font-mono);font-weight:700;font-size:0.6rem;text-transform:uppercase;border:1px solid var(--ink-900);color:var(--ink-900);padding:2px 7px;">Sin errores</span>
             </div>
-        }
-        else
-        {
-            <div style="border:2px solid var(--ink-900);background:var(--paper-0);padding:0.8rem 0.95rem;display:flex;flex-direction:column;gap:0.4rem;">
-                <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
-                    <span style="font-family:var(--font-mono);font-weight:700;font-size:0.66rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-secondary);">Diferencias Transbank</span>
-                    <span style="font-family:var(--font-mono);font-weight:700;font-size:0.6rem;text-transform:uppercase;border:1px solid var(--ink-900);color:var(--ink-900);padding:2px 7px;">Sin errores</span>
-                </div>
-                <span style="font-family:var(--font-sans);font-weight:700;font-size:1.85rem;letter-spacing:-1px;line-height:1;color:var(--ink-900);">$0</span>
-                <small style="font-family:var(--font-mono);font-size:0.66rem;color:var(--text-muted);text-transform:uppercase;">Conciliación cuadrada</small>
-            </div>
-        }
+            <span style="font-family:var(--font-sans);font-weight:700;font-size:1.85rem;letter-spacing:-1px;line-height:1;color:var(--ink-900);">$0</span>
+            <small style="font-family:var(--font-mono);font-size:0.66rem;color:var(--text-muted);text-transform:uppercase;">Conciliación cuadrada</small>
+        </div>
 
         <!-- Pendiente / cash -->
         <div style="border:2px solid var(--ink-900);background:var(--paper-0);padding:0.8rem 0.95rem;display:flex;flex-direction:column;gap:0.4rem;border-left:6px solid var(--signal-warning);">
@@ -232,7 +220,7 @@
                 </table>
                 @if (FilteredOps.Count == 0)
                 {
-                    <div style="padding:2.5rem 1rem;text-align:center;font-family:var(--font-mono);font-size:0.78rem;color:var(--text-muted);text-transform:uppercase;">Sin operaciones para este filtro_</div>
+                    <div style="padding:2.5rem 1rem;text-align:center;font-family:var(--font-mono);font-size:0.78rem;color:var(--text-muted);text-transform:uppercase;">Sin datos en el rango_</div>
                 }
             </div>
         </section>
@@ -248,12 +236,12 @@
             {
                 <!-- Rendimiento por máquina -->
                 <div style="flex:1;min-height:0;overflow:auto;padding:0.6rem;">
-                    @foreach (var m in Maquinas)
+                    @foreach (var m in MaquinasGrouped)
                     {
                         <div style="border:1px solid var(--line-200);box-shadow:var(--shadow-card);margin-bottom:8px;padding:0.65rem 0.75rem;">
                             <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;">
                                 <span style="font-family:var(--font-mono);font-weight:700;font-size:0.74rem;text-transform:uppercase;">@m.Codigo</span>
-                                <span style="font-family:var(--font-mono);font-size:0.6rem;color:var(--text-muted);text-transform:uppercase;">@m.Tipo</span>
+                                <span style="font-family:var(--font-mono);font-size:0.6rem;color:var(--text-muted);text-transform:uppercase;">—</span>
                             </div>
                             <div style="height:7px;background:var(--paper-100);border:1px solid var(--ink-900);margin:8px 0 7px;overflow:hidden;">
                                 <div style="height:100%;background:var(--signal-success);width:@(BarPct(m.Total))%;"></div>
@@ -285,7 +273,7 @@
                         </thead>
                         <tbody>
                             @{ var rank = 0; }
-                            @foreach (var p in Productos)
+                            @foreach (var p in ProductosRanked)
                             {
                                 rank++;
                                 <tr class="iv-row" style="border-bottom:1px solid var(--line-200);">
@@ -343,90 +331,44 @@
     private string _search = "";
     private string _estado = "TODOS";
     private string _tab = "maquinas";
-    private bool _fantasma = false;
-    private string _desde = "2026-05-29";
-    private string _hasta = "2026-06-28";
-    private Op? _detail;
+    private string _desde = DateTime.Today.AddDays(-7).ToString("yyyy-MM-dd");
+    private string _hasta = DateTime.Today.ToString("yyyy-MM-dd");
+    private OpRow? _detail;
     private bool _syncing = false;
     private string _lastSync = "hace 6 min";
+    private string? _error;
+    private CancellationTokenSource? _loadCts;
 
-    // ── KPIs (estáticos en el template; se calcularían de datos reales) ───────
-    private const string UtilidadFmt = "$569.470";
-    private const string Margen = "46.0%";
-    private const string VentasFmt = "$1.237.360";
-    private const string TxCount = "1.101";
-    private const string DifFmt = "-$2.460";
-    private const int DifCount = 2;
-    private const string PendienteFmt = "$1.188.930";
+    // ── API state ─────────────────────────────────────────────────────────────
+    private ReporteDto? _reporte;
+    private InformeFinancieroDto? _financiero;
+    private List<AnalisisProductoDto> _productos = new();
+    private List<MaquinaSimpleDto> _maquinas = new();
 
-    // ── Modelos ───────────────────────────────────────────────────────────────
-    private record Op(string Fecha, string Unidad, string Slot, string Prod, int Monto, int Gan, string Estado);
-    private record Maquina(string Codigo, string Tipo, int Vtas, int Total, int Gan);
-    private record Producto(string Prod, int Cant, int Total);
+    // ── View-models ───────────────────────────────────────────────────────────
+    private record OpRow(string Fecha, string Unidad, string Slot, string Prod, decimal Monto, decimal Gan, string Estado);
+    private record MaquinaRailRow(string Codigo, int Vtas, decimal Total, decimal Gan);
+    private record ProductoRow(string Prod, int Cant, decimal Total);
 
-    private static readonly VmSelect.VmSelectOption[] UnitOptions =
-    [
-        new("0", ":: Todas las unidades ::"),
-        new("1", "Máquina 0012 — Café+Snack"),
-        new("2", "Máquina 0022 — Snack"),
-        new("3", "Máquina 0023 — Snack"),
-    ];
+    private List<VmSelect.VmSelectOption> UnitOptions = new()
+    {
+        new("0", ":: Todas las unidades ::")
+    };
 
-    private static readonly Op[] Base =
-    [
-        new("27/06/2026 08:37", "0022", "40",  "Coca Cola 580cc",          1190, 291, "PEND"),
-        new("27/06/2026 08:36", "0022", "41",  "Score Gorila Lata 473cc",  1490, 632, "PEND"),
-        new("27/06/2026 08:36", "0022", "14",  "Natur Arroz",              850,  850, "CONF"),
-        new("27/06/2026 08:36", "0022", "5",   "Tuareg / Din Don",         1390, 845, "PEND"),
-        new("27/06/2026 05:14", "0022", "44",  "Score Gorila Lata 473cc",  1490, 632, "CONF"),
-        new("27/06/2026 01:53", "0022", "17",  "Pinguinos",                650,  -48, "PEND"),
-        new("27/06/2026 01:52", "0022", "17",  "Pinguinos",                650,  -48, "PEND"),
-        new("26/06/2026 21:23", "0022", "11",  "Costa Choco Chips",        1000, 300, "CONF"),
-        new("26/06/2026 21:22", "0022", "11",  "Costa Choco Chips",        1000, 300, "PEND"),
-        new("26/06/2026 21:22", "0022", "41",  "Score Gorila Lata 473cc",  1490, 632, "PEND"),
-        new("26/06/2026 21:00", "0012", "105", "Tuareg / Din Don",         1000, 455, "CONF"),
-        new("26/06/2026 18:30", "0022", "55",  "Bilz Lata 350cc",          1000, 418, "PEND"),
-        new("26/06/2026 17:45", "0023", "22",  "Coca Cola Lata",           990,  520, "CONF"),
-        new("26/06/2026 16:10", "0023", "8",   "Lays XS 22 grs",           700,  180, "PEND"),
-        new("26/06/2026 14:02", "0012", "33",  "Cachantun (Light/Normal)", 1000, 420, "CONF"),
-        new("26/06/2026 11:18", "0023", "12",  "Caja Jugo Watts",          1100, 360, "PEND"),
-    ];
-
-    private static readonly Op[] Phantom =
-    [
-        new("27/06/2026 03:11", "0022", "—", "Venta fantasma (Transbank)", 1230, 0, "DIFF"),
-        new("25/06/2026 19:40", "0023", "—", "Venta fantasma (Transbank)", 1230, 0, "DIFF"),
-    ];
-
-    private static readonly Maquina[] Maquinas =
-    [
-        new("2410280012", "Café + Snack", 435, 486610, 257805),
-        new("2410280023", "Snack",        439, 470650, 192781),
-        new("2410280022", "Snack",        284, 280100, 118884),
-    ];
-
-    private static readonly Producto[] Productos =
-    [
-        new("Coca Cola 580cc", 206, 282830),
-        new("Coca Cola Lata", 159, 156750),
-        new("Score Gorila Lata 473cc", 66, 88380),
-        new("— Sin identificar", 57, 48430),
-        new("Lays XS 22 grs", 36, 42410),
-        new("Cachantun (Light/Normal)", 34, 28000),
-        new("Pap Lata 350cc", 33, 33000),
-        new("Caja Jugo Watts", 30, 31330),
-        new("Limón Soda Lata 350cc", 30, 30000),
-        new("Pinguinos", 29, 25700),
-    ];
-
-    private const int MaxMaquinaTotal = 486610;
-
-    // ── Derivados ─────────────────────────────────────────────────────────────
-    private IReadOnlyList<Op> FilteredOps
+    // ── Derived ───────────────────────────────────────────────────────────────
+    private IReadOnlyList<OpRow> FilteredOps
     {
         get
         {
-            var all = _fantasma ? Phantom.Concat(Base) : Base;
+            var all = (_reporte?.Detalle ?? new()).Select(d => new OpRow(
+                d.FechaRaw.ToString("dd/MM/yyyy HH:mm"),
+                MachineHelpers.ExtractShortCode(d.Maquina),
+                d.Slot,
+                d.Producto,
+                d.Monto,
+                d.Ganancia,
+                d.Estado
+            ));
             var q = _search.Trim().ToLowerInvariant();
             return all
                 .Where(o => (_estado == "TODOS" || o.Estado == _estado)
@@ -435,12 +377,48 @@
         }
     }
 
+    private IReadOnlyList<MaquinaRailRow> MaquinasGrouped
+    {
+        get
+        {
+            var maxTotal = (_reporte?.Detalle ?? new()).Any()
+                ? _reporte!.Detalle
+                    .GroupBy(d => MachineHelpers.ExtractShortCode(d.Maquina))
+                    .Max(g => g.Sum(d => d.Monto))
+                : 1m;
+            return (_reporte?.Detalle ?? new())
+                .GroupBy(d => MachineHelpers.ExtractShortCode(d.Maquina))
+                .Select(g => new MaquinaRailRow(
+                    g.Key,
+                    g.Count(),
+                    g.Sum(d => d.Monto),
+                    g.Sum(d => d.Ganancia)))
+                .OrderByDescending(m => m.Total)
+                .Take(5)
+                .ToList();
+        }
+    }
+
+    private IReadOnlyList<ProductoRow> ProductosRanked =>
+        _productos
+            .OrderByDescending(p => p.CantidadVendida)
+            .Select(p => new ProductoRow(p.Nombre, p.CantidadVendida, p.TotalVentas))
+            .ToList();
+
+    // ── KPI bindings ──────────────────────────────────────────────────────────
+    private string UtilidadFmt => _financiero is not null ? Fmt(_financiero.UtilidadNeta) : "$0";
+    private string Margen => _financiero is not null ? $"{_financiero.MargenPorcentaje:F1}%" : "0%";
+    private string VentasFmt => _reporte is not null ? Fmt(_reporte.MontoTotal) : "$0";
+    private string TxCount => _reporte is not null ? _reporte.TotalVentas.ToString("N0", Nfi) : "0";
+    private string PendienteFmt => _reporte is not null ? Fmt(_reporte.MontoPendiente) : "$0";
+    private int MaxMaquinaTotal => MaquinasGrouped.Any() ? (int)MaquinasGrouped.Max(m => m.Total) : 1;
+
     // ── Formato de moneda (es-CL: punto como separador de miles) ──────────────
     private static readonly NumberFormatInfo Nfi = new() { NumberGroupSeparator = ".", NumberDecimalDigits = 0 };
-    private static string Fmt(int n) => (n < 0 ? "-$" : "$") + Math.Abs(n).ToString("N0", Nfi);
-    private static string FmtGan(int g) => (g >= 0 ? "$" : "-$") + Math.Abs(g).ToString("N0", Nfi);
+    private static string Fmt(decimal n) => (n < 0 ? "-$" : "$") + Math.Abs(n).ToString("N0", Nfi);
+    private static string FmtGan(decimal g) => (g >= 0 ? "$" : "-$") + Math.Abs(g).ToString("N0", Nfi);
 
-    private static int BarPct(int total) => (int)Math.Round((double)total / MaxMaquinaTotal * 100);
+    private int BarPct(decimal total) => MaxMaquinaTotal > 0 ? (int)Math.Round(total / MaxMaquinaTotal * 100) : 0;
 
     private static string EstadoLabel(string estado) => estado switch
     {
@@ -450,19 +428,132 @@
         _ => estado,
     };
 
+    // ── Lifecycle ─────────────────────────────────────────────────────────────
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarMaquinas();
+        _loadCts = new CancellationTokenSource();
+        await CargarReportesAsync(_loadCts.Token);
+    }
+
+    private async Task CargarMaquinas()
+    {
+        try
+        {
+            var data = await Http.GetFromJsonAsync<List<MaquinaSimpleDto>>("api/Ventas/lista-maquinas");
+            if (data is not null)
+            {
+                _maquinas = data;
+                UnitOptions = new List<VmSelect.VmSelectOption> { new("0", ":: Todas las unidades ::") };
+                UnitOptions.AddRange(_maquinas.Select(m =>
+                    new VmSelect.VmSelectOption(m.Id.ToString(), m.Nombre)));
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = "No se pudo cargar el catálogo de máquinas.";
+            Logger?.LogError(ex, "InformeVentas: error cargando lista-maquinas");
+        }
+    }
+
+    private async Task CargarReportesAsync(CancellationToken ct)
+    {
+        var inicio = _desde;
+        var fin = _hasta;
+        var maqId = _unit;
+
+        var reporteUrl = $"api/Ventas/reporte-rango?inicio={inicio}&fin={fin}&maquinaId={maqId}&includePhantom=false";
+        var financieroUrl = $"api/Ventas/informe-financiero?inicio={inicio}&fin={fin}&maquinaId={maqId}";
+        var productosUrl = $"api/Ventas/analisis-productos?inicio={inicio}&fin={fin}&maquinaId={maqId}";
+
+        _error = null;
+
+        await Task.WhenAll(
+            FetchWithErrorHandling(reporteUrl, ct, async (HttpResponseMessage resp) =>
+            {
+                _reporte = await resp.Content.ReadFromJsonAsync<ReporteDto>(cancellationToken: ct);
+            }),
+            FetchWithErrorHandling(financieroUrl, ct, async (HttpResponseMessage resp) =>
+            {
+                _financiero = await resp.Content.ReadFromJsonAsync<InformeFinancieroDto>(cancellationToken: ct);
+            }),
+            FetchWithErrorHandling(productosUrl, ct, async (HttpResponseMessage resp) =>
+            {
+                var data = await resp.Content.ReadFromJsonAsync<List<AnalisisProductoDto>>(cancellationToken: ct);
+                if (data is not null) _productos = data;
+            })
+        );
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task FetchWithErrorHandling(string url, CancellationToken ct, Func<HttpResponseMessage, Task> onSuccess)
+    {
+        try
+        {
+            var resp = await Http.GetAsync(url, ct);
+            if (resp.IsSuccessStatusCode)
+            {
+                await onSuccess(resp);
+            }
+            else
+            {
+                _error = "Error al cargar datos del servidor.";
+                Logger?.LogWarning("InformeVentas: {Url} retornó {Status}", url, resp.StatusCode);
+            }
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            _error = "Error al cargar datos del servidor.";
+            Logger?.LogError(ex, "InformeVentas: excepción en {Url}", url);
+        }
+    }
+
+    // ── Debounce + cancellation ───────────────────────────────────────────────
+    private async Task OnFilterChanged()
+    {
+        _loadCts?.Cancel();
+        _loadCts = new CancellationTokenSource();
+        var ct = _loadCts.Token;
+        try
+        {
+            await Task.Delay(300, ct);
+            await CargarReportesAsync(ct);
+        }
+        catch (OperationCanceledException) { /* debounce cancelled */ }
+    }
+
+    private async Task EjecutarQuery()
+    {
+        _loadCts?.Cancel();
+        _loadCts = new CancellationTokenSource();
+        await CargarReportesAsync(_loadCts.Token);
+    }
+
+    // ── ILogger injection (placeholder — will be wired in WU-4) ──────────────
+    [Inject] private Microsoft.Extensions.Logging.ILogger<InformeVentas>? Logger { get; set; }
+
+    // ── IDisposable ───────────────────────────────────────────────────────────
+    public void Dispose()
+    {
+        _loadCts?.Cancel();
+        _loadCts?.Dispose();
+    }
+
     // ── Acciones ──────────────────────────────────────────────────────────────
-    private void ToggleFantasma() => _fantasma = !_fantasma;
-    private void OpenDetail(Op o) => _detail = o;
+    private void OpenDetail(OpRow o) => _detail = o;
     private void CloseDetail() => _detail = null;
     private void Exportar() { /* TODO: exportar XLS */ }
-    private void Ejecutar() { /* TODO: ejecutar query con filtros reales */ }
 
     private async Task Sincronizar()
     {
         if (_syncing) return;
         _syncing = true;
         StateHasChanged();
-        await Task.Delay(1600);
+        _loadCts?.Cancel();
+        _loadCts = new CancellationTokenSource();
+        await CargarReportesAsync(_loadCts.Token);
         _syncing = false;
         _lastSync = "recién";
     }
