@@ -4,13 +4,14 @@
    Mobile (<760px): hamburger + panel deslizante derecho.
 
    Props:
-   - Active:      key de la sección activa, ej. "dashboard" | "recarga" | "caja"
-   - OnNavigate:  EventCallback<string> — recibe el key al navegar
-                  Si no se provee, navega con NavigationManager a la ruta real.
+   - Active:      key de la sección activa (legacy). Si está vacío, el estado
+                  activo se deriva de la URI actual (Nav.Uri).
+   - OnNavigate:  EventCallback<string> — recibe el key al navegar.
+                  Si no se provee, navega con NavigationManager al Href real.
    - Collapsed:   cuando es true oculta toda la navbar (API heredada de MainLayout).
 
-   Claves disponibles: "dashboard", "recarga", "caja"
-   (el resto de ítems están como placeholders deshabilitados)
+   Cada NavItem define Key (para highlight) y Href (ruta real a la que navegar).
+   El estado activo se calcula comparando el path actual con el Href del item.
 
    Uso en MainLayout.razor:
    <VmNavbar Active="@_currentSection" OnNavigate="HandleNav" Collapsed="@_navbarCollapsed" />
@@ -27,27 +28,42 @@
     private string? _openDropdown = null;
     private bool _mobileOpen = false;
     private bool _isMobile = false;
+    private string _currentPath = "";
 
-    // Items de navegación
+    // Items de navegación. Key se usa para el resaltado activo; Href para navegar.
     record NavItem(string Label, string? Key = null, string? Href = null);
 
     private static readonly NavItem[] Gestion = [
-        new("Informe Ventas"),
-        new("Análisis Productos"),
-        new("Quiebres de Stock"),
-        new("Templates Recarga", "recarga"),
-        new("Informe Compras"),
-        new("Caja", "caja"),
-        new("Conciliación"),
+        new("Informe Ventas", "informe-ventas", "/informe-ventas"),
+        new("Análisis Productos", "analisis-ventas", "/analisis-ventas"),
+        new("Quiebres de Stock", "stockout", "/stockout-dashboard"),
+        new("Templates Recarga", "recarga", "/templates-recarga"),
+        new("Informe Compras", "informe-compras", "/informe-compras"),
+        new("Caja", "caja", "/caja"),
+        new("Conciliación", "contabilidad", "/contabilidad"),
     ];
     private static readonly NavItem[] Operaciones = [
-        new("Máquinas"), new("Compras"), new("Bodega"), new("Centro de Cargas"),
+        new("Máquinas", "maquinas", "/maquinas"),
+        new("Compras", "compras", "/compras"),
+        new("Bodega", "bodega", "/inventario"),
+        new("Centro de Cargas", "cargas", "/cargas"),
     ];
 
     protected override async Task OnInitializedAsync()
     {
+        _currentPath = new Uri(Nav.Uri).AbsolutePath.Trim('/').ToLowerInvariant();
         await RefreshMobileAsync();
     }
+
+    private bool IsItemActive(NavItem item)
+    {
+        if (string.IsNullOrWhiteSpace(item.Href)) return false;
+        var itemPath = item.Href.Trim('/').ToLowerInvariant();
+        if (itemPath == "") return _currentPath == "";
+        return _currentPath == itemPath;
+    }
+
+    private bool IsDashboardActive() => _currentPath == "";
 
     private async Task RefreshMobileAsync()
     {
@@ -70,7 +86,7 @@
 
         if (item.Key != null && OnNavigate.HasDelegate)
             await OnNavigate.InvokeAsync(item.Key);
-        else if (item.Href != null)
+        else if (!string.IsNullOrWhiteSpace(item.Href))
             Nav.NavigateTo(item.Href);
     }
 
@@ -90,7 +106,7 @@
                 gap:16px;padding:12px 24px;">
 
         <!-- Wordmark -->
-        <button @onclick='() => Navigate(new NavItem("Panel de Control","dashboard"))'
+        <button @onclick='() => Navigate(new NavItem("Panel de Control","dashboard","/"))'
                 style="font-family:var(--font-mono);font-weight:800;font-size:1.5rem;
                        letter-spacing:-1px;text-transform:uppercase;cursor:pointer;
                        border:2px solid var(--ink-900);padding:5px 10px;
@@ -108,14 +124,14 @@
              style="display:flex;gap:0.6rem;flex-wrap:wrap;
                     justify-content:flex-end;align-items:center;">
 
-            <!-- Panel de Control (link directo) -->
-            <button @onclick='() => Navigate(new NavItem("Panel de Control","dashboard"))'
+<!-- Panel de Control (link directo) -->
+            <button @onclick='() => Navigate(new NavItem("Panel de Control","dashboard","/"))'
                     style="font-family:var(--font-mono);font-weight:var(--fw-bold);
                            font-size:1rem;text-transform:uppercase;letter-spacing:0.5px;
                            cursor:pointer;padding:5px 10px;border-radius:0;
-                           background:@(Active=="dashboard"?"var(--ink-900)":"transparent");
-                           color:@(Active=="dashboard"?"var(--paper-0)":"var(--ink-900)");
-                           border:@(Active=="dashboard"?"1px solid var(--ink-900)":"1px solid transparent");">
+                           background:@(IsDashboardActive()?"var(--ink-900)":"transparent");
+                            color:@(IsDashboardActive()?"var(--paper-0)":"var(--ink-900)");
+                            border:@(IsDashboardActive()?"1px solid var(--ink-900)":"1px solid transparent");">
                 [ Panel de Control ]
             </button>
 
@@ -146,8 +162,8 @@
                                            font-family:var(--font-mono);font-weight:var(--fw-bold);
                                            font-size:0.9rem;text-transform:uppercase;
                                            letter-spacing:0.5px;padding:10px 15px;
-                                           border:none;border-left:4px solid transparent;
-                                           background:var(--paper-0);
+                                           border:none;border-left:4px solid @(IsItemActive(item)?"var(--ink-900)":"transparent");
+                                           background:@(IsItemActive(item)?"var(--line-200)":"var(--paper-0)");
                                            color:@(disabled?"var(--ink-500)":"var(--ink-900)");
                                            cursor:@(disabled?"not-allowed":"pointer");
                                            opacity:@(disabled?"0.55":"1");">
@@ -164,8 +180,9 @@
                         style="font-family:var(--font-mono);font-weight:var(--fw-bold);
                                font-size:1rem;text-transform:uppercase;letter-spacing:0.5px;
                                cursor:pointer;padding:5px 10px;border-radius:0;
-                               background:transparent;color:var(--ink-900);
-                               border:1px solid transparent;">
+                               background:@(_openDropdown=="operaciones"?"var(--line-200)":"transparent");
+                               color:var(--ink-900);
+                               border:@(_openDropdown=="operaciones"?"1px solid var(--ink-900)":"1px solid transparent");">
                     [ Operaciones ▾ ]
                 </button>
                 @if (_openDropdown == "operaciones")
@@ -177,14 +194,19 @@
                                 z-index:var(--z-dropdown);">
                         @foreach (var item in Operaciones)
                         {
-                            <button disabled="true"
+                            var disabled = item.Key == null && item.Href == null;
+                            <button @onclick="() => Navigate(item)"
+                                    disabled="@disabled"
                                     style="display:block;width:100%;text-align:left;
                                            font-family:var(--font-mono);font-weight:var(--fw-bold);
                                            font-size:0.9rem;text-transform:uppercase;
                                            letter-spacing:0.5px;padding:10px 15px;
-                                           border:none;background:var(--paper-0);
-                                           color:var(--ink-500);cursor:not-allowed;opacity:0.55;">
-                                @item.Label ·
+                                           border:none;border-left:4px solid @(IsItemActive(item)?"var(--ink-900)":"transparent");
+                                           background:@(IsItemActive(item)?"var(--line-200)":"var(--paper-0)");
+                                           color:@(disabled?"var(--ink-500)":"var(--ink-900)");
+                                           cursor:@(disabled?"not-allowed":"pointer");
+                                           opacity:@(disabled?"0.55":"1");">
+                                @item.Label@(disabled?" ·":"")
                             </button>
                         }
                     </div>
@@ -227,14 +249,14 @@
     </div>
 
     <nav style="display:flex;flex-direction:column;padding:1rem 0;gap:0.25rem;">
-        <!-- Panel de Control -->
-        <button @onclick='() => Navigate(new NavItem("Panel de Control","dashboard"))'
+<!-- Panel de Control -->
+        <button @onclick='() => Navigate(new NavItem("Panel de Control","dashboard","/"))'
                 style="font-family:var(--font-mono);font-weight:var(--fw-bold);
                        font-size:1rem;text-transform:uppercase;letter-spacing:0.5px;
                        cursor:pointer;padding:10px 24px;border-radius:0;text-align:left;
-                       background:@(Active=="dashboard"?"var(--ink-900)":"transparent");
-                       color:@(Active=="dashboard"?"var(--paper-0)":"var(--ink-900)");
-                       border:none;">
+                       background:@(IsDashboardActive()?"var(--ink-900)":"transparent");
+                        color:@(IsDashboardActive()?"var(--paper-0)":"var(--ink-900)");
+                        border:none;">
             [ Panel de Control ]
         </button>
 
@@ -259,7 +281,8 @@
                                        font-family:var(--font-mono);font-weight:var(--fw-bold);
                                        font-size:0.9rem;text-transform:uppercase;
                                        letter-spacing:0.5px;padding:8px 16px;
-                                       border:none;background:var(--paper-0);
+                                       border:none;border-left:4px solid @(IsItemActive(item)?"var(--ink-900)":"transparent");
+                                       background:@(IsItemActive(item)?"var(--line-200)":"var(--paper-0)");
                                        color:@(disabled?"var(--ink-500)":"var(--ink-900)");
                                        cursor:@(disabled?"not-allowed":"pointer");
                                        opacity:@(disabled?"0.55":"1");">
@@ -284,14 +307,19 @@
                 <div style="padding:0 24px;display:flex;flex-direction:column;gap:0.25rem;">
                     @foreach (var item in Operaciones)
                     {
-                        <button disabled="true"
+                        var disabled = item.Key == null && item.Href == null;
+                        <button @onclick="() => Navigate(item)"
+                                disabled="@disabled"
                                 style="display:block;width:100%;text-align:left;
                                        font-family:var(--font-mono);font-weight:var(--fw-bold);
                                        font-size:0.9rem;text-transform:uppercase;
                                        letter-spacing:0.5px;padding:8px 16px;
-                                       border:none;background:var(--paper-0);
-                                       color:var(--ink-500);cursor:not-allowed;opacity:0.55;">
-                            @item.Label ·
+                                       border:none;border-left:4px solid @(IsItemActive(item)?"var(--ink-900)":"transparent");
+                                       background:@(IsItemActive(item)?"var(--line-200)":"var(--paper-0)");
+                                       color:@(disabled?"var(--ink-500)":"var(--ink-900)");
+                                       cursor:@(disabled?"not-allowed":"pointer");
+                                       opacity:@(disabled?"0.55":"1");">
+                            @item.Label@(disabled?" ·":"")
                         </button>
                     }
                 </div>
