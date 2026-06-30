@@ -1,0 +1,601 @@
+@page "/caja-v2"
+@using System.Globalization
+
+@* =============================================================================
+   Control de Caja — port fiel de templates/caja/Caja.dc.html.
+   Pantalla única sin scroll: KPIs siempre visibles, movimientos agrupados por
+   día con scroll interno, y — sin salir de la vista — Gastos Fijos y Estado de
+   Resultados como drawers laterales. Modal de alta + modal de detalle.
+   Ruta "fullscreen" en MainLayout. Datos demo idénticos al template (backend
+   después). Estilos inline con var(--token); <style> cubre keyframes/hover/focus.
+   ============================================================================= *@
+
+<style>
+    @@keyframes cajaBlink { 50% { opacity: 0; } }
+    @@keyframes cajaFade { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+    @@keyframes cajaDrawer { from { transform: translateX(100%); } to { transform: translateX(0); } }
+    @@keyframes cajaBackdrop { from { opacity: 0; } to { opacity: 1; } }
+    .caja-cursor { animation: cajaBlink 1s steps(1) infinite; }
+    .caja-modal { animation: cajaFade .15s ease-out; }
+    .caja-panel { animation: cajaDrawer .2s ease-out; }
+    .caja-back { animation: cajaBackdrop .15s ease-out; }
+    .caja-row:hover { background: var(--bg-surface-inset) !important; }
+    @@media (prefers-reduced-motion: reduce) {
+        .caja-cursor, .caja-modal, .caja-panel, .caja-back { animation: none !important; }
+    }
+    .caja-page h2 { user-select: none; }
+    .caja-page :is(button, select, input):focus:not(:focus-visible) { outline: none; }
+    .caja-page :is(button, select, input):focus-visible {
+        outline: 2px solid var(--ink-900); outline-offset: 2px;
+    }
+</style>
+
+<div class="caja-page" style="flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden;padding:1.1rem 1.5rem 1.25rem;">
+
+    <!-- Header -->
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:14px;border-bottom:3px solid var(--ink-900);padding-bottom:12px;margin-bottom:16px;">
+        <div>
+            <h2 style="margin:0;font-family:var(--font-mono);font-weight:700;text-transform:uppercase;letter-spacing:-1px;">Control de Caja</h2>
+            <small style="font-family:var(--font-mono);font-weight:700;color:var(--text-muted);text-transform:uppercase;">Flujo de caja y rentabilidad</small>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <VmButton Variant="dark" Bar="true" OnClick="PrevMonth">◀</VmButton>
+            <div style="background:var(--ink-900);color:var(--paper-0);padding:0.5rem 0.9rem;font-family:var(--font-mono);font-weight:700;text-transform:uppercase;min-width:150px;text-align:center;">@MesLabel</div>
+            <VmButton Variant="dark" Bar="true" OnClick="NextMonth">▶</VmButton>
+            <VmButton Variant="outline" Bar="true" OnClick="Today">Hoy</VmButton>
+            <VmButton Variant="outline" Bar="true" Icon="bi-download">Exportar</VmButton>
+            <VmButton Variant="dark" Icon="bi-plus-lg" OnClick="() => _entryOpen = true">Nuevo movimiento</VmButton>
+        </div>
+    </div>
+
+    <!-- KPIs -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin-bottom:16px;">
+
+        <!-- Ventas del mes -->
+        <div style="border:2px solid var(--ink-900);background:var(--paper-0);padding:0.95rem 1.05rem;display:flex;flex-direction:column;gap:0.55rem;">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+                <span style="font-family:var(--font-mono);font-weight:700;font-size:0.74rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-secondary);">Ventas del mes</span>
+                <span style="font-family:var(--font-mono);font-weight:700;font-size:0.6rem;text-transform:uppercase;letter-spacing:0.5px;background:var(--signal-success);color:#fff;padding:3px 8px;">Operación</span>
+            </div>
+            <span style="font-family:var(--font-sans);font-weight:700;font-size:1.95rem;letter-spacing:-1px;line-height:1;color:var(--signal-success);">$4.820.000</span>
+            <small style="font-family:var(--font-mono);font-size:0.72rem;color:var(--text-muted);">Ingresos por operación</small>
+        </div>
+
+        <!-- Gastos del mes -->
+        <div style="border:2px solid var(--ink-900);background:var(--paper-0);padding:0.95rem 1.05rem;display:flex;flex-direction:column;gap:0.55rem;">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+                <span style="font-family:var(--font-mono);font-weight:700;font-size:0.74rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-secondary);">Gastos del mes</span>
+                <span style="font-family:var(--font-mono);font-weight:700;font-size:0.6rem;text-transform:uppercase;letter-spacing:0.5px;background:var(--signal-danger);color:#fff;padding:3px 8px;">Salidas</span>
+            </div>
+            <span style="font-family:var(--font-sans);font-weight:700;font-size:1.95rem;letter-spacing:-1px;line-height:1;color:var(--signal-danger);">-$1.640.500</span>
+            <small style="font-family:var(--font-mono);font-size:0.72rem;color:var(--text-muted);">Bencina, peajes, mercadería</small>
+        </div>
+
+        <!-- Resultado del mes -->
+        <div style="border:2px solid var(--ink-900);background:var(--paper-0);padding:0.95rem 1.05rem;display:flex;flex-direction:column;gap:0.55rem;">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+                <span style="font-family:var(--font-mono);font-weight:700;font-size:0.74rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-secondary);">Resultado del mes</span>
+                <span style="font-family:var(--font-mono);font-weight:700;font-size:0.6rem;text-transform:uppercase;letter-spacing:0.5px;background:var(--ink-900);color:#fff;padding:3px 8px;">Neto</span>
+            </div>
+            <span style="font-family:var(--font-sans);font-weight:700;font-size:1.95rem;letter-spacing:-1px;line-height:1;color:var(--signal-success);">$3.179.500</span>
+            <small style="font-family:var(--font-mono);font-size:0.72rem;color:var(--text-muted);">Ventas − Gastos</small>
+        </div>
+
+        <!-- Disponible en caja -->
+        <div style="border:2px solid var(--ink-900);background:var(--ink-900);padding:0.95rem 1.05rem;display:flex;flex-direction:column;gap:0.55rem;">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+                <span style="font-family:var(--font-mono);font-weight:700;font-size:0.74rem;text-transform:uppercase;letter-spacing:0.5px;color:rgba(255,255,255,0.7);">Disponible en caja</span>
+                <span style="font-family:var(--font-mono);font-weight:700;font-size:0.6rem;text-transform:uppercase;letter-spacing:0.5px;border:1px solid rgba(255,255,255,0.6);color:#fff;padding:3px 8px;">Total</span>
+            </div>
+            <span style="font-family:var(--font-sans);font-weight:700;font-size:1.95rem;letter-spacing:-1px;line-height:1;color:#fff;">$3.429.500</span>
+            <small style="font-family:var(--font-mono);font-size:0.72rem;color:rgba(255,255,255,0.55);">Saldo real (incluye histórico)</small>
+        </div>
+    </div>
+
+    <!-- Movements panel -->
+    <div style="flex:1;min-height:0;display:flex;flex-direction:column;border:2px solid var(--ink-900);box-shadow:var(--shadow-card);background:var(--paper-0);">
+        <div style="background:var(--ink-900);color:var(--paper-0);display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:0.55rem 0.9rem;">
+            <div style="font-family:var(--font-mono);font-weight:700;text-transform:uppercase;letter-spacing:1px;">Movimientos<span class="caja-cursor">_</span> <span style="color:rgba(255,255,255,0.55);font-size:0.78rem;font-weight:400;">@FilteredMovs.Count ítems</span></div>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                <input type="text" placeholder="Buscar…" @bind="_search" @bind:event="oninput" style="border:2px solid var(--paper-0);background:var(--paper-0);color:var(--ink-900);font-family:var(--font-mono);font-size:0.75rem;padding:4px 8px;width:150px;border-radius:0;outline:none;" />
+                <select @bind="_filter" style="border:2px solid var(--paper-0);background:var(--paper-0);color:var(--ink-900);font-family:var(--font-mono);font-weight:700;font-size:0.72rem;text-transform:uppercase;padding:4px 8px;border-radius:0;cursor:pointer;">
+                    <option value="TODOS">Todos</option>
+                    <option value="GASTO">Gastos</option>
+                    <option value="APORTE">Aportes</option>
+                    <option value="RETIRO">Retiros</option>
+                </select>
+                <button @onclick="() => _fixedOpen = true" style="display:flex;align-items:center;gap:6px;font-family:var(--font-mono);font-weight:700;font-size:0.72rem;text-transform:uppercase;padding:5px 10px;background:transparent;color:var(--paper-0);border:2px solid var(--paper-0);border-radius:0;cursor:pointer;"><i class="bi bi-gear"></i>Gastos fijos<span style="background:var(--signal-warning);color:var(--ink-900);border-radius:999px;min-width:17px;height:17px;display:inline-flex;align-items:center;justify-content:center;font-size:0.62rem;padding:0 4px;">@Pendientes.Length</span></button>
+                <button @onclick="() => _pnlOpen = true" style="display:flex;align-items:center;gap:6px;font-family:var(--font-mono);font-weight:700;font-size:0.72rem;text-transform:uppercase;padding:5px 10px;background:transparent;color:var(--paper-0);border:2px solid var(--paper-0);border-radius:0;cursor:pointer;"><i class="bi bi-graph-up-arrow"></i>Estado resultados</button>
+            </div>
+        </div>
+
+        <div style="flex:1;min-height:0;overflow:auto;background:var(--bg-surface-inset);padding:0.6rem;">
+            @foreach (var grupo in BuildGrupos())
+            {
+                <div style="background:var(--paper-0);border:1px solid var(--line-200);box-shadow:var(--shadow-card);margin-bottom:8px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 11px;border-bottom:1px solid var(--line-200);">
+                        <div style="display:flex;align-items:center;gap:12px;">
+                            <div style="text-align:center;background:var(--ink-900);color:#fff;padding:5px 8px;min-width:52px;">
+                                <span style="display:block;font-family:var(--font-mono);font-weight:700;font-size:0.6rem;text-transform:uppercase;">@grupo.Mes</span>
+                                <span style="display:block;font-family:var(--font-sans);font-weight:700;font-size:1.3rem;line-height:1;">@grupo.Dia</span>
+                            </div>
+                            <div>
+                                <div style="display:flex;align-items:center;gap:8px;">
+                                    <span style="font-family:var(--font-mono);font-weight:700;text-transform:uppercase;font-size:0.9rem;">@grupo.Titulo</span>
+                                    @if (grupo.Orden)
+                                    {
+                                        <span style="background:var(--signal-warning);color:var(--ink-900);font-family:var(--font-mono);font-size:0.6rem;font-weight:700;padding:2px 6px;text-transform:uppercase;">Orden de carga</span>
+                                    }
+                                </div>
+                                <small style="color:var(--text-muted);font-family:var(--font-mono);font-size:0.7rem;">@grupo.Count movimientos</small>
+                            </div>
+                        </div>
+                        <div style="text-align:right;">
+                            <small style="display:block;color:var(--text-muted);font-family:var(--font-mono);font-weight:700;font-size:0.6rem;text-transform:uppercase;">Total día</small>
+                            <span style="font-family:var(--font-sans);font-weight:700;font-size:1.1rem;color:@(grupo.TotalPos ? "var(--signal-success)" : "var(--signal-danger)");">@grupo.TotalDisplay</span>
+                        </div>
+                    </div>
+                    <table style="width:100%;border-collapse:collapse;">
+                        <tbody>
+                            @foreach (var m in grupo.Items)
+                            {
+                                <tr class="caja-row" @onclick="() => _detail = m" style="border-bottom:1px solid var(--line-200);cursor:pointer;">
+                                    <td style="padding:7px 12px;width:64px;"><small style="font-family:var(--font-mono);color:var(--text-muted);font-size:0.72rem;">@m.Hora</small></td>
+                                    <td style="padding:7px 6px;width:128px;">
+                                        <span style="font-family:var(--font-mono);font-size:0.64rem;font-weight:700;text-transform:uppercase;border:1px solid var(--ink-900);padding:2px 6px;background:@(m.Monto > 0 ? "#d1e7dd" : "#f8d7da");display:inline-block;">@m.CatLabel</span>
+                                    </td>
+                                    <td style="padding:7px 6px;"><span style="font-family:var(--font-sans);font-size:0.82rem;font-weight:600;text-transform:uppercase;">@m.Descripcion</span></td>
+                                    <td style="padding:7px 12px;text-align:right;width:120px;">
+                                        <span style="font-family:var(--font-mono);font-weight:700;color:@(m.Monto > 0 ? "var(--signal-success)" : "var(--signal-danger)");">@Sign(m.Monto)</span>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- ===== MODAL: Nuevo movimiento ===== -->
+@if (_entryOpen)
+{
+    <div class="caja-back" style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:2000;display:flex;align-items:flex-start;justify-content:center;padding:4vh 16px;overflow:auto;" @onclick="CloseEntry">
+        <div class="caja-modal" style="width:100%;max-width:460px;background:var(--paper-0);border:2px solid var(--ink-900);box-shadow:4px 4px 0 #000;" @onclick:stopPropagation="true">
+            <div style="background:var(--ink-900);color:#fff;display:flex;justify-content:space-between;align-items:center;padding:0.6rem 0.9rem;font-family:var(--font-mono);font-weight:700;text-transform:uppercase;letter-spacing:1px;">
+                <span>Registrar movimiento</span>
+                <span style="cursor:pointer;font-size:1.2rem;line-height:1;" @onclick="CloseEntry">×</span>
+            </div>
+            <div style="background:var(--bg-surface-inset);padding:1.1rem;display:flex;flex-direction:column;gap:14px;">
+                <div>
+                    <label style="font-family:var(--font-mono);font-weight:700;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.5px;">1. Tipo de operación</label>
+                    <div style="display:flex;border:2px solid var(--ink-900);margin-top:6px;">
+                        <button @onclick='() => _type = "GASTO"' style="flex:1;font-family:var(--font-mono);font-weight:700;font-size:0.78rem;text-transform:uppercase;padding:0.5rem 0.2rem;cursor:pointer;border:none;border-radius:0;background:@(_type == "GASTO" ? "var(--signal-danger)" : "var(--paper-0)");color:@(_type == "GASTO" ? "#fff" : "var(--ink-900)");">Gasto</button>
+                        <button @onclick='() => _type = "APORTE"' style="flex:1;font-family:var(--font-mono);font-weight:700;font-size:0.78rem;text-transform:uppercase;padding:0.5rem 0.2rem;cursor:pointer;border:none;border-left:2px solid var(--ink-900);border-radius:0;background:@(_type == "APORTE" ? "var(--ink-900)" : "var(--paper-0)");color:@(_type == "APORTE" ? "#fff" : "var(--ink-900)");">Aporte</button>
+                        <button @onclick='() => _type = "RETIRO"' style="flex:1;font-family:var(--font-mono);font-weight:700;font-size:0.78rem;text-transform:uppercase;padding:0.5rem 0.2rem;cursor:pointer;border:none;border-left:2px solid var(--ink-900);border-radius:0;background:@(_type == "RETIRO" ? "var(--signal-warning)" : "var(--paper-0)");color:var(--ink-900);">Retiro</button>
+                    </div>
+                </div>
+                <div>
+                    <label style="font-family:var(--font-mono);font-weight:700;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.5px;">2. Monto</label>
+                    <div style="display:flex;margin-top:6px;">
+                        <span style="background:var(--ink-900);color:#fff;font-family:var(--font-mono);font-weight:700;padding:0.5rem 0.95rem;display:flex;align-items:center;">$</span>
+                        <input placeholder="0" style="flex:1;border:2px solid var(--ink-900);border-left:none;border-radius:0;padding:0.5rem 0.75rem;font-family:var(--font-sans);font-weight:700;font-size:1.3rem;outline:none;" />
+                    </div>
+                </div>
+                <div>
+                    <label style="font-family:var(--font-mono);font-weight:700;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.5px;">3. Categoría</label>
+                    <select style="width:100%;margin-top:6px;border:2px solid var(--ink-900);border-radius:0;background:var(--paper-0);font-family:var(--font-mono);font-weight:700;font-size:0.82rem;text-transform:uppercase;padding:0.5rem 0.6rem;cursor:pointer;outline:none;">
+                        <option>Mercadería</option>
+                        <option>Logística</option>
+                        <option>Peajes</option>
+                        <option>Mantención</option>
+                        <option>Sueldos</option>
+                        <option>Infra</option>
+                        <option>Otros</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="font-family:var(--font-mono);font-weight:700;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.5px;">4. Descripción</label>
+                    <input placeholder="Ej: COPEC, LIDER…" style="width:100%;margin-top:6px;border:2px solid var(--ink-900);border-radius:0;background:var(--paper-0);font-family:var(--font-sans);font-size:0.9rem;padding:0.5rem 0.6rem;outline:none;" />
+                </div>
+                <div>
+                    <label style="font-family:var(--font-mono);font-weight:700;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.5px;">5. Fecha de registro</label>
+                    <input type="date" value="2026-06-18" style="width:100%;margin-top:6px;border:2px solid var(--ink-900);border-radius:0;background:var(--paper-0);font-family:var(--font-mono);font-weight:700;font-size:0.85rem;padding:0.45rem 0.6rem;outline:none;" />
+                </div>
+                <div>
+                    <label style="font-family:var(--font-mono);font-weight:700;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.5px;">6. Comprobante (opcional)</label>
+                    <input type="file" style="width:100%;margin-top:6px;border:2px solid var(--ink-900);border-radius:0;background:var(--paper-0);font-family:var(--font-mono);font-size:0.78rem;padding:0.4rem 0.5rem;outline:none;" />
+                </div>
+                <div style="display:flex;gap:10px;">
+                    <VmButton Variant="outline" Block="true" OnClick="CloseEntry">Cancelar</VmButton>
+                    <VmButton Variant="dark" Block="true" OnClick="Register">Registrar</VmButton>
+                </div>
+                @if (_flash)
+                {
+                    <div style="text-align:center;font-family:var(--font-mono);font-weight:700;font-size:0.8rem;color:var(--signal-success);">✓ Movimiento registrado.</div>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+<!-- ===== MODAL: Detalle de movimiento ===== -->
+@if (_detail is not null)
+{
+    var d = _detail!;
+    <div class="caja-back" style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:2000;display:flex;align-items:flex-start;justify-content:center;padding:6vh 16px;overflow:auto;" @onclick="() => _detail = null">
+        <div class="caja-modal" style="width:100%;max-width:420px;background:var(--paper-0);border:2px solid var(--ink-900);box-shadow:4px 4px 0 #000;" @onclick:stopPropagation="true">
+            <div style="background:var(--ink-900);color:#fff;display:flex;justify-content:space-between;align-items:center;padding:0.6rem 0.9rem;font-family:var(--font-mono);font-weight:700;text-transform:uppercase;letter-spacing:1px;">
+                <span>Detalle de movimiento</span>
+                <span style="cursor:pointer;font-size:1.2rem;line-height:1;" @onclick="() => _detail = null">×</span>
+            </div>
+            <div style="padding:1.2rem;">
+                <div style="text-align:center;margin-bottom:1rem;">
+                    <div style="font-family:var(--font-sans);font-weight:700;font-size:2.2rem;letter-spacing:-1px;color:@(d.Monto > 0 ? "var(--signal-success)" : "var(--signal-danger)");">@Sign(d.Monto)</div>
+                </div>
+                <div style="display:grid;grid-template-columns:auto 1fr;gap:8px 16px;font-family:var(--font-mono);font-size:0.8rem;align-items:baseline;">
+                    <span style="color:var(--text-muted);font-weight:700;text-transform:uppercase;font-size:0.66rem;">Fecha</span><span style="font-weight:600;">@($"{d.Dia}/06/2026") · @d.Hora</span>
+                    <span style="color:var(--text-muted);font-weight:700;text-transform:uppercase;font-size:0.66rem;">Tipo</span><span style="font-weight:600;text-transform:uppercase;">@d.Tipo</span>
+                    <span style="color:var(--text-muted);font-weight:700;text-transform:uppercase;font-size:0.66rem;">Categoría</span><span style="font-weight:600;text-transform:uppercase;">@d.CatLabel</span>
+                    <span style="color:var(--text-muted);font-weight:700;text-transform:uppercase;font-size:0.66rem;">Glosa</span><span style="font-weight:600;text-transform:uppercase;">@d.Descripcion</span>
+                </div>
+                <div style="margin-top:1rem;border:2px dashed var(--line-200);background:repeating-linear-gradient(45deg,#fafafa,#fafafa 8px,#f0f0f0 8px,#f0f0f0 16px);padding:1rem;text-align:center;font-family:var(--font-mono);font-size:0.72rem;color:var(--text-muted);text-transform:uppercase;">
+                    <i class="bi bi-paperclip"></i> Sin comprobante adjunto
+                </div>
+                <div style="display:flex;gap:10px;margin-top:1.1rem;">
+                    <VmButton Variant="outline" Icon="bi-pencil" Block="true" OnClick="() => _detail = null">Editar</VmButton>
+                    <VmButton Variant="danger" Icon="bi-trash" Block="true" OnClick="() => _detail = null">Eliminar</VmButton>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- ===== DRAWER: Gastos fijos ===== -->
+@if (_fixedOpen)
+{
+    <div class="caja-back" style="position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:2200;" @onclick="() => _fixedOpen = false">
+        <div class="caja-panel" style="position:absolute;top:0;right:0;height:100%;width:min(560px,94vw);background:var(--paper-0);border-left:2px solid var(--ink-900);box-shadow:-6px 0 0 rgba(0,0,0,0.12);display:flex;flex-direction:column;" @onclick:stopPropagation="true">
+            <div style="flex-shrink:0;background:var(--ink-900);color:#fff;display:flex;justify-content:space-between;align-items:center;padding:0.75rem 1rem;font-family:var(--font-mono);font-weight:700;text-transform:uppercase;letter-spacing:1px;">
+                <span style="display:flex;align-items:center;gap:9px;"><i class="bi bi-gear"></i>Gastos fijos mensuales</span>
+                <span style="cursor:pointer;font-size:1.4rem;line-height:1;" @onclick="() => _fixedOpen = false">×</span>
+            </div>
+
+            <div style="flex:1;min-height:0;overflow:auto;padding:1.1rem;">
+                @if (Pendientes.Length > 0)
+                {
+                    <div style="border:2px solid var(--signal-warning);background:var(--tint-pending);padding:0.8rem 0.9rem;margin-bottom:1.1rem;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+                            <div style="display:flex;align-items:center;gap:9px;">
+                                <span style="background:var(--signal-warning);color:var(--ink-900);font-family:var(--font-mono);font-weight:700;font-size:0.62rem;text-transform:uppercase;letter-spacing:0.5px;padding:3px 8px;"><i class="bi bi-lightning-charge-fill"></i> Pendientes</span>
+                                <span style="font-family:var(--font-mono);font-weight:700;font-size:0.78rem;text-transform:uppercase;">@Pendientes.Length gasto(s) fijo(s) sin registrar este mes</span>
+                            </div>
+                            <button style="display:flex;align-items:center;gap:6px;background:var(--ink-900);color:#fff;border:2px solid var(--ink-900);font-family:var(--font-mono);font-weight:700;font-size:0.68rem;text-transform:uppercase;letter-spacing:0.5px;padding:6px 10px;cursor:pointer;border-radius:0;"><i class="bi bi-check2-all"></i>Revisar y aplicar</button>
+                        </div>
+                        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:9px;">
+                            @foreach (var p in Pendientes)
+                            {
+                                <span style="background:var(--ink-900);color:#fff;font-family:var(--font-mono);font-size:0.66rem;font-weight:700;padding:3px 8px;">@p.Nombre — @p.MontoFmt</span>
+                            }
+                        </div>
+                    </div>
+                }
+
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:9px;">
+                    <span style="font-family:var(--font-mono);font-weight:700;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);">Configuración mensual</span>
+                    <span style="font-family:var(--font-mono);font-size:0.66rem;border:1px solid var(--ink-900);padding:2px 8px;text-transform:uppercase;">@GastosFijos.Length activos</span>
+                </div>
+
+                <table style="width:100%;border-collapse:collapse;">
+                    <thead>
+                        <tr style="border-bottom:2px solid var(--ink-900);">
+                            <th style="text-align:left;padding:7px 4px;font-family:var(--font-mono);font-weight:700;font-size:0.6rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);">Descripción</th>
+                            <th style="text-align:left;padding:7px 4px;font-family:var(--font-mono);font-weight:700;font-size:0.6rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);">Categoría</th>
+                            <th style="text-align:right;padding:7px 4px;font-family:var(--font-mono);font-weight:700;font-size:0.6rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);">Monto</th>
+                            <th style="text-align:right;padding:7px 4px;font-family:var(--font-mono);font-weight:700;font-size:0.6rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var g in GastosFijos)
+                        {
+                            <tr style="border-bottom:1px solid var(--line-200);">
+                                <td style="padding:10px 4px;">
+                                    <span style="display:block;font-family:var(--font-sans);font-weight:600;text-transform:uppercase;font-size:0.84rem;">@g.Nombre</span>
+                                    <small style="font-family:var(--font-mono);color:var(--text-muted);text-transform:uppercase;font-size:0.62rem;">@g.Maquina</small>
+                                </td>
+                                <td style="padding:10px 4px;"><span style="font-family:var(--font-mono);font-size:0.6rem;font-weight:700;text-transform:uppercase;border:1px solid var(--ink-900);padding:2px 6px;display:inline-block;">@g.Categoria</span></td>
+                                <td style="padding:10px 4px;text-align:right;font-family:var(--font-mono);font-weight:700;color:var(--signal-danger);">@g.MontoFmt</td>
+                                <td style="padding:10px 4px;text-align:right;white-space:nowrap;">
+                                    <button aria-label="Editar" style="width:30px;height:30px;border:1px solid var(--ink-900);background:var(--paper-0);cursor:pointer;border-radius:0;margin-right:5px;"><i class="bi bi-pencil"></i></button>
+                                    <button aria-label="Eliminar" style="width:30px;height:30px;border:1px solid var(--signal-danger);background:var(--paper-0);color:var(--signal-danger);cursor:pointer;border-radius:0;"><i class="bi bi-x-lg"></i></button>
+                                </td>
+                            </tr>
+                        }
+                        <tr style="border-top:2px solid var(--ink-900);">
+                            <td colspan="2" style="padding:11px 4px;font-family:var(--font-mono);font-weight:700;text-transform:uppercase;">Total mensual</td>
+                            <td colspan="2" style="padding:11px 4px;text-align:right;font-family:var(--font-sans);font-weight:700;font-size:1.15rem;">$1.693.000</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div style="flex-shrink:0;border-top:2px solid var(--ink-900);padding:0.9rem 1.1rem;">
+                <VmButton Variant="dark" Icon="bi-plus-lg" Block="true" OnClick="() => _fixedOpen = false">Nuevo gasto fijo</VmButton>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- ===== DRAWER: Estado de resultados ===== -->
+@if (_pnlOpen)
+{
+    <div class="caja-back" style="position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:2200;" @onclick="() => _pnlOpen = false">
+        <div class="caja-panel" style="position:absolute;top:0;right:0;height:100%;width:min(640px,96vw);background:var(--bg-surface-inset);border-left:2px solid var(--ink-900);box-shadow:-6px 0 0 rgba(0,0,0,0.12);display:flex;flex-direction:column;" @onclick:stopPropagation="true">
+            <div style="flex-shrink:0;background:var(--ink-900);color:#fff;display:flex;justify-content:space-between;align-items:center;padding:0.75rem 1rem;font-family:var(--font-mono);font-weight:700;text-transform:uppercase;letter-spacing:1px;">
+                <span style="display:flex;align-items:center;gap:9px;"><i class="bi bi-graph-up-arrow"></i>Estado de Resultados · @MesLabel</span>
+                <span style="cursor:pointer;font-size:1.4rem;line-height:1;" @onclick="() => _pnlOpen = false">×</span>
+            </div>
+
+            <div style="flex:1;min-height:0;overflow:auto;padding:1.1rem;display:flex;flex-direction:column;gap:1rem;">
+
+                <!-- Indicadores de capital -->
+                <div style="border:2px solid var(--ink-900);background:var(--paper-0);">
+                    <div style="background:var(--ink-900);color:#fff;padding:0.5rem 0.8rem;font-family:var(--font-mono);font-weight:700;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.5px;"><i class="bi bi-box-seam"></i> Indicadores de capital (snapshot)</div>
+                    <div style="display:grid;grid-template-columns:repeat(3,1fr);">
+                        <div style="padding:0.8rem;border-right:1px solid var(--line-200);">
+                            <small style="display:block;font-family:var(--font-mono);font-weight:700;font-size:0.6rem;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;">Stock en máquinas</small>
+                            <span style="font-family:var(--font-sans);font-weight:700;font-size:1.05rem;">$1.240.000</span>
+                        </div>
+                        <div style="padding:0.8rem;border-right:1px solid var(--line-200);">
+                            <small style="display:block;font-family:var(--font-mono);font-weight:700;font-size:0.6rem;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px;">Stock en bodega</small>
+                            <span style="font-family:var(--font-sans);font-weight:700;font-size:1.05rem;">$3.728.698</span>
+                        </div>
+                        <div style="padding:0.8rem;background:#eaf6ef;">
+                            <small style="display:block;font-family:var(--font-mono);font-weight:700;font-size:0.6rem;text-transform:uppercase;color:var(--signal-success);margin-bottom:4px;">Capital mercadería</small>
+                            <span style="font-family:var(--font-sans);font-weight:700;font-size:1.05rem;color:var(--signal-success);">$4.968.698</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Niveles -->
+                <div style="display:flex;flex-direction:column;gap:8px;">
+
+                    <!-- 01 Ventas netas -->
+                    <div style="border:2px solid var(--ink-900);">
+                        <button @onclick="() => _ventasExp = !_ventasExp" style="width:100%;display:flex;justify-content:space-between;align-items:center;gap:10px;padding:0.7rem 0.85rem;background:#1a56db;color:#fff;border:none;cursor:pointer;text-align:left;">
+                            <span style="display:flex;align-items:center;gap:10px;">
+                                <span style="background:#fff;color:#1a56db;font-family:var(--font-mono);font-weight:700;font-size:0.66rem;padding:2px 6px;">01</span>
+                                <span style="font-family:var(--font-mono);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;font-size:0.84rem;">Ventas netas</span>
+                            </span>
+                            <span style="display:flex;align-items:center;gap:10px;">
+                                <span style="font-family:var(--font-sans);font-weight:700;font-size:1.05rem;">$4.820.000</span>
+                                <i class="bi @(_ventasExp ? "bi-chevron-up" : "bi-chevron-down")"></i>
+                            </span>
+                        </button>
+                        @if (_ventasExp)
+                        {
+                            <div style="background:var(--paper-0);">
+                                <div style="display:flex;justify-content:space-between;align-items:center;padding:0.55rem 0.85rem;border-bottom:1px solid var(--line-200);">
+                                    <span style="font-family:var(--font-sans);font-size:0.82rem;text-transform:uppercase;">Ventas con tarjeta</span>
+                                    <span style="font-family:var(--font-mono);font-weight:700;color:var(--signal-success);">+$4.100.000</span>
+                                </div>
+                                <div style="display:flex;justify-content:space-between;align-items:center;padding:0.55rem 0.85rem;border-bottom:1px solid var(--line-200);">
+                                    <span style="font-family:var(--font-sans);font-size:0.82rem;text-transform:uppercase;">Ventas en efectivo</span>
+                                    <span style="font-family:var(--font-mono);font-weight:700;color:var(--signal-success);">+$720.000</span>
+                                </div>
+                            </div>
+                        }
+                    </div>
+
+                    <!-- 02 Margen bruto -->
+                    <div style="border:2px solid var(--ink-900);">
+                        <button @onclick="() => _margenExp = !_margenExp" style="width:100%;display:flex;justify-content:space-between;align-items:center;gap:10px;padding:0.7rem 0.85rem;background:var(--signal-warning);color:#111;border:none;cursor:pointer;text-align:left;">
+                            <span style="display:flex;align-items:center;gap:10px;">
+                                <span style="background:var(--ink-900);color:#fff;font-family:var(--font-mono);font-weight:700;font-size:0.66rem;padding:2px 6px;">02</span>
+                                <span style="font-family:var(--font-mono);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;font-size:0.84rem;">Margen bruto</span>
+                            </span>
+                            <span style="display:flex;align-items:center;gap:10px;">
+                                <span style="background:rgba(0,0,0,0.18);font-family:var(--font-mono);font-weight:700;font-size:0.68rem;padding:2px 7px;">78.8%</span>
+                                <span style="font-family:var(--font-sans);font-weight:700;font-size:1.05rem;">$3.800.000</span>
+                                <i class="bi @(_margenExp ? "bi-chevron-up" : "bi-chevron-down")"></i>
+                            </span>
+                        </button>
+                        @if (_margenExp)
+                        {
+                            <div style="background:var(--paper-0);">
+                                <div style="display:flex;justify-content:space-between;align-items:center;padding:0.55rem 0.85rem;border-bottom:1px solid var(--line-200);">
+                                    <span style="font-family:var(--font-sans);font-size:0.82rem;text-transform:uppercase;">Costo mercadería</span>
+                                    <span style="font-family:var(--font-mono);font-weight:700;color:var(--signal-danger);">-$1.020.000</span>
+                                </div>
+                            </div>
+                        }
+                    </div>
+
+                    <!-- 03 Gastos operación -->
+                    <div style="border:2px solid var(--ink-900);">
+                        <button @onclick="() => _gastosExp = !_gastosExp" style="width:100%;display:flex;justify-content:space-between;align-items:center;gap:10px;padding:0.7rem 0.85rem;background:var(--signal-danger);color:#fff;border:none;cursor:pointer;text-align:left;">
+                            <span style="display:flex;align-items:center;gap:10px;">
+                                <span style="background:#fff;color:var(--signal-danger);font-family:var(--font-mono);font-weight:700;font-size:0.66rem;padding:2px 6px;">03</span>
+                                <span style="font-family:var(--font-mono);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;font-size:0.84rem;">Gastos operación</span>
+                            </span>
+                            <span style="display:flex;align-items:center;gap:10px;">
+                                <span style="font-family:var(--font-sans);font-weight:700;font-size:1.05rem;">-$1.820.500</span>
+                                <i class="bi @(_gastosExp ? "bi-chevron-up" : "bi-chevron-down")"></i>
+                            </span>
+                        </button>
+                        @if (_gastosExp)
+                        {
+                            <div style="background:var(--paper-0);">
+                                @foreach (var (label, val) in GastosOp)
+                                {
+                                    <div style="display:flex;justify-content:space-between;align-items:center;padding:0.55rem 0.85rem;border-bottom:1px solid var(--line-200);">
+                                        <span style="font-family:var(--font-sans);font-size:0.82rem;text-transform:uppercase;">@label</span>
+                                        <span style="font-family:var(--font-mono);font-weight:700;color:var(--signal-danger);">@val</span>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <!-- Utilidad operacional -->
+                <div style="background:var(--ink-900);color:#fff;padding:1rem 1.1rem;display:flex;justify-content:space-between;align-items:flex-end;gap:12px;">
+                    <div>
+                        <small style="display:block;font-family:var(--font-mono);font-weight:700;font-size:0.6rem;text-transform:uppercase;letter-spacing:1px;color:rgba(255,255,255,0.55);">Resultado operacional (EBITDA)</small>
+                        <span style="font-family:var(--font-mono);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;font-size:1.05rem;">(=) Utilidad operacional</span>
+                    </div>
+                    <span style="font-family:var(--font-sans);font-weight:700;font-size:1.7rem;letter-spacing:-1px;color:var(--signal-success);">$1.979.500</span>
+                </div>
+
+                <!-- Transbank toggle -->
+                <div style="display:flex;justify-content:flex-end;align-items:center;gap:10px;">
+                    <button @onclick="() => _descontar = !_descontar" role="switch" aria-checked="@(_descontar ? "true" : "false")" style="position:relative;width:46px;height:24px;border-radius:999px;border:2px solid var(--ink-900);cursor:pointer;background:@(_descontar ? "var(--signal-success)" : "#fff");padding:0;flex-shrink:0;">
+                        <span style="position:absolute;top:1px;left:@(_descontar ? "23px" : "1px");width:16px;height:16px;border-radius:50%;background:#fff;border:1px solid var(--ink-900);transition:left .15s;"></span>
+                    </button>
+                    <span style="font-family:var(--font-mono);font-weight:700;font-size:0.74rem;text-transform:uppercase;">Descontar comisión Transbank ($57.358)</span>
+                </div>
+
+                <!-- Resultado neto -->
+                <div style="background:var(--signal-success);color:#fff;padding:1.3rem 1.1rem;text-align:center;border:2px solid var(--ink-900);">
+                    <small style="display:block;font-family:var(--font-mono);font-weight:700;font-size:0.66rem;text-transform:uppercase;letter-spacing:1px;opacity:0.8;">Resultado neto final · margen @MargenPct</small>
+                    <span style="font-family:var(--font-sans);font-weight:700;font-size:2.6rem;letter-spacing:-2px;line-height:1.1;">@NetoFmt</span>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    // ── Estado de UI ──────────────────────────────────────────────────────────
+    private int _monthIdx = 5; // Junio
+    private string _type = "GASTO";
+    private bool _entryOpen;
+    private Mov? _detail;
+    private bool _fixedOpen;
+    private bool _pnlOpen;
+    private string _filter = "TODOS";
+    private string _search = "";
+    private bool _flash;
+    private bool _ventasExp;
+    private bool _margenExp;
+    private bool _gastosExp;
+    private bool _descontar;
+
+    // ── Modelos ───────────────────────────────────────────────────────────────
+    private record Mov(string Fecha, string Dia, string Hora, string Tipo, string CatLabel, string Descripcion, int Monto);
+    private record GrupoVm(string Mes, string Dia, string Titulo, bool Orden, int Count, string TotalDisplay, bool TotalPos, IReadOnlyList<Mov> Items);
+    private record GastoFijo(string Nombre, string Categoria, string Maquina, string MontoFmt);
+    private record Pendiente(string Nombre, string MontoFmt);
+
+    private static readonly string[] Meses =
+    [
+        "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+        "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
+    ];
+
+    private string MesLabel => Meses[_monthIdx] + " 2026";
+
+    // ── Datos del libro (idénticos al template) ───────────────────────────────
+    private static readonly Mov[] AllMovs =
+    [
+        new("2026-06-18", "18", "10:05", "GASTO",  "PEAJES",     "Autopista Central",        -4000),
+        new("2026-06-18", "18", "09:40", "GASTO",  "LOGÍSTICA",  "Copec — Bencina",          -18500),
+        new("2026-06-18", "18", "09:12", "GASTO",  "MERCADERÍA", "Reposición CCU",           -62000),
+        new("2026-06-16", "16", "14:20", "GASTO",  "MANTENCIÓN", "Repuesto compresor M0047", -38000),
+        new("2026-06-15", "15", "11:30", "APORTE", "CAPITAL",    "Inyección socio",          250000),
+        new("2026-06-12", "12", "18:30", "GASTO",  "LOGÍSTICA",  "Bencina ruta sur",         -16000),
+        new("2026-06-12", "12", "18:05", "GASTO",  "MERCADERÍA", "Líder — Snacks",           -54200),
+        new("2026-06-10", "10", "09:00", "GASTO",  "INFRA",      "Cuenta luz bodega",        -42000),
+        new("2026-06-08", "08", "16:20", "GASTO",  "SUELDOS",    "Adelanto operador",        -45000),
+        new("2026-06-05", "05", "12:11", "GASTO",  "MANTENCIÓN", "Servicio técnico M0012",   -28000),
+        new("2026-06-05", "05", "12:10", "RETIRO", "RETIRO",     "Retiro utilidad socio",    -120000),
+    ];
+
+    // Días con metadata especial (orden de carga, título propio).
+    private static readonly Dictionary<string, (bool Orden, string Titulo)> DayMeta = new()
+    {
+        ["2026-06-18"] = (true, "Carga Máquina 0012"),
+    };
+
+    private static readonly GastoFijo[] GastosFijos =
+    [
+        new("Arriendo bodega",    "INFRA",     "Mensual fijo", "$320.000"),
+        new("Sueldos operadores", "SUELDOS",   "Planilla",     "$1.200.000"),
+        new("Plan datos máquinas", "INTERNET",  "12 SIM",       "$48.000"),
+        new("Contador",           "SERVICIOS", "Honorarios",   "$90.000"),
+        new("Software / OurVend", "SOFTWARE",  "Licencia",     "$35.000"),
+    ];
+
+    private static readonly Pendiente[] Pendientes =
+    [
+        new("Telefono maquinas WOM", "$30.000"),
+    ];
+
+    private static readonly (string Label, string Val)[] GastosOp =
+    [
+        ("Logística (bencina/fletes)", "-$420.500"),
+        ("Mantención / repuestos",     "-$120.000"),
+        ("Sueldos",                    "-$1.200.000"),
+        ("Otros gastos",               "-$80.000"),
+    ];
+
+    // ── Estado de resultados ──────────────────────────────────────────────────
+    private const int Utilidad = 1979500;
+    private const int Comision = 57358;
+    private int Neto => _descontar ? Utilidad - Comision : Utilidad;
+    private string NetoFmt => "$" + Neto.ToString("N0", Nfi);
+    private string MargenPct => (int)Math.Round((double)Neto / 4820000 * 100) + "%";
+
+    // ── Formato de moneda (es-CL: punto como separador de miles) ──────────────
+    private static readonly NumberFormatInfo Nfi = new() { NumberGroupSeparator = ".", NumberDecimalDigits = 0 };
+    private static string Sign(int n) => (n > 0 ? "+$" : "-$") + Math.Abs(n).ToString("N0", Nfi);
+
+    // ── Derivados ─────────────────────────────────────────────────────────────
+    private IReadOnlyList<Mov> FilteredMovs
+    {
+        get
+        {
+            var q = _search.Trim().ToLowerInvariant();
+            return AllMovs
+                .Where(m => (_filter == "TODOS" || m.Tipo == _filter)
+                            && (q == "" || m.Descripcion.ToLowerInvariant().Contains(q)
+                                || m.CatLabel.ToLowerInvariant().Contains(q)))
+                .ToList();
+        }
+    }
+
+    private List<GrupoVm> BuildGrupos()
+    {
+        var filtered = FilteredMovs;
+        var grupos = new List<GrupoVm>();
+        foreach (var fecha in filtered.Select(m => m.Fecha).Distinct())
+        {
+            var items = filtered.Where(m => m.Fecha == fecha).ToList();
+            var total = items.Sum(m => m.Monto);
+            var meta = DayMeta.TryGetValue(fecha, out var dm) ? dm : (Orden: false, Titulo: "");
+            var titulo = string.IsNullOrEmpty(meta.Titulo) ? $"Movimientos del {items[0].Dia}/06" : meta.Titulo;
+            grupos.Add(new GrupoVm("JUN", items[0].Dia, titulo, meta.Orden, items.Count, Sign(total), total > 0, items));
+        }
+        return grupos;
+    }
+
+    // ── Acciones ──────────────────────────────────────────────────────────────
+    private void PrevMonth() => _monthIdx = Math.Max(0, _monthIdx - 1);
+    private void NextMonth() => _monthIdx = Math.Min(11, _monthIdx + 1);
+    private void Today() => _monthIdx = 5;
+
+    private void CloseEntry()
+    {
+        _entryOpen = false;
+        _flash = false;
+    }
+
+    private async Task Register()
+    {
+        _flash = true;
+        StateHasChanged();
+        await Task.Delay(1100);
+        CloseEntry();
+    }
+}
