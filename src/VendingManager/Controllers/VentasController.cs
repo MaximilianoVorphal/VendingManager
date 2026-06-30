@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using VendingManager.Core.Entities;
 using VendingManager.Core.Interfaces;
+using VendingManager.Infrastructure.Services;
 
 namespace VendingManager.Controllers
 {
@@ -14,8 +15,16 @@ namespace VendingManager.Controllers
         ISalesAnalyticsService salesAnalyticsService,
         IPurchasingService purchasingService,
         ISalesImportService salesImportService,
-        IAuditService auditService) : ControllerBase
+        IAuditService auditService,
+        LastSyncTracker lastSyncTracker) : ControllerBase
     {
+        [HttpGet("last-sync")]
+        public IActionResult GetLastSync()
+        {
+            var last = lastSyncTracker.GetLastSync();
+            return Ok(new { lastSync = last });
+        }
+
         public async Task<IActionResult> SubirVentasMaquina(IFormFile file, [FromQuery] DateTime? fechaLimite = null)
         {
             if (file == null || file.Length == 0) return BadRequest("Archivo vacío.");
