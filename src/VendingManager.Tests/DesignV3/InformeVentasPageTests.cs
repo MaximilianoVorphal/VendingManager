@@ -272,6 +272,157 @@ public class InformeVentasPageTests : TestContext
         }, TimeSpan.FromSeconds(2));
     }
 
+    // ── WU-1: Sincronizar and Exportar handler tests ────────────────────────
+
+    [Fact]
+    public void Sincronizar_PostsSyncPortal_WithZeroMaquinaId_AndFechaLimiteHasta()
+    {
+        var cut = RenderComponent<InformeVentas>();
+
+        // Wait for initial load to complete
+        cut.WaitForAssertion(() =>
+        {
+            _mockHandler.Requests.Should().Contain(r => r.Contains("reporte-rango"));
+        });
+
+        // Click the Sincronizar button
+        cut.Find("button:contains('Sincronizar')").Click();
+
+        cut.WaitForAssertion(() =>
+        {
+            var syncRequest = _mockHandler.Requests.FirstOrDefault(r => r.Contains("sync-portal"));
+            syncRequest.Should().NotBeNull("sync-portal should have been called");
+            syncRequest.Should().Contain("maquinaId=0");
+            syncRequest.Should().Contain("fechaLimite=");
+        }, TimeSpan.FromSeconds(2));
+    }
+
+    [Fact]
+    public void Sincronizar_OnSuccess_ShowsIndustrialAlertSuccess_AndReloadsData()
+    {
+        _mockHandler.SyncReturnsOk = true;
+        var cut = RenderComponent<InformeVentas>();
+
+        cut.WaitForAssertion(() =>
+        {
+            _mockHandler.Requests.Should().Contain(r => r.Contains("reporte-rango"));
+        });
+
+        var reporteRequestsBefore = _mockHandler.Requests.Count(r => r.Contains("reporte-rango"));
+
+        cut.Find("button:contains('Sincronizar')").Click();
+
+        cut.WaitForAssertion(() =>
+        {
+            // Success alert should appear
+            cut.Markup.Should().Contain("Sincronización");
+            // reporte-rango should be fetched again (reload)
+            var reporteRequestsAfter = _mockHandler.Requests.Count(r => r.Contains("reporte-rango"));
+            reporteRequestsAfter.Should().BeGreaterThan(reporteRequestsBefore);
+        }, TimeSpan.FromSeconds(2));
+    }
+
+    [Fact]
+    public void Sincronizar_OnError_ShowsIndustrialAlertDanger()
+    {
+        _mockHandler.SyncReturnsError500 = true;
+        var cut = RenderComponent<InformeVentas>();
+
+        cut.WaitForAssertion(() =>
+        {
+            _mockHandler.Requests.Should().Contain(r => r.Contains("reporte-rango"));
+        });
+
+        cut.Find("button:contains('Sincronizar')").Click();
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("Error al sincronizar");
+        }, TimeSpan.FromSeconds(2));
+    }
+
+    [Fact]
+    public void Sincronizar_DuringSync_DisablesButton()
+    {
+        _mockHandler.SyncDelayMs = 2000; // Slow response to observe syncing state
+        var cut = RenderComponent<InformeVentas>();
+
+        cut.WaitForAssertion(() =>
+        {
+            _mockHandler.Requests.Should().Contain(r => r.Contains("reporte-rango"));
+        });
+
+        cut.Find("button:contains('Sincronizar')").Click();
+
+        // During sync, a disabled button with "Sincronizando…" should appear
+        cut.WaitForAssertion(() =>
+        {
+            var disabledBtn = cut.Find("button[disabled]");
+            disabledBtn.TextContent.Should().Contain("Sincronizando");
+        }, TimeSpan.FromSeconds(1));
+    }
+
+    [Fact]
+    public void Exportar_GetsExportarEndpoint_WithCurrentFilters()
+    {
+        var cut = RenderComponent<InformeVentas>();
+
+        cut.WaitForAssertion(() =>
+        {
+            _mockHandler.Requests.Should().Contain(r => r.Contains("reporte-rango"));
+        });
+
+        cut.Find("button:contains('Exportar XLS')").Click();
+
+        cut.WaitForAssertion(() =>
+        {
+            var exportRequest = _mockHandler.Requests.FirstOrDefault(r => r.Contains("exportar"));
+            exportRequest.Should().NotBeNull("exportar endpoint should have been called");
+            exportRequest.Should().Contain("maquinaId=0");
+            exportRequest.Should().Contain("includePhantom=false");
+        }, TimeSpan.FromSeconds(2));
+    }
+
+    [Fact]
+    public void Exportar_OnSuccess_InvokesDescargarArchivo_WithBytes()
+    {
+        _mockHandler.ExportReturnsOk = true;
+        var cut = RenderComponent<InformeVentas>();
+
+        cut.WaitForAssertion(() =>
+        {
+            _mockHandler.Requests.Should().Contain(r => r.Contains("reporte-rango"));
+        });
+
+        cut.Find("button:contains('Exportar XLS')").Click();
+
+        cut.WaitForAssertion(() =>
+        {
+            // JSInterop should have been invoked with descargarArchivo
+            var jsInvocations = JSInterop.Invocations;
+            jsInvocations.Should().Contain(i => i.Identifier == "descargarArchivo");
+        }, TimeSpan.FromSeconds(2));
+    }
+
+    [Fact]
+    public void Exportar_OnError_ShowsIndustrialAlertDanger()
+    {
+        _mockHandler.ExportReturnsError500 = true;
+        var cut = RenderComponent<InformeVentas>();
+
+        cut.WaitForAssertion(() =>
+        {
+            _mockHandler.Requests.Should().Contain(r => r.Contains("reporte-rango"));
+        });
+
+        cut.Find("button:contains('Exportar XLS')").Click();
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("Error al exportar");
+        }, TimeSpan.FromSeconds(2));
+    }
+
     // ── Mock handler ───────────────────────────────────────────────────────────
 
     private class InformeVentasMockHandler : HttpMessageHandler
