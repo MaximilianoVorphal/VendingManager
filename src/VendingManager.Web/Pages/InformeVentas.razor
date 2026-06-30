@@ -555,13 +555,31 @@
     {
         _error = null;
         _success = null;
+
+        if (!DateTime.TryParse(_desde, out _))
+        {
+            _error = "Fecha Desde inválida.";
+            StateHasChanged();
+            return;
+        }
+        if (!DateTime.TryParse(_hasta, out _))
+        {
+            _error = "Fecha Hasta inválida.";
+            StateHasChanged();
+            return;
+        }
+
+        _loadCts?.Cancel();
+        _loadCts = new CancellationTokenSource();
+        var ct = _loadCts.Token;
+
         try
         {
             var url = $"api/Ventas/exportar?inicio={_desde}&fin={_hasta}&maquinaId=0&includePhantom=false";
-            var response = await Http.GetAsync(url);
+            var response = await Http.GetAsync(url, ct);
             if (response.IsSuccessStatusCode)
             {
-                var content = await response.Content.ReadAsByteArrayAsync();
+                var content = await response.Content.ReadAsByteArrayAsync(ct);
                 var fileName = $"Reporte_{_desde}_{_hasta}.xlsx";
                 await JS.InvokeVoidAsync("descargarArchivo", content, fileName);
             }
@@ -570,6 +588,7 @@
                 _error = "Error al exportar: " + response.StatusCode;
             }
         }
+        catch (OperationCanceledException) { /* disposed or cancelled */ }
         catch (Exception ex)
         {
             _error = "Error al exportar: " + ex.Message;
@@ -579,19 +598,30 @@
     private async Task Sincronizar()
     {
         if (_syncing) return;
+
+        if (!DateTime.TryParse(_hasta, out var fechaLimite))
+        {
+            _error = "Fecha Hasta inválida.";
+            StateHasChanged();
+            return;
+        }
+
         _syncing = true;
         _error = null;
         _success = null;
         StateHasChanged();
 
+        _loadCts?.Cancel();
+        _loadCts = new CancellationTokenSource();
+        var ct = _loadCts.Token;
+
         try
         {
-            DateTime? fechaLimite = DateTime.TryParse(_hasta, out var d) ? d : (DateTime?)null;
-            var fechaParam = fechaLimite.HasValue ? fechaLimite.Value.ToString("yyyy-MM-ddTHH:mm:ss") : "";
-            var response = await Http.PostAsync($"api/Ventas/sync-portal?maquinaId=0&fechaLimite={fechaParam}", null);
+            var fechaParam = fechaLimite.ToString("yyyy-MM-ddTHH:mm:ss");
+            var response = await Http.PostAsync($"api/Ventas/sync-portal?maquinaId=0&fechaLimite={fechaParam}", null, ct);
             if (response.IsSuccessStatusCode)
             {
-                var msg = await response.Content.ReadAsStringAsync();
+                var msg = await response.Content.ReadAsStringAsync(ct);
                 _success = "Sincronización completada: " + msg;
                 _loadCts?.Cancel();
                 _loadCts = new CancellationTokenSource();
@@ -599,10 +629,11 @@
             }
             else
             {
-                var msg = await response.Content.ReadAsStringAsync();
+                var msg = await response.Content.ReadAsStringAsync(ct);
                 _error = "Error al sincronizar: " + msg;
             }
         }
+        catch (OperationCanceledException) { /* disposed or cancelled */ }
         catch (Exception ex)
         {
             _error = "Error al sincronizar: " + ex.Message;

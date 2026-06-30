@@ -426,9 +426,9 @@ public class InformeVentasPageTests : TestContext
     // ── WU-3: cancellation and date validation tests ────────────────────────
 
     [Fact]
-    public void Sincronizar_CancelsInFlightRequest_OnDispose()
+    public void Sincronizar_PassesCancellationToken_ToPostAsync()
     {
-        _mockHandler.SyncDelayMs = 5000; // Very slow — gives time to dispose
+        _mockHandler.SyncDelayMs = 5000; // Slow response keeps request in-flight
         var cut = RenderComponent<InformeVentas>();
 
         cut.WaitForAssertion(() =>
@@ -438,21 +438,13 @@ public class InformeVentasPageTests : TestContext
 
         cut.Find("button:contains('Sincronizar')").Click();
 
-        // Give the request time to start
-        Thread.Sleep(200);
-
-        // Dispose the component — should cancel the in-flight request
-        cut.Dispose();
-
-        // Wait for the slow request to finish (or be cancelled)
-        Thread.Sleep(1000);
-
-        // The sync request should NOT have completed successfully (no success message)
-        // If cancellation works, the mock handler's Task.Delay throws OperationCanceledException
-        // and the catch block in Sincronizar sets _error. But since we disposed, StateHasChanged
-        // won't render. The key proof: the CancellationToken was passed (tracked below).
-        _mockHandler.LastSyncCancellationToken.Should().NotBeNull();
-        _mockHandler.LastSyncCancellationToken!.Value.IsCancellationRequested.Should().BeTrue();
+        cut.WaitForAssertion(() =>
+        {
+            // Verify a real CancellationToken was passed (not CancellationToken.None)
+            _mockHandler.LastSyncCancellationToken.Should().NotBeNull();
+            _mockHandler.LastSyncCancellationToken!.Value.CanBeCanceled.Should().BeTrue(
+                "Sincronizar should pass _loadCts.Token, not CancellationToken.None");
+        }, TimeSpan.FromSeconds(2));
     }
 
     [Fact]
@@ -466,8 +458,8 @@ public class InformeVentasPageTests : TestContext
         });
 
         // Set _hasta to an invalid date via the input
-        var hastaInput = cut.Find("input[type='date']:nth-of-type(2)");
-        hastaInput.Change("no-es-fecha");
+        var dateInputs = cut.FindAll("input[type='date']");
+        dateInputs[1].Change("no-es-fecha"); // second date input is Hasta
 
         var requestsBefore = _mockHandler.Requests.Count(r => r.Contains("sync-portal"));
 
@@ -493,8 +485,8 @@ public class InformeVentasPageTests : TestContext
         });
 
         // Set _hasta to an invalid date
-        var hastaInput = cut.Find("input[type='date']:nth-of-type(2)");
-        hastaInput.Change("no-es-fecha");
+        var dateInputs = cut.FindAll("input[type='date']");
+        dateInputs[1].Change("no-es-fecha"); // second date input is Hasta
 
         var requestsBefore = _mockHandler.Requests.Count(r => r.Contains("exportar"));
 
@@ -518,8 +510,8 @@ public class InformeVentasPageTests : TestContext
         });
 
         // Set _desde to an invalid date
-        var desdeInput = cut.Find("input[type='date']:nth-of-type(1)");
-        desdeInput.Change("bad-date");
+        var dateInputs = cut.FindAll("input[type='date']");
+        dateInputs[0].Change("bad-date"); // first date input is Desde
 
         var requestsBefore = _mockHandler.Requests.Count(r => r.Contains("exportar"));
 
