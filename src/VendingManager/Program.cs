@@ -160,6 +160,7 @@ builder.Services.AddHttpClient<IRecargaOcrService, RecargaOcrService>();
 // Servicios en segundo plano (Background Workers)
 builder.Services.AddHttpClient<VendingManager.Core.Interfaces.IScraperClient, VendingManager.Infrastructure.Clients.ScraperClient>();
 builder.Services.AddHostedService<AutomatedReportService>();
+builder.Services.AddSingleton<LastSyncTracker>();
 
 // 4. Configuración Blazor
 builder.Services.AddControllers(options =>

@@ -524,6 +524,155 @@ public class InformeVentasPageTests : TestContext
         }, TimeSpan.FromSeconds(1));
     }
 
+    // ── Verify-fix: polling tests ─────────────────────────────────────────
+
+    [Fact]
+    public void LastSync_Polling_SurvivesAfter_Sincronizar()
+    {
+        var cut = RenderComponent<InformeVentas>(p => p.Add(c => c.PollingIntervalMs, 100));
+
+        cut.WaitForAssertion(() =>
+        {
+            _mockHandler.Requests.Should().Contain(r => r.Contains("reporte-rango"));
+        });
+
+        // Capture last-sync count before user action
+        var lastSyncBefore = _mockHandler.Requests.Count(r => r.Contains("last-sync"));
+
+        // User action: click Sincronizar
+        cut.Find("button:contains('Sincronizar')").Click();
+
+        cut.WaitForAssertion(() =>
+        {
+            _mockHandler.Requests.Should().Contain(r => r.Contains("sync-portal"));
+        }, TimeSpan.FromSeconds(2));
+
+        // After user action, polling should still be running.
+        // With 100ms interval, wait 500ms — should see at least 1 more last-sync request.
+        Thread.Sleep(500);
+
+        var lastSyncAfter = _mockHandler.Requests.Count(r => r.Contains("last-sync"));
+        lastSyncAfter.Should().BeGreaterThan(lastSyncBefore,
+            "polling should survive after Sincronizar — _pollingCts must NOT be cancelled by user actions");
+    }
+
+    [Fact]
+    public void LastSync_PollingCts_IsCreated_OnFirstRender()
+    {
+        var cut = RenderComponent<InformeVentas>();
+
+        cut.WaitForAssertion(() =>
+        {
+            _mockHandler.Requests.Should().Contain(r => r.Contains("reporte-rango"));
+        });
+
+        // PollingCts should be created and NOT cancelled after first render
+        cut.Instance.PollingCts.Should().NotBeNull("polling CTS should be created on first render");
+        cut.Instance.PollingCts!.IsCancellationRequested.Should().BeFalse("polling CTS should not be cancelled while component is alive");
+    }
+
+    [Fact]
+    public void LastSync_PollingCts_IsCancelled_OnDispose()
+    {
+        var cut = RenderComponent<InformeVentas>(p => p.Add(c => c.PollingIntervalMs, 100));
+
+        cut.WaitForAssertion(() =>
+        {
+            _mockHandler.Requests.Should().Contain(r => r.Contains("reporte-rango"));
+        });
+
+        // Wait for polling to stabilize — let several cycles pass
+        Thread.Sleep(600);
+
+        // Dispose — this cancels _pollingCts
+        ((IDisposable)cut.Instance).Dispose();
+
+        // Capture count AFTER dispose but with a small settle window
+        Thread.Sleep(50);
+        var lastSyncAtDispose = _mockHandler.Requests.Count(r => r.Contains("last-sync"));
+        lastSyncAtDispose.Should().BeGreaterThan(0, "polling should have run before dispose");
+
+        // Wait well beyond the polling interval
+        Thread.Sleep(500);
+        var lastSyncAfter = _mockHandler.Requests.Count(r => r.Contains("last-sync"));
+
+        lastSyncAfter.Should().Be(lastSyncAtDispose,
+            "polling should stop after Dispose — no more last-sync requests expected");
+    }
+
+    // ── WU-2: Last-sync polling tests ──────────────────────────────────────
+
+    [Fact]
+    public void LastSync_PollingEndpoint_CallsApi_AndUpdatesLabel()
+    {
+        // Mock returns a date 5 minutes ago
+        var fiveMinAgo = DateTime.Now.AddMinutes(-5);
+        _mockHandler.LastSyncResponseValue = fiveMinAgo;
+
+        var cut = RenderComponent<InformeVentas>();
+
+        // Wait for initial load + polling fetch
+        cut.WaitForAssertion(() =>
+        {
+            _mockHandler.Requests.Should().Contain(r => r.Contains("last-sync"));
+        }, TimeSpan.FromSeconds(5));
+
+        // The label should show "hace 5 min"
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("hace 5 min");
+        }, TimeSpan.FromSeconds(2));
+    }
+
+    [Fact]
+    public void LastSync_ManualSync_SetsLastSyncAt_Immediately()
+    {
+        _mockHandler.SyncReturnsOk = true;
+        var cut = RenderComponent<InformeVentas>();
+
+        // Wait for initial load
+        cut.WaitForAssertion(() =>
+        {
+            _mockHandler.Requests.Should().Contain(r => r.Contains("reporte-rango"));
+        });
+
+        // Click Sincronizar
+        cut.Find("button:contains('Sincronizar')").Click();
+
+        // After sync succeeds, the label should update to "hace 0 seg" or "hace 1 seg" immediately
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().MatchRegex(@"hace [01] seg");
+        }, TimeSpan.FromSeconds(2));
+    }
+
+    [Fact]
+    public void LastSync_PollingCancellation_OnDispose()
+    {
+        // Use short polling interval so we can verify actual cancellation
+        var cut = RenderComponent<InformeVentas>(p => p.Add(c => c.PollingIntervalMs, 100));
+
+        // Wait for initial load
+        cut.WaitForAssertion(() =>
+        {
+            _mockHandler.Requests.Should().Contain(r => r.Contains("reporte-rango"));
+        });
+
+        // Wait for polling to run at least once
+        Thread.Sleep(300);
+        var requestsBefore = _mockHandler.Requests.Count(r => r.Contains("last-sync"));
+        requestsBefore.Should().BeGreaterThan(0, "polling should have run at least once with 100ms interval");
+
+        // Call Dispose directly — bUnit doesn't trigger Blazor's IDisposable
+        ((IDisposable)cut.Instance).Dispose();
+
+        // Wait more than the polling interval
+        Thread.Sleep(400);
+
+        var requestsAfter = _mockHandler.Requests.Count(r => r.Contains("last-sync"));
+        requestsAfter.Should().Be(requestsBefore, "disposed component should not make more polling requests");
+    }
+
     // ── Mock handler ───────────────────────────────────────────────────────────
 
     private class InformeVentasMockHandler : HttpMessageHandler
@@ -542,6 +691,9 @@ public class InformeVentasPageTests : TestContext
         // Export behavior
         public bool ExportReturnsOk { get; set; }
         public bool ExportReturnsError500 { get; set; }
+
+        // Last-sync behavior
+        public DateTime? LastSyncResponseValue { get; set; }
 
         protected override async Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request, CancellationToken cancellationToken)
@@ -595,6 +747,16 @@ public class InformeVentasPageTests : TestContext
                 return new HttpResponseMessage(HttpStatusCode.OK)
                 {
                     Content = new ByteArrayContent(xlsxBytes)
+                };
+            }
+
+            // ── last-sync (GET) ──
+            if (url.Contains("last-sync"))
+            {
+                var lastSyncJson = JsonSerializer.Serialize(new { lastSync = LastSyncResponseValue });
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(lastSyncJson)
                 };
             }
 
