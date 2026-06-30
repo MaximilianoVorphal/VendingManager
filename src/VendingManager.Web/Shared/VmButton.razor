@@ -5,14 +5,21 @@
    - Variant: "dark" | "outline" | "danger" | "ghost"  (default: "dark")
    - Size:    "sm" | "md" | "lg"                        (default: "md")
    - Icon:    clase Bootstrap Icon, ej. "bi-plus-lg"    (default: null)
+   - Width:   ancho fijo opcional, ej. "130px"          (default: null = auto)
+   - Bar:     true = estilo "header bar" (height:38px,  (default: false)
+              padding:0 14px, font-size:0.74rem) —
+              replica el hint-size de Recarga.dc.html
    - Block:   ocupa 100% del ancho                      (default: false)
    - Disabled: deshabilita el botón                     (default: false)
    - OnClick: EventCallback
    - Type:    "button" | "submit" | "reset"             (default: "button")
-   
+
    Uso:
    <VmButton Variant="outline" Icon="bi-download" OnClick="HandleClick">
        Exportar
+   </VmButton>
+   <VmButton Variant="dark" Bar="true" Width="130px" Icon="bi-check2-circle" OnClick="...">
+       Finalizar
    </VmButton>
    ========================================================================= *@
 
@@ -20,6 +27,8 @@
     [Parameter] public string Variant { get; set; } = "dark";
     [Parameter] public string Size { get; set; } = "md";
     [Parameter] public string? Icon { get; set; }
+    [Parameter] public string? Width { get; set; }
+    [Parameter] public bool Bar { get; set; } = false;
     [Parameter] public bool Block { get; set; } = false;
     [Parameter] public bool Disabled { get; set; } = false;
     [Parameter] public string Type { get; set; } = "button";
@@ -55,9 +64,13 @@
         _    => "var(--fs-sm)",
     };
 
+    // Ancho: Block > Width explícito > auto
+    private string WidthValue => Block ? "100%" : (Width ?? "auto");
+
     private string ComputedStyle =>
         $"display:{(Block ? "flex" : "inline-flex")};" +
-        $"width:{(Block ? "100%" : "auto")};" +
+        $"width:{WidthValue};" +
+        (Bar ? "height:38px;" : "") +
         "align-items:center;justify-content:center;gap:0.5rem;" +
         "font-family:var(--font-mono);font-weight:var(--fw-bold);" +
         "text-transform:uppercase;letter-spacing:0.5px;line-height:1;" +
@@ -66,7 +79,7 @@
         $"background:{BgColor};color:{FgColor};" +
         $"cursor:{(Disabled ? "not-allowed" : "pointer")};" +
         $"opacity:{(Disabled ? "0.45" : "1")};" +
-        $"padding:{Padding};font-size:{FontSize};" +
+        (Bar ? "padding:0 14px;font-size:0.74rem;" : $"padding:{Padding};font-size:{FontSize};") +
         "transition:transform var(--dur-fast) var(--ease-snap),box-shadow var(--dur-fast) var(--ease-snap);" +
         (_hover && !Disabled ? "transform:var(--lift-hover);box-shadow:var(--shadow-btn);" : "transform:none;box-shadow:none;");
 }

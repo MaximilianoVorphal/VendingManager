@@ -49,6 +49,21 @@ public class MachineOnlineMountTests : TestContext
     }
 
     [Fact]
+    public void MainLayout_RendersLeftPanelDeControlSidebar_OnHome()
+    {
+        var nav = Services.GetRequiredService<NavigationManager>() as FakeNavigationManager;
+        nav?.NavigateTo("/");
+
+        var cut = RenderComponent<MainLayoutTestHost>(parameters => parameters
+            .Add(p => p.BodyContent, (RenderFragment)(builder =>
+                builder.AddMarkupContent(0, "<p data-testid=\"body\">page body</p>"))));
+
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("pdc-sidebar"));
+        cut.Markup.Should().Contain("UNIDADES");
+        cut.Markup.Should().Contain("Máquina 001");
+    }
+
+    [Fact]
     public void MainLayout_HidesMachineOnlinePanel_OnCaja()
     {
         var nav = Services.GetRequiredService<NavigationManager>() as FakeNavigationManager;

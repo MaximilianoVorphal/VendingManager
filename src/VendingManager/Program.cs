@@ -68,7 +68,9 @@ builder.Services.AddCors(options =>
                 "https://localhost:5093",
                 "http://localhost:5093",
                 "http://localhost:5095",
-                "https://localhost:5095"
+                "https://localhost:5095",
+                // Dev local: Blazor WASM dev server (perfil http de VendingManager.Web)
+                "http://localhost:5000"
             )
               .AllowAnyMethod()
               .AllowAnyHeader()

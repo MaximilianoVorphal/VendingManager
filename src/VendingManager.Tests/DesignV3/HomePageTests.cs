@@ -1,14 +1,22 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Security.Claims;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Bunit;
+using Bunit.TestDoubles;
 using FluentAssertions;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Forms;
+using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.Extensions.DependencyInjection;
+using VendingManager.Web.Layout;
 using VendingManager.Web.Pages;
 using Xunit;
 
@@ -75,6 +83,78 @@ public class HomePageTests : TestContext
             buttons.Any(b => b.TextContent.Contains("SUBIR AHORA")).Should().BeTrue();
             buttons.Any(b => b.TextContent.Contains("CANCELAR")).Should().BeTrue();
         });
+    }
+
+    [Fact]
+    public void Home_RendersPanelDeControlSidebar_WhenInsideLayout()
+    {
+        // This test renders Home within MainLayout to verify the sidebar appears
+        Services.AddAuthorizationCore();
+        Services.AddSingleton<Microsoft.AspNetCore.Components.Authorization.AuthenticationStateProvider>(
+            new MachineOnlineMountTestsHelper.AuthenticatedAuthStateProvider());
+        Services.AddSingleton<IAuthorizationService>(
+            new MachineOnlineMountTestsHelper.FakeAuthorizationService());
+
+        var nav = Services.GetRequiredService<NavigationManager>() as FakeNavigationManager;
+        nav?.NavigateTo("/");
+
+        var cut = RenderComponent<MainLayoutTestHost>(parameters => parameters
+            .Add(p => p.BodyContent, (RenderFragment)((RenderTreeBuilder builder) =>
+            {
+                builder.OpenComponent<Home>(0);
+                builder.CloseComponent();
+            })));
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("pdc-sidebar");
+            cut.Markup.Should().Contain("UNIDADES");
+            cut.Markup.Should().Contain("Todas");
+            cut.Markup.Should().Contain("Máquina 001");
+            cut.Markup.Should().Contain("Máquina 002");
+            cut.Markup.Should().Contain("Máquina 003");
+        });
+    }
+
+    private class MainLayoutTestHost : ComponentBase
+    {
+        [Parameter] public RenderFragment? BodyContent { get; set; }
+
+        protected override void BuildRenderTree(RenderTreeBuilder builder)
+        {
+            builder.OpenComponent<CascadingAuthenticationState>(0);
+            builder.AddAttribute(1, "ChildContent", (RenderFragment)(childBuilder =>
+            {
+                childBuilder.OpenComponent<MainLayout>(2);
+                childBuilder.AddAttribute(3, "Body", BodyContent);
+                childBuilder.CloseComponent();
+            }));
+            builder.CloseComponent();
+        }
+    }
+
+    private class MachineOnlineMountTestsHelper
+    {
+        public class AuthenticatedAuthStateProvider : AuthenticationStateProvider
+        {
+            public override Task<AuthenticationState> GetAuthenticationStateAsync()
+            {
+                var identity = new ClaimsIdentity(new[] { new Claim(ClaimTypes.Name, "test") }, "test");
+                return Task.FromResult(new AuthenticationState(new ClaimsPrincipal(identity)));
+            }
+        }
+
+        public class FakeAuthorizationService : IAuthorizationService
+        {
+            public Task<AuthorizationResult> AuthorizeAsync(
+                ClaimsPrincipal user, object? resource,
+                IEnumerable<IAuthorizationRequirement> requirements)
+                => Task.FromResult(AuthorizationResult.Success());
+
+            public Task<AuthorizationResult> AuthorizeAsync(
+                ClaimsPrincipal user, object? resource, string policyName)
+                => Task.FromResult(AuthorizationResult.Success());
+        }
     }
 
     private class HomeMockHttpMessageHandler : HttpMessageHandler

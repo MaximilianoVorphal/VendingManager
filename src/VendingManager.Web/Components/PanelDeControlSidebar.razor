@@ -1,0 +1,41 @@
+@using System.Linq
+@using VendingManager.Web.Services
+
+<aside class="pdc-sidebar" aria-label="Unidades">
+    <div class="pdc-sidebar__head">UNIDADES</div>
+    <ul class="pdc-sidebar__list" role="list">
+        @foreach (var item in Units)
+        {
+            var active = item.Id == ActiveUnitId;
+            <li class="pdc-unit-item @(active ? "pdc-unit-item--active" : "")">
+                <button type="button" @onclick="() => OnUnitSelected.InvokeAsync(item.Id)">
+                    @if (item.Status == PdcUnitStatus.All) {
+                        <span class="pdc-unit-item__glyph" aria-hidden="true">◈</span>
+                    }
+                    else if (item.Status == PdcUnitStatus.Online) {
+                        <span class="pdc-dot pdc-dot--ok" aria-hidden="true"></span>
+                    }
+                    else if (item.Status == PdcUnitStatus.StockLow) {
+                        <span class="pdc-dot pdc-dot--warn" aria-hidden="true"></span>
+                    }
+                    <span class="pdc-unit-item__text">
+                        <span class="pdc-unit-item__label">@item.Label</span>
+                        @if (item.Secondary != null)
+                        {
+                            <span class="pdc-unit-item__secondary @(item.Status == PdcUnitStatus.StockLow ? "pdc-unit-item__secondary--warn" : "")">@item.Secondary</span>
+                        }
+                    </span>
+                </button>
+            </li>
+        }
+    </ul>
+    <div class="pdc-sidebar__foot">@activeCount unidades activas</div>
+</aside>
+
+@code {
+    [Parameter] public IReadOnlyList<PdcUnitItem> Units { get; set; } = PdcUnitCatalog.HardcodedUnits;
+    [Parameter] public int ActiveUnitId { get; set; } = 0;
+    [Parameter] public EventCallback<int> OnUnitSelected { get; set; }
+
+    private int activeCount => Units.Count(u => u.Status != PdcUnitStatus.All);
+}
