@@ -1,1 +1,70 @@
+.vm-shell {
+    display: flex;
+    gap: 1.5rem;
+    align-items: stretch;
+    flex-wrap: wrap;
+}
+
+html, body {
+    margin: 0;
+    padding: 0;
+}
+
+/* Full-height layout para páginas con sidebar izquierdo (home) */
+.industrial-wrapper--fullscreen {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.industrial-wrapper--fullscreen > main {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.industrial-wrapper--fullscreen .vm-shell {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    flex-wrap: nowrap;
+}
+
+.vm-shell__left {
+    display: none;
+}
+
+@media (min-width: 1024px) {
+    .vm-shell__left {
+        display: flex;
+        flex-direction: column;
+    }
+}
+
+.vm-shell__main {
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    overflow: auto;
+}
+
+/* En rutas fullscreen el main es columna flex para que páginas como
+   Informe de Ventas puedan ocupar toda la altura y scrollear por dentro. */
+.industrial-wrapper--fullscreen .vm-shell__main {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.vm-shell__right {
+    flex: 0 0 280px;
+    max-width: 100%;
+}
+
 /* Estilos movidos a app.css para el diseño Industrial */
+
+main {
+    margin-top: 0;
+}

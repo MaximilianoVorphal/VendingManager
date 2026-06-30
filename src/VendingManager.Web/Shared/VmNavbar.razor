@@ -48,6 +48,12 @@
         new("Bodega", "bodega", "/inventario"),
         new("Centro de Cargas", "cargas", "/cargas"),
     ];
+    private static readonly NavItem[] Administracion = [
+        new("Auditoría", "auditoria", "/admin/auditoria"),
+        new("Gestión de Usuarios", "gestion-usuarios", "/admin/usuarios"),
+        new("Integridad de Datos", "integridad", "/admin/integridad-datos"),
+        new("Proveedores", "proveedores", "/admin/proveedores"),
+    ];
 
     protected override async Task OnInitializedAsync()
     {
@@ -213,6 +219,45 @@
                 }
             </div>
 
+            <!-- Administración dropdown (mismo patrón) -->
+            <div style="position:relative;">
+                <button @onclick='() => ToggleDropdown("administracion")'
+                        style="font-family:var(--font-mono);font-weight:var(--fw-bold);
+                               font-size:1rem;text-transform:uppercase;letter-spacing:0.5px;
+                               cursor:pointer;padding:5px 10px;border-radius:0;
+                               background:@(_openDropdown=="administracion"?"var(--line-200)":"transparent");
+                               color:var(--ink-900);
+                               border:@(_openDropdown=="administracion"?"1px solid var(--ink-900)":"1px solid transparent");">
+                    [ Administración ▾ ]
+                </button>
+                @if (_openDropdown == "administracion")
+                {
+                    <div style="position:absolute;top:100%;left:0;margin-top:5px;
+                                min-width:210px;background:var(--paper-0);
+                                border:2px solid var(--ink-900);
+                                box-shadow:var(--shadow-pop);padding:10px 0;
+                                z-index:var(--z-dropdown);">
+                        @foreach (var item in Administracion)
+                        {
+                            var disabled = item.Key == null && item.Href == null;
+                            <button @onclick="() => Navigate(item)"
+                                    disabled="@disabled"
+                                    style="display:block;width:100%;text-align:left;
+                                           font-family:var(--font-mono);font-weight:var(--fw-bold);
+                                           font-size:0.9rem;text-transform:uppercase;
+                                           letter-spacing:0.5px;padding:10px 15px;
+                                           border:none;border-left:4px solid @(IsItemActive(item)?"var(--ink-900)":"transparent");
+                                           background:@(IsItemActive(item)?"var(--line-200)":"var(--paper-0)");
+                                           color:@(disabled?"var(--ink-500)":"var(--ink-900)");
+                                           cursor:@(disabled?"not-allowed":"pointer");
+                                           opacity:@(disabled?"0.55":"1");">
+                                @item.Label@(disabled?" ·":"")
+                            </button>
+                        }
+                    </div>
+                }
+            </div>
+
             <!-- Cerrar Sesión -->
             <button style="font-family:var(--font-mono);font-weight:var(--fw-bold);
                            font-size:1rem;text-transform:uppercase;letter-spacing:0.5px;
@@ -306,6 +351,39 @@
             {
                 <div style="padding:0 24px;display:flex;flex-direction:column;gap:0.25rem;">
                     @foreach (var item in Operaciones)
+                    {
+                        var disabled = item.Key == null && item.Href == null;
+                        <button @onclick="() => Navigate(item)"
+                                disabled="@disabled"
+                                style="display:block;width:100%;text-align:left;
+                                       font-family:var(--font-mono);font-weight:var(--fw-bold);
+                                       font-size:0.9rem;text-transform:uppercase;
+                                       letter-spacing:0.5px;padding:8px 16px;
+                                       border:none;border-left:4px solid @(IsItemActive(item)?"var(--ink-900)":"transparent");
+                                       background:@(IsItemActive(item)?"var(--line-200)":"var(--paper-0)");
+                                       color:@(disabled?"var(--ink-500)":"var(--ink-900)");
+                                       cursor:@(disabled?"not-allowed":"pointer");
+                                       opacity:@(disabled?"0.55":"1");">
+                            @item.Label@(disabled?" ·":"")
+                        </button>
+                    }
+                </div>
+            }
+        </div>
+
+        <!-- Administración dropdown -->
+        <div style="position:relative;">
+            <button @onclick='() => ToggleDropdown("administracion-mobile")'
+                    style="font-family:var(--font-mono);font-weight:var(--fw-bold);
+                           font-size:1rem;text-transform:uppercase;letter-spacing:0.5px;
+                           cursor:pointer;padding:10px 24px;border-radius:0;text-align:left;
+                           width:100%;background:var(--paper-0);color:var(--ink-900);border:none;">
+                [ Administración ▾ ]
+            </button>
+            @if (_openDropdown == "administracion-mobile")
+            {
+                <div style="padding:0 24px;display:flex;flex-direction:column;gap:0.25rem;">
+                    @foreach (var item in Administracion)
                     {
                         var disabled = item.Key == null && item.Href == null;
                         <button @onclick="() => Navigate(item)"

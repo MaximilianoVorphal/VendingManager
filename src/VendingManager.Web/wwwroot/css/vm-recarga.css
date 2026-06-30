@@ -72,7 +72,14 @@
   align-items: center;
 }
 
-/* --- Vista 2: editor a ancho completo --- */
+/* --- Vista 2: editor a ancho completo ---
+   El editor llega al borde de la pantalla SIN técnica de breakout: el
+   MainLayout ya le da un padre full-width (.vm-shell__main, flex:1) y la
+   regla `main:has(.rec-editor){ padding: 0 }` quita el padding lateral del
+   <main>. Por eso `width:100%` alcanza el borde del viewport.
+   NO usar el truco width:100vw + left:50% + margin-left:-50vw: con scrollbar
+   vertical presente, 100vw incluye la barra pero el contenedor/left:50% no,
+   así que el bloque se desfasa y sobresale ~scrollbar a la derecha. */
 .rec-editor {
   flex: 1;
   min-height: 0;
@@ -96,6 +103,16 @@
 }
 .rec-bar__left  { display: flex; align-items: center; gap: 14px; min-width: 0; }
 .rec-bar__title { margin: 0; font-family: var(--font-mono); font-weight: var(--fw-bold); text-transform: uppercase; letter-spacing: -0.5px; font-size: 1.25rem; }
+.rec-bar__title-group { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.rec-bar__subtitle {
+  font-family: var(--font-sans);
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .rec-bar__actions { display: flex; gap: 8px; flex-wrap: nowrap; overflow-x: auto; flex-shrink: 0; }
 
 /* Split master-detail */
@@ -241,6 +258,21 @@
   flex-wrap: wrap;
 }
 .rec-shelf__foot-actions { margin-left: auto; display: flex; gap: 8px; flex-wrap: nowrap; overflow-x: auto; }
+
+/* Título de la estantería ("Estantería · Máquina N") — sacamos estos px
+   a clase para que NO vuelvan a quedar como <h3> default de Bootstrap
+   (1.75rem). Specs del diseño, línea 193 de Recarga.dc.html:
+   font-family mono · 700 · uppercase · 0.92rem · letter-spacing 0.5px. */
+.rec-shelf__title {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-weight: var(--fw-bold);
+  text-transform: uppercase;
+  font-size: 0.92rem;
+  letter-spacing: 0.5px;
+  line-height: 1.2;
+  color: var(--ink-900);
+}
 
 /* Cuadro de ícono (la "grilla" 34x34 junto al título de estantería) */
 .rec-iconbox {
@@ -485,9 +517,13 @@
 .rec-trow:hover { background: var(--paper-50); }
 .rec-trow.is-pending { background: var(--tint-pending); }
 
-/* Barra de progreso de carga (lista y rail) */
+/* Barra de progreso de carga (lista y rail)
+   NOTA: NO usamos `transition: width` para que el fill se actualice de forma
+   INMEDIATA al cambiar de máquina en el rail (la referencia Recarga.dc.html
+   no anima el cambio de máquina). Si en el futuro se quiere animar el
+   progreso dentro de la misma máquina, usar una key distinta por período. */
 .rec-progress { flex: 1; min-width: 40px; height: 6px; background: var(--line-200); border-radius: 4px; overflow: hidden; }
-.rec-progress > span { display: block; height: 100%; border-radius: 4px; transition: width var(--dur-slow); }
+.rec-progress > span { display: block; height: 100%; border-radius: 4px; }
 .rec-progress > .fill-good    { background: var(--fill-good); }
 .rec-progress > .fill-warning { background: var(--fill-warning); }
 .rec-progress > .fill-danger  { background: var(--fill-danger); }
@@ -519,4 +555,29 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .rec-title__cursor { animation: none; }
+}
+
+/* =========================================================================
+   8. LAYOUT CHAIN — make .rec-editor stretch to the viewport bottom
+   -------------------------------------------------------------------------
+   El MainLayout envuelve @Body en dos divs extra (un flex row con
+   align-items:flex-start + un flex:1;min-width:0). Por defecto esos
+   wrappers NO le dan al .rec-editor una alturaconstrained, así que el
+   editor se queda con la altura de su contenido y queda un hueco gris
+   abajo. Con :has(.rec-editor) los obligamos a llenar la altura SOLO
+   cuando el editor está presente, sin afectar a las otras páginas.
+   ========================================================================= */
+.industrial-wrapper > main:has(.rec-editor) {
+  overflow: hidden;        /* el .rec-editor maneja su propio scroll    */
+  padding: 0;              /* sin padding — el .rec-editor ya es full-bleed */
+}
+.industrial-wrapper > main > div:has(.rec-editor) {
+  height: 100%;
+  min-height: 0;
+}
+.industrial-wrapper > main > div > div:has(.rec-editor) {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
 }

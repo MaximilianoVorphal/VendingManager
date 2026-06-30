@@ -4,12 +4,13 @@
 @inject IJSRuntime JS
 @using System.Linq
 @using System.Net.Http.Headers
+@using VendingManager.Web.Services
 
 <PageTitle>CENTRO DE COMANDO</PageTitle>
 
-    <div class="industrial-wrapper container-fluid px-4 mt-4">
+    <div class="industrial-wrapper container-fluid px-4 mt-3" style="max-width: 1180px;">
 
-    <div class="row align-items-center mb-4 border-bottom border-3 border-dark pb-3">
+    <div class="row align-items-center mb-3 border-bottom border-3 border-dark pb-2">
         <div class="col-md-8">
             <h2 class="m-0 fw-bold text-uppercase" style="letter-spacing: -1px;">Status Operacional</h2>
             <small class="text-muted fw-bold">TIEMPO REAL: @DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss")</small>
@@ -31,7 +32,7 @@
     }
     else
     {
-        <div class="row g-4 mb-5">
+        <div class="row g-3" style="margin-bottom: 20px;">
             <!-- DIARIO -->
             <div class="col-md-4">
                 <VmKpiCard Header="@($"Reporte Diario ({DateTime.Now.ToString("dd/MM")})")"
@@ -93,7 +94,7 @@
         </div>
 
         <!-- CARD DE STOCK CRITICO -->
-        <div class="row mb-5">
+        <div class="row">
             <div class="col-12">
                 <VmCard Header="🚨 ALERTA DE STOCK CRÍTICO (≤ 2 UNIDADES) 🚨"
                         HeaderVariant="danger"
@@ -102,7 +103,7 @@
                     <div class="text-center d-flex align-items-center justify-content-center gap-4">
                         <div>
                             <small class="text-danger text-uppercase fw-bold d-block" style="font-size: 0.7rem;">Items en Riesgo</small>
-                            <h1 class="display-4 fw-bold my-0 text-danger kpi-amount-critico" style="letter-spacing: -2px;">
+                            <h1 class="display-5 fw-bold my-0 text-danger kpi-amount-critico" style="letter-spacing: -2px;">
                                 @Stats.CantidadStockCritico
                             </h1>
                         </div>
@@ -117,31 +118,7 @@
             </div>
         </div>
 
-        <!-- CHART SECTION -->
-        <div class="row mb-5">
-            <div class="col-md-8">
-                <div class="card border-2 border-dark rounded-0 shadow-sm">
-                    <div class="card-header bg-dark text-white fw-bold text-uppercase rounded-0">
-                        <i class="bi bi-graph-up-arrow me-2"></i>Tendencia de Ventas (Semanal)
-                    </div>
-                    <div class="card-body">
-                        <canvas id="salesChart" style="height: 300px; width: 100%;"></canvas>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="card border-2 border-dark rounded-0 shadow-sm h-100">
-                    <div class="card-header bg-dark text-white fw-bold text-uppercase rounded-0">
-                        <i class="bi bi-pie-chart-fill me-2"></i>Ventas Brutas
-                    </div>
-                    <div class="card-body d-flex align-items-center justify-content-center">
-                        <canvas id="paymentChart" style="max-height: 250px;"></canvas>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="row mt-5">
+        <div class="row" style="margin-top: 20px;">
             <div class="col-12 mb-3">
                 <h5 class="fw-bold text-uppercase border-bottom border-3 border-dark pb-2 d-flex align-items-center flex-wrap gap-2"
                 style="letter-spacing: 1px;">
@@ -282,97 +259,6 @@
         await CargarDatos();
     }
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (Stats != null)
-        {
-            await RenderCharts();
-        }
-    }
-
-    private async Task RenderCharts()
-    {
-        // Chart.js canvas cannot read CSS custom properties at runtime.
-        // Hex literals below map to design tokens:
-        // #000000 == var(--ink-900)   — bar fill / industrial black
-        // #198754 == var(--signal-success) — confirmed / paid slices
-        // #dc3545 == var(--signal-danger)  — pending / critical slices
-        // #e0e0e0 == var(--line-200)  — axis grid lines
-        // #333333 == var(--ink-700)   — axis tick text
-
-        // 1. Bar Chart: Weekly Stats (Simulated distribution for visualisation)
-        var weeklyConfig = new
-        {
-            type = "bar",
-            data = new
-            {
-                labels = new[] { "Lun", "Mar", "Mie", "Jue", "Vie", "Sab", "Dom" },
-                datasets = new[]
-                {
-                    new
-                    {
-                        label = "Ventas ($)",
-                        data = new[] {
-                            Stats!.Semana.VentaTotal * 0.1m,
-                            Stats.Semana.VentaTotal * 0.15m,
-                            Stats.Semana.VentaTotal * 0.2m,
-                            Stats.Semana.VentaTotal * 0.1m,
-                            Stats.Semana.VentaTotal * 0.25m,
-                            Stats.Semana.VentaTotal * 0.15m,
-                            Stats.Semana.VentaTotal * 0.05m
-                        },
-                        backgroundColor = "#000000" /* equivalent to var(--ink-900) */
-                    }
-                }
-            },
-            options = new
-            {
-                scales = new
-                {
-                    y = new
-                    {
-                        beginAtZero = true,
-                        grid = new { color = "#e0e0e0" /* equivalent to var(--line-200) */ },
-                        ticks = new { color = "#333333" /* equivalent to var(--ink-700) */ }
-                    },
-                    x = new
-                    {
-                        grid = new { color = "#e0e0e0" /* equivalent to var(--line-200) */ },
-                        ticks = new { color = "#333333" /* equivalent to var(--ink-700) */ }
-                    }
-                },
-                plugins = new { legend = new { display = false } },
-                responsive = true,
-                maintainAspectRatio = false
-            }
-        };
-        await JS.InvokeVoidAsync("ChartJsInterop.setupChart", "salesChart", weeklyConfig);
-
-        // 2. Pie Chart: Payment Status
-        var paymentConfig = new
-        {
-            type = "doughnut",
-            data = new
-            {
-                labels = new[] { "Confirmado", "Pendiente/Efectivo" },
-                datasets = new[]
-                {
-                    new
-                    {
-                        data = new[] { Stats.Semana.PagadoTB, Stats.Semana.Pendiente },
-                        backgroundColor = new[] { "#198754" /* equivalent to var(--signal-success) */, "#dc3545" /* equivalent to var(--signal-danger) */ }
-                    }
-                }
-            },
-            options = new
-            {
-                responsive = true,
-                maintainAspectRatio = false
-            }
-        };
-        await JS.InvokeVoidAsync("ChartJsInterop.setupChart", "paymentChart", paymentConfig);
-    }
-
     private async Task CargarMaquinas()
     {
         try { ListaMaquinas = await Http.GetFromJsonAsync<List<MaquinaSimpleDto>>("api/Ventas/lista-maquinas"); } catch { }
@@ -380,7 +266,9 @@
 
     private IEnumerable<VmSelect.VmSelectOption> MaquinaOptions =>
         new[] { new VmSelect.VmSelectOption("0", ":: TODAS LAS UNIDADES ::") }
-        .Concat(ListaMaquinas?.Select(m => new VmSelect.VmSelectOption(m.Id.ToString(), m.Nombre.ToUpper())) ?? []);
+        .Concat(PdcUnitCatalog.HardcodedUnits
+            .Where(u => u.Status != PdcUnitStatus.All)
+            .Select(u => new VmSelect.VmSelectOption(u.Id.ToString(), u.Label.ToUpper())));
 
     private async Task CambiarMaquina(string? value)
     {

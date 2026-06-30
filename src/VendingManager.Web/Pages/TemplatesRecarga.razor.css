@@ -211,10 +211,22 @@
    (.rec-shelf__foot) and the action group (.rec-shelf__foot-actions) are
    in vm-recarga.css. The labels below are page-specific font choices.
    ========================================================================= */
+.rec-bottombar-label {
+    display: block;
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+    margin: 0;
+    line-height: 1.2;
+}
 .rec-bottombar-totals {
     font-family: var(--font-sans);
     font-weight: var(--fw-bold);
     font-size: 1.2rem;
+    line-height: 1.2;
 }
 
 .rec-bottombar-cap {

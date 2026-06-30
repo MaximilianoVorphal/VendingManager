@@ -144,7 +144,7 @@
 @if (MostrarModal)
 {
     <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5); z-index: 1110;">
-        <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
             <div class="modal-content border-2 border-dark rounded-0">
                 <div class="modal-header bg-dark text-white rounded-0 border-bottom border-dark">
                     <h5 class="modal-title fw-bold text-uppercase">
@@ -230,13 +230,11 @@
                                                         <SlotCard Slot="slot" IsReadOnly="true" />
                                                     }
                                                 </div>
-                                                <button class="btn btn-warning rounded-0 fw-bold border-2 border-dark mb-2 px-4 py-2 text-uppercase btn-lg edit-slots-btn"
-                                                    onmousedown="this.style.transform='translate(2px, 2px)'; this.style.boxShadow='1px 1px 0px #000';"
-                                                    onmouseup="this.style.transform='none'; this.style.boxShadow='';"
-                                                    onmouseleave="this.style.transform='none'; this.style.boxShadow='';"
-                                                    @onclick="() => AbrirEdicionVisual(periodo)">
-                                                    <i class="bi bi-grid-3x3-gap-fill me-2"></i> EDITAR SLOTS (GRILLA)
-                                                </button>
+                                                <div class="mb-2">
+                                                    <VmButton Variant="dark" Size="sm" Icon="bi-grid-3x3-gap-fill" OnClick="() => AbrirEdicionVisual(periodo)">
+                                                        EDITAR SLOTS (GRILLA)
+                                                    </VmButton>
+                                                </div>
                                                 <div class="mt-3 border-top border-dark pt-3">
                                                     <VmButton Variant="outline" Size="sm" Icon="bi-trash" OnClick="() => periodo.SnapshotSlots.Clear()">
                                                         VACIAR MÁQUINA
@@ -251,10 +249,10 @@
                     </div>
             </div>
             <div class="modal-footer border-top border-dark">
-                <VmButton Variant="outline" OnClick="CerrarModal">
+                <VmButton Variant="outline" Size="sm" OnClick="CerrarModal">
                     CANCELAR
                 </VmButton>
-                <VmButton Variant="success" OnClick="GuardarTemplate" Disabled="@Guardando">
+                <VmButton Variant="dark" Size="sm" OnClick="GuardarTemplate" Disabled="@Guardando">
                     @(Guardando ? "GUARDANDO..." : (EsEdicion ? "ACTUALIZAR" : "GUARDAR TEMPLATE"))
                 </VmButton>
             </div>
@@ -276,23 +274,30 @@
     <div class="rec-editor">
         <!-- Top bar -->
         <div class="rec-bar">
-            <div class="d-flex align-items-center gap-3 flex-wrap">
-                <VmButton Variant="outline" Icon="bi-arrow-left" OnClick="CerrarEdicionVisual">Volver</VmButton>
-                <h2 class="rec-title m-0">@maquinaNombre</h2>
-                <span class="rec-badge rec-badge--@estadoVariant">@estado</span>
-                <small class="rec-subtitle">@descripcion</small>
+            <div class="rec-bar__left">
+                <VmButton Variant="outline" Bar="true" Icon="bi-arrow-left" OnClick="CerrarEdicionVisual">Volver</VmButton>
+                <div class="rec-bar__title-group">
+                    <div class="d-flex align-items-center gap-2">
+                        <h2 class="rec-bar__title">@maquinaNombre</h2>
+                        <span class="rec-badge rec-badge--@estadoVariant">@estado</span>
+                    </div>
+                    @if (!string.IsNullOrEmpty(descripcion))
+                    {
+                        <small class="rec-bar__subtitle">@descripcion</small>
+                    }
+                </div>
             </div>
-            <div class="d-flex gap-2 flex-wrap">
-                <VmButton Variant="outline" Size="sm" Icon="bi-pencil" OnClick="AbrirModalEditarActual">Editar</VmButton>
-                <VmButton Variant="danger" Size="sm" Icon="bi-graph-up" OnClick="AnalizarTemplateActual">Analizar stockout</VmButton>
-                <VmButton Variant="outline" Size="sm" Icon="bi-arrow-repeat" OnClick="SincronizarTemplateActual">Sincronizar todo</VmButton>
+            <div class="rec-bar__actions">
+                <VmButton Variant="outline" Bar="true" Width="100px" Icon="bi-pencil" OnClick="AbrirModalEditarActual">Editar</VmButton>
+                <VmButton Variant="danger" Bar="true" Width="160px" Icon="bi-graph-up" OnClick="AnalizarTemplateActual">Analizar stockout</VmButton>
+                <VmButton Variant="outline" Bar="true" Width="150px" Icon="bi-arrow-repeat" OnClick="SincronizarTemplateActual">Sincronizar todo</VmButton>
                 @if (templateActual?.Estado == EstadoTemplate.Terminado)
                 {
                     <VmStatusChip Icon="bi-check2-circle">Finalizado</VmStatusChip>
                 }
                 else
                 {
-                    <VmButton Variant="dark" Size="sm" Icon="bi-check2-circle" OnClick="TerminarTemplateActual">Finalizar</VmButton>
+                    <VmButton Variant="dark" Bar="true" Width="130px" Icon="bi-check2-circle" OnClick="TerminarTemplateActual">Finalizar</VmButton>
                 }
             </div>
         </div>
@@ -362,7 +367,7 @@
                     }
                 </div>
                 <div class="rec-rail__foot">
-                    <VmButton Variant="outline" Icon="bi-plus-lg" Block="true" OnClick="AgregarPeriodo">Agregar máquina</VmButton>
+                    <VmButton Variant="outline" Block="true" Bar="true" Icon="bi-plus-lg" OnClick="AgregarPeriodo">Agregar máquina</VmButton>
                 </div>
             </aside>
 
@@ -372,7 +377,7 @@
                     <div class="d-flex align-items-center gap-3">
                         <div class="rec-iconbox"><i class="bi bi-grid-3x3-gap-fill"></i></div>
                         <div>
-                            <h3 class="m-0">Estantería · Máquina @(PeriodoEnEdicionVisual.MaquinaId)</h3>
+                            <div class="rec-shelf__title">Estantería · Máquina @(PeriodoEnEdicionVisual.MaquinaId)</div>
                             <small class="rec-subtitle">@(GetEstanteriaPct())% LLENO · @(PeriodoEnEdicionVisual.SnapshotSlots.Count) SLOTS</small>
                         </div>
                     </div>
@@ -467,18 +472,18 @@
                         var bottomUnits = bottomSlots.Sum(s => s.CantidadInicial);
                         var bottomVacios = bottomSlots.Count(s => s.Estado == EstadoSlot.Vacio);
                     }
-                    <div class="d-flex align-items-center gap-3 flex-wrap">
-                        <small class="rec-subtitle">Carga máquina</small>
-                        <span class="rec-bottombar-totals">@bottomUnits <span class="rec-bottombar-cap">/ @bottomCap u.</span></span>
-                        @if (bottomVacios > 0)
-                        {
-                            <span class="rec-bottombar-vacios">@bottomVacios slots vacíos</span>
-                        }
+                    <div>
+                        <small class="rec-bottombar-label">Carga máquina</small>
+                        <div class="rec-bottombar-totals">@bottomUnits <span class="rec-bottombar-cap">/ @bottomCap u.</span></div>
                     </div>
-                    <div class="d-flex gap-2 flex-wrap">
-                        <VmButton Variant="danger" Size="sm" Icon="bi-trash" OnClick="VaciarMaquina">Vaciar máquina</VmButton>
-                        <VmButton Variant="outline" Size="sm" Icon="bi-arrow-counterclockwise" OnClick="ResetSlots">Reset</VmButton>
-                        <VmButton Variant="dark" Size="sm" Icon="bi-save" OnClick="GuardarCarga">Guardar carga</VmButton>
+                    @if (bottomVacios > 0)
+                    {
+                        <span class="rec-bottombar-vacios">@bottomVacios slots vacíos</span>
+                    }
+                    <div class="rec-shelf__foot-actions">
+                        <VmButton Variant="danger" Bar="true" Width="140px" Icon="bi-trash" OnClick="VaciarMaquina">Vaciar máquina</VmButton>
+                        <VmButton Variant="outline" Bar="true" Width="100px" Icon="bi-arrow-counterclockwise" OnClick="ResetSlots">Reset</VmButton>
+                        <VmButton Variant="dark" Bar="true" Width="160px" Icon="bi-save" OnClick="GuardarCarga">Guardar carga</VmButton>
                     </div>
                 </div>
             </section>
@@ -630,8 +635,8 @@
                         </VmCard>
                     }
                     <div style="display:flex;justify-content:flex-end;gap:0.5rem;margin-top:1rem;">
-                        <VmButton Variant="outline" OnClick="CerrarModalSincronizarGlobal" Disabled="@SincronizandoGlobal">CANCELAR</VmButton>
-                        <VmButton Variant="dark" OnClick="SincronizarTodasVentas" Disabled="@SincronizandoGlobal">
+                        <VmButton Variant="outline" Size="sm" OnClick="CerrarModalSincronizarGlobal" Disabled="@SincronizandoGlobal">CANCELAR</VmButton>
+                        <VmButton Variant="dark" Size="sm" OnClick="SincronizarTodasVentas" Disabled="@SincronizandoGlobal">
                             @(SincronizandoGlobal ? "SINCRONIZANDO..." : "SÍ, SINCRONIZAR TODO")
                         </VmButton>
                     </div>
@@ -659,8 +664,8 @@
                         </label>
                     </div>
                     <div style="display:flex;justify-content:flex-end;gap:0.5rem;margin-top:1rem;">
-                        <VmButton Variant="outline" OnClick="CerrarModalSincronizar" Disabled="@Sincronizando">CANCELAR</VmButton>
-                        <VmButton Variant="warning" OnClick="SincronizarVentas" Disabled="@Sincronizando">
+                        <VmButton Variant="outline" Size="sm" OnClick="CerrarModalSincronizar" Disabled="@Sincronizando">CANCELAR</VmButton>
+                        <VmButton Variant="warning" Size="sm" OnClick="SincronizarVentas" Disabled="@Sincronizando">
                             @(Sincronizando ? "SINCRONIZANDO..." : "SÍ, SINCRONIZAR")
                         </VmButton>
                     </div>
@@ -1618,11 +1623,20 @@
         }
     }
 
-    private void OnMaquinaChanged(int index, string? value)
+    private async Task OnMaquinaChanged(int index, string? value)
     {
-        if (index >= 0 && index < PeriodosActuales.Count && int.TryParse(value, out var id))
+        if (index < 0 || index >= PeriodosActuales.Count || !int.TryParse(value, out var id))
+            return;
+
+        var periodo = PeriodosActuales[index];
+        periodo.MaquinaId = id;
+
+        // Auto-load slots cuando el período está vacío y la máquina es válida.
+        // Cubre tanto el alta de un template nuevo como el caso de editar
+        // y cambiar de máquina a una que aún no tiene snapshot en este período.
+        if (periodo.SnapshotSlots.Count == 0 && id > 0)
         {
-            PeriodosActuales[index].MaquinaId = id;
+            await CargarSlotsParaPeriodo(index);
         }
     }
 
