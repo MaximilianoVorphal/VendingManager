@@ -1,0 +1,32 @@
+@* =========================================================================
+   VmIconButton — Botón cuadrado solo-ícono 32×32 (papelera, escáner…).
+   Usa .rec-iconbtn de vm-recarga.css. Variantes de color predefinidas para
+   no adivinar el hex: "default" | "danger" | "dark".
+
+   Props:
+   - Icon:    clase Bootstrap Icon (ej. "bi-trash")   [requerido]
+   - Variant: "default" | "danger" | "dark"           (default: "default")
+   - Label:   aria-label accesible
+   - OnClick: EventCallback
+
+   Uso:
+   <VmIconButton Icon="bi-trash" Variant="danger" Label="Quitar máquina"
+                 OnClick="Remove" />
+   ========================================================================= *@
+
+@code {
+    [Parameter] public string Icon { get; set; } = "bi-x";
+    [Parameter] public string Variant { get; set; } = "default";
+    [Parameter] public string? Label { get; set; }
+    [Parameter] public EventCallback OnClick { get; set; }
+
+    private string Cls => Variant switch {
+        "danger" => "rec-iconbtn rec-iconbtn--danger",
+        "dark"   => "rec-iconbtn rec-iconbtn--dark",
+        _        => "rec-iconbtn",
+    };
+}
+
+<button type="button" class="@Cls" aria-label="@Label" @onclick="OnClick">
+    <i class="bi @Icon" aria-hidden="true"></i>
+</button>

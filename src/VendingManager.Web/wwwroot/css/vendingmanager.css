@@ -9,6 +9,7 @@
 @import url('tokens/typography.css');
 @import url('tokens/spacing.css');
 @import url('tokens/effects.css');
+@import url('vm-recarga.css');
 
 /* Reset mínimo — compatible con Bootstrap 5 que ya usa Blazor */
 *, *::before, *::after { box-sizing: border-box; }

@@ -1,10 +1,6 @@
 /* TemplatesRecarga.razor — Page-specific CSS (Blazor CSS Isolation) */
 
 /* === KEYFRAMES === */
-@keyframes recBlink {
-    50% { opacity: 0; }
-}
-
 @keyframes recToast {
     from {
         opacity: 0;
@@ -18,128 +14,13 @@
 
 
 /* =========================================================================
-   DESIGN V3 — Templates de Recarga scoped classes
-   All values reference design tokens from wwwroot/css/tokens/*.
+   Page-specific rules (canonical equivalents live in vm-recarga.css).
+   These don't duplicate the design system — they're loose ends the canonical
+   doesn't cover. DO NOT re-add canonical rules here.
    ========================================================================= */
 
-/* ---- Container / page chrome ---- */
-.rec-page {
-    flex: 1;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    width: 100%;
-    max-width: 1500px;
-    margin: 0 auto;
-    padding: 22px 26px;
-    overflow: hidden;
-    background: var(--bg-canvas);
-    font-family: var(--font-sans);
-}
-
-.rec-header {
-    flex-shrink: 0;
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-end;
-    gap: 18px;
-    border-bottom: 3px solid var(--ink-900);
-    padding-bottom: 14px;
-    flex-wrap: wrap;
-}
-
-.rec-breadcrumb {
-    display: inline-block;
-    background: var(--ink-900);
-    color: var(--paper-0);
-    font-family: var(--font-mono);
-    font-weight: var(--fw-bold);
-    font-size: 0.6rem;
-    letter-spacing: 2px;
-    padding: 3px 9px;
-    text-transform: uppercase;
-    margin-bottom: 9px;
-}
-
-.rec-title {
-    margin: 0;
-    font-family: var(--font-mono);
-    font-weight: var(--fw-bold);
-    text-transform: uppercase;
-    letter-spacing: var(--tracking-tight);
-    font-size: 1.7rem;
-    line-height: 1;
-}
-
-.rec-cursor {
-    animation: recBlink 1s steps(1) infinite;
-}
-
-.rec-subtitle {
-    margin: 6px 0 0;
-    font-family: var(--font-mono);
-    font-size: 0.72rem;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.4px;
-}
-
-.rec-pbtn {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    background: var(--paper-0);
-    color: var(--ink-900);
-    border: 2px solid var(--ink-900);
-    font-family: var(--font-mono);
-    font-weight: var(--fw-bold);
-    text-transform: uppercase;
-    font-size: 0.72rem;
-    letter-spacing: 0.5px;
-    padding: 9px 12px;
-    cursor: pointer;
-    border-radius: 0;
-}
-
-.rec-pbtn:hover {
-    background: var(--paper-50);
-}
-
-.rec-pbtn--active {
-    background: var(--signal-warning);
-}
-
-/* ---- Table ---- */
-.rec-table-wrap {
-    flex: 1;
-    min-height: 0;
-    overflow: auto;
-    margin-top: 16px;
-    border: var(--border-2);
-    background: var(--paper-0);
-}
-
-.rec-table {
-    width: 100%;
-    border-collapse: collapse;
-    min-width: 880px;
-}
-
-.rec-table thead th {
-    position: sticky;
-    top: 0;
-    z-index: 1;
-    background: var(--ink-900);
-    color: var(--paper-0);
-    font-family: var(--font-mono);
-    font-weight: var(--fw-bold);
-    text-transform: uppercase;
-    font-size: 0.64rem;
-    letter-spacing: 1px;
-    text-align: left;
-    padding: 11px 14px;
-}
-
+/* ---- Table tweaks (canonical has .rec-table, .rec-table th, .rec-table td
+   but not these position/padding/sizing edge-cases) ---- */
 .rec-table thead th:last-child {
     text-align: right;
 }
@@ -148,31 +29,11 @@
     min-width: 160px;
 }
 
-.rec-table tbody td {
-    padding: 13px 14px;
-    vertical-align: middle;
-}
-
 .rec-table tbody td:last-child {
     padding: 10px 14px;
 }
 
-.rec-trow {
-    border-bottom: 1px solid var(--line-200);
-}
-
-.rec-trow:hover {
-    background: var(--bg-hover);
-}
-
-.rec-trow-pend {
-    background: var(--tint-pending);
-}
-
-.rec-trow-pend:hover {
-    background: var(--tint-pending);
-}
-
+/* ---- "Recarga / Nombre" button (a name+desc stacked link, opens editor) ---- */
 .rec-name-btn {
     text-align: left;
     background: none;
@@ -196,12 +57,14 @@
     font-size: 0.78rem;
 }
 
+/* ---- Mono-cell helper (timestamps, percentages, slot counts) ---- */
 .rec-cell-mono {
     font-family: var(--font-mono);
     font-size: 0.76rem;
     white-space: nowrap;
 }
 
+/* ---- Chip strip (a row of small machine-id tags inside a table cell) ---- */
 .rec-chips {
     display: flex;
     gap: 5px;
@@ -216,49 +79,15 @@
     padding: 2px 6px;
 }
 
+/* ---- Action button group at the end of a table row ---- */
 .rec-actions {
     display: flex;
     gap: 7px;
     justify-content: flex-end;
 }
 
-.rec-no-rows {
-    padding: 48px 20px;
-    text-align: center;
-    font-family: var(--font-mono);
-    color: var(--text-muted);
-    text-transform: uppercase;
-    font-size: 0.8rem;
-}
-
-/* ---- Bar / carga ---- */
-.rec-bar {
-    flex: 1;
-    min-width: 40px;
-    height: 6px;
-    background: var(--line-200);
-    border-radius: var(--radius-soft);
-    overflow: hidden;
-}
-
-.rec-bar__fill {
-    height: 100%;
-    border-radius: var(--radius-soft);
-    transition: width var(--dur-slow);
-}
-
-.rec-bar--good {
-    background: var(--fill-good);
-}
-
-.rec-bar--warning {
-    background: var(--fill-warning);
-}
-
-.rec-bar--danger {
-    background: var(--fill-danger);
-}
-
+/* ---- Loading bar wrapper (label + rec-progress + units text) ----
+   .rec-progress itself is in vm-recarga.css; this styles the wrapper. ---- */
 .rec-carga {
     display: flex;
     align-items: center;
@@ -278,145 +107,7 @@
     color: var(--text-muted);
 }
 
-/* ---- Tags ---- */
-.rec-tag {
-    display: inline-block;
-    font-family: var(--font-mono);
-    font-size: 0.58rem;
-    font-weight: var(--fw-bold);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    padding: 3px 8px;
-    border: 1px solid var(--ink-900);
-    white-space: nowrap;
-}
-
-.rec-tag--ok {
-    background: var(--signal-success);
-    color: var(--paper-0);
-}
-
-.rec-tag--pend {
-    background: var(--signal-warning);
-    color: var(--ink-900);
-}
-
-/* ---- Editor ---- */
-.rec-editor {
-    flex: 1;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    width: 100%;
-    overflow: hidden;
-}
-
-.rec-topbar {
-    flex-shrink: 0;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 16px;
-    padding: 13px 24px;
-    border-bottom: 3px solid var(--ink-900);
-    background: var(--paper-0);
-    flex-wrap: nowrap;
-    overflow: hidden;
-}
-
-.rec-topbar h2 {
-    font-family: var(--font-mono);
-    font-weight: var(--fw-bold);
-    text-transform: uppercase;
-    letter-spacing: -0.5px;
-    font-size: 1.25rem;
-    line-height: 1.2;
-}
-
-.rec-topbar .rec-subtitle {
-    font-size: 0.8rem;
-    font-family: var(--font-sans);
-    color: var(--text-muted);
-    text-transform: none;
-    letter-spacing: normal;
-}
-
-.rec-finalizado {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    height: 38px;
-    padding: 0 14px;
-    border: 2px solid var(--signal-success);
-    background: var(--paper-0);
-    color: var(--signal-success);
-    font-family: var(--font-mono);
-    font-weight: var(--fw-bold);
-    text-transform: uppercase;
-    font-size: 0.74rem;
-    letter-spacing: 0.5px;
-}
-
-.rec-split {
-    flex: 1;
-    min-height: 0;
-    display: flex;
-}
-
-.rec-rail {
-    flex: 0 0 326px;
-    width: 326px;
-    border-right: 2px solid var(--ink-900);
-    background: var(--paper-50);
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-}
-
-.rec-rail-header {
-    flex-shrink: 0;
-    min-height: 62px;
-    box-sizing: border-box;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    padding: 8px 14px;
-    border-bottom: 2px solid var(--ink-900);
-}
-
-.rec-rail-header .rec-cell-mono {
-    font-size: 0.86rem;
-    letter-spacing: 0.5px;
-    text-transform: uppercase;
-    font-weight: var(--fw-bold);
-}
-
-.rec-rail-header .rec-subtitle {
-    font-size: 0.66rem;
-}
-
-.rec-mcard {
-    border: 2px solid var(--ink-900);
-    background: var(--paper-0);
-    padding: 11px;
-    display: flex;
-    flex-direction: column;
-    gap: 9px;
-    cursor: pointer;
-    box-shadow: var(--shadow-card);
-    transition: box-shadow var(--dur-fast);
-}
-
-.rec-mcard:hover {
-    box-shadow: 3px 3px 0 var(--ink-900);
-}
-
-.rec-mcard-active {
-    box-shadow: inset 5px 0 0 var(--signal-success);
-    outline: 1px solid var(--ink-900);
-    background: var(--paper-0) !important;
-}
-
+/* ---- Rail card: <select> dropdown (machine switcher inside a card) ---- */
 .rec-mcard__select {
     flex: 1;
     min-width: 0;
@@ -430,21 +121,7 @@
     cursor: pointer;
 }
 
-.rec-mcard-del {
-    width: 32px;
-    height: 32px;
-    flex-shrink: 0;
-    border: 2px solid var(--signal-danger);
-    background: var(--paper-0);
-    color: var(--signal-danger);
-    cursor: pointer;
-    border-radius: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.9rem;
-}
-
+/* ---- Rail card: small config summary (e.g. "12/30 configurados") ---- */
 .rec-mcard-config {
     font-family: var(--font-mono);
     font-size: 0.64rem;
@@ -452,136 +129,14 @@
     text-transform: uppercase;
 }
 
-.rec-mcard-vacios {
-    background: var(--signal-warning);
-    color: var(--ink-900);
-    font-family: var(--font-mono);
-    font-size: 0.6rem;
-    font-weight: var(--fw-bold);
-    text-transform: uppercase;
-    padding: 2px 7px;
-    border: 1px solid var(--ink-900);
-}
-
-/* ---- Estantería ---- */
-.rec-estanteria {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-}
-
-.rec-est-header {
-    flex-shrink: 0;
-    min-height: 62px;
-    box-sizing: border-box;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 12px;
-    padding: 8px 16px;
-    border-bottom: 2px solid var(--ink-900);
-    background: var(--paper-0);
-    flex-wrap: wrap;
-}
-
-.rec-est-header h3 {
-    font-family: var(--font-mono);
-    font-weight: var(--fw-bold);
-    text-transform: uppercase;
-    font-size: 0.92rem;
-    letter-spacing: 0.5px;
-    line-height: 1.2;
-}
-
-.rec-est-header .rec-subtitle {
-    font-size: 0.66rem;
-}
-
-.rec-icon-tile {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 34px;
-    height: 34px;
-    background: var(--ink-900);
-    color: var(--paper-0);
-    flex-shrink: 0;
-}
-
-.rec-search {
-    border: 2px solid var(--ink-900);
-    font-family: var(--font-mono);
-    font-size: 0.76rem;
-    padding: 7px 10px;
-    border-radius: 0;
-    width: 204px;
-    outline: none;
-    background: var(--paper-0);
-}
-
-.rec-density {
-    display: flex;
-    border: 2px solid var(--ink-900);
-}
-
-.rec-density__btn {
-    font-family: var(--font-mono);
-    font-weight: var(--fw-bold);
-    font-size: 0.68rem;
-    text-transform: uppercase;
-    padding: 7px 10px;
-    border: none;
-    background: var(--paper-0);
-    color: var(--ink-900);
-    cursor: pointer;
-}
-
-.rec-density__btn + .rec-density__btn {
-    border-left: 2px solid var(--ink-900);
-}
-
-.rec-density__btn.active {
-    background: var(--ink-900);
-    color: var(--paper-0);
-}
-
-.rec-floors {
-    flex: 1;
-    min-height: 0;
-    overflow: auto;
-    background: var(--bg-surface-inset);
-    padding: 16px;
-}
-
-.rec-piso-tag {
-    display: inline-block;
-    background: var(--ink-900);
-    color: var(--paper-0);
-    font-family: var(--font-mono);
-    font-weight: var(--fw-bold);
-    font-size: 0.7rem;
-    letter-spacing: 1px;
-    padding: 4px 12px;
-    text-transform: uppercase;
-}
-
-.rec-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(246px, 1fr));
-    gap: 12px;
-}
-
-.rec-grid.is-compact {
-    grid-template-columns: repeat(auto-fill, minmax(184px, 1fr));
-    gap: 8px;
-}
-
+/* =========================================================================
+   Slot card (per-slot visual). The atomic <SlotCard> component uses these
+   classes via deep class names. .rec-slot is the documented design-system
+   EXCEPTION: 1px gray border + 6px radius + soft shadow — the only soft
+   surface in an otherwise brutalist palette. Do NOT "normalize" it.
+   ========================================================================= */
 .rec-slot {
     background: var(--paper-0);
-    /* SlotCard is the design system EXCEPTION: 1px gray border + radius 6px + soft shadow.
-       Documented in design system handoff: "SlotCard es la excepción al sistema brutalista". */
     border: 1px solid #d1d5db;
     border-radius: 6px;
     box-shadow: var(--shadow-soft);
@@ -651,57 +206,11 @@
     color: var(--text-primary);
 }
 
-.rec-slot-step {
-    width: 44px;
-    height: 42px;
-    border: 2px solid var(--ink-900);
-    background: var(--paper-0);
-    font-size: 1.35rem;
-    font-weight: var(--fw-bold);
-    cursor: pointer;
-    border-radius: 0;
-    line-height: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.rec-slot-qty {
-    min-width: 38px;
-    text-align: center;
-    font-family: var(--font-sans);
-    font-weight: var(--fw-bold);
-    font-size: 1.2rem;
-}
-
-.rec-slot-max {
-    margin-left: auto;
-    height: 42px;
-    padding: 0 15px;
-    border: 2px solid var(--ink-900);
-    background: var(--ink-900);
-    color: var(--paper-0);
-    font-family: var(--font-mono);
-    font-weight: var(--fw-bold);
-    text-transform: uppercase;
-    font-size: var(--fs-xs);
-    letter-spacing: 1px;
-    cursor: pointer;
-    border-radius: 0;
-}
-
-.rec-bottombar {
-    flex-shrink: 0;
-    min-height: 66px;
-    border-top: 2px solid var(--ink-900);
-    background: var(--paper-0);
-    padding: 11px 16px;
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    flex-wrap: wrap;
-}
-
+/* =========================================================================
+   Bottom bar of the shelf — text styles only. The bar container itself
+   (.rec-shelf__foot) and the action group (.rec-shelf__foot-actions) are
+   in vm-recarga.css. The labels below are page-specific font choices.
+   ========================================================================= */
 .rec-bottombar-totals {
     font-family: var(--font-sans);
     font-weight: var(--fw-bold);
@@ -723,21 +232,6 @@
     text-transform: uppercase;
     padding: 2px 6px;
     border: 1px solid var(--ink-900);
-}
-
-/* ---- Responsive: master-detail column on narrow viewports ---- */
-@media (max-width: 1000px) {
-    .rec-split {
-        flex-direction: column;
-    }
-
-    .rec-rail {
-        flex: none;
-        width: 100%;
-        border-right: none;
-        border-bottom: var(--border-2);
-        max-height: 260px;
-    }
 }
 
 /* === TOAST === */
