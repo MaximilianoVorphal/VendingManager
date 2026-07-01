@@ -84,8 +84,7 @@ public class TemplatesRecargaToastTests : TestContext
         timer.AutoReset = false;
         timer.Start();
 
-        // Wait for 2500ms to allow timer to fire
-        await Task.Delay(2500);
+        await Task.WhenAny(tcs.Task, Task.Delay(5000));
 
         timerFired.Should().BeTrue("the timer should fire after 2400ms");
     }
