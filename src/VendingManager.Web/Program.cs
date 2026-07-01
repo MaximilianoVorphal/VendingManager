@@ -22,7 +22,6 @@ builder.Services.AddAuthorizationCore();
 builder.Services.AddScoped<AuthenticationStateProvider, VendingManager.Web.Auth.CookieAuthenticationStateProvider>();
 
 // Mock services para UI/UX design v3 (reemplazar por implementaciones reales cuando existan)
-builder.Services.AddScoped<IMachineOnlineService, MockMachineOnlineService>();
 builder.Services.AddScoped<IPlantillaService, MockPlantillaService>();
 
 await builder.Build().RunAsync();
