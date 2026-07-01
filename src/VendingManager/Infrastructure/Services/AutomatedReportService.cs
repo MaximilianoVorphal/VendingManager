@@ -72,22 +72,17 @@ namespace VendingManager.Infrastructure.Services
                 using (var scope = _serviceProvider.CreateScope())
                 {
                     var syncService = scope.ServiceProvider.GetRequiredService<ISyncOrchestratorService>();
-                    var ventasService = scope.ServiceProvider.GetRequiredService<IVentasService>(); // Necesario para obtener lista
 
-                    // Sincronizamos TODAS las mÃ¡quinas una por una
-                    var maquinas = await ventasService.GetMaquinasAsync();
-                    foreach (var m in maquinas)
+                    // SincronizarDesdePortal(0) scrapes ALL machines in one call
+                    try
                     {
-                        try
-                        {
-                            var resultado = await syncService.SincronizarDesdePortal(m.Id);
-                            _logger.LogInformation($"[AutoSync] MÃ¡quina '{m.Nombre}': {resultado}");
-                            _lastSyncTracker.SetLastSync(DateTime.Now);
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogError($"[AutoSync] Error en MÃ¡quina '{m.Nombre}': {ex.Message}");
-                        }
+                        var resultado = await syncService.SincronizarDesdePortal(0);
+                        _logger.LogInformation($"[AutoSync] (todas las mÃ¡quinas): {resultado}");
+                        _lastSyncTracker.SetLastSync(DateTime.Now);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError($"[AutoSync] Error: {ex.Message}");
                     }
                 }
             }

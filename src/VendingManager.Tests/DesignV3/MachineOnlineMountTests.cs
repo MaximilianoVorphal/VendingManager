@@ -37,7 +37,7 @@ public class MachineOnlineMountTests : TestContext
     public void MainLayout_RendersMachineOnlinePanel_OnInformeVentas()
     {
         var nav = Services.GetRequiredService<NavigationManager>() as FakeNavigationManager;
-        nav?.NavigateTo("/informe-ventas");
+        nav?.NavigateTo("/informe-ventas-v2");
 
         var cut = RenderComponent<MainLayoutTestHost>(parameters => parameters
             .Add(p => p.BodyContent, (RenderFragment)(builder =>
