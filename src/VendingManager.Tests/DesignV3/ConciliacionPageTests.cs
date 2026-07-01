@@ -291,6 +291,45 @@ public class ConciliacionPageTests : TestContext
         }, TimeSpan.FromSeconds(10));
     }
 
+    // ── Gap 1: Unverify flow ──────────────────────────────────────────────────
+
+    [Fact]
+    public void Unverify_PostExitoso_ActualizaBadge()
+    {
+        // Configure mock for successful POST
+        _mockHandler.PostResponse = HttpStatusCode.NoContent;
+
+        var cut = RenderComponent<Conciliacion>();
+
+        // Wait for data to load
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("<select");
+        }, TimeSpan.FromSeconds(10));
+
+        cut.Render();
+
+        // Transferencia 1 (Jose Miguel) is verified and selected by default.
+        // The comprobante panel should show "Verificada" badge and "Quitar" button.
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("Verificada");
+            cut.Markup.Should().Contain("Quitar");
+        }, TimeSpan.FromSeconds(10));
+
+        // Click "Quitar" button to unverify
+        cut.Find("button:contains('Quitar')").Click();
+
+        // Assert: POST was sent to desverificar endpoint, badge updates to unverified
+        cut.WaitForAssertion(() =>
+        {
+            _mockHandler.PostRequests.Should().Contain(r => r.Contains("desverificar"));
+            // After unverify, the panel should show verify buttons instead of "Verificada"
+            cut.Markup.Should().Contain("Verificar y seguir");
+            cut.Markup.Should().Contain("Rechazar");
+        }, TimeSpan.FromSeconds(10));
+    }
+
     // ── Task 2.5: Devolución modal ────────────────────────────────────────────
 
     [Fact]
