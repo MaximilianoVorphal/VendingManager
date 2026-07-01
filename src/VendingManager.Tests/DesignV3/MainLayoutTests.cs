@@ -5,14 +5,10 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.Extensions.DependencyInjection;
-using System;
 using System.Collections.Generic;
 using System.Security.Claims;
-using System.Threading;
 using System.Threading.Tasks;
 using VendingManager.Web.Layout;
-using VendingManager.Web.Services;
-using VendingManager.Web.Shared;
 using Xunit;
 
 namespace VendingManager.Tests.DesignV3;
@@ -24,10 +20,6 @@ public class MainLayoutTests : TestContext
         Services.AddAuthorizationCore();
         Services.AddSingleton<AuthenticationStateProvider, AuthenticatedAuthStateProvider>();
         Services.AddSingleton<IAuthorizationService, FakeAuthorizationService>();
-        Services.AddSingleton<IMachineOnlineService>(new TestMachineOnlineService(new List<MachineOnlineStatus>
-        {
-            new(1, "Máquina 001", true, DateTime.Now.AddMinutes(-2))
-        }));
         JSInterop.Mode = JSRuntimeMode.Loose;
     }
 
@@ -101,16 +93,4 @@ public class MainLayoutTests : TestContext
             => Task.FromResult(AuthorizationResult.Success());
     }
 
-    private class TestMachineOnlineService : IMachineOnlineService
-    {
-        private readonly IReadOnlyList<MachineOnlineStatus> _machines;
-
-        public TestMachineOnlineService(IReadOnlyList<MachineOnlineStatus> machines)
-        {
-            _machines = machines;
-        }
-
-        public Task<IReadOnlyList<MachineOnlineStatus>> GetOnlineMachinesAsync(CancellationToken ct = default)
-            => Task.FromResult(_machines);
-    }
 }
