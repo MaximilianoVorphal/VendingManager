@@ -179,18 +179,146 @@ public class ConciliacionPageTests : TestContext
         }, TimeSpan.FromSeconds(10));
     }
 
+    // ── Task 2.2: Verify transferencia ────────────────────────────────────────
+
+    [Fact]
+    public void Verificar_PostExitoso_ActualizaBadge()
+    {
+        // Configure mock for successful POST
+        _mockHandler.PostResponse = HttpStatusCode.NoContent;
+
+        var cut = RenderComponent<Conciliacion>();
+
+        // Wait for data to load
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("<select");
+        }, TimeSpan.FromSeconds(10));
+
+        cut.Render();
+
+        // Click on unverified compra row (Victor Rojas — Id=2)
+        var rows = cut.FindAll("div.con-row");
+        var victorRow = rows.First(r => r.InnerHtml.Contains("VICTOR ROJAS"));
+        victorRow.Click();
+
+        // Verify comprobante panel shows unverified state first
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("Verificar y seguir");
+        }, TimeSpan.FromSeconds(10));
+
+        // Click verify button
+        cut.Find("button:contains('Verificar y seguir')").Click();
+
+        // Assert: POST was sent and auto-advanced to next pendiente (gasto 10)
+        cut.WaitForAssertion(() =>
+        {
+            _mockHandler.PostRequests.Should().Contain(r => r.Contains("compra/2/verificar"));
+            // Auto-advance moves to next unverified: gasto 10 (Sociedad Henriquez)
+            cut.Markup.Should().Contain("SOCIEDAD HENRIQUEZ SPA");
+        }, TimeSpan.FromSeconds(10));
+    }
+
+    [Fact]
+    public void Verificar_Post409_RollbackYMuestraAlert()
+    {
+        // Configure mock for conflict response
+        _mockHandler.PostResponse = HttpStatusCode.Conflict;
+        _mockHandler.PostErrorBody = "Otro usuario modificó esta transferencia. Recargá la página.";
+
+        var cut = RenderComponent<Conciliacion>();
+
+        // Wait for data to load
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("<select");
+        }, TimeSpan.FromSeconds(10));
+
+        cut.Render();
+
+        // Click on unverified compra row (Victor Rojas — Id=2)
+        var rows = cut.FindAll("div.con-row");
+        var victorRow = rows.First(r => r.InnerHtml.Contains("VICTOR ROJAS"));
+        victorRow.Click();
+
+        // Click verify button
+        cut.Find("button:contains('Verificar y seguir')").Click();
+
+        // Assert rollback: still shows verify button (not "Verificada"), alert shown
+        cut.WaitForAssertion(() =>
+        {
+            // Rollback: comprobante panel should still show verify button
+            cut.Markup.Should().Contain("Verificar y seguir");
+            cut.Markup.Should().Contain("Otro usuario");
+        }, TimeSpan.FromSeconds(10));
+    }
+
+    [Fact]
+    public void VerificarYAvanzar_SeleccionaSiguientePendiente()
+    {
+        // Configure mock for successful POST
+        _mockHandler.PostResponse = HttpStatusCode.NoContent;
+
+        var cut = RenderComponent<Conciliacion>();
+
+        // Wait for data to load
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("<select");
+        }, TimeSpan.FromSeconds(10));
+
+        cut.Render();
+
+        // Click on unverified compra row (Victor Rojas — Id=2)
+        var rows = cut.FindAll("div.con-row");
+        var victorRow = rows.First(r => r.InnerHtml.Contains("VICTOR ROJAS"));
+        victorRow.Click();
+
+        // Verify comprobante panel shows Victor Rojas
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("VICTOR ROJAS ALFARO");
+        }, TimeSpan.FromSeconds(10));
+
+        // Click verify button
+        cut.Find("button:contains('Verificar y seguir')").Click();
+
+        // Assert auto-advance: comprobante panel should now show the gasto (Sociedad Henriquez)
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("SOCIEDAD HENRIQUEZ SPA");
+        }, TimeSpan.FromSeconds(10));
+    }
+
     // ── Mock handler ───────────────────────────────────────────────────────────
 
     private class ConciliacionMockHandler : HttpMessageHandler
     {
         public List<string> Requests { get; } = new();
+        public List<string> PostRequests { get; } = new();
         public bool ReturnError500 { get; set; }
+        public HttpStatusCode? PostResponse { get; set; }
+        public string? PostErrorBody { get; set; }
 
         protected override async Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request, CancellationToken cancellationToken)
         {
             var url = request.RequestUri?.ToString() ?? "";
             Requests.Add(url);
+
+            if (request.Method == HttpMethod.Post)
+            {
+                PostRequests.Add(url);
+                if (PostResponse.HasValue)
+                {
+                    return new HttpResponseMessage(PostResponse.Value)
+                    {
+                        Content = new StringContent(PostErrorBody ?? "")
+                    };
+                }
+                return new HttpResponseMessage(HttpStatusCode.NoContent);
+            }
 
             if (ReturnError500)
             {
