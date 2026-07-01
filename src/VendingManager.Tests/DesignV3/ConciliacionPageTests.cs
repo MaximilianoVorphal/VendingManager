@@ -324,9 +324,11 @@ public class ConciliacionPageTests : TestContext
         cut.WaitForAssertion(() =>
         {
             _mockHandler.PostRequests.Should().Contain(r => r.Contains("desverificar"));
-            // After unverify, the panel should show verify buttons instead of "Verificada"
+            // After unverify, the panel should show the verify button instead of "Verificada".
+            // (The old "Rechazar" button was replaced by a Compra-only "Eliminar" action in
+            // commit c2349bf; for Transferencias the panel only shows "Verificar y seguir".)
             cut.Markup.Should().Contain("Verificar y seguir");
-            cut.Markup.Should().Contain("Rechazar");
+            cut.Markup.Should().NotContain("Verificada");
         }, TimeSpan.FromSeconds(10));
     }
 
@@ -457,10 +459,10 @@ public class ConciliacionPageTests : TestContext
 
         cut.Render();
 
-        // Click Transferencia header button
+        // Click "Crear Transferencia" header button (the only button whose text contains "Transferencia")
         cut.Find("button:contains('Transferencia')").Click();
 
-        // Assert modal is open
+        // Assert modal is open (title is "Nueva transferencia" in the new cuadre workflow UI)
         cut.WaitForAssertion(() =>
         {
             cut.Markup.Should().Contain("Nueva transferencia");
@@ -473,10 +475,12 @@ public class ConciliacionPageTests : TestContext
         // Submit
         cut.Find("button:contains('Crear transferencia')").Click();
 
-        // Assert POST was made
+        // Assert POST was made to the cuadre workflow endpoint
+        // (commit c2349bf moved the "create transferencia" call from
+        // "transferencia-con-movimiento" to "api/contabilidad/cuadre")
         cut.WaitForAssertion(() =>
         {
-            _mockHandler.PostRequests.Should().Contain(r => r.Contains("transferencia-con-movimiento"));
+            _mockHandler.PostRequests.Should().Contain(r => r.Contains("api/contabilidad/cuadre"));
         }, TimeSpan.FromSeconds(10));
     }
 
@@ -516,11 +520,17 @@ public class ConciliacionPageTests : TestContext
         // Click Compra header button
         cut.Find("button:contains('Compra')").Click();
 
-        // Assert modal is open
+        // Assert modal is open. Commit c2349bf renamed the modal title from
+        // "Nueva compra" to just "Compra" and added a "Vincular existente" /
+        // "Crear nueva" tab pair. "Vincular existente" only appears in this
+        // modal, so we use it as the open-modal signal.
         cut.WaitForAssertion(() =>
         {
-            cut.Markup.Should().Contain("Nueva compra");
+            cut.Markup.Should().Contain("Vincular existente");
         }, TimeSpan.FromSeconds(10));
+
+        // Switch to "Crear nueva" tab to access the proveedor/monto form
+        cut.Find("button:contains('Crear nueva')").Click();
 
         // Fill form: Proveedor and Monto
         cut.Find("input[id='compra-proveedor']").Change("Proveedor Test");
