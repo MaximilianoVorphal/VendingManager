@@ -1,5 +1,6 @@
 @page "/conciliacion-v2"
 @inject HttpClient Http
+@inject IJSRuntime JS
 @implements IDisposable
 @using System.Globalization
 @using System.Net.Http.Json
@@ -549,9 +550,136 @@
         }
     }
 
-    // ── Acciones de verificación (stubs — wired in PR2) ───────────────────────
-    private void VerifyAndNext() { }
-    private void Unverify() { }
+    // ── Acciones de verificación ───────────────────────────────────────────────
+    private async Task VerifyAndNext()
+    {
+        if (_periodo is null) return;
+
+        var (kind, id) = ResolveSelectedKind();
+        if (kind is null) return;
+
+        var key = $"{kind[0]}{id}";
+        var before = _verified.GetValueOrDefault(key);
+        _verified[key] = true;
+        _error = null;
+        StateHasChanged();
+
+        try
+        {
+            var url = kind == "transferencia"
+                ? $"api/contabilidad/transferencia/{id}/verificar"
+                : $"api/contabilidad/compra/{id}/verificar";
+            var resp = await Http.PostAsync(url, null);
+            if (!resp.IsSuccessStatusCode)
+            {
+                _verified[key] = before;
+                _error = resp.StatusCode == System.Net.HttpStatusCode.Conflict
+                    ? "Otro usuario modificó esta transferencia. Recargá la página."
+                    : $"Error al verificar ({(int)resp.StatusCode}).";
+            }
+            else
+            {
+                AutoAdvance();
+            }
+        }
+        catch (Exception)
+        {
+            _verified[key] = before;
+            _error = "Error de red al verificar.";
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task Unverify()
+    {
+        if (_periodo is null) return;
+
+        var (kind, id) = ResolveSelectedKind();
+        if (kind is null) return;
+
+        var key = $"{kind[0]}{id}";
+        var before = _verified.GetValueOrDefault(key);
+        _verified[key] = false;
+        _error = null;
+        StateHasChanged();
+
+        try
+        {
+            var url = kind == "transferencia"
+                ? $"api/contabilidad/transferencia/{id}/desverificar"
+                : $"api/contabilidad/compra/{id}/desverificar";
+            var resp = await Http.PostAsync(url, null);
+            if (!resp.IsSuccessStatusCode)
+            {
+                _verified[key] = before;
+                _error = resp.StatusCode == System.Net.HttpStatusCode.Conflict
+                    ? "Otro usuario modificó esta transferencia. Recargá la página."
+                    : $"Error al quitar verificación ({(int)resp.StatusCode}).";
+            }
+        }
+        catch (Exception)
+        {
+            _verified[key] = before;
+            _error = "Error de red al quitar verificación.";
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private (string? kind, int id) ResolveSelectedKind()
+    {
+        if (_periodo is null) return (null, 0);
+
+        if (_periodo.Transferencias.Any(t => t.Id == _selectedId))
+            return ("transferencia", _selectedId);
+
+        if (_periodo.Transferencias.SelectMany(t => t.Compras).Any(c => c.Id == _selectedId))
+            return ("compra", _selectedId);
+
+        if (_periodo.Gastos.Any(g => g.Id == _selectedId))
+            return ("gasto", _selectedId);
+
+        return (null, 0);
+    }
+
+    private void AutoAdvance()
+    {
+        if (_periodo is null) return;
+
+        // Find next unverified transferencia
+        var nextT = _periodo.Transferencias
+            .Where(t => !IsV($"t{t.Id}"))
+            .OrderBy(t => t.Id)
+            .FirstOrDefault();
+        if (nextT is not null)
+        {
+            _selectedId = nextT.Id;
+            return;
+        }
+
+        // Then next unverified compra
+        var nextC = _periodo.Transferencias
+            .SelectMany(t => t.Compras)
+            .Where(c => !IsV($"c{c.Id}"))
+            .OrderBy(c => c.Id)
+            .FirstOrDefault();
+        if (nextC is not null)
+        {
+            _selectedId = nextC.Id;
+            return;
+        }
+
+        // Then next unverified gasto
+        var nextG = _periodo.Gastos
+            .Where(g => !IsV($"g{g.Id}"))
+            .OrderBy(g => g.Id)
+            .FirstOrDefault();
+        if (nextG is not null)
+        {
+            _selectedId = nextG.Id;
+        }
+    }
 
     // ── IDisposable ───────────────────────────────────────────────────────────
     public void Dispose()
