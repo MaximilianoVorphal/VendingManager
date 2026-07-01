@@ -6,11 +6,20 @@ namespace VendingManager.Core.Interfaces;
 public interface IContabilidadService
 {
     Task<Transferencia> CrearTransferenciaConMovimientoAsync(TransferenciaConMovimientoRequest request, CancellationToken ct = default);
+    Task<CuadreCreadoDto> CrearCuadreAsync(CrearCuadreRequest request, CancellationToken ct = default);
     Task<Compra> CrearCompraVinculadaAsync(CompraVinculadaRequest request, CancellationToken ct = default);
     Task<MovimientoCaja> CrearGastoVinculadoAsync(GastoVinculadoRequest request, CancellationToken ct = default);
     Task<IReadOnlyList<TrabajadorActivoDto>> GetTrabajadoresActivosAsync(CancellationToken ct = default);
     Task ActualizarMontoTransferenciaAsync(int transferenciaId, decimal nuevoMonto, CancellationToken ct = default);
     Task DesvincularTransferenciaAsync(int transferenciaId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Links an already-registered Compra to a Transferencia by setting its
+    /// TransferenciaId. Does NOT re-apply stock/costs (already applied at registration).
+    /// Flips the Transferencia from Pendiente to EnUso. Throws if the compra is already
+    /// linked or the transferencia is already Conciliado.
+    /// </summary>
+    Task VincularCompraExistenteAsync(int compraId, int transferenciaId, CancellationToken ct = default);
 
     // AccountingPeriod methods
     Task<List<AccountingPeriodDto>> GetPeriodosAsync(DateTime? desde, DateTime? hasta, CancellationToken ct = default);

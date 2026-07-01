@@ -43,6 +43,29 @@ public class ContabilidadController(
         }
     }
 
+    /// <summary>
+    /// Crea un cuadre completo (período + transferencia 1:1). Cada cuadre es una
+    /// hoja independiente que se concilia contra sus propias compras y gastos.
+    /// </summary>
+    [HttpPost("cuadre")]
+    public async Task<ActionResult<CuadreCreadoDto>> CrearCuadre(
+        [FromBody] CrearCuadreRequest request,
+        CancellationToken ct = default)
+    {
+        if (request.Monto <= 0)
+            return BadRequest("El monto debe ser mayor a cero.");
+
+        try
+        {
+            var dto = await _service.CrearCuadreAsync(request, ct);
+            return CreatedAtAction(nameof(CrearCuadre), new { id = dto.PeriodoId }, dto);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
     [HttpPost("compra-vinculada")]
     public async Task<ActionResult<CompraDto>> CrearCompraVinculada(
         [FromBody] CompraVinculadaRequest request,
@@ -144,6 +167,25 @@ public class ContabilidadController(
             return NotFound(ex.Message);
         }
         catch (Exception ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
+    [HttpPost("transferencia/{transferenciaId}/vincular-compra/{compraId}")]
+    public async Task<IActionResult> VincularCompraExistente(
+        int transferenciaId, int compraId, CancellationToken ct = default)
+    {
+        try
+        {
+            await _service.VincularCompraExistenteAsync(compraId, transferenciaId, ct);
+            return Ok(new { message = "Compra vinculada" });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(ex.Message);
+        }
+        catch (InvalidOperationException ex)
         {
             return BadRequest(ex.Message);
         }
