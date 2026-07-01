@@ -423,6 +423,47 @@ public class InformeVentasPageTests : TestContext
         }, TimeSpan.FromSeconds(2));
     }
 
+    [Fact]
+    public void Exportar_DuringExport_DisablesButton_ShowsSpinner()
+    {
+        _mockHandler.ExportDelayMs = 2000; // Slow response to observe exporting state
+        var cut = RenderComponent<InformeVentas>();
+
+        cut.WaitForAssertion(() =>
+        {
+            _mockHandler.Requests.Should().Contain(r => r.Contains("reporte-rango"));
+        });
+
+        cut.Find("button:contains('Exportar XLS')").Click();
+
+        // During export, a disabled button with spinner should appear
+        cut.WaitForAssertion(() =>
+        {
+            var disabledBtn = cut.Find("button[disabled]");
+            disabledBtn.TextContent.Should().Contain("Exportando");
+        }, TimeSpan.FromSeconds(1));
+    }
+
+    [Fact]
+    public void Exportar_AfterExport_EnablesButton_HidesSpinner()
+    {
+        _mockHandler.ExportReturnsOk = true;
+        var cut = RenderComponent<InformeVentas>();
+
+        cut.WaitForAssertion(() =>
+        {
+            _mockHandler.Requests.Should().Contain(r => r.Contains("reporte-rango"));
+        });
+
+        cut.Find("button:contains('Exportar XLS')").Click();
+
+        // After export completes, the Exportar XLS button should reappear
+        cut.WaitForAssertion(() =>
+        {
+            cut.Find("button:contains('Exportar XLS')");
+        }, TimeSpan.FromSeconds(2));
+    }
+
     // ── WU-3: cancellation and date validation tests ────────────────────────
 
     [Fact]
@@ -691,6 +732,7 @@ public class InformeVentasPageTests : TestContext
         // Export behavior
         public bool ExportReturnsOk { get; set; }
         public bool ExportReturnsError500 { get; set; }
+        public int ExportDelayMs { get; set; }
 
         // Last-sync behavior
         public DateTime? LastSyncResponseValue { get; set; }
@@ -734,6 +776,9 @@ public class InformeVentasPageTests : TestContext
             // ── exportar (GET) ──
             if (url.Contains("exportar"))
             {
+                if (ExportDelayMs > 0)
+                    await Task.Delay(ExportDelayMs, cancellationToken);
+
                 if (ExportReturnsError500)
                 {
                     return new HttpResponseMessage(HttpStatusCode.InternalServerError)
