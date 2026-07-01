@@ -75,6 +75,73 @@ public class ContabilidadService : IContabilidadService
         }
     }
 
+    /// <summary>
+    /// Crea un cuadre completo: un AccountingPeriod con una única Transferencia (1:1),
+    /// más su Rendicion auto-creada para colgar gastos. Cada cuadre es una hoja
+    /// independiente. Todo en una transacción.
+    /// </summary>
+    public async Task<CuadreCreadoDto> CrearCuadreAsync(
+        CrearCuadreRequest request,
+        CancellationToken ct = default)
+    {
+        if (request.Monto <= 0)
+            throw new InvalidOperationException("El monto debe ser mayor a cero.");
+
+        var trabajador = string.IsNullOrWhiteSpace(request.Trabajador)
+            ? "General"
+            : request.Trabajador.Trim();
+
+        await using var transaction = await _context.Database
+            .BeginTransactionAsync(IsolationLevel.ReadCommitted, ct);
+
+        try
+        {
+            // 1. Período propio del cuadre (1:1 con la transferencia)
+            var period = new AccountingPeriod
+            {
+                Name = $"Rendición {trabajador} {request.Fecha:dd/MM/yyyy}",
+                FechaInicio = request.Fecha,
+                FechaFin = request.Fecha.AddMonths(1).AddDays(-1),
+                Trabajador = trabajador,
+                Estado = AccountingPeriodEstado.Abierto
+            };
+            _context.AccountingPeriods.Add(period);
+            await _context.SaveChangesAsync(ct);
+
+            // 2. Rendicion auto-creada para vincular gastos a esta transferencia
+            var rendicion = new Rendicion
+            {
+                Trabajador = trabajador,
+                FechaInicio = request.Fecha,
+                Observaciones = "Auto-creada para cuadre de transferencia"
+            };
+            _context.Rendiciones.Add(rendicion);
+            await _context.SaveChangesAsync(ct);
+
+            // 3. Transferencia única, ligada al período y a su rendición
+            var transferencia = new Transferencia
+            {
+                Fecha = request.Fecha,
+                Monto = request.Monto,
+                Descripcion = request.Descripcion,
+                Trabajador = trabajador,
+                Estado = TransferenciaEstado.Pendiente,
+                RendicionId = rendicion.Id,
+                PeriodoId = period.Id
+            };
+            _context.Transferencias.Add(transferencia);
+            await _context.SaveChangesAsync(ct);
+
+            await transaction.CommitAsync(ct);
+            return new CuadreCreadoDto { PeriodoId = period.Id, TransferenciaId = transferencia.Id };
+        }
+        catch
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
+    }
+
     public async Task<Compra> CrearCompraVinculadaAsync(
         CompraVinculadaRequest request,
         CancellationToken ct = default)
@@ -291,6 +358,51 @@ public class ContabilidadService : IContabilidadService
                 : TransferenciaEstado.EnUso;
 
             _context.Transferencias.Update(transferencia);
+            await _context.SaveChangesAsync(ct);
+            await transaction.CommitAsync(ct);
+        }
+        catch
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
+    }
+
+    public async Task VincularCompraExistenteAsync(
+        int compraId,
+        int transferenciaId,
+        CancellationToken ct = default)
+    {
+        await using var transaction = await _context.Database
+            .BeginTransactionAsync(IsolationLevel.ReadCommitted, ct);
+
+        try
+        {
+            var compra = await _context.Compras
+                .FirstOrDefaultAsync(c => c.Id == compraId, ct)
+                ?? throw new KeyNotFoundException($"Compra {compraId} no encontrada.");
+
+            if (compra.TransferenciaId is not null)
+                throw new InvalidOperationException("La compra ya está vinculada a una transferencia.");
+
+            var transferencia = await _context.Transferencias
+                .FirstOrDefaultAsync(t => t.Id == transferenciaId, ct)
+                ?? throw new KeyNotFoundException($"Transferencia {transferenciaId} no encontrada.");
+
+            if (transferencia.Estado == TransferenciaEstado.Conciliado)
+                throw new InvalidOperationException("No se puede vincular una compra a una transferencia ya conciliada.");
+
+            // Only link the existing purchase — stock/costs were already applied when it
+            // was originally registered, so we must NOT re-apply them here.
+            compra.TransferenciaId = transferenciaId;
+            _context.Compras.Update(compra);
+
+            if (transferencia.Estado == TransferenciaEstado.Pendiente)
+            {
+                transferencia.Estado = TransferenciaEstado.EnUso;
+                _context.Transferencias.Update(transferencia);
+            }
+
             await _context.SaveChangesAsync(ct);
             await transaction.CommitAsync(ct);
         }
