@@ -1,6 +1,17 @@
 @inherits LayoutComponentBase
+@inject IJSRuntime JSRuntime
 
 <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;
             background:var(--paper-100);padding:1rem;">
     @Body
 </div>
+
+@code {
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JSRuntime.InvokeVoidAsync("hideLoader");
+        }
+    }
+}
