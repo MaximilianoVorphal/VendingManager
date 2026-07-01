@@ -73,7 +73,7 @@
             var path = new Uri(NavManager.Uri).AbsolutePath.Trim('/').ToLowerInvariant();
             return path switch
             {
-                "informe-ventas" or "analisis-ventas" => true,
+                "informe-ventas-v2" or "analisis-ventas" => true,
                 _ => false
             };
         }

@@ -86,7 +86,16 @@
                 <VmButton Variant="outline" Bar="true" Width="160px" Icon="bi-cloud-arrow-down" OnClick="Sincronizar">Sincronizar</VmButton>
             }
             <span style="width:1px;height:30px;background:var(--line-300);"></span>
-            <VmButton Variant="outline" Bar="true" Width="160px" Icon="bi-file-earmark-spreadsheet" OnClick="Exportar">Exportar XLS</VmButton>
+            @if (_exporting)
+            {
+                <button disabled style="display:inline-flex;align-items:center;justify-content:center;gap:0.5rem;font-family:var(--font-mono);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;line-height:1;border-radius:0;border:2px solid var(--ink-900);background:transparent;color:var(--ink-900);padding:0.5rem 1rem;font-size:var(--fs-sm);opacity:0.65;cursor:wait;">
+                    <i class="bi bi-arrow-repeat iv-spin"></i>Exportando…
+                </button>
+            }
+            else
+            {
+                <VmButton Variant="outline" Bar="true" Width="160px" Icon="bi-file-earmark-spreadsheet" OnClick="Exportar">Exportar XLS</VmButton>
+            }
             <VmButton Variant="dark" Bar="true" Width="160px" Icon="bi-play-fill" OnClick="EjecutarQuery">Ejecutar query</VmButton>
         </div>
     </div>
@@ -341,6 +350,7 @@
     private string _hasta = DateTime.Today.ToString("yyyy-MM-dd");
     private OpRow? _detail;
     private bool _syncing = false;
+    private bool _exporting = false;
     private DateTime? _lastSyncAt;
     private string LastSyncLabel => _lastSyncAt is null ? "nunca" : TimeAgoHelper.Format(_lastSyncAt.Value, DateTime.Now);
     private string? _error;
@@ -605,6 +615,8 @@
     private void CloseDetail() => _detail = null;
     private async Task Exportar()
     {
+        if (_exporting) return;
+
         _error = null;
         _success = null;
 
@@ -620,6 +632,9 @@
             StateHasChanged();
             return;
         }
+
+        _exporting = true;
+        StateHasChanged();
 
         _loadCts?.Cancel();
         _loadCts = new CancellationTokenSource();
@@ -644,6 +659,11 @@
         catch (Exception ex)
         {
             _error = "Error al exportar: " + ex.Message;
+        }
+        finally
+        {
+            _exporting = false;
+            StateHasChanged();
         }
     }
 
