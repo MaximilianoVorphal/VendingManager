@@ -4,6 +4,7 @@
 @implements IDisposable
 @using System.Globalization
 @using System.Net.Http.Json
+@using Microsoft.AspNetCore.Components.Forms
 @using VendingManager.Shared.DTOs
 @using VendingManager.Shared.Enums
 
@@ -54,12 +55,27 @@
             }
             else if (_periodos.Count > 0)
             {
-                <select value="@_selectedPeriodoId" @onchange="OnPeriodoChanged" style="background:var(--ink-900);color:var(--paper-0);border:2px solid var(--ink-900);border-radius:0;cursor:pointer;font-family:var(--font-mono);font-weight:700;font-size:0.86rem;text-transform:uppercase;letter-spacing:0.5px;padding:0.5rem 0.9rem;">
-                    @foreach (var p in _periodos)
-                    {
-                        <option value="@p.Id">@p.Label</option>
-                    }
-                </select>
+                <!-- Selector de rendición: botón negro (bi-bank · monto · caret) con <select> nativo superpuesto e invisible. -->
+                <div style="position:relative;display:inline-flex;">
+                    <div aria-hidden="true" style="display:flex;align-items:center;gap:10px;background:var(--ink-900);color:var(--paper-0);border:2px solid var(--ink-900);border-radius:0;font-family:var(--font-mono);font-weight:700;font-size:0.86rem;text-transform:uppercase;letter-spacing:0.5px;padding:0.5rem 0.9rem;white-space:nowrap;pointer-events:none;">
+                        <i class="bi bi-bank"></i>
+                        @if (_periodo is not null)
+                        {
+                            <span>@Fmt(_periodo.TotalTransferido) — @_periodo.Trabajador</span>
+                        }
+                        else
+                        {
+                            <span>Seleccionar rendición</span>
+                        }
+                        <span style="opacity:0.7;">▾</span>
+                    </div>
+                    <select value="@_selectedPeriodoId" @onchange="OnPeriodoChanged" aria-label="Seleccionar período de rendición" style="position:absolute;inset:0;width:100%;height:100%;margin:0;padding:0;border:0;opacity:0;cursor:pointer;">
+                        @foreach (var p in _periodos)
+                        {
+                            <option value="@p.Id">@p.Label</option>
+                        }
+                    </select>
+                </div>
                 @if (_periodo is not null)
                 {
                     <span style="font-family:var(--font-mono);font-weight:700;font-size:0.62rem;text-transform:uppercase;letter-spacing:1px;background:@(_periodo.Estado == AccountingPeriodEstado.Abierto ? "var(--signal-success)" : "var(--text-muted)");color:#fff;padding:4px 9px;">@(_periodo.Estado == AccountingPeriodEstado.Abierto ? "Abierta" : "Cerrada")</span>
@@ -67,14 +83,14 @@
             }
         </div>
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-            <VmButton Variant="outline" Bar="true" Icon="bi-bank" OnClick="() => _showTransfModal = true">Transferencia</VmButton>
+            <VmButton Variant="outline" Bar="true" Icon="bi-bank" OnClick="() => _showTransfModal = true">Crear Transferencia</VmButton>
             @if (_periodo is not null && _periodo.Transferencias.Count == 0)
             {
                 <span style="font-family:var(--font-mono);font-size:0.62rem;color:var(--signal-warning);text-transform:uppercase;letter-spacing:0.5px;">Necesitás al menos una transferencia para registrar una compra/gasto</span>
             }
             else
             {
-                <VmButton Variant="outline" Bar="true" Icon="bi-cart" OnClick="() => _showCompraModal = true">Compra</VmButton>
+                <VmButton Variant="outline" Bar="true" Icon="bi-cart" OnClick="AbrirCompraModal">Compra</VmButton>
                 <VmButton Variant="outline" Bar="true" Icon="bi-receipt" OnClick="() => _showGastoModal = true">Gasto</VmButton>
             }
             <VmButton Variant="dark" Bar="true" Icon="bi-box-arrow-up-right">Ir a caja</VmButton>
@@ -133,25 +149,66 @@
     <div style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:2000;display:flex;align-items:center;justify-content:center;padding:16px;" @onclick="() => _showCompraModal = false">
         <div class="con-modal" style="width:100%;max-width:420px;background:var(--paper-0);border:2px solid var(--ink-900);box-shadow:4px 4px 0 #000;" @onclick:stopPropagation="true">
             <div style="background:var(--ink-900);color:#fff;display:flex;justify-content:space-between;align-items:center;padding:0.6rem 0.9rem;font-family:var(--font-mono);font-weight:700;text-transform:uppercase;letter-spacing:1px;">
-                <span>Nueva compra</span>
+                <span>Compra</span>
                 <span style="cursor:pointer;font-size:1.2rem;line-height:1;" @onclick="() => _showCompraModal = false">×</span>
             </div>
+            <!-- pestañas -->
+            <div style="display:flex;border-bottom:2px solid var(--ink-900);">
+                <button @onclick='() => _compraTab = "vincular"' style="flex:1;font-family:var(--font-mono);font-weight:700;font-size:0.68rem;text-transform:uppercase;letter-spacing:0.5px;border:none;border-radius:0;cursor:pointer;padding:9px;background:@(_compraTab == "vincular" ? "var(--ink-900)" : "var(--paper-0)");color:@(_compraTab == "vincular" ? "#fff" : "var(--ink-900)");">Vincular existente</button>
+                <button @onclick='() => _compraTab = "crear"' style="flex:1;font-family:var(--font-mono);font-weight:700;font-size:0.68rem;text-transform:uppercase;letter-spacing:0.5px;border:none;border-left:2px solid var(--ink-900);border-radius:0;cursor:pointer;padding:9px;background:@(_compraTab == "crear" ? "var(--ink-900)" : "var(--paper-0)");color:@(_compraTab == "crear" ? "#fff" : "var(--ink-900)");">Crear nueva</button>
+            </div>
             <div style="padding:1.2rem;">
-                <div style="display:flex;flex-direction:column;gap:10px;">
-                    <div>
-                        <label style="font-family:var(--font-mono);font-weight:700;font-size:0.62rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);">Proveedor</label>
-                        <input id="compra-proveedor" type="text" @bind="_compraProveedor" style="width:100%;padding:8px;border:2px solid var(--ink-900);font-family:var(--font-mono);font-size:0.82rem;" />
+                @if (_compraTab == "vincular")
+                {
+                    <div style="display:flex;flex-direction:column;gap:10px;">
+                        <input type="text" placeholder="Buscar proveedor o Nº documento…" @bind="_boletaBusqueda" @bind:event="oninput" style="width:100%;padding:8px;border:2px solid var(--ink-900);font-family:var(--font-mono);font-size:0.82rem;" />
+                        @if (_compraError is not null)
+                        {
+                            <IndustrialAlert Message="@_compraError" Variant="IndustrialAlert.AlertVariant.Danger" />
+                        }
+                        @if (_cargandoBoletas)
+                        {
+                            <p style="font-family:var(--font-mono);font-size:0.72rem;color:var(--text-muted);text-align:center;margin:0.6rem 0;">Cargando boletas…</p>
+                        }
+                        else if (!BoletasFiltradas.Any())
+                        {
+                            <p style="font-family:var(--font-mono);font-size:0.72rem;color:var(--text-muted);text-align:center;margin:0.6rem 0;">No hay boletas sin vincular.</p>
+                        }
+                        else
+                        {
+                            <div style="display:flex;flex-direction:column;max-height:320px;overflow-y:auto;border:1px solid var(--ink-900);">
+                                @foreach (var b in BoletasFiltradas)
+                                {
+                                    <button @onclick="() => VincularBoleta(b.Id)" style="display:flex;align-items:center;justify-content:space-between;gap:10px;text-align:left;font-family:var(--font-mono);border:none;border-bottom:1px solid var(--line-200);border-radius:0;cursor:pointer;background:var(--paper-0);padding:9px 11px;">
+                                        <span style="display:flex;flex-direction:column;gap:2px;overflow:hidden;">
+                                            <span style="font-weight:700;font-size:0.76rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">@b.Proveedor</span>
+                                            <span style="font-size:0.64rem;color:var(--text-muted);">#@(b.NumeroDocumento ?? "—") · @b.FechaCompra.ToString("dd/MM/yyyy")</span>
+                                        </span>
+                                        <span style="font-weight:700;font-size:0.82rem;white-space:nowrap;">@Fmt(b.MontoTotal)</span>
+                                    </button>
+                                }
+                            </div>
+                        }
                     </div>
-                    <div>
-                        <label style="font-family:var(--font-mono);font-weight:700;font-size:0.62rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);">Monto</label>
-                        <input id="compra-monto" type="number" @bind="_compraMonto" style="width:100%;padding:8px;border:2px solid var(--ink-900);font-family:var(--font-mono);font-size:0.82rem;" />
+                }
+                else
+                {
+                    <div style="display:flex;flex-direction:column;gap:10px;">
+                        <div>
+                            <label style="font-family:var(--font-mono);font-weight:700;font-size:0.62rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);">Proveedor</label>
+                            <input id="compra-proveedor" type="text" @bind="_compraProveedor" style="width:100%;padding:8px;border:2px solid var(--ink-900);font-family:var(--font-mono);font-size:0.82rem;" />
+                        </div>
+                        <div>
+                            <label style="font-family:var(--font-mono);font-weight:700;font-size:0.62rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);">Monto</label>
+                            <input id="compra-monto" type="number" @bind="_compraMonto" style="width:100%;padding:8px;border:2px solid var(--ink-900);font-family:var(--font-mono);font-size:0.82rem;" />
+                        </div>
+                        @if (_compraError is not null)
+                        {
+                            <IndustrialAlert Message="@_compraError" Variant="IndustrialAlert.AlertVariant.Danger" />
+                        }
+                        <VmButton Variant="dark" Block="true" OnClick="CrearCompra">Crear compra</VmButton>
                     </div>
-                    @if (_compraError is not null)
-                    {
-                        <IndustrialAlert Message="@_compraError" Variant="IndustrialAlert.AlertVariant.Danger" />
-                    }
-                    <VmButton Variant="dark" Block="true" OnClick="CrearCompra">Crear compra</VmButton>
-                </div>
+                }
             </div>
         </div>
     </div>
@@ -231,7 +288,7 @@
                     <!-- filas -->
                     @foreach (var r in sec.Rows)
                     {
-                        <div class="con-row" @onclick="() => _selectedId = r.Id" style="position:relative;display:flex;align-items:center;gap:11px;padding:9px 12px 9px 14px;border-bottom:1px solid var(--line-200);background:var(--paper-0);cursor:pointer;">
+                        <div class="con-row" @onclick="() => SelectRow(r.Id)" style="position:relative;display:flex;align-items:center;gap:11px;padding:9px 12px 9px 14px;border-bottom:1px solid var(--line-200);background:var(--paper-0);cursor:pointer;">
                             @if (r.Selected)
                             {
                                 <div style="position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--ink-900);"></div>
@@ -279,6 +336,10 @@
                 <!-- datos del documento -->
                 <div style="padding:0 0.95rem 0.5rem;">
                     <div style="font-family:var(--font-sans);font-weight:700;font-size:1rem;text-transform:uppercase;letter-spacing:-0.3px;line-height:1.15;margin-bottom:8px;">@sel.Titulo</div>
+                    @if (sel.KindLabel == "Compra" && !string.IsNullOrWhiteSpace(sel.RawProveedor) && !string.Equals(sel.RawProveedor, sel.Canonical, StringComparison.OrdinalIgnoreCase))
+                    {
+                        <div style="font-family:var(--font-mono);font-size:0.64rem;color:var(--text-muted);margin:-4px 0 8px;">OCR: @sel.RawProveedor</div>
+                    }
                     <div style="display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-family:var(--font-mono);font-size:0.74rem;align-items:baseline;">
                         <span style="color:var(--text-muted);font-weight:700;text-transform:uppercase;font-size:0.62rem;">@sel.F1Label</span><span style="font-weight:700;text-align:right;">@sel.F1</span>
                         <span style="color:var(--text-muted);font-weight:700;text-transform:uppercase;font-size:0.62rem;">@sel.F2Label</span><span style="font-weight:700;text-align:right;">@sel.F2</span>
@@ -288,11 +349,65 @@
                     </div>
                 </div>
 
+                <!-- corregir proveedor (inline, solo compras) -->
+                @if (sel.KindLabel == "Compra")
+                {
+                    <div style="margin:0 0.95rem 0.7rem;">
+                        @if (!_reasignarOpen)
+                        {
+                            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                                @if (sel.CatalogId is null)
+                                {
+                                    <span style="font-family:var(--font-mono);font-weight:700;font-size:0.58rem;text-transform:uppercase;letter-spacing:0.5px;background:var(--signal-warning);color:var(--ink-900);padding:2px 7px;">Sin proveedor</span>
+                                }
+                                <button @onclick="AbrirReasignar" style="display:flex;align-items:center;gap:6px;font-family:var(--font-mono);font-weight:700;font-size:0.64rem;text-transform:uppercase;letter-spacing:0.5px;background:var(--paper-0);color:var(--ink-900);border:2px solid var(--ink-900);border-radius:0;cursor:pointer;padding:6px 11px;"><i class="bi bi-pencil"></i> Corregir proveedor</button>
+                            </div>
+                        }
+                        else
+                        {
+                            <div style="display:flex;flex-direction:column;gap:8px;border:2px solid var(--ink-900);padding:10px;">
+                                <label style="font-family:var(--font-mono);font-weight:700;font-size:0.62rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);">Proveedor</label>
+                                <select @bind="_reasignarCatalogId" style="width:100%;padding:8px;border:2px solid var(--ink-900);border-radius:0;font-family:var(--font-mono);font-size:0.78rem;background:var(--paper-0);">
+                                    <option value="0">— Elegí un proveedor —</option>
+                                    @foreach (var p in _proveedores)
+                                    {
+                                        <option value="@p.Id">@p.NombreCanonical</option>
+                                    }
+                                    <option value="-1">+ Nuevo proveedor…</option>
+                                </select>
+                                @if (_reasignarCatalogId == -1)
+                                {
+                                    <input type="text" placeholder="Nombre del nuevo proveedor" @bind="_reasignarNuevoNombre" style="width:100%;padding:8px;border:2px solid var(--ink-900);font-family:var(--font-mono);font-size:0.78rem;" />
+                                }
+                                @if (_reasignarError is not null)
+                                {
+                                    <IndustrialAlert Message="@_reasignarError" Variant="IndustrialAlert.AlertVariant.Danger" />
+                                }
+                                <div style="display:flex;gap:8px;">
+                                    <button @onclick="() => _reasignarOpen = false" style="flex:1;font-family:var(--font-mono);font-weight:700;font-size:0.66rem;text-transform:uppercase;letter-spacing:0.5px;background:var(--paper-0);color:var(--text-muted);border:2px solid var(--line-200);border-radius:0;cursor:pointer;padding:8px;">Cancelar</button>
+                                    <button @onclick="ConfirmarReasignar" disabled="@_reasignando" style="flex:2;font-family:var(--font-mono);font-weight:700;font-size:0.66rem;text-transform:uppercase;letter-spacing:0.5px;background:var(--ink-900);color:#fff;border:2px solid var(--ink-900);border-radius:0;cursor:@(_reasignando ? "wait" : "pointer");padding:8px;">@(_reasignando ? "Guardando…" : "Confirmar")</button>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+
                 <!-- selector de archivo -->
-                <div style="margin:0 0.95rem 0.7rem;display:flex;border:1px solid var(--ink-900);">
-                    <span style="background:var(--bg-surface-inset);border-right:1px solid var(--ink-900);font-family:var(--font-mono);font-weight:700;font-size:0.64rem;text-transform:uppercase;letter-spacing:0.5px;padding:7px 10px;white-space:nowrap;">Elegir archivo</span>
-                    <span style="flex:1;font-family:var(--font-mono);font-size:0.68rem;color:var(--text-muted);padding:7px 10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">@sel.FileName</span>
-                </div>
+                @if (sel.KindLabel == "Transferencia" || sel.KindLabel == "Compra")
+                {
+                    <label style="margin:0 0.95rem 0.7rem;display:flex;border:1px solid var(--ink-900);cursor:@(_uploadingComprobante ? "wait" : "pointer");">
+                        <span style="background:var(--bg-surface-inset);border-right:1px solid var(--ink-900);font-family:var(--font-mono);font-weight:700;font-size:0.64rem;text-transform:uppercase;letter-spacing:0.5px;padding:7px 10px;white-space:nowrap;">@(_uploadingComprobante ? "Subiendo…" : "Elegir archivo")</span>
+                        <span style="flex:1;font-family:var(--font-mono);font-size:0.68rem;color:var(--text-muted);padding:7px 10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">@sel.FileName</span>
+                        <InputFile OnChange="OnComprobanteSelected" accept="image/*,application/pdf" disabled="@_uploadingComprobante" style="display:none;" />
+                    </label>
+                }
+                else
+                {
+                    <div style="margin:0 0.95rem 0.7rem;display:flex;border:1px solid var(--ink-900);">
+                        <span style="background:var(--bg-surface-inset);border-right:1px solid var(--ink-900);font-family:var(--font-mono);font-weight:700;font-size:0.64rem;text-transform:uppercase;letter-spacing:0.5px;padding:7px 10px;white-space:nowrap;">Elegir archivo</span>
+                        <span style="flex:1;font-family:var(--font-mono);font-size:0.68rem;color:var(--text-muted);padding:7px 10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">@sel.FileName</span>
+                    </div>
+                }
 
                 @if (sel.HasComprobante)
                 {
@@ -320,7 +435,10 @@
                 else
                 {
                     <div style="display:flex;gap:9px;">
-                        <button @onclick="Unverify" style="flex-shrink:0;display:flex;align-items:center;gap:6px;font-family:var(--font-mono);font-weight:700;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.5px;background:var(--paper-0);color:var(--signal-danger);border:2px solid var(--signal-danger);border-radius:0;cursor:pointer;padding:9px 12px;"><i class="bi bi-x-lg"></i> Rechazar</button>
+                        @if (sel.KindLabel == "Compra")
+                        {
+                            <button @onclick="DesvincularBoleta" style="flex-shrink:0;display:flex;align-items:center;gap:6px;font-family:var(--font-mono);font-weight:700;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.5px;background:var(--paper-0);color:var(--signal-danger);border:2px solid var(--signal-danger);border-radius:0;cursor:pointer;padding:9px 12px;"><i class="bi bi-trash"></i> Eliminar</button>
+                        }
                         <button @onclick="VerifyAndNext" style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;font-family:var(--font-mono);font-weight:700;font-size:0.78rem;text-transform:uppercase;letter-spacing:0.5px;background:var(--ink-900);color:#fff;border:2px solid var(--ink-900);border-radius:0;cursor:pointer;padding:9px;"><i class="bi bi-check2-all"></i> Verificar y seguir</button>
                     </div>
                 }
@@ -387,6 +505,10 @@
             <div style="padding:1.2rem;">
                 <div style="display:flex;flex-direction:column;gap:10px;">
                     <div>
+                        <label style="font-family:var(--font-mono);font-weight:700;font-size:0.62rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);">Fecha</label>
+                        <input id="transf-fecha" type="date" @bind="_transfFecha" style="width:100%;padding:8px;border:2px solid var(--ink-900);font-family:var(--font-mono);font-size:0.82rem;" />
+                    </div>
+                    <div>
                         <label style="font-family:var(--font-mono);font-weight:700;font-size:0.62rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);">Monto</label>
                         <input id="transf-monto" type="number" @bind="_transfMonto" style="width:100%;padding:8px;border:2px solid var(--ink-900);font-family:var(--font-mono);font-size:0.82rem;" />
                     </div>
@@ -394,11 +516,19 @@
                         <label style="font-family:var(--font-mono);font-weight:700;font-size:0.62rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);">Trabajador</label>
                         <input id="transf-trabajador" type="text" @bind="_transfTrabajador" style="width:100%;padding:8px;border:2px solid var(--ink-900);font-family:var(--font-mono);font-size:0.82rem;" />
                     </div>
+                    <div>
+                        <label style="font-family:var(--font-mono);font-weight:700;font-size:0.62rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);">Comprobante (opcional)</label>
+                        <InputFile OnChange="OnTransfFotoSelected" accept="image/*,application/pdf" style="width:100%;padding:8px;border:2px solid var(--ink-900);font-family:var(--font-mono);font-size:0.72rem;" />
+                        @if (_transfFoto is not null)
+                        {
+                            <div style="font-family:var(--font-mono);font-size:0.66rem;color:var(--text-muted);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">@_transfFoto.Name</div>
+                        }
+                    </div>
                     @if (_transfError is not null)
                     {
                         <IndustrialAlert Message="@_transfError" Variant="IndustrialAlert.AlertVariant.Danger" />
                     }
-                    <VmButton Variant="dark" Block="true" OnClick="CrearTransferencia">Crear transferencia</VmButton>
+                    <VmButton Variant="dark" Block="true" OnClick="CrearCuadre">Crear transferencia</VmButton>
                 </div>
             </div>
         </div>
@@ -418,14 +548,36 @@
 #pragma warning restore CS0414
     private decimal _transfMonto;
     private string _transfTrabajador = string.Empty;
+    private DateTime _transfFecha = DateTime.Today;
+    private IBrowserFile? _transfFoto;
     private string? _transfError;
     private string? _comprobanteError;
+    private bool _uploadingComprobante;
     private string? _successMessage;
 
     // ── Compra modal state ────────────────────────────────────────────────────
+    private string _compraTab = "vincular"; // "vincular" | "crear"
     private string _compraProveedor = string.Empty;
     private decimal _compraMonto;
     private string? _compraError;
+    private List<CompraDto> _boletasSinVincular = new();
+    private string _boletaBusqueda = string.Empty;
+    private bool _cargandoBoletas;
+
+    private IEnumerable<CompraDto> BoletasFiltradas =>
+        string.IsNullOrWhiteSpace(_boletaBusqueda)
+            ? _boletasSinVincular
+            : _boletasSinVincular.Where(b =>
+                (b.Proveedor?.Contains(_boletaBusqueda, StringComparison.OrdinalIgnoreCase) ?? false)
+                || (b.NumeroDocumento?.Contains(_boletaBusqueda, StringComparison.OrdinalIgnoreCase) ?? false));
+
+    // ── Reasignar proveedor (inline) ──────────────────────────────────────────
+    private bool _reasignarOpen;
+    private bool _reasignando;
+    private int _reasignarCatalogId; // 0 = ninguno, -1 = crear nuevo, >0 = id de catálogo
+    private string _reasignarNuevoNombre = string.Empty;
+    private string? _reasignarError;
+    private List<ProveedorCatalogDto> _proveedores = new();
 
     // ── Gasto modal state ─────────────────────────────────────────────────────
     private decimal _gastoMonto;
@@ -446,7 +598,7 @@
     private record PeriodoOpcion(int Id, string Label);
     private record RowVm(int Id, string Titulo, string Sub, string TipoTag, string MontoFmt, bool MontoPos, string ThumbIcon, bool Verified, bool Selected, bool HasComprobante);
     private record SectionVm(string Title, string Icon, int Count, string TotalFmt, bool TotalPos, IReadOnlyList<RowVm> Rows);
-    private record SelVm(string KindLabel, string BigIcon, string ImgCaption, string Titulo, string F1Label, string F1, string F2Label, string F2, string TipoTag, string MontoFmt, bool MontoPos, string FileName, bool Verified, bool HasComprobante);
+    private record SelVm(string KindLabel, string BigIcon, string ImgCaption, string Titulo, string F1Label, string F1, string F2Label, string F2, string TipoTag, string MontoFmt, bool MontoPos, string FileName, bool Verified, bool HasComprobante, int CompraId = 0, string? Canonical = null, int? CatalogId = null, string? RawProveedor = null);
     private record FiltroVm(string Key, string Label);
 
     private static readonly FiltroVm[] Filtros =
@@ -581,10 +733,11 @@
         if (c is not null)
         {
             return new("Compra", "bi-receipt", "Foto boleta",
-                c.Proveedor.ToUpperInvariant(), "Nº documento", c.NumeroDocumento ?? "—", "Fecha", $"{c.FechaCompra:dd/MM/yyyy}",
+                (c.ProveedorCanonical ?? c.Proveedor).ToUpperInvariant(), "Nº documento", c.NumeroDocumento ?? "—", "Fecha", $"{c.FechaCompra:dd/MM/yyyy}",
                 c.TipoFactura, Fmt(-c.MontoTotal), false,
                 c.FacturaImagenPath ?? "No se eligió ningún archivo",
-                IsV($"c{c.Id}"), c.FacturaImagenPath is not null);
+                IsV($"c{c.Id}"), c.FacturaImagenPath is not null,
+                c.Id, c.ProveedorCanonical, c.ProveedorCatalogId, c.Proveedor);
         }
 
         // Check gastos
@@ -608,7 +761,7 @@
         await CargarPeriodos(_loadCts.Token);
     }
 
-    private async Task CargarPeriodos(CancellationToken ct)
+    private async Task CargarPeriodos(CancellationToken ct, int? selectId = null)
     {
         _loading = true;
         _error = null;
@@ -623,7 +776,9 @@
                     p.Id,
                     $"{p.Trabajador} · {p.FechaInicio:dd/MM} – {p.FechaFin:dd/MM}"
                 )).ToList();
-                _selectedPeriodoId = data[0].Id;
+                _selectedPeriodoId = selectId is not null && data.Any(p => p.Id == selectId)
+                    ? selectId.Value
+                    : data[0].Id;
                 await CargarPeriodoDetalle(_selectedPeriodoId, ct);
             }
         }
@@ -767,6 +922,166 @@
         await InvokeAsync(StateHasChanged);
     }
 
+    /// <summary>
+    /// Uploads the selected file as the comprobante/factura image of the currently
+    /// selected document. Transferencia → contabilidad comprobante endpoint;
+    /// Compra → compras factura endpoint. Gasto has no upload endpoint.
+    /// </summary>
+    private async Task OnComprobanteSelected(InputFileChangeEventArgs e)
+    {
+        if (e.FileCount == 0) return;
+
+        var (kind, id) = ResolveSelectedKind();
+        if (kind != "transferencia" && kind != "compra") return;
+
+        var file = e.File;
+        _comprobanteError = null;
+        _uploadingComprobante = true;
+        StateHasChanged();
+
+        try
+        {
+            using var content = new MultipartFormDataContent();
+            var stream = file.OpenReadStream(10 * 1024 * 1024);
+            var fileContent = new StreamContent(stream);
+            fileContent.Headers.ContentType =
+                new System.Net.Http.Headers.MediaTypeHeaderValue(file.ContentType);
+            content.Add(fileContent, "file", file.Name);
+
+            var url = kind == "transferencia"
+                ? $"api/contabilidad/transferencia/{id}/comprobante"
+                : $"api/compras/{id}/factura";
+
+            var resp = await Http.PostAsync(url, content);
+            if (!resp.IsSuccessStatusCode)
+                _comprobanteError = $"Error al subir el comprobante ({(int)resp.StatusCode}).";
+            else
+                await CargarPeriodos(CancellationToken.None, selectId: _periodo?.Id);
+        }
+        catch (Exception)
+        {
+            _comprobanteError = "Error de red al subir el comprobante.";
+        }
+
+        _uploadingComprobante = false;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    /// <summary>
+    /// Unlinks the selected Compra from its Transferencia (sets TransferenciaId = null)
+    /// without deleting the Compra from the database. Only applies to compras.
+    /// </summary>
+    private async Task DesvincularBoleta()
+    {
+        var (kind, id) = ResolveSelectedKind();
+        if (kind != "compra") return;
+
+        _error = null;
+        try
+        {
+            var resp = await Http.DeleteAsync($"api/compras/{id}/transferencia");
+            if (!resp.IsSuccessStatusCode)
+                _error = $"Error al desvincular la boleta ({(int)resp.StatusCode}).";
+            else
+                await CargarPeriodos(CancellationToken.None, selectId: _periodo?.Id);
+        }
+        catch (Exception)
+        {
+            _error = "Error de red al desvincular la boleta.";
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void SelectRow(int id)
+    {
+        _selectedId = id;
+        _reasignarOpen = false; // cerrar el editor de proveedor al cambiar de documento
+    }
+
+    // ── Reasignar proveedor (inline) ──────────────────────────────────────────
+    private async Task AbrirReasignar()
+    {
+        _reasignarError = null;
+        _reasignarNuevoNombre = string.Empty;
+        var compra = _periodo?.Transferencias.SelectMany(t => t.Compras).FirstOrDefault(x => x.Id == _selectedId);
+        _reasignarCatalogId = compra?.ProveedorCatalogId ?? 0;
+        _reasignarOpen = true;
+
+        if (!_proveedores.Any())
+        {
+            try
+            {
+                _proveedores = await Http.GetFromJsonAsync<List<ProveedorCatalogDto>>("api/proveedores") ?? new();
+            }
+            catch (Exception)
+            {
+                _reasignarError = "Error al cargar proveedores.";
+            }
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task ConfirmarReasignar()
+    {
+        var compra = _periodo?.Transferencias.SelectMany(t => t.Compras).FirstOrDefault(x => x.Id == _selectedId);
+        if (compra is null) return;
+
+        ReasignarProveedorRequestDto request;
+        if (_reasignarCatalogId == -1)
+        {
+            if (string.IsNullOrWhiteSpace(_reasignarNuevoNombre))
+            {
+                _reasignarError = "Ingresá el nombre del nuevo proveedor.";
+                return;
+            }
+            request = new ReasignarProveedorRequestDto { NuevoNombreCanonical = _reasignarNuevoNombre.Trim() };
+        }
+        else if (_reasignarCatalogId > 0)
+        {
+            request = new ReasignarProveedorRequestDto { ProveedorCatalogId = _reasignarCatalogId };
+        }
+        else
+        {
+            _reasignarError = "Elegí un proveedor o creá uno nuevo.";
+            return;
+        }
+
+        _reasignando = true;
+        _reasignarError = null;
+        await InvokeAsync(StateHasChanged);
+
+        try
+        {
+            var resp = await Http.PostAsJsonAsync($"api/compras/{compra.Id}/proveedor", request);
+            if (resp.IsSuccessStatusCode)
+            {
+                _reasignarOpen = false;
+                _proveedores.Clear(); // recargar la próxima vez (puede haberse creado uno nuevo)
+                _loadCts ??= new CancellationTokenSource();
+                await CargarPeriodoDetalle(_selectedPeriodoId, _loadCts.Token);
+            }
+            else if ((int)resp.StatusCode == 404)
+            {
+                _reasignarError = "La compra ya no existe.";
+            }
+            else
+            {
+                _reasignarError = "No se pudo reasignar el proveedor.";
+            }
+        }
+        catch (Exception)
+        {
+            _reasignarError = "Error de red al reasignar.";
+        }
+        finally
+        {
+            _reasignando = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
     private (string? kind, int id) ResolveSelectedKind()
     {
         if (_periodo is null) return (null, 0);
@@ -858,9 +1173,18 @@
     }
 
     // ── Header modals ─────────────────────────────────────────────────────────
-    private async Task CrearTransferencia()
+    private void OnTransfFotoSelected(InputFileChangeEventArgs e)
     {
-        if (_periodo is null || _transfMonto <= 0)
+        _transfFoto = e.FileCount > 0 ? e.File : null;
+    }
+
+    /// <summary>
+    /// Crea un cuadre nuevo (período + transferencia 1:1) y, si hay foto, sube el
+    /// comprobante. Cada transferencia es su propia hoja seleccionable en el header.
+    /// </summary>
+    private async Task CrearCuadre()
+    {
+        if (_transfMonto <= 0)
         {
             _transfError = "El monto debe ser mayor a cero.";
             return;
@@ -869,30 +1193,105 @@
         _transfError = null;
         try
         {
-            var request = new TransferenciaConMovimientoRequest
+            var request = new CrearCuadreRequest
             {
-                PeriodoId = _periodo.Id,
                 Trabajador = _transfTrabajador,
                 Monto = _transfMonto,
-                Fecha = DateTime.Today
+                Fecha = _transfFecha
             };
-            var resp = await Http.PostAsJsonAsync("api/contabilidad/transferencia-con-movimiento", request);
+            var resp = await Http.PostAsJsonAsync("api/contabilidad/cuadre", request);
+            if (!resp.IsSuccessStatusCode)
+            {
+                var body = await resp.Content.ReadAsStringAsync();
+                _transfError = $"Error: {body}";
+                await InvokeAsync(StateHasChanged);
+                return;
+            }
+
+            var created = await resp.Content.ReadFromJsonAsync<CuadreCreadoDto>();
+            if (created is not null && _transfFoto is not null)
+            {
+                using var content = new MultipartFormDataContent();
+                var stream = _transfFoto.OpenReadStream(10 * 1024 * 1024);
+                var fileContent = new StreamContent(stream);
+                fileContent.Headers.ContentType =
+                    new System.Net.Http.Headers.MediaTypeHeaderValue(_transfFoto.ContentType);
+                content.Add(fileContent, "file", _transfFoto.Name);
+                await Http.PostAsync(
+                    $"api/contabilidad/transferencia/{created.TransferenciaId}/comprobante", content);
+            }
+
+            _showTransfModal = false;
+            _transfMonto = 0;
+            _transfTrabajador = string.Empty;
+            _transfFecha = DateTime.Today;
+            _transfFoto = null;
+            await CargarPeriodos(CancellationToken.None, selectId: created?.PeriodoId);
+        }
+        catch (Exception)
+        {
+            _transfError = "Error de red al crear la transferencia.";
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task AbrirCompraModal()
+    {
+        _compraTab = "vincular";
+        _compraError = null;
+        _boletaBusqueda = string.Empty;
+        _showCompraModal = true;
+        await CargarBoletasSinVincular();
+    }
+
+    private async Task CargarBoletasSinVincular()
+    {
+        _cargandoBoletas = true;
+        StateHasChanged();
+        try
+        {
+            var data = await Http.GetFromJsonAsync<List<CompraDto>>("api/rendicion/compras-no-vinculadas");
+            _boletasSinVincular = data ?? new();
+        }
+        catch (Exception)
+        {
+            _boletasSinVincular = new();
+            _compraError = "Error al cargar las boletas sin vincular.";
+        }
+        _cargandoBoletas = false;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    /// <summary>
+    /// Links an already-registered boleta to the current period's transferencia and
+    /// refreshes both the pending list and the period detail. Keeps the modal open so
+    /// the user can link several in a row.
+    /// </summary>
+    private async Task VincularBoleta(int compraId)
+    {
+        if (_periodo is null) return;
+
+        _compraError = null;
+        try
+        {
+            var transf = _periodo.Transferencias.First();
+            var resp = await Http.PostAsync(
+                $"api/contabilidad/transferencia/{transf.Id}/vincular-compra/{compraId}", null);
             if (resp.IsSuccessStatusCode)
             {
-                _showTransfModal = false;
-                _transfMonto = 0;
-                _transfTrabajador = string.Empty;
                 await CargarPeriodoDetalle(_periodo.Id, CancellationToken.None);
+                await CargarBoletasSinVincular();
             }
             else
             {
                 var body = await resp.Content.ReadAsStringAsync();
-                _transfError = $"Error: {body}";
+                _compraError = $"Error: {body}";
             }
         }
         catch (Exception)
         {
-            _transfError = "Error de red al crear transferencia.";
+            _compraError = "Error de red al vincular la boleta.";
         }
 
         await InvokeAsync(StateHasChanged);
