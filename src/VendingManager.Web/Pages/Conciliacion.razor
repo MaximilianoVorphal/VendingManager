@@ -280,7 +280,7 @@
                 <p style="font-family:var(--font-mono);font-size:0.78rem;color:var(--text-secondary);margin:0.5rem 0 1.2rem;">Saldo a devolver por @_periodo.Trabajador. Esta acción cierra la rendición.</p>
                 <div style="display:flex;gap:10px;">
                     <VmButton Variant="outline" Block="true" OnClick="() => _modalOpen = false">Cancelar</VmButton>
-                    <VmButton Variant="dark" Block="true" OnClick="() => _modalOpen = false">Confirmar</VmButton>
+                    <VmButton Variant="dark" Block="true" OnClick="ConfirmarDevolucion">Confirmar</VmButton>
                 </div>
             </div>
         </div>
@@ -679,6 +679,41 @@
         {
             _selectedId = nextG.Id;
         }
+    }
+
+    // ── Devolución ────────────────────────────────────────────────────────────
+    private async Task ConfirmarDevolucion()
+    {
+        if (_periodo is null) return;
+
+        _error = null;
+        try
+        {
+            var request = new RegistrarDevolucionRequest
+            {
+                PeriodoId = _periodo.Id,
+                Trabajador = _periodo.Trabajador ?? string.Empty,
+                Monto = _periodo.Diferencia,
+                Fecha = DateTime.Today
+            };
+            var resp = await Http.PostAsJsonAsync("api/contabilidad/devolucion", request);
+            if (resp.IsSuccessStatusCode)
+            {
+                _modalOpen = false;
+                await CargarPeriodoDetalle(_periodo.Id, CancellationToken.None);
+            }
+            else
+            {
+                var body = await resp.Content.ReadAsStringAsync();
+                _error = $"Error al registrar devolución: {body}";
+            }
+        }
+        catch (Exception)
+        {
+            _error = "Error de red al registrar devolución.";
+        }
+
+        await InvokeAsync(StateHasChanged);
     }
 
     // ── IDisposable ───────────────────────────────────────────────────────────

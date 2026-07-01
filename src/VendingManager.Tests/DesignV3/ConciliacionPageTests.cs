@@ -291,6 +291,81 @@ public class ConciliacionPageTests : TestContext
         }, TimeSpan.FromSeconds(10));
     }
 
+    // ── Task 2.5: Devolución modal ────────────────────────────────────────────
+
+    [Fact]
+    public void ConfirmarDevolucion_Post201_CierraModalYRefresca()
+    {
+        // Configure mock for successful POST (devolucion returns 201)
+        _mockHandler.PostResponse = HttpStatusCode.Created;
+
+        var cut = RenderComponent<Conciliacion>();
+
+        // Wait for data to load
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("<select");
+        }, TimeSpan.FromSeconds(10));
+
+        cut.Render();
+
+        // Open devolución modal
+        cut.Find("button:contains('Registrar devolución')").Click();
+
+        // Assert modal is open
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("Registrar devolución");
+            cut.Markup.Should().Contain("4.966"); // Diferencia amount
+        }, TimeSpan.FromSeconds(10));
+
+        // Click confirm button
+        cut.Find("button:contains('Confirmar')").Click();
+
+        // Assert: POST was sent, modal closed, period refreshed
+        cut.WaitForAssertion(() =>
+        {
+            _mockHandler.PostRequests.Should().Contain(r => r.Contains("devolucion"));
+            // Modal should be closed (no longer shows the modal content)
+            cut.Markup.Should().NotContain("Esta acción cierra la rendición");
+        }, TimeSpan.FromSeconds(10));
+    }
+
+    [Fact]
+    public void CancelarDevolucion_NoLlamaApi()
+    {
+        var cut = RenderComponent<Conciliacion>();
+
+        // Wait for data to load
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("<select");
+        }, TimeSpan.FromSeconds(10));
+
+        cut.Render();
+
+        // Open devolución modal
+        cut.Find("button:contains('Registrar devolución')").Click();
+
+        // Assert modal is open
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("Esta acción cierra la rendición");
+        }, TimeSpan.FromSeconds(10));
+
+        var postCountBefore = _mockHandler.PostRequests.Count;
+
+        // Click cancel button
+        cut.Find("button:contains('Cancelar')").Click();
+
+        // Assert: no API call, modal closed
+        cut.WaitForAssertion(() =>
+        {
+            _mockHandler.PostRequests.Count.Should().Be(postCountBefore);
+            cut.Markup.Should().NotContain("Esta acción cierra la rendición");
+        }, TimeSpan.FromSeconds(10));
+    }
+
     // ── Mock handler ───────────────────────────────────────────────────────────
 
     private class ConciliacionMockHandler : HttpMessageHandler
