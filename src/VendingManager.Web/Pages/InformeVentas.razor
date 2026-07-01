@@ -1,4 +1,4 @@
-@page "/informe-ventas-v2"
+@page "/informe-ventas"
 @inject HttpClient Http
 @inject IJSRuntime JS
 @implements IDisposable
@@ -362,6 +362,11 @@
     [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
     [Parameter] public int PollingIntervalMs { get; set; } = 30_000;
 
+    // ── Query string binding (set by Home KPI click: ?start=&end=&maquinaId=) ─
+    [SupplyParameterFromQuery(Name = "start")] public string? QueryStart { get; set; }
+    [SupplyParameterFromQuery(Name = "end")] public string? QueryEnd { get; set; }
+    [SupplyParameterFromQuery(Name = "maquinaId")] public string? QueryMaquinaId { get; set; }
+
     /// <summary>Current polling CancellationTokenSource. Exposed for testing.</summary>
     [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
     public CancellationTokenSource? PollingCts => _pollingCts;
@@ -458,9 +463,20 @@
     // ── Lifecycle ─────────────────────────────────────────────────────────────
     protected override async Task OnInitializedAsync()
     {
+        ApplyQueryStringFilters();
         await CargarMaquinas();
         _loadCts = new CancellationTokenSource();
         await CargarReportesAsync(_loadCts.Token);
+    }
+
+    private void ApplyQueryStringFilters()
+    {
+        if (!string.IsNullOrEmpty(QueryStart) && DateTime.TryParse(QueryStart, out var dStart))
+            _desde = dStart.ToString("yyyy-MM-dd");
+        if (!string.IsNullOrEmpty(QueryEnd) && DateTime.TryParse(QueryEnd, out var dEnd))
+            _hasta = dEnd.ToString("yyyy-MM-dd");
+        if (!string.IsNullOrEmpty(QueryMaquinaId))
+            _unit = QueryMaquinaId;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
