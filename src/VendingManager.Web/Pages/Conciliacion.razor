@@ -67,9 +67,16 @@
             }
         </div>
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-            <VmButton Variant="outline" Bar="true" Icon="bi-bank">Transferencia</VmButton>
-            <VmButton Variant="outline" Bar="true" Icon="bi-cart">Compra</VmButton>
-            <VmButton Variant="outline" Bar="true" Icon="bi-receipt">Gasto</VmButton>
+            <VmButton Variant="outline" Bar="true" Icon="bi-bank" OnClick="() => _showTransfModal = true">Transferencia</VmButton>
+            @if (_periodo is not null && _periodo.Transferencias.Count == 0)
+            {
+                <span style="font-family:var(--font-mono);font-size:0.62rem;color:var(--signal-warning);text-transform:uppercase;letter-spacing:0.5px;">Necesitás al menos una transferencia para registrar una compra/gasto</span>
+            }
+            else
+            {
+                <VmButton Variant="outline" Bar="true" Icon="bi-cart" OnClick="() => _showCompraModal = true">Compra</VmButton>
+                <VmButton Variant="outline" Bar="true" Icon="bi-receipt" OnClick="() => _showGastoModal = true">Gasto</VmButton>
+            }
             <VmButton Variant="dark" Bar="true" Icon="bi-box-arrow-up-right">Ir a caja</VmButton>
         </div>
     </div>
@@ -287,12 +294,50 @@
     </div>
 }
 
+<!-- ===== MODAL: nueva transferencia ===== -->
+@if (_showTransfModal)
+{
+    <div style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:2000;display:flex;align-items:center;justify-content:center;padding:16px;" @onclick="() => _showTransfModal = false">
+        <div class="con-modal" style="width:100%;max-width:420px;background:var(--paper-0);border:2px solid var(--ink-900);box-shadow:4px 4px 0 #000;" @onclick:stopPropagation="true">
+            <div style="background:var(--ink-900);color:#fff;display:flex;justify-content:space-between;align-items:center;padding:0.6rem 0.9rem;font-family:var(--font-mono);font-weight:700;text-transform:uppercase;letter-spacing:1px;">
+                <span>Nueva transferencia</span>
+                <span style="cursor:pointer;font-size:1.2rem;line-height:1;" @onclick="() => _showTransfModal = false">×</span>
+            </div>
+            <div style="padding:1.2rem;">
+                <div style="display:flex;flex-direction:column;gap:10px;">
+                    <div>
+                        <label style="font-family:var(--font-mono);font-weight:700;font-size:0.62rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);">Monto</label>
+                        <input id="transf-monto" type="number" @bind="_transfMonto" style="width:100%;padding:8px;border:2px solid var(--ink-900);font-family:var(--font-mono);font-size:0.82rem;" />
+                    </div>
+                    <div>
+                        <label style="font-family:var(--font-mono);font-weight:700;font-size:0.62rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);">Trabajador</label>
+                        <input id="transf-trabajador" type="text" @bind="_transfTrabajador" style="width:100%;padding:8px;border:2px solid var(--ink-900);font-family:var(--font-mono);font-size:0.82rem;" />
+                    </div>
+                    @if (_transfError is not null)
+                    {
+                        <IndustrialAlert Message="@_transfError" Variant="IndustrialAlert.AlertVariant.Danger" />
+                    }
+                    <VmButton Variant="dark" Block="true" OnClick="CrearTransferencia">Crear transferencia</VmButton>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     // ── Estado de UI ──────────────────────────────────────────────────────────
     private int _selectedId;
     private string _filter = "TODOS";
     private readonly Dictionary<string, bool> _verified = new();
     private bool _modalOpen;
+#pragma warning disable CS0414 // Fields referenced in markup onclick handlers
+    private bool _showTransfModal;
+    private bool _showCompraModal;
+    private bool _showGastoModal;
+#pragma warning restore CS0414
+    private decimal _transfMonto;
+    private string _transfTrabajador = string.Empty;
+    private string? _transfError;
 
     // ── API state ─────────────────────────────────────────────────────────────
     private bool _loading;
@@ -711,6 +756,47 @@
         catch (Exception)
         {
             _error = "Error de red al registrar devolución.";
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    // ── Header modals ─────────────────────────────────────────────────────────
+    private async Task CrearTransferencia()
+    {
+        if (_periodo is null || _transfMonto <= 0)
+        {
+            _transfError = "El monto debe ser mayor a cero.";
+            return;
+        }
+
+        _transfError = null;
+        try
+        {
+            var request = new TransferenciaConMovimientoRequest
+            {
+                PeriodoId = _periodo.Id,
+                Trabajador = _transfTrabajador,
+                Monto = _transfMonto,
+                Fecha = DateTime.Today
+            };
+            var resp = await Http.PostAsJsonAsync("api/contabilidad/transferencia-con-movimiento", request);
+            if (resp.IsSuccessStatusCode)
+            {
+                _showTransfModal = false;
+                _transfMonto = 0;
+                _transfTrabajador = string.Empty;
+                await CargarPeriodoDetalle(_periodo.Id, CancellationToken.None);
+            }
+            else
+            {
+                var body = await resp.Content.ReadAsStringAsync();
+                _transfError = $"Error: {body}";
+            }
+        }
+        catch (Exception)
+        {
+            _transfError = "Error de red al crear transferencia.";
         }
 
         await InvokeAsync(StateHasChanged);
