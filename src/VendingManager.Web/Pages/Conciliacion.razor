@@ -225,6 +225,19 @@
                     <span style="background:var(--bg-surface-inset);border-right:1px solid var(--ink-900);font-family:var(--font-mono);font-weight:700;font-size:0.64rem;text-transform:uppercase;letter-spacing:0.5px;padding:7px 10px;white-space:nowrap;">Elegir archivo</span>
                     <span style="flex:1;font-family:var(--font-mono);font-size:0.68rem;color:var(--text-muted);padding:7px 10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">@sel.FileName</span>
                 </div>
+
+                @if (sel.HasComprobante)
+                {
+                    <div style="margin:0 0.95rem 0.7rem;">
+                        <button @onclick="DescargarComprobante" style="display:flex;align-items:center;gap:6px;font-family:var(--font-mono);font-weight:700;font-size:0.66rem;text-transform:uppercase;letter-spacing:0.5px;background:var(--paper-0);color:var(--ink-900);border:2px solid var(--ink-900);border-radius:0;cursor:pointer;padding:7px 12px;"><i class="bi bi-download"></i> Descargar comprobante</button>
+                    </div>
+                }
+                @if (_comprobanteError is not null)
+                {
+                    <div style="margin:0 0.95rem 0.7rem;">
+                        <IndustrialAlert Message="@_comprobanteError" Variant="IndustrialAlert.AlertVariant.Danger" />
+                    </div>
+                }
             </div>
 
             <!-- acciones de verificación (pie fijo del panel) -->
@@ -338,6 +351,7 @@
     private decimal _transfMonto;
     private string _transfTrabajador = string.Empty;
     private string? _transfError;
+    private string? _comprobanteError;
 
     // ── API state ─────────────────────────────────────────────────────────────
     private bool _loading;
@@ -797,6 +811,44 @@
         catch (Exception)
         {
             _transfError = "Error de red al crear transferencia.";
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    // ── Comprobante download ──────────────────────────────────────────────────
+    private async Task DescargarComprobante()
+    {
+        if (_periodo is null) return;
+
+        var (kind, id) = ResolveSelectedKind();
+        if (kind is null || kind != "transferencia") return;
+
+        _comprobanteError = null;
+        try
+        {
+            var resp = await Http.GetAsync($"api/contabilidad/transferencia/{id}/comprobante");
+            if (resp.IsSuccessStatusCode)
+            {
+                var bytes = await resp.Content.ReadAsByteArrayAsync();
+                var contentType = resp.Content.Headers.ContentType?.MediaType ?? "application/octet-stream";
+                var ext = contentType switch
+                {
+                    "application/pdf" => ".pdf",
+                    "image/jpeg" => ".jpg",
+                    "image/png" => ".png",
+                    _ => ".bin"
+                };
+                await JS.InvokeVoidAsync("descargarArchivo", bytes, $"comprobante_{id}{ext}", contentType);
+            }
+            else
+            {
+                _comprobanteError = "No se encontró el comprobante para esta transferencia.";
+            }
+        }
+        catch (Exception)
+        {
+            _comprobanteError = "Error al descargar el comprobante.";
         }
 
         await InvokeAsync(StateHasChanged);
