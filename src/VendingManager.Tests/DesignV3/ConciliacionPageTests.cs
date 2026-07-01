@@ -463,6 +463,81 @@ public class ConciliacionPageTests : TestContext
         cut.Markup.Should().Contain("Necesitás al menos una transferencia");
     }
 
+    [Fact]
+    public void HeaderCompra_Post201_RefreshPeriodo()
+    {
+        _mockHandler.PostResponse = HttpStatusCode.Created;
+
+        var cut = RenderComponent<Conciliacion>();
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("<select");
+        }, TimeSpan.FromSeconds(10));
+
+        cut.Render();
+
+        // Click Compra header button
+        cut.Find("button:contains('Compra')").Click();
+
+        // Assert modal is open
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("Nueva compra");
+        }, TimeSpan.FromSeconds(10));
+
+        // Fill form: Proveedor and Monto
+        cut.Find("input[id='compra-proveedor']").Change("Proveedor Test");
+        cut.Find("input[id='compra-monto']").Change("25000");
+
+        // Submit
+        cut.Find("button:contains('Crear compra')").Click();
+
+        // Assert POST was made to compra-vinculada
+        cut.WaitForAssertion(() =>
+        {
+            _mockHandler.PostRequests.Should().Contain(r => r.Contains("compra-vinculada"));
+        }, TimeSpan.FromSeconds(10));
+    }
+
+    [Fact]
+    public void HeaderGasto_Post201_RefreshPeriodo()
+    {
+        _mockHandler.PostResponse = HttpStatusCode.Created;
+
+        var cut = RenderComponent<Conciliacion>();
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("<select");
+        }, TimeSpan.FromSeconds(10));
+
+        cut.Render();
+
+        // Click Gasto header button
+        cut.Find("button:contains('Gasto')").Click();
+
+        // Assert modal is open
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("Nuevo gasto");
+        }, TimeSpan.FromSeconds(10));
+
+        // Fill form: Monto, Trabajador, Descripcion
+        cut.Find("input[id='gasto-monto']").Change("15000");
+        cut.Find("input[id='gasto-trabajador']").Change("Juan Perez");
+        cut.Find("input[id='gasto-descripcion']").Change("Gasto de prueba");
+
+        // Submit
+        cut.Find("button:contains('Crear gasto')").Click();
+
+        // Assert POST was made to gasto-vinculado
+        cut.WaitForAssertion(() =>
+        {
+            _mockHandler.PostRequests.Should().Contain(r => r.Contains("gasto-vinculado"));
+        }, TimeSpan.FromSeconds(10));
+    }
+
     // ── Task 2.12: Comprobante download ──────────────────────────────────────
 
     [Fact]

@@ -123,6 +123,70 @@
         </div>
     }
 
+<!-- ===== MODAL: nueva compra ===== -->
+@if (_showCompraModal)
+{
+    <div style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:2000;display:flex;align-items:center;justify-content:center;padding:16px;" @onclick="() => _showCompraModal = false">
+        <div class="con-modal" style="width:100%;max-width:420px;background:var(--paper-0);border:2px solid var(--ink-900);box-shadow:4px 4px 0 #000;" @onclick:stopPropagation="true">
+            <div style="background:var(--ink-900);color:#fff;display:flex;justify-content:space-between;align-items:center;padding:0.6rem 0.9rem;font-family:var(--font-mono);font-weight:700;text-transform:uppercase;letter-spacing:1px;">
+                <span>Nueva compra</span>
+                <span style="cursor:pointer;font-size:1.2rem;line-height:1;" @onclick="() => _showCompraModal = false">×</span>
+            </div>
+            <div style="padding:1.2rem;">
+                <div style="display:flex;flex-direction:column;gap:10px;">
+                    <div>
+                        <label style="font-family:var(--font-mono);font-weight:700;font-size:0.62rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);">Proveedor</label>
+                        <input id="compra-proveedor" type="text" @bind="_compraProveedor" style="width:100%;padding:8px;border:2px solid var(--ink-900);font-family:var(--font-mono);font-size:0.82rem;" />
+                    </div>
+                    <div>
+                        <label style="font-family:var(--font-mono);font-weight:700;font-size:0.62rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);">Monto</label>
+                        <input id="compra-monto" type="number" @bind="_compraMonto" style="width:100%;padding:8px;border:2px solid var(--ink-900);font-family:var(--font-mono);font-size:0.82rem;" />
+                    </div>
+                    @if (_compraError is not null)
+                    {
+                        <IndustrialAlert Message="@_compraError" Variant="IndustrialAlert.AlertVariant.Danger" />
+                    }
+                    <VmButton Variant="dark" Block="true" OnClick="CrearCompra">Crear compra</VmButton>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- ===== MODAL: nuevo gasto ===== -->
+@if (_showGastoModal)
+{
+    <div style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:2000;display:flex;align-items:center;justify-content:center;padding:16px;" @onclick="() => _showGastoModal = false">
+        <div class="con-modal" style="width:100%;max-width:420px;background:var(--paper-0);border:2px solid var(--ink-900);box-shadow:4px 4px 0 #000;" @onclick:stopPropagation="true">
+            <div style="background:var(--ink-900);color:#fff;display:flex;justify-content:space-between;align-items:center;padding:0.6rem 0.9rem;font-family:var(--font-mono);font-weight:700;text-transform:uppercase;letter-spacing:1px;">
+                <span>Nuevo gasto</span>
+                <span style="cursor:pointer;font-size:1.2rem;line-height:1;" @onclick="() => _showGastoModal = false">×</span>
+            </div>
+            <div style="padding:1.2rem;">
+                <div style="display:flex;flex-direction:column;gap:10px;">
+                    <div>
+                        <label style="font-family:var(--font-mono);font-weight:700;font-size:0.62rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);">Monto</label>
+                        <input id="gasto-monto" type="number" @bind="_gastoMonto" style="width:100%;padding:8px;border:2px solid var(--ink-900);font-family:var(--font-mono);font-size:0.82rem;" />
+                    </div>
+                    <div>
+                        <label style="font-family:var(--font-mono);font-weight:700;font-size:0.62rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);">Trabajador</label>
+                        <input id="gasto-trabajador" type="text" @bind="_gastoTrabajador" style="width:100%;padding:8px;border:2px solid var(--ink-900);font-family:var(--font-mono);font-size:0.82rem;" />
+                    </div>
+                    <div>
+                        <label style="font-family:var(--font-mono);font-weight:700;font-size:0.62rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);">Descripción</label>
+                        <input id="gasto-descripcion" type="text" @bind="_gastoDescripcion" style="width:100%;padding:8px;border:2px solid var(--ink-900);font-family:var(--font-mono);font-size:0.82rem;" />
+                    </div>
+                    @if (_gastoError is not null)
+                    {
+                        <IndustrialAlert Message="@_gastoError" Variant="IndustrialAlert.AlertVariant.Danger" />
+                    }
+                    <VmButton Variant="dark" Block="true" OnClick="CrearGasto">Crear gasto</VmButton>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
     <!-- ===== ÁREA DE TRABAJO: cuadre (izq) + comprobante (der) ===== -->
     <div class="con-work" style="flex:1;min-height:0;display:flex;gap:0.7rem;">
 
@@ -352,6 +416,18 @@
     private string _transfTrabajador = string.Empty;
     private string? _transfError;
     private string? _comprobanteError;
+
+    // ── Compra modal state ────────────────────────────────────────────────────
+    private string _compraProveedor = string.Empty;
+    private decimal _compraMonto;
+    private string? _compraError;
+
+    // ── Gasto modal state ─────────────────────────────────────────────────────
+    private decimal _gastoMonto;
+    private string _gastoTrabajador = string.Empty;
+    private string _gastoDescripcion = string.Empty;
+    private string _gastoCategoria = "GENERAL";
+    private string? _gastoError;
 
     // ── API state ─────────────────────────────────────────────────────────────
     private bool _loading;
@@ -811,6 +887,98 @@
         catch (Exception)
         {
             _transfError = "Error de red al crear transferencia.";
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task CrearCompra()
+    {
+        if (_periodo is null || _compraMonto <= 0 || string.IsNullOrWhiteSpace(_compraProveedor))
+        {
+            _compraError = "Proveedor y monto son obligatorios.";
+            return;
+        }
+
+        _compraError = null;
+        try
+        {
+            var primeraTransf = _periodo.Transferencias.First();
+            var request = new CompraVinculadaRequest
+            {
+                TransferenciaId = primeraTransf.Id,
+                RendicionId = primeraTransf.RendicionId ?? 0,
+                Trabajador = _periodo.Trabajador ?? string.Empty,
+                Proveedor = _compraProveedor,
+                Detalles =
+                [
+                    new()
+                    {
+                        Cantidad = 1,
+                        CostoUnitario = _compraMonto
+                    }
+                ]
+            };
+            var resp = await Http.PostAsJsonAsync("api/contabilidad/compra-vinculada", request);
+            if (resp.IsSuccessStatusCode)
+            {
+                _showCompraModal = false;
+                _compraProveedor = string.Empty;
+                _compraMonto = 0;
+                await CargarPeriodoDetalle(_periodo.Id, CancellationToken.None);
+            }
+            else
+            {
+                var body = await resp.Content.ReadAsStringAsync();
+                _compraError = $"Error: {body}";
+            }
+        }
+        catch (Exception)
+        {
+            _compraError = "Error de red al crear compra.";
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task CrearGasto()
+    {
+        if (_periodo is null || _gastoMonto <= 0)
+        {
+            _gastoError = "El monto debe ser mayor a cero.";
+            return;
+        }
+
+        _gastoError = null;
+        try
+        {
+            var request = new GastoVinculadoRequest
+            {
+                RendicionId = _periodo.Transferencias.FirstOrDefault()?.RendicionId ?? 0,
+                Trabajador = _gastoTrabajador,
+                Descripcion = _gastoDescripcion,
+                Monto = _gastoMonto,
+                Categoria = _gastoCategoria
+            };
+            var resp = await Http.PostAsJsonAsync("api/contabilidad/gasto-vinculado", request);
+            if (resp.IsSuccessStatusCode)
+            {
+                _showGastoModal = false;
+                _gastoMonto = 0;
+                _gastoTrabajador = string.Empty;
+                _gastoDescripcion = string.Empty;
+                _gastoCategoria = "GENERAL";
+                await CargarPeriodoDetalle(_periodo.Id, CancellationToken.None);
+            }
+            else
+            {
+                var body = await resp.Content.ReadAsStringAsync();
+                _gastoError = $"Error: {body}";
+            }
+        }
+        catch (Exception)
+        {
+            _gastoError = "Error de red al crear gasto.";
         }
 
         await InvokeAsync(StateHasChanged);
