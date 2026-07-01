@@ -366,6 +366,64 @@ public class ConciliacionPageTests : TestContext
         }, TimeSpan.FromSeconds(10));
     }
 
+    // ── Task 2.9: Header Transferencia modal ─────────────────────────────────
+
+    [Fact]
+    public void HeaderTransferencia_Post201_RefreshPeriodo()
+    {
+        _mockHandler.PostResponse = HttpStatusCode.Created;
+
+        var cut = RenderComponent<Conciliacion>();
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("<select");
+        }, TimeSpan.FromSeconds(10));
+
+        cut.Render();
+
+        // Click Transferencia header button
+        cut.Find("button:contains('Transferencia')").Click();
+
+        // Assert modal is open
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("Nueva transferencia");
+        }, TimeSpan.FromSeconds(10));
+
+        // Fill form: Monto and Trabajador
+        cut.Find("input[id='transf-monto']").Change("50000");
+        cut.Find("input[id='transf-trabajador']").Change("Juan Perez");
+
+        // Submit
+        cut.Find("button:contains('Crear transferencia')").Click();
+
+        // Assert POST was made
+        cut.WaitForAssertion(() =>
+        {
+            _mockHandler.PostRequests.Should().Contain(r => r.Contains("transferencia-con-movimiento"));
+        }, TimeSpan.FromSeconds(10));
+    }
+
+    [Fact]
+    public void HeaderCompra_DisabledCuandoNoTransferencias()
+    {
+        // Use mock with zero transferencias
+        _mockHandler.ZeroTransferencias = true;
+
+        var cut = RenderComponent<Conciliacion>();
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("<select");
+        }, TimeSpan.FromSeconds(10));
+
+        cut.Render();
+
+        // Assert Compra button shows helper text about needing a transferencia
+        cut.Markup.Should().Contain("Necesitás al menos una transferencia");
+    }
+
     // ── Mock handler ───────────────────────────────────────────────────────────
 
     private class ConciliacionMockHandler : HttpMessageHandler
@@ -373,6 +431,7 @@ public class ConciliacionPageTests : TestContext
         public List<string> Requests { get; } = new();
         public List<string> PostRequests { get; } = new();
         public bool ReturnError500 { get; set; }
+        public bool ZeroTransferencias { get; set; }
         public HttpStatusCode? PostResponse { get; set; }
         public string? PostErrorBody { get; set; }
 
@@ -420,7 +479,7 @@ public class ConciliacionPageTests : TestContext
                     TotalCompras = 238034m,
                     TotalGastos = 30000m,
                     Devuelto = 0m,
-                    Transferencias = new object[]
+                    Transferencias = ZeroTransferencias ? Array.Empty<object>() : new object[]
                     {
                         new
                         {
