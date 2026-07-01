@@ -28,7 +28,8 @@ public class SalesAnalyticsService_GetEndDateForPeriodoAsync_Tests : IDisposable
         var cache = new Microsoft.Extensions.Caching.Memory.MemoryCache(
             new Microsoft.Extensions.Caching.Memory.MemoryCacheOptions());
         var thresholds = Options.Create(AnalyticsThresholds.Default);
-        _service = new SalesAnalyticsService(_context, mockExcelExport.Object, cache, thresholds);
+        var config = Options.Create(new VendingConfig());
+        _service = new SalesAnalyticsService(_context, mockExcelExport.Object, cache, thresholds, config);
     }
 
     public void Dispose()
