@@ -291,6 +291,45 @@ public class ConciliacionPageTests : TestContext
         }, TimeSpan.FromSeconds(10));
     }
 
+    // ── Gap 1: Unverify flow ──────────────────────────────────────────────────
+
+    [Fact]
+    public void Unverify_PostExitoso_ActualizaBadge()
+    {
+        // Configure mock for successful POST
+        _mockHandler.PostResponse = HttpStatusCode.NoContent;
+
+        var cut = RenderComponent<Conciliacion>();
+
+        // Wait for data to load
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("<select");
+        }, TimeSpan.FromSeconds(10));
+
+        cut.Render();
+
+        // Transferencia 1 (Jose Miguel) is verified and selected by default.
+        // The comprobante panel should show "Verificada" badge and "Quitar" button.
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("Verificada");
+            cut.Markup.Should().Contain("Quitar");
+        }, TimeSpan.FromSeconds(10));
+
+        // Click "Quitar" button to unverify
+        cut.Find("button:contains('Quitar')").Click();
+
+        // Assert: POST was sent to desverificar endpoint, badge updates to unverified
+        cut.WaitForAssertion(() =>
+        {
+            _mockHandler.PostRequests.Should().Contain(r => r.Contains("desverificar"));
+            // After unverify, the panel should show verify buttons instead of "Verificada"
+            cut.Markup.Should().Contain("Verificar y seguir");
+            cut.Markup.Should().Contain("Rechazar");
+        }, TimeSpan.FromSeconds(10));
+    }
+
     // ── Task 2.5: Devolución modal ────────────────────────────────────────────
 
     [Fact]
@@ -328,6 +367,42 @@ public class ConciliacionPageTests : TestContext
             _mockHandler.PostRequests.Should().Contain(r => r.Contains("devolucion"));
             // Modal should be closed (no longer shows the modal content)
             cut.Markup.Should().NotContain("Esta acción cierra la rendición");
+        }, TimeSpan.FromSeconds(10));
+    }
+
+    [Fact]
+    public void ConfirmarDevolucion_Post201_MuestraSuccessAlert()
+    {
+        // Configure mock for successful POST (devolucion returns 201)
+        _mockHandler.PostResponse = HttpStatusCode.Created;
+
+        var cut = RenderComponent<Conciliacion>();
+
+        // Wait for data to load
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("<select");
+        }, TimeSpan.FromSeconds(10));
+
+        cut.Render();
+
+        // Open devolución modal
+        cut.Find("button:contains('Registrar devolución')").Click();
+
+        // Assert modal is open
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("Esta acción cierra la rendición");
+        }, TimeSpan.FromSeconds(10));
+
+        // Click confirm button
+        cut.Find("button:contains('Confirmar')").Click();
+
+        // Assert: success indicator appears after successful POST
+        cut.WaitForAssertion(() =>
+        {
+            _mockHandler.PostRequests.Should().Contain(r => r.Contains("devolucion"));
+            cut.Markup.Should().Contain("Devolución registrada exitosamente");
         }, TimeSpan.FromSeconds(10));
     }
 
@@ -424,6 +499,81 @@ public class ConciliacionPageTests : TestContext
         cut.Markup.Should().Contain("Necesitás al menos una transferencia");
     }
 
+    [Fact]
+    public void HeaderCompra_Post201_RefreshPeriodo()
+    {
+        _mockHandler.PostResponse = HttpStatusCode.Created;
+
+        var cut = RenderComponent<Conciliacion>();
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("<select");
+        }, TimeSpan.FromSeconds(10));
+
+        cut.Render();
+
+        // Click Compra header button
+        cut.Find("button:contains('Compra')").Click();
+
+        // Assert modal is open
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("Nueva compra");
+        }, TimeSpan.FromSeconds(10));
+
+        // Fill form: Proveedor and Monto
+        cut.Find("input[id='compra-proveedor']").Change("Proveedor Test");
+        cut.Find("input[id='compra-monto']").Change("25000");
+
+        // Submit
+        cut.Find("button:contains('Crear compra')").Click();
+
+        // Assert POST was made to compra-vinculada
+        cut.WaitForAssertion(() =>
+        {
+            _mockHandler.PostRequests.Should().Contain(r => r.Contains("compra-vinculada"));
+        }, TimeSpan.FromSeconds(10));
+    }
+
+    [Fact]
+    public void HeaderGasto_Post201_RefreshPeriodo()
+    {
+        _mockHandler.PostResponse = HttpStatusCode.Created;
+
+        var cut = RenderComponent<Conciliacion>();
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("<select");
+        }, TimeSpan.FromSeconds(10));
+
+        cut.Render();
+
+        // Click Gasto header button
+        cut.Find("button:contains('Gasto')").Click();
+
+        // Assert modal is open
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("Nuevo gasto");
+        }, TimeSpan.FromSeconds(10));
+
+        // Fill form: Monto, Trabajador, Descripcion
+        cut.Find("input[id='gasto-monto']").Change("15000");
+        cut.Find("input[id='gasto-trabajador']").Change("Juan Perez");
+        cut.Find("input[id='gasto-descripcion']").Change("Gasto de prueba");
+
+        // Submit
+        cut.Find("button:contains('Crear gasto')").Click();
+
+        // Assert POST was made to gasto-vinculado
+        cut.WaitForAssertion(() =>
+        {
+            _mockHandler.PostRequests.Should().Contain(r => r.Contains("gasto-vinculado"));
+        }, TimeSpan.FromSeconds(10));
+    }
+
     // ── Task 2.12: Comprobante download ──────────────────────────────────────
 
     [Fact]
@@ -480,6 +630,41 @@ public class ConciliacionPageTests : TestContext
         }, TimeSpan.FromSeconds(10));
     }
 
+    [Fact]
+    public void DescargarComprobante_HappyPath_InvocaJSInterop()
+    {
+        // Configure mock: transferencia 1 has a comprobante image
+        _mockHandler.TransferenciaHasComprobante = true;
+        _mockHandler.ComprobanteBytes = new byte[] { 0x89, 0x50, 0x4E, 0x47 }; // PNG header
+
+        var cut = RenderComponent<Conciliacion>();
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("<select");
+        }, TimeSpan.FromSeconds(10));
+
+        cut.Render();
+
+        // Transferencia 1 (Jose Miguel) is selected by default and has ComprobanteImagenPath
+        // The download button should render
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("Descargar comprobante");
+        }, TimeSpan.FromSeconds(10));
+
+        // Click download button
+        cut.Find("button:contains('Descargar comprobante')").Click();
+
+        // Assert: JS interop was invoked with descargarArchivo
+        cut.WaitForAssertion(() =>
+        {
+            _mockHandler.PostRequests.Should().BeEmpty("download is a GET, not a POST");
+            // The JSInterop call should have been made
+            JSInterop.Invocations.Should().Contain(inv => inv.Identifier == "descargarArchivo");
+        }, TimeSpan.FromSeconds(10));
+    }
+
     // ── Task 2.16: OnPeriodoChanged debounce/cancel ──────────────────────────
 
     [Fact]
@@ -533,6 +718,7 @@ public class ConciliacionPageTests : TestContext
         public byte[]? ComprobanteBytes { get; set; }
         public bool ComprobanteNotFound { get; set; }
         public bool MultiPeriod { get; set; }
+        public bool TransferenciaHasComprobante { get; set; }
 
         protected override async Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request, CancellationToken cancellationToken)
@@ -611,7 +797,7 @@ public class ConciliacionPageTests : TestContext
                             PeriodoId = (int?)1,
                             MovimientoCajaId = (int?)null,
                             Verificada = true,
-                            ComprobanteImagenPath = (string?)null,
+                            ComprobanteImagenPath = TransferenciaHasComprobante ? "/images/comprobante.jpg" : (string?)null,
                             Compras = new object[]
                             {
                                 new
