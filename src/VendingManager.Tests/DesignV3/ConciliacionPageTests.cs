@@ -519,6 +519,41 @@ public class ConciliacionPageTests : TestContext
         }, TimeSpan.FromSeconds(10));
     }
 
+    [Fact]
+    public void DescargarComprobante_HappyPath_InvocaJSInterop()
+    {
+        // Configure mock: transferencia 1 has a comprobante image
+        _mockHandler.TransferenciaHasComprobante = true;
+        _mockHandler.ComprobanteBytes = new byte[] { 0x89, 0x50, 0x4E, 0x47 }; // PNG header
+
+        var cut = RenderComponent<Conciliacion>();
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("<select");
+        }, TimeSpan.FromSeconds(10));
+
+        cut.Render();
+
+        // Transferencia 1 (Jose Miguel) is selected by default and has ComprobanteImagenPath
+        // The download button should render
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("Descargar comprobante");
+        }, TimeSpan.FromSeconds(10));
+
+        // Click download button
+        cut.Find("button:contains('Descargar comprobante')").Click();
+
+        // Assert: JS interop was invoked with descargarArchivo
+        cut.WaitForAssertion(() =>
+        {
+            _mockHandler.PostRequests.Should().BeEmpty("download is a GET, not a POST");
+            // The JSInterop call should have been made
+            JSInterop.Invocations.Should().Contain(inv => inv.Identifier == "descargarArchivo");
+        }, TimeSpan.FromSeconds(10));
+    }
+
     // ── Task 2.16: OnPeriodoChanged debounce/cancel ──────────────────────────
 
     [Fact]
@@ -572,6 +607,7 @@ public class ConciliacionPageTests : TestContext
         public byte[]? ComprobanteBytes { get; set; }
         public bool ComprobanteNotFound { get; set; }
         public bool MultiPeriod { get; set; }
+        public bool TransferenciaHasComprobante { get; set; }
 
         protected override async Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request, CancellationToken cancellationToken)
@@ -650,7 +686,7 @@ public class ConciliacionPageTests : TestContext
                             PeriodoId = (int?)1,
                             MovimientoCajaId = (int?)null,
                             Verificada = true,
-                            ComprobanteImagenPath = (string?)null,
+                            ComprobanteImagenPath = TransferenciaHasComprobante ? "/images/comprobante.jpg" : (string?)null,
                             Compras = new object[]
                             {
                                 new
