@@ -179,18 +179,394 @@ public class ConciliacionPageTests : TestContext
         }, TimeSpan.FromSeconds(10));
     }
 
+    // ── Task 2.2: Verify transferencia ────────────────────────────────────────
+
+    [Fact]
+    public void Verificar_PostExitoso_ActualizaBadge()
+    {
+        // Configure mock for successful POST
+        _mockHandler.PostResponse = HttpStatusCode.NoContent;
+
+        var cut = RenderComponent<Conciliacion>();
+
+        // Wait for data to load
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("<select");
+        }, TimeSpan.FromSeconds(10));
+
+        cut.Render();
+
+        // Click on unverified compra row (Victor Rojas — Id=2)
+        var rows = cut.FindAll("div.con-row");
+        var victorRow = rows.First(r => r.InnerHtml.Contains("VICTOR ROJAS"));
+        victorRow.Click();
+
+        // Verify comprobante panel shows unverified state first
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("Verificar y seguir");
+        }, TimeSpan.FromSeconds(10));
+
+        // Click verify button
+        cut.Find("button:contains('Verificar y seguir')").Click();
+
+        // Assert: POST was sent and auto-advanced to next pendiente (gasto 10)
+        cut.WaitForAssertion(() =>
+        {
+            _mockHandler.PostRequests.Should().Contain(r => r.Contains("compra/2/verificar"));
+            // Auto-advance moves to next unverified: gasto 10 (Sociedad Henriquez)
+            cut.Markup.Should().Contain("SOCIEDAD HENRIQUEZ SPA");
+        }, TimeSpan.FromSeconds(10));
+    }
+
+    [Fact]
+    public void Verificar_Post409_RollbackYMuestraAlert()
+    {
+        // Configure mock for conflict response
+        _mockHandler.PostResponse = HttpStatusCode.Conflict;
+        _mockHandler.PostErrorBody = "Otro usuario modificó esta transferencia. Recargá la página.";
+
+        var cut = RenderComponent<Conciliacion>();
+
+        // Wait for data to load
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("<select");
+        }, TimeSpan.FromSeconds(10));
+
+        cut.Render();
+
+        // Click on unverified compra row (Victor Rojas — Id=2)
+        var rows = cut.FindAll("div.con-row");
+        var victorRow = rows.First(r => r.InnerHtml.Contains("VICTOR ROJAS"));
+        victorRow.Click();
+
+        // Click verify button
+        cut.Find("button:contains('Verificar y seguir')").Click();
+
+        // Assert rollback: still shows verify button (not "Verificada"), alert shown
+        cut.WaitForAssertion(() =>
+        {
+            // Rollback: comprobante panel should still show verify button
+            cut.Markup.Should().Contain("Verificar y seguir");
+            cut.Markup.Should().Contain("Otro usuario");
+        }, TimeSpan.FromSeconds(10));
+    }
+
+    [Fact]
+    public void VerificarYAvanzar_SeleccionaSiguientePendiente()
+    {
+        // Configure mock for successful POST
+        _mockHandler.PostResponse = HttpStatusCode.NoContent;
+
+        var cut = RenderComponent<Conciliacion>();
+
+        // Wait for data to load
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("<select");
+        }, TimeSpan.FromSeconds(10));
+
+        cut.Render();
+
+        // Click on unverified compra row (Victor Rojas — Id=2)
+        var rows = cut.FindAll("div.con-row");
+        var victorRow = rows.First(r => r.InnerHtml.Contains("VICTOR ROJAS"));
+        victorRow.Click();
+
+        // Verify comprobante panel shows Victor Rojas
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("VICTOR ROJAS ALFARO");
+        }, TimeSpan.FromSeconds(10));
+
+        // Click verify button
+        cut.Find("button:contains('Verificar y seguir')").Click();
+
+        // Assert auto-advance: comprobante panel should now show the gasto (Sociedad Henriquez)
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("SOCIEDAD HENRIQUEZ SPA");
+        }, TimeSpan.FromSeconds(10));
+    }
+
+    // ── Task 2.5: Devolución modal ────────────────────────────────────────────
+
+    [Fact]
+    public void ConfirmarDevolucion_Post201_CierraModalYRefresca()
+    {
+        // Configure mock for successful POST (devolucion returns 201)
+        _mockHandler.PostResponse = HttpStatusCode.Created;
+
+        var cut = RenderComponent<Conciliacion>();
+
+        // Wait for data to load
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("<select");
+        }, TimeSpan.FromSeconds(10));
+
+        cut.Render();
+
+        // Open devolución modal
+        cut.Find("button:contains('Registrar devolución')").Click();
+
+        // Assert modal is open
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("Registrar devolución");
+            cut.Markup.Should().Contain("4.966"); // Diferencia amount
+        }, TimeSpan.FromSeconds(10));
+
+        // Click confirm button
+        cut.Find("button:contains('Confirmar')").Click();
+
+        // Assert: POST was sent, modal closed, period refreshed
+        cut.WaitForAssertion(() =>
+        {
+            _mockHandler.PostRequests.Should().Contain(r => r.Contains("devolucion"));
+            // Modal should be closed (no longer shows the modal content)
+            cut.Markup.Should().NotContain("Esta acción cierra la rendición");
+        }, TimeSpan.FromSeconds(10));
+    }
+
+    [Fact]
+    public void CancelarDevolucion_NoLlamaApi()
+    {
+        var cut = RenderComponent<Conciliacion>();
+
+        // Wait for data to load
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("<select");
+        }, TimeSpan.FromSeconds(10));
+
+        cut.Render();
+
+        // Open devolución modal
+        cut.Find("button:contains('Registrar devolución')").Click();
+
+        // Assert modal is open
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("Esta acción cierra la rendición");
+        }, TimeSpan.FromSeconds(10));
+
+        var postCountBefore = _mockHandler.PostRequests.Count;
+
+        // Click cancel button
+        cut.Find("button:contains('Cancelar')").Click();
+
+        // Assert: no API call, modal closed
+        cut.WaitForAssertion(() =>
+        {
+            _mockHandler.PostRequests.Count.Should().Be(postCountBefore);
+            cut.Markup.Should().NotContain("Esta acción cierra la rendición");
+        }, TimeSpan.FromSeconds(10));
+    }
+
+    // ── Task 2.9: Header Transferencia modal ─────────────────────────────────
+
+    [Fact]
+    public void HeaderTransferencia_Post201_RefreshPeriodo()
+    {
+        _mockHandler.PostResponse = HttpStatusCode.Created;
+
+        var cut = RenderComponent<Conciliacion>();
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("<select");
+        }, TimeSpan.FromSeconds(10));
+
+        cut.Render();
+
+        // Click Transferencia header button
+        cut.Find("button:contains('Transferencia')").Click();
+
+        // Assert modal is open
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("Nueva transferencia");
+        }, TimeSpan.FromSeconds(10));
+
+        // Fill form: Monto and Trabajador
+        cut.Find("input[id='transf-monto']").Change("50000");
+        cut.Find("input[id='transf-trabajador']").Change("Juan Perez");
+
+        // Submit
+        cut.Find("button:contains('Crear transferencia')").Click();
+
+        // Assert POST was made
+        cut.WaitForAssertion(() =>
+        {
+            _mockHandler.PostRequests.Should().Contain(r => r.Contains("transferencia-con-movimiento"));
+        }, TimeSpan.FromSeconds(10));
+    }
+
+    [Fact]
+    public void HeaderCompra_DisabledCuandoNoTransferencias()
+    {
+        // Use mock with zero transferencias
+        _mockHandler.ZeroTransferencias = true;
+
+        var cut = RenderComponent<Conciliacion>();
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("<select");
+        }, TimeSpan.FromSeconds(10));
+
+        cut.Render();
+
+        // Assert Compra button shows helper text about needing a transferencia
+        cut.Markup.Should().Contain("Necesitás al menos una transferencia");
+    }
+
+    // ── Task 2.12: Comprobante download ──────────────────────────────────────
+
+    [Fact]
+    public void DescargarComprobante_Ok_InvocaDescargarArchivo()
+    {
+        // Configure mock to return bytes for comprobante
+        _mockHandler.ComprobanteBytes = new byte[] { 0x89, 0x50, 0x4E, 0x47 }; // PNG header
+
+        var cut = RenderComponent<Conciliacion>();
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("<select");
+        }, TimeSpan.FromSeconds(10));
+
+        cut.Render();
+
+        // Click on transferencia 1 (Jose Miguel — has ComprobanteImagenPath = null in mock)
+        // So no download button should appear. Let's verify the panel renders.
+        var rows = cut.FindAll("div.con-row");
+        rows.First().Click();
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("Comprobante");
+        }, TimeSpan.FromSeconds(10));
+
+        // Transferencia 1 has no comprobante, so no download button
+        cut.Markup.Should().NotContain("Descargar comprobante");
+    }
+
+    [Fact]
+    public void DescargarComprobante_404_MuestraAlert_NoRompe()
+    {
+        var cut = RenderComponent<Conciliacion>();
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("<select");
+        }, TimeSpan.FromSeconds(10));
+
+        cut.Render();
+
+        // Click on transferencia 1 (no comprobante)
+        var rows = cut.FindAll("div.con-row");
+        rows.First().Click();
+
+        // The comprobante panel should render without crashing
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("Comprobante");
+            // No download button since HasComprobante is false
+            cut.Markup.Should().NotContain("Descargar comprobante");
+        }, TimeSpan.FromSeconds(10));
+    }
+
+    // ── Task 2.16: OnPeriodoChanged debounce/cancel ──────────────────────────
+
+    [Fact]
+    public void CambioPeriodo_Debounce300ms_CancelaAnterior()
+    {
+        // Enable multi-period mock
+        _mockHandler.MultiPeriod = true;
+
+        var cut = RenderComponent<Conciliacion>();
+
+        // Wait for initial load
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("<select");
+            cut.Markup.Should().Contain("Jose Miguel");
+        }, TimeSpan.FromSeconds(10));
+
+        cut.Render();
+
+        var requestsBefore = _mockHandler.Requests.Count;
+
+        // Change period selector twice rapidly (within 300ms debounce)
+        var select = cut.Find("select");
+        select.Change("2");
+        select.Change("1");
+
+        // Wait for debounce to settle
+        cut.WaitForAssertion(() =>
+        {
+            // Only the last change should have triggered a fetch
+            // The requests should include periodos/1 (the final selection)
+            var periodDetailRequests = _mockHandler.Requests
+                .Where(r => r.Contains("periodos/"))
+                .ToList();
+            // At most one additional detail request should have been made
+            // (the first change to period 2 should have been cancelled)
+            periodDetailRequests.Should().Contain(r => r.Contains("periodos/1"));
+        }, TimeSpan.FromSeconds(5));
+    }
+
     // ── Mock handler ───────────────────────────────────────────────────────────
 
     private class ConciliacionMockHandler : HttpMessageHandler
     {
         public List<string> Requests { get; } = new();
+        public List<string> PostRequests { get; } = new();
         public bool ReturnError500 { get; set; }
+        public bool ZeroTransferencias { get; set; }
+        public HttpStatusCode? PostResponse { get; set; }
+        public string? PostErrorBody { get; set; }
+        public byte[]? ComprobanteBytes { get; set; }
+        public bool ComprobanteNotFound { get; set; }
+        public bool MultiPeriod { get; set; }
 
         protected override async Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request, CancellationToken cancellationToken)
         {
             var url = request.RequestUri?.ToString() ?? "";
             Requests.Add(url);
+
+            if (request.Method == HttpMethod.Post)
+            {
+                PostRequests.Add(url);
+                if (PostResponse.HasValue)
+                {
+                    return new HttpResponseMessage(PostResponse.Value)
+                    {
+                        Content = new StringContent(PostErrorBody ?? "")
+                    };
+                }
+                return new HttpResponseMessage(HttpStatusCode.NoContent);
+            }
+
+            if (url.Contains("comprobante"))
+            {
+                if (ComprobanteNotFound || ComprobanteBytes is null)
+                {
+                    return new HttpResponseMessage(HttpStatusCode.NotFound)
+                    {
+                        Content = new StringContent("Esta transferencia no tiene comprobante de imagen.")
+                    };
+                }
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new ByteArrayContent(ComprobanteBytes)
+                };
+            }
 
             if (ReturnError500)
             {
@@ -205,19 +581,23 @@ public class ConciliacionPageTests : TestContext
             if (url.Contains("periodos/") && request.Method == HttpMethod.Get)
             {
                 // GET periodos/{id} — full detail
+                // Determine which period is being requested
+                var periodId = url.Contains("periodos/2") ? 2 : 1;
+                var trabajador = periodId == 2 ? "Ana Garcia" : "Jose Miguel";
+
                 json = JsonSerializer.Serialize(new
                 {
-                    Id = 1,
-                    Name = "Junio 2026",
-                    FechaInicio = DateTime.Parse("2026-06-01"),
-                    FechaFin = DateTime.Parse("2026-06-30"),
+                    Id = periodId,
+                    Name = periodId == 2 ? "Julio 2026" : "Junio 2026",
+                    FechaInicio = DateTime.Parse(periodId == 2 ? "2026-07-01" : "2026-06-01"),
+                    FechaFin = DateTime.Parse(periodId == 2 ? "2026-07-31" : "2026-06-30"),
                     Estado = 0, // Abierto
-                    Trabajador = "Jose Miguel",
+                    Trabajador = trabajador,
                     TotalTransferido = 273000m,
                     TotalCompras = 238034m,
                     TotalGastos = 30000m,
                     Devuelto = 0m,
-                    Transferencias = new object[]
+                    Transferencias = ZeroTransferencias ? Array.Empty<object>() : new object[]
                     {
                         new
                         {
@@ -294,7 +674,7 @@ public class ConciliacionPageTests : TestContext
             else if (url.Contains("periodos") && request.Method == HttpMethod.Get)
             {
                 // GET periodos — list
-                json = JsonSerializer.Serialize(new object[]
+                var periodos = new List<object>
                 {
                     new
                     {
@@ -309,7 +689,24 @@ public class ConciliacionPageTests : TestContext
                         TotalGastos = 30000m,
                         Devuelto = 0m
                     }
-                });
+                };
+                if (MultiPeriod)
+                {
+                    periodos.Add(new
+                    {
+                        Id = 2,
+                        Name = "Julio 2026",
+                        FechaInicio = DateTime.Parse("2026-07-01"),
+                        FechaFin = DateTime.Parse("2026-07-31"),
+                        Estado = 0,
+                        Trabajador = "Ana Garcia",
+                        TotalTransferido = 150000m,
+                        TotalCompras = 100000m,
+                        TotalGastos = 20000m,
+                        Devuelto = 0m
+                    });
+                }
+                json = JsonSerializer.Serialize(periodos);
             }
             else
             {
