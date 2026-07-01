@@ -85,6 +85,10 @@
     {
         <IndustrialAlert Message="@_error" Variant="IndustrialAlert.AlertVariant.Danger" />
     }
+    @if (_successMessage is not null)
+    {
+        <IndustrialAlert Message="@_successMessage" Variant="IndustrialAlert.AlertVariant.Success" />
+    }
 
     <!-- ===== FRANJA KPI (totales del cuadre, siempre visibles) ===== -->
     @if (_periodo is not null)
@@ -416,6 +420,7 @@
     private string _transfTrabajador = string.Empty;
     private string? _transfError;
     private string? _comprobanteError;
+    private string? _successMessage;
 
     // ── Compra modal state ────────────────────────────────────────────────────
     private string _compraProveedor = string.Empty;
@@ -835,6 +840,7 @@
             if (resp.IsSuccessStatusCode)
             {
                 _modalOpen = false;
+                _successMessage = "Devolución registrada exitosamente.";
                 await CargarPeriodoDetalle(_periodo.Id, CancellationToken.None);
             }
             else

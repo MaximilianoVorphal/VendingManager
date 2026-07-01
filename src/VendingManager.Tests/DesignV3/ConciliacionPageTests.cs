@@ -371,6 +371,42 @@ public class ConciliacionPageTests : TestContext
     }
 
     [Fact]
+    public void ConfirmarDevolucion_Post201_MuestraSuccessAlert()
+    {
+        // Configure mock for successful POST (devolucion returns 201)
+        _mockHandler.PostResponse = HttpStatusCode.Created;
+
+        var cut = RenderComponent<Conciliacion>();
+
+        // Wait for data to load
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("<select");
+        }, TimeSpan.FromSeconds(10));
+
+        cut.Render();
+
+        // Open devolución modal
+        cut.Find("button:contains('Registrar devolución')").Click();
+
+        // Assert modal is open
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("Esta acción cierra la rendición");
+        }, TimeSpan.FromSeconds(10));
+
+        // Click confirm button
+        cut.Find("button:contains('Confirmar')").Click();
+
+        // Assert: success indicator appears after successful POST
+        cut.WaitForAssertion(() =>
+        {
+            _mockHandler.PostRequests.Should().Contain(r => r.Contains("devolucion"));
+            cut.Markup.Should().Contain("Devolución registrada exitosamente");
+        }, TimeSpan.FromSeconds(10));
+    }
+
+    [Fact]
     public void CancelarDevolucion_NoLlamaApi()
     {
         var cut = RenderComponent<Conciliacion>();
