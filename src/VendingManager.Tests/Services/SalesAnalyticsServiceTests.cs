@@ -25,7 +25,8 @@ public class SalesAnalyticsServiceTests : IDisposable
         _mockExcelExport = new Mock<IExcelExportService>();
         _cache = new MemoryCache(new MemoryCacheOptions());
         _thresholds = Options.Create(AnalyticsThresholds.Default);
-        _analyticsService = new SalesAnalyticsService(_context, _mockExcelExport.Object, _cache, _thresholds);
+        var config = Options.Create(new VendingConfig());
+        _analyticsService = new SalesAnalyticsService(_context, _mockExcelExport.Object, _cache, _thresholds, config);
     }
 
     public void Dispose()

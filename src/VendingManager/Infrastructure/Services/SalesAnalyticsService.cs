@@ -21,17 +21,20 @@ public class SalesAnalyticsService : ISalesAnalyticsService
     private readonly IExcelExportService _excelExportService;
     private readonly IMemoryCache _cache;
     private readonly AnalyticsThresholds _thresholds;
+    private readonly VendingConfig _config;
 
     public SalesAnalyticsService(
         ApplicationDbContext context,
         IExcelExportService excelExportService,
         IMemoryCache cache,
-        IOptions<AnalyticsThresholds> thresholds)
+        IOptions<AnalyticsThresholds> thresholds,
+        IOptions<VendingConfig> config)
     {
         _context = context;
         _excelExportService = excelExportService;
         _cache = cache;
         _thresholds = thresholds.Value;
+        _config = config.Value;
     }
 
     /// <summary>
@@ -245,10 +248,16 @@ public class SalesAnalyticsService : ISalesAnalyticsService
 
             var listaVentas = await queryVentas.ToListAsync();
 
+            // Phantoms (TB-EXTRA, TB-SIN-VENTA) no son ventas reales — excluir del cálculo financiero
+            // (mismo criterio que BuildReporteAsync, que las pone aparte en reporte.Fantasmas)
+            var ventasReales = listaVentas
+                .Where(v => v.IdOrdenMaquina != "TB-EXTRA" && v.IdOrdenMaquina != "TB-SIN-VENTA")
+                .ToList();
+
             decimal ingresosVentas = 0;
             decimal costoVentas = 0;
 
-            foreach (var v in listaVentas)
+            foreach (var v in ventasReales)
             {
                 ingresosVentas += v.PrecioVenta;
                 decimal costo = v.CostoVenta;
@@ -259,8 +268,21 @@ public class SalesAnalyticsService : ISalesAnalyticsService
             decimal gastosOperativos = 0;
             if (maquinaId == 0)
             {
+                // Categorías operacionales — mismo criterio que CajaBusinessService.GetResumenAsync
+                // (líneas 88-98). GENERAL / MERCADERIA / MERMA / LOTES / APORTE NO son operacionales.
+                var categoriasOperacionales = new[]
+                {
+                    "LOGISTICA", "PEAJES", "INSUMOS", "MANTENCION",
+                    "INFRA", "ARRIENDO_POS", "INTERNET", "COMISIONES",
+                    "SUELDOS", "GASTOS GENERALES", "OTROS", "SERVICIOS"
+                };
+
                 gastosOperativos = await _context.MovimientosCaja
-                    .Where(m => m.Fecha >= inicioAjustado && m.Fecha <= finAjustado && m.Monto < 0)
+                    .Where(m => m.Fecha >= _config.CajaStartDate
+                             && m.Fecha >= inicioAjustado
+                             && m.Fecha <= finAjustado
+                             && m.Monto < 0
+                             && categoriasOperacionales.Contains(m.Categoria))
                     .SumAsync(m => m.Monto);
 
                 gastosOperativos = Math.Abs(gastosOperativos);
