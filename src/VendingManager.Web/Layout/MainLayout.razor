@@ -24,16 +24,6 @@
                         @Body
                     </CustomErrorBoundary>
                 </div>
-                <AuthorizeView>
-                    <Authorized>
-                        @if (ShowMachineOnlinePanel)
-                        {
-                            <aside class="vm-shell__right" role="complementary" aria-label="Máquinas online">
-                                <MachineOnlinePanel />
-                            </aside>
-                        }
-                    </Authorized>
-                </AuthorizeView>
             </div>
         </main>
     </div>
@@ -63,19 +53,6 @@
         {
             var path = new Uri(NavManager.Uri).AbsolutePath.Trim('/').ToLowerInvariant();
             return FullscreenRoutes.Contains(path);
-        }
-    }
-
-    private bool ShowMachineOnlinePanel
-    {
-        get
-        {
-            var path = new Uri(NavManager.Uri).AbsolutePath.Trim('/').ToLowerInvariant();
-            return path switch
-            {
-                "informe-ventas-v2" or "analisis-ventas" => true,
-                _ => false
-            };
         }
     }
 
