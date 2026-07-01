@@ -3,7 +3,7 @@ window.scrollElementToTop = (id) => {
     if (el) el.scrollTop = 0;
 };
 
-window.descargarArchivo = (content, fileName) => {
+window.descargarArchivo = (content, fileName, mimeType) => {
     try {
         let byteArray;
 
@@ -29,7 +29,7 @@ window.descargarArchivo = (content, fileName) => {
         }
 
         // Create blob
-        const blob = new Blob([byteArray], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+        const blob = new Blob([byteArray], { type: mimeType || "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
 
         // Create download link
         const url = URL.createObjectURL(blob);
