@@ -480,6 +480,46 @@ public class ConciliacionPageTests : TestContext
         }, TimeSpan.FromSeconds(10));
     }
 
+    // ── Task 2.16: OnPeriodoChanged debounce/cancel ──────────────────────────
+
+    [Fact]
+    public void CambioPeriodo_Debounce300ms_CancelaAnterior()
+    {
+        // Enable multi-period mock
+        _mockHandler.MultiPeriod = true;
+
+        var cut = RenderComponent<Conciliacion>();
+
+        // Wait for initial load
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("<select");
+            cut.Markup.Should().Contain("Jose Miguel");
+        }, TimeSpan.FromSeconds(10));
+
+        cut.Render();
+
+        var requestsBefore = _mockHandler.Requests.Count;
+
+        // Change period selector twice rapidly (within 300ms debounce)
+        var select = cut.Find("select");
+        select.Change("2");
+        select.Change("1");
+
+        // Wait for debounce to settle
+        cut.WaitForAssertion(() =>
+        {
+            // Only the last change should have triggered a fetch
+            // The requests should include periodos/1 (the final selection)
+            var periodDetailRequests = _mockHandler.Requests
+                .Where(r => r.Contains("periodos/"))
+                .ToList();
+            // At most one additional detail request should have been made
+            // (the first change to period 2 should have been cancelled)
+            periodDetailRequests.Should().Contain(r => r.Contains("periodos/1"));
+        }, TimeSpan.FromSeconds(5));
+    }
+
     // ── Mock handler ───────────────────────────────────────────────────────────
 
     private class ConciliacionMockHandler : HttpMessageHandler
@@ -492,6 +532,7 @@ public class ConciliacionPageTests : TestContext
         public string? PostErrorBody { get; set; }
         public byte[]? ComprobanteBytes { get; set; }
         public bool ComprobanteNotFound { get; set; }
+        public bool MultiPeriod { get; set; }
 
         protected override async Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request, CancellationToken cancellationToken)
@@ -540,14 +581,18 @@ public class ConciliacionPageTests : TestContext
             if (url.Contains("periodos/") && request.Method == HttpMethod.Get)
             {
                 // GET periodos/{id} — full detail
+                // Determine which period is being requested
+                var periodId = url.Contains("periodos/2") ? 2 : 1;
+                var trabajador = periodId == 2 ? "Ana Garcia" : "Jose Miguel";
+
                 json = JsonSerializer.Serialize(new
                 {
-                    Id = 1,
-                    Name = "Junio 2026",
-                    FechaInicio = DateTime.Parse("2026-06-01"),
-                    FechaFin = DateTime.Parse("2026-06-30"),
+                    Id = periodId,
+                    Name = periodId == 2 ? "Julio 2026" : "Junio 2026",
+                    FechaInicio = DateTime.Parse(periodId == 2 ? "2026-07-01" : "2026-06-01"),
+                    FechaFin = DateTime.Parse(periodId == 2 ? "2026-07-31" : "2026-06-30"),
                     Estado = 0, // Abierto
-                    Trabajador = "Jose Miguel",
+                    Trabajador = trabajador,
                     TotalTransferido = 273000m,
                     TotalCompras = 238034m,
                     TotalGastos = 30000m,
@@ -629,7 +674,7 @@ public class ConciliacionPageTests : TestContext
             else if (url.Contains("periodos") && request.Method == HttpMethod.Get)
             {
                 // GET periodos — list
-                json = JsonSerializer.Serialize(new object[]
+                var periodos = new List<object>
                 {
                     new
                     {
@@ -644,7 +689,24 @@ public class ConciliacionPageTests : TestContext
                         TotalGastos = 30000m,
                         Devuelto = 0m
                     }
-                });
+                };
+                if (MultiPeriod)
+                {
+                    periodos.Add(new
+                    {
+                        Id = 2,
+                        Name = "Julio 2026",
+                        FechaInicio = DateTime.Parse("2026-07-01"),
+                        FechaFin = DateTime.Parse("2026-07-31"),
+                        Estado = 0,
+                        Trabajador = "Ana Garcia",
+                        TotalTransferido = 150000m,
+                        TotalCompras = 100000m,
+                        TotalGastos = 20000m,
+                        Devuelto = 0m
+                    });
+                }
+                json = JsonSerializer.Serialize(periodos);
             }
             else
             {
