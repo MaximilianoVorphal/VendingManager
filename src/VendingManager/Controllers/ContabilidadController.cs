@@ -172,6 +172,25 @@ public class ContabilidadController(
         }
     }
 
+    [HttpDelete("transferencia/{id}")]
+    public async Task<ActionResult<EliminarTransferenciaResultDto>> EliminarTransferencia(
+        int id, CancellationToken ct = default)
+    {
+        try
+        {
+            var result = await _service.EliminarTransferenciaCuadreAsync(id, ct);
+            return Ok(result);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(ex.Message);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
     [HttpPost("transferencia/{transferenciaId}/vincular-compra/{compraId}")]
     public async Task<IActionResult> VincularCompraExistente(
         int transferenciaId, int compraId, CancellationToken ct = default)
