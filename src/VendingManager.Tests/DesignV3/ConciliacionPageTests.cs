@@ -715,16 +715,53 @@ public class ConciliacionPageTests : TestContext
         }, TimeSpan.FromSeconds(5));
     }
 
+    // ── T-14, T-15: Eliminar transferencia checkbox + button ───────────────
+
+    [Fact]
+    public void EliminarCheckbox_Unchecked_BotonNoEnDOM()
+    {
+        var cut = RenderComponent<Conciliacion>();
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("<select");
+        }, TimeSpan.FromSeconds(10));
+
+        // Default state: checkbox unchecked → "Eliminar transferencia" button must NOT be in DOM
+        cut.Markup.Should().NotContain("Eliminar transferencia");
+    }
+
+    [Fact]
+    public void EliminarCheckbox_Checked_BotonEnDOM()
+    {
+        var cut = RenderComponent<Conciliacion>();
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("<select");
+        }, TimeSpan.FromSeconds(10));
+
+        // Check the delete-transferencia checkbox
+        var checkbox = cut.Find("input[data-testid='eliminar-transf-checkbox']");
+        checkbox.Change(true);
+
+        // Now the "Eliminar transferencia" button must be in the DOM
+        cut.Markup.Should().Contain("Eliminar transferencia");
+    }
+
     // ── Mock handler ───────────────────────────────────────────────────────────
 
     private class ConciliacionMockHandler : HttpMessageHandler
     {
         public List<string> Requests { get; } = new();
         public List<string> PostRequests { get; } = new();
+        public List<string> DeleteRequests { get; } = new();
         public bool ReturnError500 { get; set; }
         public bool ZeroTransferencias { get; set; }
         public HttpStatusCode? PostResponse { get; set; }
         public string? PostErrorBody { get; set; }
+        public string? DeleteResponseJson { get; set; }
+        public HttpStatusCode? DeleteResponse { get; set; }
         public byte[]? ComprobanteBytes { get; set; }
         public bool ComprobanteNotFound { get; set; }
         public bool MultiPeriod { get; set; }
@@ -735,6 +772,22 @@ public class ConciliacionPageTests : TestContext
         {
             var url = request.RequestUri?.ToString() ?? "";
             Requests.Add(url);
+
+            if (request.Method == HttpMethod.Delete)
+            {
+                DeleteRequests.Add(url);
+                if (DeleteResponse.HasValue)
+                {
+                    return new HttpResponseMessage(DeleteResponse.Value)
+                    {
+                        Content = new StringContent(DeleteResponseJson ?? "{}", System.Text.Encoding.UTF8, "application/json")
+                    };
+                }
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("{\"ComprasUnlinked\":2,\"PeriodoId\":1}", System.Text.Encoding.UTF8, "application/json")
+                };
+            }
 
             if (request.Method == HttpMethod.Post)
             {
