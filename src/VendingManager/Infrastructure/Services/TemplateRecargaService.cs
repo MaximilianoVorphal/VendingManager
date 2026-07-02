@@ -372,10 +372,9 @@ public class TemplateRecargaService : ITemplateRecargaService
 
     public async Task<List<SnapshotSlotDto>> GetSlotsForMaquinaAsync(int maquinaId)
     {
-        return await _context.ConfiguracionSlots
+        var slots = await _context.ConfiguracionSlots
             .Include(c => c.Producto)
             .Where(c => c.MaquinaId == maquinaId)
-            .OrderBy(c => c.NumeroSlot)
             .Select(c => new SnapshotSlotDto
             {
                 NumeroSlot = c.NumeroSlot,
@@ -386,6 +385,10 @@ public class TemplateRecargaService : ITemplateRecargaService
                 Estado = c.ProductoId == null ? EstadoSlot.Pendiente : EstadoSlot.Lleno
             })
             .ToListAsync();
+
+        // Orden numérico real: "1", "2", ..., "10", "11", ..., "100", "101"
+        // en vez del orden alfabético que da SQL Server en columnas nvarchar.
+        return slots.OrderBy(s => int.TryParse(s.NumeroSlot, out var n) ? n : 999).ToList();
     }
 
     // ===== DELEGATED TO ITemplateRecargaAnalyticsService (when available) =====

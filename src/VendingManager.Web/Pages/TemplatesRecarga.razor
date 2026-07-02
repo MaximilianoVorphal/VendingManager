@@ -1629,12 +1629,21 @@
             return;
 
         var periodo = PeriodosActuales[index];
+
+        // Si ya había slots configurados para OTRA máquina, los limpiamos.
+        // No tiene sentido mezclar slots de dos máquinas distintas — cada período
+        // corresponde a UNA sola máquina y sus slots reales.
+        if (periodo.MaquinaId != id && periodo.SnapshotSlots.Count > 0)
+        {
+            periodo.SnapshotSlots.Clear();
+        }
+
         periodo.MaquinaId = id;
 
-        // Auto-load slots cuando el período está vacío y la máquina es válida.
-        // Cubre tanto el alta de un template nuevo como el caso de editar
-        // y cambiar de máquina a una que aún no tiene snapshot en este período.
-        if (periodo.SnapshotSlots.Count == 0 && id > 0)
+        // Cargar slots SIEMPRE que cambie la máquina y sea válida.
+        // Antes solo cargaba si el período estaba vacío, lo que provocaba
+        // que al cambiar de máquina se mantuvieran los slots de la anterior.
+        if (id > 0)
         {
             await CargarSlotsParaPeriodo(index);
         }
