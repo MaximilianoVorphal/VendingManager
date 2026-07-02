@@ -1,14 +1,23 @@
-@page "/analisis-productos-v2"
+@page "/analisis-ventas"
+@page "/analisis-productos"
+@inject HttpClient Http
+@inject IPlantillaService PlantillaService
+@inject Microsoft.Extensions.Logging.ILogger<AnalisisProductos> Logger
 @using System.Globalization
+@using VendingManager.Shared.DTOs
 
 @* =============================================================================
-   Análisis de Productos — port fiel de templates/analisis-productos/AnalisisProductos.dc.html.
+   Análisis de Productos — port fiel de templates/analisis-productos/AnalisisProductos.dc.html
+   (Claude Design, fuente de verdad) cableado al backend real.
    Barra de comando (unidad + plantilla + rango + incluir desconocidos) y el
    Ranking de Productos con clasificación ABC/Pareto (regla 80/20), tendencia vs
    período anterior, ingresos, ganancia y margen %. Columnas ordenables, fila de
    totales fija, toggle Producto / Categoría. Sin scroll de página: la tabla
-   scrollea internamente. Ruta "fullscreen" en MainLayout. Datos demo idénticos
-   al template (backend después).
+   scrollea internamente. Ruta "fullscreen" en MainLayout.
+
+   Datos: api/Ventas/analisis-productos → List<AnalisisProductoDto>. El backend ya
+   clasifica ABC, calcula % acumulado y tendencia; la vista por categoría agrega
+   en cliente (recalcula Pareto sobre ingresos agregados), igual que el template.
    ============================================================================= *@
 
 <style>
@@ -45,10 +54,10 @@
     <div style="flex-shrink:0;border:2px solid var(--ink-900);background:var(--paper-50);box-shadow:var(--shadow-card);padding:0.55rem 1rem;margin:10px 0;">
         <div class="ap-cmd" style="display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap;">
             <div style="min-width:240px;">
-                <VmSelect Label="Unidad" @bind-Value="_unit" Options="UnitOptions" />
+                <VmSelect Label="Unidad" Value="@_unit" ValueChanged="OnUnitChanged" Options="UnitOptions" />
             </div>
             <div style="min-width:240px;">
-                <VmSelect Label="Plantilla" @bind-Value="_plantilla" Options="PlantillaOptions" />
+                <VmSelect Label="Plantilla" Value="@_plantilla" ValueChanged="OnPlantillaChanged" Options="PlantillaOptions" />
             </div>
             <div style="display:flex;flex-direction:column;gap:0.35rem;">
                 <label style="font-family:var(--font-mono);font-size:0.66rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Desde</label>
@@ -59,12 +68,12 @@
                 <input type="date" value="@_hasta" @onchange="e => _hasta = e.Value?.ToString() ?? _hasta" style="font-family:var(--font-mono);font-size:0.8rem;font-weight:700;border:2px solid var(--ink-900);border-radius:0;background:var(--paper-0);padding:0.45rem 0.6rem;outline:none;" />
             </div>
             <div style="flex:1;min-width:160px;display:flex;justify-content:flex-end;">
-                <VmButton Variant="dark" Icon="bi-bar-chart-line-fill" Width="190px">Analizar</VmButton>
+                <VmButton Variant="dark" Icon="bi-bar-chart-line-fill" Width="190px" OnClick="CargarDatos" Disabled="_cargando">@(_cargando ? "Procesando…" : "Analizar")</VmButton>
             </div>
         </div>
         <!-- Incluir pendientes / desconocidos -->
         <label style="display:inline-flex;align-items:center;gap:9px;margin-top:7px;cursor:pointer;">
-            <button @onclick="() => _incluir = !_incluir" role="checkbox" aria-checked="@(_incluir ? "true" : "false")" style="width:20px;height:20px;flex-shrink:0;border:2px solid var(--ink-900);border-radius:0;background:@(_incluir ? "var(--ink-900)" : "var(--paper-0)");color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:0.7rem;line-height:1;">
+            <button @onclick="ToggleIncluir" role="checkbox" aria-checked="@(_incluir ? "true" : "false")" style="width:20px;height:20px;flex-shrink:0;border:2px solid var(--ink-900);border-radius:0;background:@(_incluir ? "var(--ink-900)" : "var(--paper-0)");color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:0.7rem;line-height:1;">
                 @if (_incluir)
                 {
                     <i class="bi bi-check-lg"></i>
@@ -114,139 +123,207 @@
             </div>
         </div>
 
-        <!-- Tabla -->
+        <!-- Contenido: carga / error / vacío / tabla -->
         <div style="flex:1;min-height:0;overflow:auto;">
-            <table class="ap-tbl" style="width:100%;border-collapse:collapse;">
-                <thead style="position:sticky;top:0;z-index:2;">
-                    <tr style="background:var(--ink-700);color:#fff;font-family:var(--font-mono);text-transform:uppercase;font-size:0.62rem;letter-spacing:0.5px;">
-                        <th class="ap-th ap-sortable" @onclick='() => SortBy("prod")' style="text-align:left;padding:8px 12px;font-weight:700;background:var(--ink-700);">Producto@(Caret("prod"))</th>
-                        <th class="ap-th ap-sortable" @onclick='() => SortBy("abc")' style="text-align:left;padding:8px 12px;font-weight:700;background:var(--ink-700);">ABC@(Caret("abc"))</th>
-                        <th class="ap-th ap-sortable" @onclick='() => SortBy("tend")' style="text-align:left;padding:8px 12px;font-weight:700;background:var(--ink-700);">Tendencia@(Caret("tend"))</th>
-                        <th class="ap-th ap-sortable" @onclick='() => SortBy("unid")' style="text-align:right;padding:8px 12px;font-weight:700;background:var(--ink-700);">Total Unid.@(Caret("unid"))</th>
-                        <th class="ap-th ap-sortable" @onclick='() => SortBy("ing")' style="text-align:right;padding:8px 12px;font-weight:700;background:var(--ink-700);">Ingresos@(Caret("ing"))</th>
-                        <th class="ap-th ap-sortable" @onclick='() => SortBy("gan")' style="text-align:right;padding:8px 12px;font-weight:700;background:var(--ink-700);">Ganancia@(Caret("gan"))</th>
-                        <th class="ap-th ap-sortable" @onclick='() => SortBy("margen")' style="text-align:right;padding:8px 12px;font-weight:700;background:var(--ink-700);">Margen %@(Caret("margen"))</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var r in rows)
-                    {
-                        var margen = r.Ing != 0 ? (double)r.Gan / r.Ing * 100 : 0;
-                        <tr class="ap-row @(r.Unknown ? "ap-row-unk" : "")" style="border-bottom:1px solid var(--line-200);">
-                            <td style="font-family:var(--font-sans);font-weight:600;font-size:0.84rem;text-transform:uppercase;letter-spacing:-0.2px;">@r.Prod</td>
-                            <td>
-                                <span style="display:inline-flex;align-items:center;gap:7px;">
-                                    @{
-                                        var (abcBg, abcColor) = AbcStyle(r.Abc);
-                                    }
-                                    <span style="display:inline-flex;align-items:center;justify-content:center;width:19px;height:19px;background:@abcBg;color:@abcColor;font-family:var(--font-mono);font-weight:700;font-size:0.66rem;">@r.Abc</span>
-                                    <span style="font-family:var(--font-mono);font-size:0.72rem;color:var(--text-muted);">@(r.Unknown ? "—" : r.CumPct.ToString("F1", Inv) + "%")</span>
-                                </span>
-                            </td>
-                            <td style="white-space:nowrap;font-family:var(--font-mono);font-weight:700;font-size:0.78rem;">
-                                @if (r.T is null)
-                                {
-                                    <span style="color:var(--text-muted);">—</span>
-                                }
-                                else if (r.T > 0)
-                                {
-                                    <span style="color:var(--signal-success);">▲ @TrendText(r.T)</span>
-                                }
-                                else if (r.T < 0)
-                                {
-                                    <span style="color:var(--signal-danger);">▼ @TrendText(r.T)</span>
-                                }
-                                else
-                                {
-                                    <span style="color:var(--text-muted);">→ @TrendText(r.T)</span>
-                                }
-                            </td>
-                            <td style="text-align:right;font-family:var(--font-mono);font-weight:700;font-size:0.82rem;">@r.Unid.ToString("N0", Nfi)</td>
-                            <td style="text-align:right;font-family:var(--font-mono);font-weight:700;font-size:0.8rem;">@Fmt(r.Ing)</td>
-                            <td style="text-align:right;font-family:var(--font-mono);font-weight:700;font-size:0.8rem;">
-                                <span style="color:@(r.Gan >= 0 ? "var(--signal-success)" : "var(--signal-danger)");">@Fmt(r.Gan)</span>
-                            </td>
-                            <td style="text-align:right;">
-                                <span style="display:inline-block;min-width:52px;text-align:center;background:@(margen >= 45 ? "var(--signal-success)" : "var(--signal-warning)");color:@(margen >= 45 ? "#fff" : "var(--ink-900)");font-family:var(--font-mono);font-weight:700;font-size:0.68rem;padding:3px 8px;">@margen.ToString("F1", Inv)%</span>
-                            </td>
+            @if (_cargando)
+            {
+                <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0.8rem;padding:3rem 1rem;font-family:var(--font-mono);text-transform:uppercase;letter-spacing:2px;font-weight:700;color:var(--text-muted);">
+                    <div class="spinner-grow text-dark" role="status"></div>
+                    <span>Calculando métricas…</span>
+                </div>
+            }
+            else if (!string.IsNullOrEmpty(_error))
+            {
+                <div style="margin:1rem;border:2px solid var(--ink-900);background:var(--tint-danger,#fdecea);padding:0.9rem 1rem;font-family:var(--font-mono);font-weight:700;font-size:0.8rem;">
+                    <i class="bi bi-exclamation-triangle-fill" style="margin-right:0.5rem;"></i>@_error
+                </div>
+            }
+            else if (rows.Count == 0)
+            {
+                <div style="display:flex;align-items:center;justify-content:center;padding:3rem 1rem;font-family:var(--font-mono);text-transform:uppercase;letter-spacing:1.5px;font-weight:700;color:var(--text-muted);">
+                    Sin ventas en el período seleccionado
+                </div>
+            }
+            else
+            {
+                <table class="ap-tbl" style="width:100%;border-collapse:collapse;">
+                    <thead style="position:sticky;top:0;z-index:2;">
+                        <tr style="background:var(--ink-700);color:#fff;font-family:var(--font-mono);text-transform:uppercase;font-size:0.62rem;letter-spacing:0.5px;">
+                            <th class="ap-th ap-sortable" @onclick='() => SortBy("prod")' style="text-align:left;padding:8px 12px;font-weight:700;background:var(--ink-700);">Producto@(Caret("prod"))</th>
+                            <th class="ap-th ap-sortable" @onclick='() => SortBy("abc")' style="text-align:left;padding:8px 12px;font-weight:700;background:var(--ink-700);">ABC@(Caret("abc"))</th>
+                            <th class="ap-th ap-sortable" @onclick='() => SortBy("tend")' style="text-align:left;padding:8px 12px;font-weight:700;background:var(--ink-700);">Tendencia@(Caret("tend"))</th>
+                            <th class="ap-th ap-sortable" @onclick='() => SortBy("unid")' style="text-align:right;padding:8px 12px;font-weight:700;background:var(--ink-700);">Total Unid.@(Caret("unid"))</th>
+                            <th class="ap-th ap-sortable" @onclick='() => SortBy("ing")' style="text-align:right;padding:8px 12px;font-weight:700;background:var(--ink-700);">Ingresos@(Caret("ing"))</th>
+                            <th class="ap-th ap-sortable" @onclick='() => SortBy("gan")' style="text-align:right;padding:8px 12px;font-weight:700;background:var(--ink-700);">Ganancia@(Caret("gan"))</th>
+                            <th class="ap-th ap-sortable" @onclick='() => SortBy("margen")' style="text-align:right;padding:8px 12px;font-weight:700;background:var(--ink-700);">Margen %@(Caret("margen"))</th>
                         </tr>
-                    }
-                </tbody>
-                <tfoot style="position:sticky;bottom:0;z-index:2;">
-                    <tr style="background:var(--ink-900);color:#fff;font-family:var(--font-mono);font-weight:700;text-transform:uppercase;font-size:0.74rem;letter-spacing:0.4px;">
-                        <td colspan="3" style="padding:9px 12px;">Totales · @rows.Count ítems</td>
-                        <td style="text-align:right;padding:9px 12px;">@totUnid.ToString("N0", Nfi)</td>
-                        <td style="text-align:right;padding:9px 12px;">@Fmt(totIng)</td>
-                        <td style="text-align:right;padding:9px 12px;color:#5fd08a;">@Fmt(totGan)</td>
-                        <td style="text-align:right;padding:9px 12px;">@totMargen.ToString("F1", Inv)%</td>
-                    </tr>
-                </tfoot>
-            </table>
+                    </thead>
+                    <tbody>
+                        @foreach (var r in rows)
+                        {
+                            var margen = r.Ing != 0 ? (double)r.Gan / r.Ing * 100 : 0;
+                            <tr class="ap-row @(r.Unknown ? "ap-row-unk" : "")" style="border-bottom:1px solid var(--line-200);">
+                                <td style="font-family:var(--font-sans);font-weight:600;font-size:0.84rem;text-transform:uppercase;letter-spacing:-0.2px;">@r.Prod</td>
+                                <td>
+                                    <span style="display:inline-flex;align-items:center;gap:7px;">
+                                        @{
+                                            var (abcBg, abcColor) = AbcStyle(r.Abc);
+                                        }
+                                        <span style="display:inline-flex;align-items:center;justify-content:center;width:19px;height:19px;background:@abcBg;color:@abcColor;font-family:var(--font-mono);font-weight:700;font-size:0.66rem;">@r.Abc</span>
+                                        <span style="font-family:var(--font-mono);font-size:0.72rem;color:var(--text-muted);">@(r.Unknown ? "—" : r.CumPct.ToString("F1", Inv) + "%")</span>
+                                    </span>
+                                </td>
+                                <td style="white-space:nowrap;font-family:var(--font-mono);font-weight:700;font-size:0.78rem;">
+                                    @if (r.T is null)
+                                    {
+                                        <span style="color:var(--text-muted);">—</span>
+                                    }
+                                    else if (r.T > 0)
+                                    {
+                                        <span style="color:var(--signal-success);">▲ @TrendText(r.T)</span>
+                                    }
+                                    else if (r.T < 0)
+                                    {
+                                        <span style="color:var(--signal-danger);">▼ @TrendText(r.T)</span>
+                                    }
+                                    else
+                                    {
+                                        <span style="color:var(--text-muted);">→ @TrendText(r.T)</span>
+                                    }
+                                </td>
+                                <td style="text-align:right;font-family:var(--font-mono);font-weight:700;font-size:0.82rem;">@r.Unid.ToString("N0", Nfi)</td>
+                                <td style="text-align:right;font-family:var(--font-mono);font-weight:700;font-size:0.8rem;">@Fmt(r.Ing)</td>
+                                <td style="text-align:right;font-family:var(--font-mono);font-weight:700;font-size:0.8rem;">
+                                    <span style="color:@(r.Gan >= 0 ? "var(--signal-success)" : "var(--signal-danger)");">@Fmt(r.Gan)</span>
+                                </td>
+                                <td style="text-align:right;">
+                                    <span style="display:inline-block;min-width:52px;text-align:center;background:@(margen >= 45 ? "var(--signal-success)" : "var(--signal-warning)");color:@(margen >= 45 ? "#fff" : "var(--ink-900)");font-family:var(--font-mono);font-weight:700;font-size:0.68rem;padding:3px 8px;">@margen.ToString("F1", Inv)%</span>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                    <tfoot style="position:sticky;bottom:0;z-index:2;">
+                        <tr style="background:var(--ink-900);color:#fff;font-family:var(--font-mono);font-weight:700;text-transform:uppercase;font-size:0.74rem;letter-spacing:0.4px;">
+                            <td colspan="3" style="padding:9px 12px;">Totales · @rows.Count ítems</td>
+                            <td style="text-align:right;padding:9px 12px;">@totUnid.ToString("N0", Nfi)</td>
+                            <td style="text-align:right;padding:9px 12px;">@Fmt(totIng)</td>
+                            <td style="text-align:right;padding:9px 12px;color:#5fd08a;">@Fmt(totGan)</td>
+                            <td style="text-align:right;padding:9px 12px;">@totMargen.ToString("F1", Inv)%</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            }
         </div>
     </section>
 </div>
 
 @code {
-    // ── Estado de UI ──────────────────────────────────────────────────────────
-    private string _unit = "0";
-    private string _plantilla = "0";
-    private string _desde = "2026-05-29";
-    private string _hasta = "2026-06-28";
+    // ── Estado de filtros ─────────────────────────────────────────────────────
+    private string _unit = "0";        // maquinaId (0 = todas)
+    private string _plantilla = "0";   // plantillaId (0 = todas) — filtra máquinas
+    private string _desde = DateTime.Today.AddDays(-30).ToString("yyyy-MM-dd");
+    private string _hasta = DateTime.Today.ToString("yyyy-MM-dd");
     private bool _incluir;
     private string _vista = "producto";
     private string _sortKey = "ing";
     private string _sortDir = "desc";
 
-    private static readonly VmSelect.VmSelectOption[] UnitOptions =
-    [
-        new("0", ":: Todas las unidades ::"),
-        new("1", "Máquina 0012 — Café+Snack"),
-        new("2", "Máquina 0022 — Snack"),
-        new("3", "Máquina 0023 — Snack"),
-    ];
+    // ── Estado de datos ───────────────────────────────────────────────────────
+    private bool _cargando;
+    private string _error = "";
+    private List<AnalisisProductoDto>? _dtos;
+    private List<MaquinaSimpleDto>? _maquinas;
+    private List<Plantilla>? _plantillas;
 
-    private static readonly VmSelect.VmSelectOption[] PlantillaOptions =
-    [
-        new("0", ":: Plantilla actual ::"),
-        new("1", "Planograma Café+Snack v3"),
-        new("2", "Verano — Bebidas frías"),
-        new("3", "Alta rotación — Snacks"),
-    ];
+    // ── Opciones de selects (reales) ──────────────────────────────────────────
+    private IEnumerable<MaquinaSimpleDto> MaquinasFiltradas
+    {
+        get
+        {
+            if (_maquinas == null) return [];
+            if (_plantilla == "0" || _plantillas == null) return _maquinas;
+            if (!int.TryParse(_plantilla, out var pid)) return _maquinas;
+            var plantilla = _plantillas.FirstOrDefault(p => p.Id == pid);
+            if (plantilla == null) return _maquinas;
+            var termino = plantilla.Nombre.Replace("PLANTILLA ", "", StringComparison.OrdinalIgnoreCase);
+            return _maquinas.Where(m => m.Nombre.Contains(termino, StringComparison.OrdinalIgnoreCase));
+        }
+    }
 
-    // ── Datos: [ nombre, categoría, unidades, ingresos, ganancia, tendencia% (null = sin datos) ] ──
-    private record Product(string Prod, string Cat, int Unid, int Ing, int Gan, double? T);
+    private VmSelect.VmSelectOption[] UnitOptions =>
+        new[] { new VmSelect.VmSelectOption("0", ":: Todas las unidades ::") }
+        .Concat(MaquinasFiltradas.Select(m => new VmSelect.VmSelectOption(m.Id.ToString(), m.Nombre)))
+        .ToArray();
 
-    private static readonly Product[] Products =
-    [
-        new("Coca Cola 580cc", "Bebidas", 206, 282830, 98256, -21.7),
-        new("Coca Cola Lata", "Bebidas", 159, 156750, 47514, -9.4),
-        new("Score Gorila Lata 473cc", "Energéticas", 66, 88380, 32095, -19.5),
-        new("Lays XS 22 grs", "Snacks Salados", 36, 42410, 26930, 123.1),
-        new("Pap Lata 350cc", "Bebidas", 33, 33000, 13796, 37.5),
-        new("Limón Soda 500cc", "Bebidas", 24, 31680, 11520, -44.0),
-        new("Caja Jugo Watts", "Jugos", 30, 31330, 23747, 27.2),
-        new("Tuareg / Din Don", "Confites", 27, 30120, 15418, -4.6),
-        new("Limón Soda Lata 350cc", "Bebidas", 30, 30000, 12567, 36.4),
-        new("Kem Piña 500cc", "Bebidas", 24, 29670, 9510, 11.2),
-        new("Cachantun (Light/Normal)", "Aguas", 34, 28000, 15896, -3.4),
-        new("Maní Confitado", "Confites", 25, 26560, 26560, 435.5),
-        new("Pinguinos", "Snacks Dulces", 29, 25700, 5448, 1876.9),
-        new("Gatored", "Bebidas", 16, 23840, 10526, 74.0),
-        new("Cachantun Extra Gas", "Aguas", 16, 21380, 15673, 29.0),
-        new("Maní Salado", "Snacks Salados", 21, 21000, 21000, 1809.1),
-        new("Super 8", "Snacks Dulces", 28, 19600, 7200, 8.0),
-        new("Nestlé Chandelle", "Snacks Dulces", 14, 16800, 9100, -12.0),
-        new("Agua Mineral 500cc", "Aguas", 22, 15400, 6200, 0),
-        new("Ramitas Quemaditas", "Snacks Salados", 19, 13300, 5800, 15.0),
-        new("Trident Menta", "Confites", 31, 12400, 8900, -6.0),
-        new("Doritos Queso", "Snacks Salados", 11, 11000, 4300, 22.0),
-        new("Red Bull 250cc", "Energéticas", 6, 9600, 2100, -30.0),
-        new("Galleta Morocha", "Snacks Dulces", 13, 7800, 3400, 5.0),
-        new("Chocman", "Snacks Dulces", 9, 5400, 2200, 0),
-        new("Chicle Bazooka", "Confites", 14, 2800, 1500, null),
-    ];
+    private VmSelect.VmSelectOption[] PlantillaOptions =>
+        new[] { new VmSelect.VmSelectOption("0", ":: Todas las plantillas ::") }
+        .Concat(_plantillas?.Select(p => new VmSelect.VmSelectOption(p.Id.ToString(), p.Nombre)) ?? [])
+        .ToArray();
 
-    // Item de trabajo: lleva clasificación ABC y % acumulado calculados sobre ingresos.
+    // ── Carga inicial ─────────────────────────────────────────────────────────
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarMaquinas();
+        await CargarPlantillas();
+        await CargarDatos();
+    }
+
+    private async Task CargarMaquinas()
+    {
+        try { _maquinas = await Http.GetFromJsonAsync<List<MaquinaSimpleDto>>("api/Ventas/lista-maquinas"); }
+        catch (Exception ex) { Logger.LogWarning(ex, "No se pudieron cargar las máquinas"); }
+    }
+
+    private async Task CargarPlantillas()
+    {
+        try { _plantillas = (await PlantillaService.GetPlantillasAsync()).ToList(); }
+        catch (Exception ex) { Logger.LogWarning(ex, "No se pudieron cargar las plantillas"); }
+    }
+
+    private async Task OnUnitChanged(string? value)
+    {
+        _unit = value ?? "0";
+        await CargarDatos();
+    }
+
+    private async Task OnPlantillaChanged(string? value)
+    {
+        _plantilla = value ?? "0";
+        _unit = "0"; // al cambiar plantilla se resetea la unidad
+        await CargarDatos();
+    }
+
+    private async Task ToggleIncluir()
+    {
+        _incluir = !_incluir;
+        await CargarDatos();
+    }
+
+    private async Task CargarDatos()
+    {
+        _cargando = true;
+        _error = "";
+        StateHasChanged();
+
+        try
+        {
+            var maquinaId = int.TryParse(_unit, out var mid) ? mid : 0;
+            var url = $"api/Ventas/analisis-productos?inicio={_desde}&fin={_hasta}&maquinaId={maquinaId}&includePendientes={_incluir}";
+            _dtos = await Http.GetFromJsonAsync<List<AnalisisProductoDto>>(url);
+        }
+        catch (Exception ex)
+        {
+            _error = "Error al cargar análisis: " + ex.Message;
+            _dtos = null;
+            Logger.LogError(ex, "Error al cargar análisis de productos");
+        }
+        finally
+        {
+            _cargando = false;
+        }
+    }
+
+    // ── Item de trabajo ───────────────────────────────────────────────────────
     private sealed class Item
     {
         public required string Prod;
@@ -298,24 +375,31 @@
     // ── Construcción del ranking ──────────────────────────────────────────────
     private List<Item> BuildRows()
     {
+        if (_dtos == null) return [];
+
+        // Fila de pendientes/desconocidos: la manda el backend (ProductoId == 0)
+        // cuando includePendientes=true. Se aparta para no participar del ABC.
+        var pend = _dtos.FirstOrDefault(d => d.ProductoId == 0);
+        var prods = _dtos.Where(d => d.ProductoId > 0).ToList();
+
         // 1. base (producto) o agregado por categoría
         List<Item> items;
         if (_vista == "categoria")
         {
-            items = Products
-                .GroupBy(p => p.Cat)
+            items = prods
+                .GroupBy(p => string.IsNullOrWhiteSpace(p.Categoria) ? "Sin categoría" : p.Categoria)
                 .Select(g =>
                 {
-                    var withT = g.Where(p => p.T is not null).ToList();
-                    var tw = withT.Sum(p => p.T!.Value * p.Ing);
-                    var tn = withT.Sum(p => p.Ing);
+                    var withT = g.Where(p => p.CambioPorcentual is not null).ToList();
+                    var tw = withT.Sum(p => (double)p.CambioPorcentual!.Value * (double)p.TotalVentas);
+                    var tn = withT.Sum(p => (double)p.TotalVentas);
                     return new Item
                     {
                         Prod = g.Key,
                         Cat = g.Key,
-                        Unid = g.Sum(p => p.Unid),
-                        Ing = g.Sum(p => p.Ing),
-                        Gan = g.Sum(p => p.Gan),
+                        Unid = g.Sum(p => p.CantidadVendida),
+                        Ing = (int)g.Sum(p => p.TotalVentas),
+                        Gan = (int)g.Sum(p => p.TotalGanancia),
                         T = tn != 0 ? tw / tn : null,
                     };
                 })
@@ -323,18 +407,20 @@
         }
         else
         {
-            items = Products
-                .Select(p => new Item { Prod = p.Prod, Cat = p.Cat, Unid = p.Unid, Ing = p.Ing, Gan = p.Gan, T = p.T })
+            items = prods
+                .Select(p => new Item
+                {
+                    Prod = p.Nombre,
+                    Cat = p.Categoria,
+                    Unid = p.CantidadVendida,
+                    Ing = (int)p.TotalVentas,
+                    Gan = (int)p.TotalGanancia,
+                    T = p.CambioPorcentual is null ? null : (double)p.CambioPorcentual.Value,
+                })
                 .ToList();
         }
 
-        // 2. fila de desconocidos (opcional)
-        if (_incluir)
-        {
-            items.Add(new Item { Prod = "— Sin identificar / Pendiente", Cat = "—", Unid = 57, Ing = 48430, Gan = 14529, T = null, Unknown = true });
-        }
-
-        // 3. ABC / Pareto: acumulado sobre ingresos descendentes
+        // 2. ABC / Pareto: acumulado sobre ingresos descendentes (mismo criterio que el backend)
         var totIng = items.Sum(p => p.Ing);
         var byRev = items.OrderByDescending(p => p.Ing).ToList();
         double cum = 0;
@@ -342,10 +428,25 @@
         {
             cum += p.Ing;
             p.CumPct = totIng != 0 ? cum / totIng * 100 : 0;
-            if (p.Unknown) p.Abc = "?";
-            else if (p.CumPct <= 80) p.Abc = "A";
+            if (p.CumPct <= 80) p.Abc = "A";
             else if (p.CumPct <= 95) p.Abc = "B";
             else p.Abc = "C";
+        }
+
+        // 3. fila de desconocidos (fuera del ABC)
+        if (pend != null)
+        {
+            byRev.Add(new Item
+            {
+                Prod = pend.Nombre,
+                Cat = pend.Categoria,
+                Unid = pend.CantidadVendida,
+                Ing = (int)pend.TotalVentas,
+                Gan = (int)pend.TotalGanancia,
+                T = null,
+                Unknown = true,
+                Abc = "?",
+            });
         }
 
         // 4. orden de despliegue
@@ -367,4 +468,11 @@
 
     private static int AbcRank(string abc) => abc switch { "A" => 0, "B" => 1, "C" => 2, _ => 3 };
     private static double Margen(Item p) => p.Ing != 0 ? (double)p.Gan / p.Ing : 0;
+
+    // ── DTO local ─────────────────────────────────────────────────────────────
+    private sealed class MaquinaSimpleDto
+    {
+        public int Id { get; set; }
+        public string Nombre { get; set; } = string.Empty;
+    }
 }
