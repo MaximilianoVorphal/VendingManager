@@ -3,12 +3,14 @@ using System.Collections.Generic;
 using System.Reflection;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Moq;
 using VendingManager.Core.Interfaces;
+using VendingManager.Infrastructure.Data;
 using VendingManager.Infrastructure.Services;
 using VendingManager.Shared.DTOs;
 using Xunit;
@@ -50,7 +52,18 @@ public class AutomatedReportServiceTests
 
         var logger = Mock.Of<ILogger<AutomatedReportService>>();
         var config = Mock.Of<IConfiguration>();
-        var tracker = new LastSyncTracker();
+
+        var trackerScopeFactoryMock = new Mock<IServiceScopeFactory>();
+        var trackerScopeMock = new Mock<IServiceScope>();
+        var trackerProviderMock = new Mock<IServiceProvider>();
+        var options = new DbContextOptionsBuilder<ApplicationDbContext>()
+            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+            .Options;
+        var db = new ApplicationDbContext(options);
+        trackerProviderMock.Setup(p => p.GetService(typeof(ApplicationDbContext))).Returns(db);
+        trackerScopeMock.Setup(s => s.ServiceProvider).Returns(trackerProviderMock.Object);
+        trackerScopeFactoryMock.Setup(f => f.CreateScope()).Returns(trackerScopeMock.Object);
+        var tracker = new LastSyncTracker(trackerScopeFactoryMock.Object);
 
         var service = new AutomatedReportService(logger, null!, config, providerMock.Object, tracker);
 
