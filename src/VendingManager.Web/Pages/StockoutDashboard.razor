@@ -1,705 +1,526 @@
-﻿@page "/stockout-dashboard"
-@using Microsoft.AspNetCore.WebUtilities
+@page "/stockout-dashboard"
+@attribute [Authorize]
 
-<div class="industrial-wrapper container-fluid px-4 mt-4">
+@* =============================================================================
+   Quiebres de Stock — port visual fiel de templates/quiebres-de-stock/
+   QuiebresDeStock.dc.html (VendingManager Design System, lenguaje industrial v3).
+   Solo visual: la data es la mock del template, sin cablear a la API todavía.
+   Layout sin scroll de página (ruta fullscreen en MainLayout); el scroll vive
+   dentro de la tabla y el aside. Estilos inline con var(--token) copiados del
+   template; el bloque <style> cubre keyframes, hover y responsive.
+   ============================================================================= *@
 
-    <!-- HEADER -->
-    <div class="row align-items-center mb-4 border-bottom border-3 border-dark pb-3">
-        <div class="col-12">
-            <h2 class="m-0 fw-bold text-uppercase" style="letter-spacing: -1px;">
-                <i class="bi bi-exclamation-triangle-fill text-danger me-2"></i>QUIEBRES DE STOCK
-            </h2>
-            <small class="text-muted fw-bold">DETECCIÓN DE SILENCIO Y COSTO DE OPORTUNIDAD</small>
+<PageTitle>Quiebres de Stock</PageTitle>
+
+<style>
+    @@keyframes qsBlink { 50% { opacity: 0; } }
+    .qs-cursor { animation: qsBlink 1s steps(1) infinite; }
+    .qs-row { cursor: pointer; transition: background .12s; }
+    .qs-row:hover td { background: var(--paper-50); }
+    .qs-row-sel td { background: #eef0f2 !important; }
+    .qs-row-sel td:first-child { box-shadow: inset 4px 0 0 var(--ink-900); }
+    .qs-tl-item:hover { background: var(--paper-50); }
+    .qs-th { user-select: none; }
+    .qs-page h1 { user-select: none; }
+    @@media (prefers-reduced-motion: reduce) { .qs-cursor { animation: none !important; } }
+    @@media (max-width: 1080px) {
+        .qs-split { flex-direction: column !important; }
+        .qs-aside { flex: none !important; width: 100% !important; }
+        .qs-cmd-row { flex-wrap: wrap !important; }
+    }
+</style>
+
+<div class="qs-page" style="flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden;padding:0.85rem 1.3rem 1rem;gap:10px;">
+
+    <!-- ===== Header ===== -->
+    <div style="flex-shrink:0;display:flex;justify-content:space-between;align-items:flex-end;gap:14px;border-bottom:3px solid var(--ink-900);padding-bottom:9px;flex-wrap:wrap;">
+        <div>
+            <div style="display:inline-block;background:var(--ink-900);color:#fff;font-family:var(--font-mono);font-weight:700;font-size:0.56rem;letter-spacing:2px;padding:3px 9px;text-transform:uppercase;margin-bottom:6px;">Gestión · Stock</div>
+            <h1 style="margin:0;font-family:var(--font-mono);font-weight:700;text-transform:uppercase;letter-spacing:-1px;font-size:1.45rem;line-height:1;display:flex;align-items:center;gap:9px;"><i class="bi bi-exclamation-triangle-fill" style="color:var(--signal-danger);font-size:1.2rem;"></i>Quiebres de Stock<span class="qs-cursor">_</span></h1>
+            <p style="margin:5px 0 0;font-family:var(--font-mono);font-size:0.66rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.4px;">Detección de silencio y costo de oportunidad</p>
+        </div>
+        <div style="display:flex;align-items:center;gap:7px;font-family:var(--font-mono);font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);">
+            <i class="bi bi-clock-history"></i><span>Análisis: @AnalizadosN slots · @MachinesN máquinas</span>
         </div>
     </div>
 
-    <!-- CONTROL PANEL -->
-    <div class="card border-2 border-dark rounded-0 shadow-sm mb-4">
-        <div class="card-body bg-light p-3">
-            <!-- Selector de Template -->
-            <div class="row align-items-end g-3 mb-3">
-                <div class="col-md-6">
-                    <label class="fw-bold small text-uppercase mb-1">
-                        <i class="bi bi-calendar-range me-1"></i> TEMPLATE DE RECARGA:
-                    </label>
-                    <div class="input-group">
-                        <select class="form-select border-dark rounded-0 fw-bold" @bind="TemplateSeleccionado"
-                            @bind:after="OnTemplateChanged">
-                            <option value="0">-- Análisis Manual --</option>
-                            @if (ListaTemplates != null)
-                            {
-                                @foreach (var t in ListaTemplates)
-                                {
-                                            <option value="@t.Id">@t.Nombre (@t.CantidadMaquinas máq.)</option>
-                                }
-                            }
-                        </select>
-                        <a href="/templates-recarga" class="btn btn-outline-dark rounded-0" title="Gestionar Templates">
-                            <i class="bi bi-gear"></i>
-                        </a>
+    <!-- ===== Barra de comando ===== -->
+    <div style="flex-shrink:0;border:2px solid var(--ink-900);background:var(--paper-50);box-shadow:var(--shadow-card);padding:0.55rem 0.85rem;">
+        <div class="qs-cmd-row" style="display:flex;gap:12px;align-items:flex-end;">
+            <div style="display:flex;flex-direction:column;gap:0.35rem;min-width:230px;flex:1.3;">
+                <label style="font-family:var(--font-mono);font-size:0.63rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;"><i class="bi bi-card-list" style="margin-right:5px;"></i>Template de recarga</label>
+                <div style="display:flex;gap:7px;align-items:flex-end;">
+                    <div style="flex:1;">
+                        <VmSelect Value="@_template" Options="TemplateOptions" ValueChanged="@((string v) => _template = v)" />
                     </div>
-                </div>
-                <div class="col-md-6">
-                    @if (TemplateSeleccionado > 0 && TemplateActual != null)
-                    {
-                            <div class="alert alert-info border-dark rounded-0 m-0 py-2 small">
-                                <strong>Períodos configurados:</strong>
-                            @foreach (var p in TemplateActual.Periodos.Take(3))
-                            {
-                                        <span class="badge bg-dark me-1">@p.MaquinaNombre</span>
-                            }
-                            @if (TemplateActual.Periodos.Count > 3)
-                            {
-                                        <span class="text-muted">+@(TemplateActual.Periodos.Count - 3) más</span>
-                            }
-                            </div>
-                    }
+                    <button type="button" title="Configurar períodos" style="flex-shrink:0;width:40px;height:40px;border:2px solid var(--ink-900);border-radius:0;background:var(--paper-0);cursor:pointer;font-size:0.9rem;display:flex;align-items:center;justify-content:center;"><i class="bi bi-gear"></i></button>
                 </div>
             </div>
-
-            <!-- Filtros manuales (solo si no hay template seleccionado) -->
-            @if (TemplateSeleccionado == 0)
-            {
-                    <div class="row align-items-end g-3">
-                        <div class="col-md-2 col-6">
-                            <label class="fw-bold small text-uppercase mb-1">UNIDAD:</label>
-                            <select class="form-select border-dark rounded-0 fw-bold py-2" @bind="MaquinaSeleccionada">
-                                <option value="0">:: TODAS ::</option>
-                            @if (ListaMaquinas != null)
-                            {
-                                @foreach (var m in ListaMaquinas)
-                                {
-                                                <option value="@m.Id">@m.Nombre.ToUpper()</option>
-                                }
-                            }
-                            </select>
-                        </div>
-                        <div class="col-6 col-md-2">
-                            <label class="fw-bold small text-uppercase mb-1">DESDE:</label>
-                            <input type="date" @bind="FechaInicio" class="form-control border-dark rounded-0 fw-bold" />
-                        </div>
-                        <div class="col-6 col-md-2">
-                            <label class="fw-bold small text-uppercase mb-1">HASTA:</label>
-                            <input type="date" @bind="FechaFin" class="form-control border-dark rounded-0 fw-bold" />
-                        </div>
-                        <div class="col-6 col-md-2">
-                            <label class="fw-bold small text-uppercase mb-1">UMBRAL (HRS):</label>
-                            <input type="number" @bind="UmbralHoras" min="1" max="168"
-                        class="form-control border-dark rounded-0 fw-bold" />
-                        </div>
-                        <div class="col-12 col-md-4">
-                            <button class="btn btn-danger w-100 rounded-0 fw-bold py-2" @onclick="CargarDatos"
-                        disabled="@(Cargando || !HaySeleccion)">
-                            @(Cargando ? "ANALIZANDO..." : "DETECTAR QUIEBRES")
-                            </button>
-                        </div>
-                    </div>
-            }
-            else
-            {
-                    <div class="row align-items-end g-3">
-                        <div class="col-md-3 col-6">
-                            <label class="fw-bold small text-uppercase mb-1">FILTRAR MÁQUINA:</label>
-                            <select class="form-select border-dark rounded-0 fw-bold py-2" @bind="MaquinaFiltroTemplate">
-                                <option value="0">:: TODAS DEL TEMPLATE ::</option>
-                            @if (TemplateActual != null)
-                            {
-                                @foreach (var p in TemplateActual.Periodos)
-                                {
-                                                <option value="@p.MaquinaId">@p.MaquinaNombre (@p.FechaRecarga.ToString("dd/MM HH:mm"))</option>
-                                }
-                            }
-                            </select>
-                        </div>
-                        <div class="col-6 col-md-2">
-                            <label class="fw-bold small text-uppercase mb-1">UMBRAL (HRS):</label>
-                            <input type="number" @bind="UmbralHoras" min="1" max="168"
-                        class="form-control border-dark rounded-0 fw-bold" />
-                        </div>
-                        <div class="col-12 col-md-4">
-                            <button class="btn btn-danger w-100 rounded-0 fw-bold py-2" @onclick="CargarDatosPorTemplate"
-                        disabled="@(Cargando || !HaySeleccion)">
-                            @(Cargando ? "ANALIZANDO..." : "ANALIZAR POR TEMPLATE")
-                            </button>
-                        </div>
-                    </div>
-            }
+            <div style="flex:1.4;min-width:200px;align-self:stretch;display:flex;flex-direction:column;gap:0.35rem;">
+                <label style="font-family:var(--font-mono);font-size:0.63rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);">Períodos configurados</label>
+                <div style="flex:1;border:2px solid var(--signal-info);background:#e8fbff;display:flex;align-items:center;gap:7px;padding:0 9px;overflow:hidden;">
+                    <i class="bi bi-calendar-check" style="color:#0a8aa0;flex-shrink:0;"></i>
+                    <span style="background:var(--ink-900);color:#fff;font-family:var(--font-mono);font-weight:700;font-size:0.58rem;letter-spacing:0.5px;padding:3px 7px;white-space:nowrap;">MAQUINA 2410280023 SNACK</span>
+                    <span style="font-family:var(--font-mono);font-size:0.58rem;color:var(--text-muted);white-space:nowrap;">+ 2 más</span>
+                </div>
+            </div>
+        </div>
+        <div class="qs-cmd-row" style="display:flex;gap:12px;align-items:flex-end;margin-top:9px;">
+            <div style="display:flex;flex-direction:column;gap:0.35rem;min-width:260px;flex:1.6;">
+                <label style="font-family:var(--font-mono);font-size:0.63rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Filtrar máquina</label>
+                <VmSelect Value="@_maquina" Options="MaquinaOptions" ValueChanged="@((string v) => _maquina = v)" />
+            </div>
+            <div style="display:flex;flex-direction:column;gap:0.35rem;width:120px;">
+                <label style="font-family:var(--font-mono);font-size:0.63rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Umbral (hrs)</label>
+                <input type="number" value="@_umbral" @onchange="OnUmbralChanged" style="font-family:var(--font-mono);font-size:0.85rem;font-weight:700;border:2px solid var(--ink-900);border-radius:0;background:var(--paper-0);padding:0.42rem 0.6rem;outline:none;width:100%;" />
+            </div>
+            <div style="flex:1.4;min-width:200px;">
+                <VmButton Variant="danger" Icon="bi-radar" Block="true" Width="100%">Analizar por template</VmButton>
+            </div>
         </div>
     </div>
 
-    @if (!string.IsNullOrEmpty(MensajeError))
-    {
-            <div class="alert alert-danger border-2 border-dark rounded-0 mb-4 shadow-sm fw-bold">
-                <i class="bi bi-exclamation-triangle-fill me-2"></i> @MensajeError
-            </div>
-    }
+    <!-- ===== KPIs ===== -->
+    <div style="flex-shrink:0;display:grid;grid-template-columns:repeat(4,1fr);gap:11px;">
+        <!-- Alertas críticas -->
+        <div style="border:2px solid var(--ink-900);background:var(--signal-danger);color:#fff;box-shadow:var(--shadow-card);padding:0.7rem 0.9rem;">
+            <div style="font-family:var(--font-mono);font-weight:700;font-size:0.62rem;text-transform:uppercase;letter-spacing:1px;opacity:.92;">Alertas críticas</div>
+            <div style="font-family:var(--font-sans);font-weight:700;font-size:2rem;letter-spacing:-2px;line-height:1;margin:2px 0 3px;">@KCritico</div>
+            <div style="font-family:var(--font-mono);font-size:0.58rem;text-transform:uppercase;letter-spacing:0.4px;opacity:.85;">Productos &gt;@(Umbral48)h sin stock</div>
+        </div>
+        <!-- Productos en alerta -->
+        <div style="border:2px solid var(--ink-900);background:var(--signal-warning);color:var(--ink-900);box-shadow:var(--shadow-card);padding:0.7rem 0.9rem;">
+            <div style="font-family:var(--font-mono);font-weight:700;font-size:0.62rem;text-transform:uppercase;letter-spacing:1px;">Productos en alerta</div>
+            <div style="font-family:var(--font-sans);font-weight:700;font-size:2rem;letter-spacing:-2px;line-height:1;margin:2px 0 3px;">@KAlerta</div>
+            <div style="font-family:var(--font-mono);font-size:0.58rem;text-transform:uppercase;letter-spacing:0.4px;opacity:.8;">de @AnalizadosN analizados</div>
+        </div>
+        <!-- Ventas perdidas est. -->
+        <div style="border:2px solid var(--ink-900);background:var(--ink-900);color:#fff;box-shadow:var(--shadow-card);padding:0.7rem 0.9rem;">
+            <div style="font-family:var(--font-mono);font-weight:700;font-size:0.62rem;text-transform:uppercase;letter-spacing:1px;opacity:.85;">Ventas perdidas est.</div>
+            <div style="font-family:var(--font-sans);font-weight:700;font-size:2rem;letter-spacing:-2px;line-height:1;margin:2px 0 3px;color:#ff5a67;">@KPerdido</div>
+            <div style="font-family:var(--font-mono);font-size:0.58rem;text-transform:uppercase;letter-spacing:0.4px;color:#5fd08a;">Ganancia: @KGanancia</div>
+        </div>
+        <!-- Más crítico -->
+        <div style="border:2px solid var(--ink-900);background:var(--ink-500);color:#fff;box-shadow:var(--shadow-card);padding:0.7rem 0.9rem;display:flex;flex-direction:column;">
+            <div style="font-family:var(--font-mono);font-weight:700;font-size:0.62rem;text-transform:uppercase;letter-spacing:1px;opacity:.9;">Más crítico</div>
+            <div style="font-family:var(--font-sans);font-weight:700;font-size:0.98rem;letter-spacing:-0.4px;line-height:1.05;margin:5px 0 2px;text-transform:uppercase;">@KWorstName</div>
+            <div style="font-family:var(--font-mono);font-size:0.6rem;text-transform:uppercase;letter-spacing:0.4px;opacity:.9;margin-top:auto;">@KWorstMeta</div>
+        </div>
+    </div>
 
-    @if (Cargando)
-    {
-            <div class="text-center py-5 border border-dark border-2 bg-light">
-                <div class="spinner-grow text-danger" role="status"></div>
-                <p class="mt-2 fw-bold text-uppercase" style="letter-spacing: 2px;">Analizando Ventas...</p>
-            </div>
-    }
-    else if (Datos == null && !HaySeleccion)
-    {
-            <div class="text-center py-5 text-muted border border-dark border-2 bg-light">
-                <i class="bi bi-search fs-1"></i>
-                <p class="mt-2 fw-bold text-uppercase" style="letter-spacing: 1px;">
-                    Seleccioná un template o parámetros de búsqueda para analizar
-                </p>
-            </div>
-    }
-    else if (Datos != null)
-    {
-            <!-- KPI CARDS -->
-            <div class="row g-3 mb-4">
-            @{
-                var conQuiebre = Datos.Where(d => d.PosibleQuiebre).ToList();
-                var totalPerdido = conQuiebre.Sum(d => d.DineroPerdidoEstimado);
-                var gananciaPerdida = conQuiebre.Sum(d => d.GananciaPerdidaEstimada);
-                var productoMasCritico = conQuiebre.OrderByDescending(d => d.DineroPerdidoEstimado).FirstOrDefault();
-            }
+    <!-- ===== Split principal ===== -->
+    <div class="qs-split" style="flex:1;min-height:0;display:flex;gap:11px;overflow:hidden;">
 
-                <!-- ALERTAS CRÍTICAS -->
-                <div class="col-6 col-md-3">
-                    <div class="bg-danger text-white p-3 h-100 shadow-sm border border-2 border-dark">
-                        <div class="fw-bold text-uppercase small" style="letter-spacing: 1px; opacity: 0.9;">
-                            Alertas Críticas
-                        </div>
-                        <div class="fs-2 fw-bold">
-                        @conQuiebre.Count(d => d.HorasSinStock > 48)
-                        </div>
-                        <small style="opacity: 0.8;">Productos >48h sin stock</small>
-                    </div>
-                </div>
-
-                <!-- PRODUCTOS EN ALERTA -->
-                <div class="col-6 col-md-3">
-                    <div class="bg-warning text-dark p-3 h-100 shadow-sm border border-2 border-dark">
-                        <div class="fw-bold text-uppercase small" style="letter-spacing: 1px;">
-                            Productos en Alerta
-                        </div>
-                        <div class="fs-2 fw-bold">
-                        @conQuiebre.Count
-                        </div>
-                        <small>de @Datos.Count analizados</small>
-                    </div>
-                </div>
-
-                <!-- DINERO PERDIDO ESTIMADO -->
-                <div class="col-6 col-md-3">
-                    <div class="bg-dark text-white p-3 h-100 shadow-sm border border-2 border-dark">
-                        <div class="fw-bold text-uppercase small" style="letter-spacing: 1px; opacity: 0.9;">
-                            Ventas Perdidas Est.
-                        </div>
-                        <div class="fs-2 fw-bold text-danger">
-                            $@totalPerdido.ToString("N0")
-                        </div>
-                        <small class="text-success">Ganancia: $@gananciaPerdida.ToString("N0")</small>
-                    </div>
-                </div>
-
-                <!-- PRODUCTO MÁS CRÍTICO -->
-                <div class="col-6 col-md-3">
-                    <div class="bg-secondary text-white p-3 h-100 shadow-sm border border-2 border-dark">
-                        <div class="fw-bold text-uppercase small" style="letter-spacing: 1px; opacity: 0.9;">
-                            Más Crítico
-                        </div>
-                        <div class="fs-6 fw-bold text-truncate" title="@(productoMasCritico?.ProductoNombre ?? "-")">
-                        @(productoMasCritico?.ProductoNombre ?? "-")
-                        </div>
-                    @if (productoMasCritico != null)
-                    {
-                        <small>@productoMasCritico.DiasSinStock.ToString("F1") días sin stock</small>
-                    }
-                    </div>
-                </div>
-            </div>
-
-            <!-- TIMELINE VISUALIZATION (ONLY IF TEMPLATE SELECTED) -->
-            @if (TemplateSeleccionado > 0)
-            {
-                <div class="card border-2 border-dark rounded-0 shadow-sm mb-4">
-                    <div class="card-header bg-dark text-white rounded-0 fw-bold border-bottom border-dark text-uppercase d-flex justify-content-between align-items-center"
-                         role="button" @onclick="() => _timelineVisible = !_timelineVisible" style="cursor: pointer;">
-                        <span><i class="bi bi-clock-history me-2"></i>TIMELINE DE AGOTAMIENTO</span>
-                        <i class="bi @(_timelineVisible ? "bi-chevron-up" : "bi-chevron-down")"></i>
-                    </div>
-                    @if (_timelineVisible)
-                    {
-                    <div class="card-body bg-light">
-                        
-                        <!-- VIEW TOGGLE & SLIDER CONTROLS -->
-                        <div class="d-flex justify-content-between align-items-center mb-3">
-                             <div class="btn-group me-3">
-                                <button class="btn btn-outline-dark rounded-0 @(!ShowDetailView ? "active bg-dark text-white" : "")" 
-                                        @onclick="() => ShowDetailView = false" title="Vista Estantería">
-                                    <i class="bi bi-grid-3x3-gap-fill"></i>
-                                </button>
-                                <button class="btn btn-outline-dark rounded-0 @(ShowDetailView ? "active bg-dark text-white" : "")" 
-                                        @onclick="() => ShowDetailView = true" title="Vista Detallada">
-                                    <i class="bi bi-layout-sidebar-reverse"></i>
-                                </button>
-                            </div>
-
-                            <button class="btn btn-outline-dark rounded-0 me-3" @onclick="TogglePlayback">
-                                <i class="bi @(IsPlaying ? "bi-pause-fill" : "bi-play-fill") fs-4"></i>
-                            </button>
-
-                            <div class="flex-grow-1">
-                                <label class="form-label fw-bold d-flex justify-content-between mb-0">
-                                    <span>@FechaInicio.ToString("dd/MM HH:mm")</span>
-                                    <span class="badge bg-danger fs-6">@CurrentTime.ToString("dddd dd/MM HH:mm")</span>
-                                    <span>@FechaFin.ToString("dd/MM HH:mm")</span>
-                                </label>
-                                <input type="range" class="form-range"
-                                       min="0" max="@TotalSteps" step="1"
-                                       value="@CurrentStepIndex"
-                                       @onchange="(e => CurrentStepIndex = int.TryParse(e.Value?.ToString(), out int idx) ? idx : 0)" />
-                                
-                                <!-- Day Markers -->
-                                <div class="d-flex justify-content-between position-relative mt-2" style="height: 20px;">
-                                    @{
-                                        var totalSpan = (FechaFin - FechaInicio).Ticks;
-                                        if (totalSpan > 0)
-                                        {
-                                            var currentDay = FechaInicio.Date;
-                                            if (currentDay < FechaInicio) currentDay = currentDay.AddDays(1);
-
-                                            while (currentDay <= FechaFin)
-                                            {
-                                                var offsetTicks = (currentDay - FechaInicio).Ticks;
-                                                var pct = (double)offsetTicks / totalSpan * 100;
-
-                                                if (pct >= 0 && pct <= 100)
-                                                {
-                                                    <div class="position-absolute border-start border-dark" 
-                                                         style="left: @pct.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)%; height: 10px; top:0;"></div>
-                                                    <div class="position-absolute small text-muted" 
-                                                         style="left: @pct.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)%; top: 12px; transform: translateX(-50%); font-size: 0.65rem;">
-                                                        @currentDay.ToString("dd/MM")
-                                                    </div>
-                                                }
-                                                currentDay = currentDay.AddDays(1);
-                                            }
-                                        }
-                                    }
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="row">
-                            <!-- LEFT PANE: SHELF VIEW -->
-                            <div class="@(ShowDetailView ? "col-md-7" : "col-12")">
-                                <div class="inventory-grid-container p-3 border border-dark bg-white" style="overflow-x: auto; max-height: 800px;">
-                                    @if (Datos != null)
-                                    {
-                                        var datosAgrupados = Datos.GroupBy(d => d.MaquinaId);
-                                        @foreach (var maquinaGroup in datosAgrupados)
-                                        {
-                                            var maquinaNombre = maquinaGroup.First().MaquinaNombre;
-                                            <h5 class="fw-bold mt-3 mb-2 ps-2 border-start border-4 border-danger">@maquinaNombre</h5>
-                                            
-                                            var slots = maquinaGroup.OrderBy(d => int.TryParse(d.NumeroSlot, out int n) ? n : 999).ToList();
-                                            var shelves = slots.GroupBy(s => (ParseSlot(s.NumeroSlot) - 1) / 10).OrderBy(g => g.Key);
-
-                                            <div class="d-flex flex-column gap-2 mb-4 machine-chassis">
-                                                @foreach (var shelf in shelves)
-                                                {
-                                                    <div class="shelf-row d-flex gap-1 p-1 bg-secondary bg-opacity-10 border-bottom border-secondary">
-                                                        <div class="shelf-label badge bg-secondary text-white rounded-0 align-self-center me-2" style="width: 25px;">P@(shelf.Key)</div>
-                                                        
-                                                        <div class="d-flex flex-wrap gap-1 w-100">
-                                                            @foreach (var item in shelf)
-                                                            {
-                                                                int stockAtTime = CalculateStockAtTime(item, CurrentTime);
-                                                                int maxStock = item.StockInicial > 0 ? item.StockInicial : 10;
-                                                                bool isEmpty = stockAtTime <= 0;
-                                                                double fillPct = (double)stockAtTime / maxStock * 100;
-                                                                
-                                                                <!-- Dynamic Size based on View Mode -->
-                                                                var slotSize = ShowDetailView ? "60px" : "95px";
-                                                                var fontSize = ShowDetailView ? "0.6rem" : "0.8rem";
-                                                                
-                                                                 <div class="slot-card border @(isEmpty ? "border-danger bg-danger text-white" : "border-dark bg-white text-dark")"
-                                                                      style="width: @slotSize; height: @slotSize; font-size: @fontSize; position: relative;"
-                                                                      title="@item.ProductoNombre">
-
-                                                                     <div class="d-flex justify-content-between px-1" style="font-size: 0.9em;">
-                                                                         <span class="fw-bold">@item.NumeroSlot</span>
-                                                                         <span>@stockAtTime</span>
-                                                                     </div>
-                                                                     @if (item.FillPct >= 0)
-                                                                     {
-                                                                         var fillColor = item.FillPct > 50 ? "var(--bs-success)"
-                                                                             : item.FillPct > 20 ? "var(--bs-warning)"
-                                                                             : "var(--bs-danger)";
-                                                                         <div class="px-1" style="font-size: 0.8em; color: @fillColor;">@($"{item.FillPct}%")</div>
-                                                                     }
-                                                                    
-                                                                    <div class="px-1 text-truncate fw-bold" style="height: 50%; line-height: 1.1; white-space: normal; display: -webkit-box; -webkit-line-clamp: @(ShowDetailView ? 2 : 3); -webkit-box-orient: vertical;">
-                                                                        @item.ProductoNombre
-                                                                    </div>
-
-                                                                    <div class="progress rounded-0 mt-1" style="height: 4px; position: absolute; bottom: 2px; left: 2px; right: 2px;">
-                                                                        <div class="progress-bar @(isEmpty ? "bg-white" : "bg-success")" 
-                                                                             role="progressbar" style="width: @fillPct%"></div>
-                                                                    </div>
-                                                                </div>
-                                                            }
-                                                        </div>
-                                                    </div>
-                                                }
-                                            </div>
-                                        }
-                                    }
-                                </div>
-                            </div>
-
-                            <!-- RIGHT PANE: PRODUCT LIST (Only in Detail View) -->
-                            @if (ShowDetailView)
-                            {
-                                <div class="col-md-5">
-                                    <div class="card border-dark rounded-0 shadow-sm h-100">
-                                        <div class="card-header bg-secondary text-white fw-bold rounded-0">
-                                            <i class="bi bi-list-check me-2"></i>ESTADO ACTUAL (@CurrentTime.ToString("dd/MM HH:mm"))
-                                        </div>
-                                        <div class="card-body p-0" style="overflow-y: auto; max-height: 800px;">
-                                            <table class="table table-sm table-striped table-hover mb-0" style="font-size: 0.85rem;">
-                                                <thead class="table-dark sticky-top">
-                                                    <tr>
-                                                        <th>Slot</th>
-                                                        <th>Producto</th>
-                                                        <th class="text-center">Ini</th>
-                                                        <th class="text-center">Act</th>
-                                                        <th class="text-center">Estado</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    @if (Datos != null)
-                                                    {
-                                                        @foreach (var item in Datos.OrderBy(d => ParseSlot(d.NumeroSlot)))
-                                                        {
-                                                            int stockAtTime = CalculateStockAtTime(item, CurrentTime);
-                                                            int maxStock = item.StockInicial > 0 ? item.StockInicial : 10;
-                                                            double fillPct = (double)stockAtTime / maxStock * 100;
-                                                            bool isCritico = stockAtTime == 0;
-                                                            bool isBajo = !isCritico && fillPct <= 25;
-
-                                                            <tr class="@(isCritico ? "table-danger" : "")">
-                                                                <td class="fw-bold">@item.NumeroSlot</td>
-                                                                <td>
-                                                                    <div class="text-truncate" style="max-width: 150px;" title="@item.ProductoNombre">
-                                                                        @item.ProductoNombre
-                                                                    </div>
-                                                                </td>
-                                                                <td class="text-center text-muted">@item.StockInicial</td>
-                                                                <td class="text-center fw-bold @(isCritico ? "text-danger" : (isBajo ? "text-warning" : "text-success"))">
-                                                                    @stockAtTime
-                                                                </td>
-                                                                <td class="text-center">
-                                                                    @if(isCritico) { <span class="badge bg-danger">AGOTADO</span> }
-                                                                    else if(isBajo) { <span class="badge bg-warning text-dark">BAJO</span> }
-                                                                    else { <span class="badge bg-success">OK</span> }
-                                                                </td>
-                                                            </tr>
-                                                        }
-                                                    }
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    </div>
-                                </div>
-                            }
-                        </div>
-
-                    </div>
-                    }
-                </div>
-            }
-
-            <!-- TABLA DE ALERTAS -->
-            <div class="card border-2 border-dark rounded-0 shadow-sm mb-4">
-                <div
-            class="card-header bg-dark text-white rounded-0 fw-bold border-bottom border-dark text-uppercase d-flex justify-content-between align-items-center">
-                    <span><i class="bi bi-table me-2"></i>Dashboard de Alertas</span>
-                    <div class="d-flex gap-3 align-items-center flex-wrap">
-                        <div class="form-check mb-0">
-                            <input class="form-check-input" type="checkbox" id="chkDeadSlots" @bind="soloDeadSlots" />
-                            <label class="form-check-label small" for="chkDeadSlots">
-                                Solo Dead Slots <span class="badge bg-secondary">SIN VENTAS</span>
-                            </label>
-                        </div>
-                        <div class="form-check form-switch mb-0">
-                            <input class="form-check-input" type="checkbox" @bind="SoloConQuiebre" id="chkSoloQuiebre">
-                            <label class="form-check-label small" for="chkSoloQuiebre">Solo Quiebres</label>
-                        </div>
-                        <div class="form-check form-switch mb-0">
-                            <input class="form-check-input" type="checkbox" @bind="verAgrupado" id="chkAgrupar">
-                            <label class="form-check-label small fw-bold" for="chkAgrupar">Agrupar por Producto</label>
-                        </div>
-                    </div>
-                </div>
-                <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
-                    <table class="table table-hover table-bordered border-dark m-0 table-sm align-middle">
-                        @if (verAgrupado)
+        <!-- ----- Izquierda: Dashboard de Alertas ----- -->
+        <section style="flex:2.2;min-width:0;display:flex;flex-direction:column;border:2px solid var(--ink-900);box-shadow:var(--shadow-card);background:var(--paper-0);overflow:hidden;">
+            <div style="flex-shrink:0;background:var(--ink-900);color:#fff;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:0.45rem 0.8rem;">
+                <div style="font-family:var(--font-mono);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;font-size:0.8rem;display:flex;align-items:center;gap:8px;"><i class="bi bi-grid-3x3-gap-fill"></i>Dashboard de alertas<span style="font-family:var(--font-mono);font-weight:700;font-size:0.62rem;border:1px solid rgba(255,255,255,0.5);padding:2px 7px;">@Rows.Count</span></div>
+                <div style="display:flex;gap:14px;align-items:center;">
+                    <!-- Solo dead slots -->
+                    <label style="display:inline-flex;align-items:center;gap:7px;cursor:pointer;">
+                        @if (_soloDead)
                         {
-                            <thead class="bg-secondary text-white text-uppercase small sticky-top">
-                                <tr>
-                                    <th>MÁQUINAS</th>
-                                    <th>PRODUCTO</th>
-                                    <th class="text-center">SLOTS</th>
-                                    <th class="text-center">STOCK</th>
-                                    <th class="text-center">VENDIDO</th>
-                                    <th class="text-center">ÚLTIMA VENTA</th>
-                                    <th class="text-center">DÍAS AGOTADO</th>
-                                    <th class="text-center">VEL./DÍA</th>
-                                    <th class="text-end">$ PERDIDO</th>
-                                    <th class="text-center">ESTADO</th>
-                                </tr>
-                            </thead>
-                            <tbody class="bg-white">
-                            @foreach (var item in DatosAgrupados)
-                            {
-                                var rowClass = item.HorasSinStock > 48 ? "table-danger" :
-                                item.HorasSinStock > 24 ? "table-warning" : "";
-                                        <tr class="@rowClass">
-                                            <td class="small">@item.MaquinasResumen</td>
-                                            <td class="fw-bold">@item.ProductoNombre</td>
-                                            <td class="text-center font-monospace small">@item.CantidadTotalSlots</td>
-                                            <td class="text-center font-monospace fw-bold">@item.StockInicialTotal</td>
-                                            <td class="text-center font-monospace fw-bold @(item.StockInicialTotal > 0 && item.CantidadVendidaTotal >= item.StockInicialTotal ? "text-danger" : "")">
-                                        @item.CantidadVendidaTotal
-                                            </td>
-                                            <td class="text-center small">
-                                        @if (item.UltimaVenta.HasValue)
-                                        {
-                                                        <span title="@item.UltimaVenta.Value.ToString("dd/MM/yyyy HH:mm")">
-                                                @item.UltimaVenta.Value.ToString("dd/MM HH:mm")
-                                                        </span>
-                                        }
-                                            </td>
-                                            <td class="text-center font-monospace fw-bold">
-                                        @item.DiasSinStock.ToString("F1")
-                                            </td>
-                                            <td class="text-center font-monospace">
-                                        @item.VelocidadDiaria.ToString("F2")
-                                            </td>
-                                            <td class="text-end font-monospace fw-bold @(item.GananciaPerdidaEstimada > 0 ? "text-danger" : "")">
-                                                $@item.GananciaPerdidaEstimada.ToString("N0")
-                                            </td>
-                                            <td class="text-center">
-                                                <span class="badge @item.ColorAlerta">@item.NivelAlerta</span>
-                                            </td>
-                                        </tr>
-                            }
-                            </tbody>
+                            <button type="button" @onclick="() => _soloDead = !_soloDead" role="checkbox" aria-checked="true" style="width:17px;height:17px;border:2px solid #fff;border-radius:0;background:#fff;color:var(--ink-900);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:0.62rem;"><i class="bi bi-check-lg"></i></button>
                         }
                         else
                         {
-                            <thead class="bg-secondary text-white text-uppercase small sticky-top">
-                                <tr>
-                                    <th role="button" @onclick='() => OrdenarPor("Maquina")'>MÁQUINA @RenderIcono("Maquina")</th>
-                                    <th role="button" @onclick='() => OrdenarPor("Producto")'>PRODUCTO @RenderIcono("Producto")</th>
-                                    <th class="text-center">SLOT</th>
-                                    <th class="text-center">STOCK</th>
-                                    <th class="text-center">VENDIDO</th>
-                                    <th role="button" class="text-center" @onclick='() => OrdenarPor("PrimeraVenta")'>1ª VENTA
-                                    @RenderIcono("PrimeraVenta")</th>
-                                    <th role="button" class="text-center" @onclick='() => OrdenarPor("UltimaVenta")'>ÚLTIMA VENTA
-                                    @RenderIcono("UltimaVenta")</th>
-                                    <th role="button" class="text-center" @onclick='() => OrdenarPor("DiasAgotado")'>DÍAS AGOTADO
-                                    @RenderIcono("DiasAgotado")</th>
-                                    <th role="button" class="text-center" @onclick='() => OrdenarPor("Velocidad")'>VEL./DÍA
-                                    @RenderIcono("Velocidad")</th>
-                                    <th role="button" class="text-end" @onclick='() => OrdenarPor("DineroPerdido")'>$ PERDIDO
-                                    @RenderIcono("DineroPerdido")</th>
-                                    <th class="text-center">ESTADO</th>
-                                    <th>ETA STOCKOUT</th>
-                                </tr>
-                            </thead>
-                            <tbody class="bg-white">
-                            @foreach (var item in DatosFiltrados)
-                            {
-                                var rowClass = item.HorasSinStock > 48 ? "table-danger" :
-                                item.HorasSinStock > 24 ? "table-warning" : "";
-                                        <tr class="@rowClass">
-                                            <td class="fw-bold text-uppercase small">@item.MaquinaNombre</td>
-                                            <td class="fw-bold">@item.ProductoNombre</td>
-                                            <td class="text-center font-monospace small">@item.NumeroSlot</td>
-                                            <td class="text-center font-monospace @(item.StockInicial > 0 ? "fw-bold" : "text-muted")">
-                                        @(item.StockInicial > 0 ? item.StockInicial.ToString() : "-")
-                                            </td>
-                                            <td class="text-center font-monospace fw-bold @(item.StockInicial > 0 && item.CantidadVendida >= item.StockInicial ? "text-danger" : "")">
-                                        @item.CantidadVendida
-                                            </td>
-                                            <td class="text-center small">
-                                        @if (item.PrimeraVenta.HasValue)
-                                        {
-                                                        <span title="@item.PrimeraVenta.Value.ToString("dd/MM/yyyy HH:mm")">
-                                                @item.PrimeraVenta.Value.ToString("dd/MM HH:mm")
-                                                        </span>
-                                        }
-                                            </td>
-                                            <td class="text-center small">
-                                        @if (item.UltimaVenta.HasValue)
-                                        {
-                                                        <span title="@item.UltimaVenta.Value.ToString("dd/MM/yyyy HH:mm")">
-                                                @item.UltimaVenta.Value.ToString("dd/MM HH:mm")
-                                                        </span>
-                                        }
-                                            </td>
-                                            <td class="text-center font-monospace fw-bold">
-                                        @item.DiasSinStock.ToString("F1")
-                                            </td>
-                                            <td class="text-center font-monospace">
-                                        @item.VelocidadDiaria.ToString("F2")
-                                            </td>
-                                            <td class="text-end font-monospace fw-bold @(item.GananciaPerdidaEstimada > 0 ? "text-danger" : "")">
-                                                $@item.GananciaPerdidaEstimada.ToString("N0")
-                                            </td>
-                                            <td class="text-center">
-                                                @if (item.EsDeadSlot)
-                                                {
-                                                    <span class="badge bg-secondary">SIN VENTAS</span>
-                                                }
-                                                else
-                                                {
-                                                    <span class="badge @item.ColorAlerta">@item.NivelAlerta</span>
-                                                }
-                                            </td>
-                                            <td class="text-center">
-                                                @if (item.DiasHastaStockout.HasValue)
-                                                {
-                                                    <span>~@item.DiasHastaStockout.Value.ToString("F1") días</span>
-                                                }
-                                                else
-                                                {
-                                                    <span class="text-muted">—</span>
-                                                }
-                                            </td>
-                                        </tr>
-                            }
-                            </tbody>
+                            <button type="button" @onclick="() => _soloDead = !_soloDead" role="checkbox" aria-checked="false" style="width:17px;height:17px;border:2px solid #fff;border-radius:0;background:transparent;cursor:pointer;"></button>
                         }
-                    </table>
-            </div>
-            </div>
-
-            <!-- GRÁFICO DE VENTAS DIARIAS -->
-            <div class="card border-2 border-dark rounded-0 shadow-sm mb-4">
-                <div
-            class="card-header bg-dark text-white rounded-0 fw-bold border-bottom border-dark text-uppercase d-flex justify-content-between align-items-center">
-                    <span><i class="bi bi-graph-up me-2"></i>Ventas Diarias por Producto</span>
-                    <select class="form-select form-select-sm border-0 bg-secondary text-white rounded-0"
-                    style="max-width: 350px;" @bind="ProductoMaquinaSeleccionado" @bind:after="CargarVentasDiarias">
-                        <option value="">-- Seleccionar Producto --</option>
-                    @if (Datos != null)
-                    {
-                        @foreach (var prod in Datos)
+                        <span style="font-family:var(--font-mono);font-weight:700;font-size:0.6rem;text-transform:uppercase;letter-spacing:0.4px;">Solo dead slots</span>
+                    </label>
+                    <!-- Solo quiebres -->
+                    <button type="button" @onclick="() => _soloQuiebres = !_soloQuiebres" style="display:inline-flex;align-items:center;gap:7px;background:none;border:none;cursor:pointer;padding:0;color:#fff;">
+                        @if (_soloQuiebres)
                         {
-                                        <option value="@($"{prod.ProductoId}|{prod.MaquinaId}")">@prod.ProductoNombre (@prod.MaquinaNombre)</option>
+                            <span style="width:30px;height:16px;border-radius:9px;background:#fff;position:relative;flex-shrink:0;"><span style="position:absolute;top:2px;right:2px;width:12px;height:12px;border-radius:50%;background:var(--ink-900);"></span></span>
                         }
-                    }
-                    </select>
-                </div>
-                <div class="card-body p-3">
-                @if (string.IsNullOrEmpty(ProductoMaquinaSeleccionado))
-                {
-                            <div class="text-center py-4 text-muted">
-                                <i class="bi bi-bar-chart fs-1"></i>
-                                <p class="mt-2">Selecciona un producto para ver sus ventas diarias</p>
-                            </div>
-                }
-                else if (VentasDiarias != null && VentasDiarias.Any())
-                {
-                    var maxVentas = VentasDiarias.Max(v => v.Cantidad);
-                    if (maxVentas == 0) maxVentas = 1;
-                    var partes = ProductoMaquinaSeleccionado.Split('|');
-                    var productoId = int.TryParse(partes.Length > 0 ? partes[0] : "0", out var pid) ? pid : 0;
-                    var maquinaIdG = int.TryParse(partes.Length > 1 ? partes[1] : "0", out var mid) ? mid : 0;
-                    var productoInfo = Datos?.FirstOrDefault(d => d.ProductoId == productoId && d.MaquinaId == maquinaIdG);
-
-                            <div class="mb-3 d-flex justify-content-between align-items-center">
-                                <div>
-                                    <span class="fw-bold">@productoInfo?.ProductoNombre</span>
-                                    <span class="text-muted small ms-2">
-                                        Total: @VentasDiarias.Sum(v => v.Cantidad) unidades
-                                    </span>
-
-                                    <!-- Badges de Slots y Status -->
-                            @if (productoInfo != null)
-                            {
-                                var slotCount = productoInfo.NumeroSlot.Split(',', StringSplitOptions.RemoveEmptyEntries).Length;
-                                            <span class="badge bg-secondary ms-2 small">@slotCount Slots</span>
-
-                                @if (productoInfo.PosibleQuiebre)
-                                {
-                                                    <span class="badge bg-danger ms-1 small">AGOTADO</span>
-                                }
-                                else
-                                {
-                                                    <span class="badge bg-success ms-1 small">DISPONIBLE</span>
-                                }
-                            }
-                                </div>
-                                <div class="small">
-                                    <span class="badge bg-success me-1">█</span> Con ventas
-                                    <span class="badge bg-danger ms-2 me-1">█</span> Sin ventas
-                                </div>
-                            </div>
-
-                            <!-- Gráfico de barras (Chart.js) -->
-                        <div style="height: 300px; position: relative;">
-                             <canvas id="dailySalesChart"></canvas>
-                        </div>
-
-                            <div class="d-flex justify-content-between small text-muted mt-2 border-top pt-2">
-                                <span>@VentasDiarias.First().Fecha.ToString("dd/MM/yyyy")</span>
-                                <span>@VentasDiarias.Last().Fecha.ToString("dd/MM/yyyy")</span>
-                            </div>
-
-                            <!-- Estadísticas -->
-                            <div class="row g-2 mt-3">
-                                <div class="col-4">
-                                    <div class="border border-dark p-2 text-center h-100 d-flex flex-column justify-content-center">
-                                        <div class="small text-muted">Días con venta</div>
-                                        <div class="fw-bold text-success">@VentasDiarias.Count(v => v.Cantidad > 0)</div>
-                                    </div>
-                                </div>
-                                <div class="col-4">
-                                    <div class="border border-dark p-2 text-center h-100 d-flex flex-column justify-content-center">
-                                        <div class="small text-muted">Días sin venta</div>
-                                        <div class="fw-bold text-danger">@VentasDiarias.Count(v => v.Cantidad == 0)</div>
-                                    </div>
-                                </div>
-                                <div class="col-4">
-                                    <div class="border border-dark p-2 text-center h-100">
-                                        <div class="row">
-                                            <div class="col-12 border-bottom pb-1 mb-1">
-                                                <div class="small text-muted" style="font-size: 0.7rem;">Prom. Gráfico</div>
-                                                <div class="fw-bold">@(VentasDiarias.Any() ? (VentasDiarias.Sum(v => v.Cantidad) /
-                            (double)VentasDiarias.Count).ToString("F1") : "0") / día</div>
-                                            </div>
-                                            <div class="col-12">
-                                                <div class="small text-muted" style="font-size: 0.7rem;">Vel. Reposición</div>
-                                                <div class="fw-bold text-primary">@((productoInfo?.VelocidadDiaria ?? 0).ToString("F1")) / día</div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                }
-                else
-                {
-                            <div class="text-center py-4 text-muted">
-                                <i class="bi bi-inbox fs-1"></i>
-                                <p class="mt-2">No hay datos de ventas para este producto</p>
-                            </div>
-                }
+                        else
+                        {
+                            <span style="width:30px;height:16px;border-radius:9px;background:#555;position:relative;flex-shrink:0;"><span style="position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;background:#fff;"></span></span>
+                        }
+                        <span style="font-family:var(--font-mono);font-weight:700;font-size:0.6rem;text-transform:uppercase;letter-spacing:0.4px;">Solo quiebres</span>
+                    </button>
+                    <!-- Agrupar por producto -->
+                    <button type="button" @onclick="() => _agrupar = !_agrupar" style="display:inline-flex;align-items:center;gap:7px;background:none;border:none;cursor:pointer;padding:0;color:#fff;">
+                        @if (_agrupar)
+                        {
+                            <span style="width:30px;height:16px;border-radius:9px;background:#fff;position:relative;flex-shrink:0;"><span style="position:absolute;top:2px;right:2px;width:12px;height:12px;border-radius:50%;background:var(--ink-900);"></span></span>
+                        }
+                        else
+                        {
+                            <span style="width:30px;height:16px;border-radius:9px;background:#555;position:relative;flex-shrink:0;"><span style="position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;background:#fff;"></span></span>
+                        }
+                        <span style="font-family:var(--font-mono);font-weight:700;font-size:0.6rem;text-transform:uppercase;letter-spacing:0.4px;">Agrupar por producto</span>
+                    </button>
                 </div>
             </div>
-    }
+
+            <div style="flex:1;min-height:0;overflow:auto;">
+                <table style="width:100%;border-collapse:collapse;">
+                    <thead style="position:sticky;top:0;z-index:2;">
+                        <tr style="background:var(--ink-700);color:#fff;font-family:var(--font-mono);text-transform:uppercase;font-size:0.58rem;letter-spacing:0.5px;">
+                            <th class="qs-th" style="text-align:left;padding:7px 10px;font-weight:700;background:var(--ink-700);">Producto</th>
+                            <th class="qs-th" style="text-align:left;padding:7px 8px;font-weight:700;background:var(--ink-700);">Máq · Slot</th>
+                            <th class="qs-th" style="text-align:center;padding:7px 8px;font-weight:700;background:var(--ink-700);">Stock</th>
+                            <th class="qs-th" style="text-align:left;padding:7px 8px;font-weight:700;background:var(--ink-700);">Últ. venta</th>
+                            <th class="qs-th" style="text-align:right;padding:7px 8px;font-weight:700;background:var(--ink-700);">Días</th>
+                            <th class="qs-th" style="text-align:right;padding:7px 8px;font-weight:700;background:var(--ink-700);">Vel/día</th>
+                            <th class="qs-th" style="text-align:right;padding:7px 8px;font-weight:700;background:var(--ink-700);">$ Perd.</th>
+                            <th class="qs-th" style="text-align:center;padding:7px 10px;font-weight:700;background:var(--ink-700);">Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var r in Rows)
+                        {
+                            <tr class="qs-row @(r.Producto == SelName ? "qs-row-sel" : "")" @onclick="() => _sel = r.Producto" style="border-bottom:1px solid var(--line-200);">
+                                <td style="padding:6px 10px;font-family:var(--font-sans);font-weight:600;font-size:0.78rem;text-transform:uppercase;letter-spacing:-0.2px;">@r.Producto</td>
+                                <td style="padding:6px 8px;font-family:var(--font-mono);font-size:0.66rem;color:var(--text-secondary);white-space:nowrap;">@r.MaqSlot</td>
+                                <td style="padding:6px 8px;text-align:center;font-family:var(--font-mono);font-weight:700;font-size:0.74rem;"><span style="color:var(--signal-danger);">@r.Stock</span><span style="color:var(--text-muted);">/@r.Cap</span></td>
+                                <td style="padding:6px 8px;font-family:var(--font-mono);font-size:0.66rem;color:var(--text-secondary);white-space:nowrap;">@r.UltVenta</td>
+                                <td style="padding:6px 8px;text-align:right;font-family:var(--font-mono);font-weight:700;font-size:0.74rem;">@r.Dias</td>
+                                <td style="padding:6px 8px;text-align:right;font-family:var(--font-mono);font-size:0.72rem;color:var(--text-secondary);">@r.Vel</td>
+                                <td style="padding:6px 8px;text-align:right;font-family:var(--font-mono);font-weight:700;font-size:0.72rem;color:var(--signal-danger);">@r.Perdido</td>
+                                <td style="padding:6px 10px;text-align:center;">
+                                    @switch (r.Est)
+                                    {
+                                        case "critico":
+                                            <span style="display:inline-block;background:var(--signal-danger);color:#fff;font-family:var(--font-mono);font-weight:700;font-size:0.58rem;text-transform:uppercase;letter-spacing:0.4px;padding:3px 7px;">Crítico</span>
+                                            break;
+                                        case "alerta":
+                                            <span style="display:inline-block;background:var(--signal-warning);color:var(--ink-900);font-family:var(--font-mono);font-weight:700;font-size:0.58rem;text-transform:uppercase;letter-spacing:0.4px;padding:3px 7px;">Alerta</span>
+                                            break;
+                                        case "dead":
+                                            <span style="display:inline-block;background:var(--ink-500);color:#fff;font-family:var(--font-mono);font-weight:700;font-size:0.58rem;text-transform:uppercase;letter-spacing:0.4px;padding:3px 7px;">Dead slot</span>
+                                            break;
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                    <tfoot style="position:sticky;bottom:0;z-index:2;">
+                        <tr style="background:var(--ink-900);color:#fff;font-family:var(--font-mono);font-weight:700;text-transform:uppercase;font-size:0.66rem;letter-spacing:0.4px;">
+                            <td colspan="4" style="padding:7px 10px;">Total · @Rows.Count alertas</td>
+                            <td colspan="2" style="padding:7px 8px;text-align:right;">Pérdida acum.</td>
+                            <td colspan="2" style="padding:7px 10px;text-align:right;color:#ff5a67;">@KPerdido</td>
+                        </tr>
+                    </tfoot>
+                </table>
+                @if (Rows.Count == 0)
+                {
+                    <div style="padding:34px 16px;text-align:center;font-family:var(--font-mono);color:var(--text-muted);">
+                        <i class="bi bi-check-circle-fill" style="font-size:1.6rem;color:var(--signal-success);"></i>
+                        <div style="margin-top:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;font-size:0.8rem;color:var(--ink-900);">¡Todo en orden!</div>
+                        <div style="margin-top:4px;font-size:0.66rem;">Ningún producto cumple los filtros activos.</div>
+                    </div>
+                }
+            </div>
+        </section>
+
+        <!-- ----- Derecha: Timeline + Ventas diarias ----- -->
+        <aside class="qs-aside" style="flex:1;min-width:0;display:flex;flex-direction:column;gap:11px;overflow:hidden;">
+
+            <!-- Timeline de agotamiento -->
+            <section style="flex:1;min-height:0;display:flex;flex-direction:column;border:2px solid var(--ink-900);box-shadow:var(--shadow-card);background:var(--paper-0);overflow:hidden;">
+                <div style="flex-shrink:0;background:var(--ink-900);color:#fff;display:flex;align-items:center;gap:8px;padding:0.45rem 0.8rem;font-family:var(--font-mono);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;font-size:0.74rem;"><i class="bi bi-clock-history"></i>Timeline de agotamiento</div>
+                <div style="flex:1;min-height:0;overflow:auto;padding:4px 0;">
+                    @foreach (var t in Timeline)
+                    {
+                        <div class="qs-tl-item" style="display:flex;align-items:center;gap:9px;padding:6px 10px;border-bottom:1px solid var(--line-200);">
+                            <span style="flex-shrink:0;width:18px;height:18px;background:var(--ink-900);color:#fff;font-family:var(--font-mono);font-weight:700;font-size:0.6rem;display:flex;align-items:center;justify-content:center;">@t.Rank</span>
+                            <div style="flex:1;min-width:0;">
+                                <div style="font-family:var(--font-sans);font-weight:700;font-size:0.7rem;text-transform:uppercase;letter-spacing:-0.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">@t.Name</div>
+                                <div style="height:7px;background:var(--line-200);margin-top:3px;overflow:hidden;"><div style="height:100%;width:@(t.Pct)%;background:@t.Color;"></div></div>
+                            </div>
+                            <div style="flex-shrink:0;text-align:right;font-family:var(--font-mono);">
+                                <div style="font-family:var(--font-mono);font-weight:700;font-size:0.78rem;line-height:1;color:@t.Color;">@t.Dias d</div>
+                                <div style="font-size:0.54rem;color:var(--text-muted);text-transform:uppercase;">@t.MaqText</div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </section>
+
+            <!-- Ventas diarias por producto -->
+            <section style="flex:1.15;min-height:0;display:flex;flex-direction:column;border:2px solid var(--ink-900);box-shadow:var(--shadow-card);background:var(--paper-0);overflow:hidden;">
+                <div style="flex-shrink:0;background:var(--ink-900);color:#fff;display:flex;justify-content:space-between;align-items:center;gap:8px;padding:0.4rem 0.8rem;">
+                    <div style="font-family:var(--font-mono);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;font-size:0.74rem;display:flex;align-items:center;gap:8px;"><i class="bi bi-graph-up"></i>Ventas diarias</div>
+                    <div style="max-width:180px;">
+                        <VmSelect Value="@SelName" Options="ProdOptions" ValueChanged="@((string v) => _sel = v)" />
+                    </div>
+                </div>
+                <div style="flex-shrink:0;padding:6px 10px 2px;display:flex;justify-content:space-between;align-items:baseline;">
+                    <span style="font-family:var(--font-sans);font-weight:700;font-size:0.84rem;text-transform:uppercase;letter-spacing:-0.3px;">@SelName</span>
+                    <span style="font-family:var(--font-mono);font-size:0.58rem;color:var(--text-muted);text-transform:uppercase;">@SelMeta</span>
+                </div>
+                <div style="flex:1;min-height:0;display:flex;padding:6px 10px 2px;">
+                    <div style="flex:1;min-height:0;display:flex;align-items:flex-end;gap:3px;width:100%;">
+                        @foreach (var b in Bars)
+                        {
+                            <div style="flex:1;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;background:@b.ColBg;">
+                                <span style="font-family:var(--font-mono);font-size:0.5rem;color:var(--text-muted);line-height:1;margin-bottom:2px;">@b.Val</span>
+                                <div style="width:78%;height:@(b.Hpct)%;min-height:2px;background:@b.Col;"></div>
+                            </div>
+                        }
+                    </div>
+                </div>
+                <div style="flex-shrink:0;display:flex;gap:3px;padding:0 10px 5px;">
+                    @foreach (var b in Bars)
+                    {
+                        <span style="flex:1;text-align:center;font-family:var(--font-mono);font-size:0.5rem;color:var(--text-muted);">@b.Day</span>
+                    }
+                </div>
+                <div style="flex-shrink:0;border-top:2px solid var(--ink-900);background:var(--paper-50);padding:5px 10px;display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:0.58rem;text-transform:uppercase;letter-spacing:0.3px;">
+                    <span style="color:var(--text-muted);">Quiebre: <strong style="color:var(--signal-danger);">@SelDias d</strong> sin venta</span>
+                    <span style="color:var(--text-muted);">Pérdida: <strong style="color:var(--ink-900);">@SelPerdido</strong></span>
+                </div>
+            </section>
+        </aside>
+    </div>
 </div>
 
+@code {
+    // ── Estado de UI ──────────────────────────────────────────────────────────
+    private string _template = "0";
+    private string _maquina = "0";
+    private int _umbral = 24;
+    private bool _soloDead = false;
+    private bool _soloQuiebres = true;
+    private bool _agrupar = true;
+    private string? _sel;
+
+    private void OnUmbralChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var v)) _umbral = Math.Max(1, v);
+    }
+
+    // ── Data mock (del template QuiebresDeStock.dc.html) ───────────────────────
+    // [ maq, slot, producto, stock, cap, vendido, ultVenta, dias, vel, perdido ]
+    private record Raw(string Maq, string Slot, string Producto, int Stock, int Cap, int Vendido, string UltVenta, int Dias, double Vel, int Perdido);
+
+    private static readonly Raw[] DATA =
+    [
+        new("0023", "A2", "Coca Cola 580cc",      0, 8,  206, "22/06 14:20", 6, 6.4, 48200),
+        new("0023", "B4", "Score Gorila 473cc",   0, 6,  66,  "24/06 09:10", 4, 2.1, 21300),
+        new("0012", "C1", "Lays XS 22g",          1, 6,  36,  "27/06 18:05", 1, 1.2, 4200),
+        new("0012", "D3", "Papas Lays Original",  0, 6,  88,  "23/06 11:40", 5, 2.8, 18600),
+        new("0033", "A1", "Snickers",             2, 8,  52,  "28/06 07:30", 0, 1.6, 0),
+        new("0023", "E2", "Limón Soda 500cc",     0, 8,  24,  "25/06 16:00", 3, 0.9, 9100),
+        new("0047", "C5", "Agua Mineral 500cc",   0, 12, 0,   "—",           9, 0.0, 0),
+        new("0033", "B7", "Galletas Tritón",      0, 9,  41,  "26/06 13:15", 2, 1.4, 6800),
+        new("0012", "F1", "Red Bull 250cc",       1, 8,  16,  "28/06 10:00", 0, 0.7, 0),
+        new("0047", "D2", "Doritos Queso",        0, 6,  11,  "21/06 19:30", 8, 0.5, 14200),
+        new("0023", "G3", "Trident Menta",        0, 10, 0,   "—",          12, 0.0, 0),
+        new("0033", "C2", "Super 8",              0, 8,  28,  "24/06 20:10", 4, 1.1, 7600),
+        new("0012", "H4", "Gatorade",             2, 8,  16,  "28/06 08:45", 0, 0.6, 0),
+        new("0047", "A3", "Kem Piña 500cc",       0, 8,  24,  "23/06 12:00", 5, 0.8, 11400),
+    ];
+
+    private const int AnalizadosN = 28;
+
+    private static readonly List<VmSelect.VmSelectOption> TemplateOptions =
+    [
+        new("0", "aasa (1 máq.)"),
+        new("1", "Planograma Snack v3 (4 máq.)"),
+        new("2", "Verano — Bebidas (6 máq.)"),
+    ];
+
+    private static readonly List<VmSelect.VmSelectOption> MaquinaOptions =
+    [
+        new("0", ":: Todas las máquinas ::"),
+        new("0023", "Máquina 2410280023 Snack (28/06 08:00)"),
+        new("0012", "Máquina 2410280012 Snack (28/06 07:40)"),
+        new("0033", "Máquina 2410280033 Snack (27/06 19:10)"),
+        new("0047", "Máquina 2410280047 Snack (28/06 09:25)"),
+    ];
+
+    // ── Formato (es-CL: punto separador de miles) ──────────────────────────────
+    private static readonly System.Globalization.NumberFormatInfo Nfi = new() { NumberGroupSeparator = ".", NumberDecimalDigits = 0 };
+    private static string Money(double n) => "$" + Math.Round(n).ToString("N0", Nfi);
+
+    // ── View models ────────────────────────────────────────────────────────────
+    private record RowVm(string Producto, string MaqSlot, int Stock, int Cap, string UltVenta, int Dias, string Vel, string Perdido, string Est);
+    private record TlVm(int Rank, string Name, string MaqText, int Pct, string Color, int Dias);
+    private record BarVm(string Val, int Hpct, string Col, string ColBg, string Day);
+    private sealed class Prod
+    {
+        public string Name = "";
+        public int Dias;
+        public double Vel;
+        public int Perdido;
+        public int Vendido;
+        public HashSet<string> Maqs = new();
+        public int Slots;
+        public string Est = "alerta";
+        public string Ult = "";
+    }
+
+    private int UmbralDias => Math.Max(1, (int)Math.Round(_umbral / 24.0));
+    private int Umbral48 => UmbralDias * 24;
+    private int MachinesN => DATA.Select(r => r.Maq).Distinct().Count();
+
+    private string Estado(Raw r)
+    {
+        if (r.Vendido == 0) return "dead";
+        if (r.Stock == 0 && r.Dias >= UmbralDias) return "critico";
+        return "alerta";
+    }
+
+    private static string SevColor(string est) =>
+        est == "critico" ? "var(--signal-danger)" : (est == "dead" ? "var(--ink-500)" : "var(--signal-warning)");
+
+    // Slots base con estado calculado
+    private IEnumerable<(Raw r, string est)> Base => DATA.Select(r => (r, Estado(r)));
+
+    // KPIs
+    private int KCritico => Base.Count(x => x.est == "critico");
+    private int KAlerta => DATA.Length;
+    private int TotPerdido => DATA.Sum(r => r.Perdido);
+    private string KPerdido => Money(TotPerdido);
+    private string KGanancia => Money(TotPerdido * 0.38);
+    private Raw Worst => DATA.OrderByDescending(r => r.Perdido).ThenByDescending(r => r.Dias).First();
+    private string KWorstName => Worst.Producto;
+    private string KWorstMeta => $"Máq {Worst.Maq} · {Worst.Dias} días sin stock";
+
+    // Mapa por producto (para timeline y selección)
+    private Dictionary<string, Prod> ProdMap
+    {
+        get
+        {
+            var map = new Dictionary<string, Prod>();
+            var order = new Dictionary<string, int> { ["critico"] = 0, ["dead"] = 1, ["alerta"] = 2 };
+            foreach (var (r, est) in Base)
+            {
+                if (!map.TryGetValue(r.Producto, out var p))
+                {
+                    p = new Prod { Name = r.Producto, Ult = r.UltVenta, Est = est };
+                    map[r.Producto] = p;
+                }
+                p.Dias = Math.Max(p.Dias, r.Dias);
+                p.Vel += r.Vel; p.Perdido += r.Perdido; p.Vendido += r.Vendido;
+                p.Maqs.Add(r.Maq); p.Slots += 1;
+                if (order[est] < order[p.Est]) p.Est = est;
+            }
+            return map;
+        }
+    }
+
+    private List<TlVm> Timeline
+    {
+        get
+        {
+            var prods = ProdMap.Values.ToList();
+            var maxDias = Math.Max(prods.Count > 0 ? prods.Max(p => p.Dias) : 1, 1);
+            return prods.OrderByDescending(p => p.Dias).Take(6)
+                .Select((p, i) => new TlVm(
+                    i + 1, p.Name, $"{p.Maqs.Count} máq",
+                    (int)Math.Round((double)p.Dias / maxDias * 100), SevColor(p.Est), p.Dias))
+                .ToList();
+        }
+    }
+
+    private List<RowVm> Rows
+    {
+        get
+        {
+            var view = Base.AsEnumerable();
+            if (_maquina != "0") view = view.Where(x => x.r.Maq == _maquina);
+            if (_soloQuiebres) view = view.Where(x => x.r.Stock == 0);
+            if (_soloDead) view = view.Where(x => x.r.Vendido == 0);
+
+            List<RowVm> display;
+            if (_agrupar)
+            {
+                var order = new Dictionary<string, int> { ["critico"] = 0, ["dead"] = 1, ["alerta"] = 2 };
+                var g = new Dictionary<string, (int stock, int cap, int vendido, int dias, double vel, int perdido, HashSet<string> maqs, int slots, string ult, string est)>();
+                foreach (var (r, est) in view)
+                {
+                    if (!g.TryGetValue(r.Producto, out var p))
+                        p = (0, 0, 0, 0, 0, 0, new HashSet<string>(), 0, "", est);
+                    p.stock += r.Stock; p.cap += r.Cap; p.vendido += r.Vendido;
+                    p.dias = Math.Max(p.dias, r.Dias); p.vel += r.Vel; p.perdido += r.Perdido;
+                    p.maqs.Add(r.Maq); p.slots += 1;
+                    if (order[est] < order[p.est]) p.est = est;
+                    if (r.UltVenta != "—" && string.Compare(r.UltVenta, p.ult, StringComparison.Ordinal) > 0) p.ult = r.UltVenta;
+                    g[r.Producto] = p;
+                }
+                display = g.Select(kv => new RowVm(
+                    kv.Key,
+                    $"{kv.Value.maqs.Count} máq · {kv.Value.slots} slot{(kv.Value.slots > 1 ? "s" : "")}",
+                    kv.Value.stock, kv.Value.cap,
+                    string.IsNullOrEmpty(kv.Value.ult) ? "—" : kv.Value.ult,
+                    kv.Value.dias, kv.Value.vel.ToString("0.0"),
+                    kv.Value.perdido > 0 ? Money(kv.Value.perdido) : "—",
+                    kv.Value.est)).ToList();
+            }
+            else
+            {
+                display = view.Select(x => new RowVm(
+                    x.r.Producto, $"{x.r.Maq} · {x.r.Slot}", x.r.Stock, x.r.Cap,
+                    x.r.UltVenta, x.r.Dias, x.r.Vel.ToString("0.0"),
+                    x.r.Perdido > 0 ? Money(x.r.Perdido) : "—", x.est)).ToList();
+            }
+            return display.OrderByDescending(d => ParseMoney(d.Perdido)).ThenByDescending(d => d.Dias).ToList();
+        }
+    }
+
+    private static int ParseMoney(string s) =>
+        s == "—" ? 0 : int.Parse(new string(s.Where(char.IsDigit).ToArray()));
+
+    // ── Selección + gráfico de ventas diarias ──────────────────────────────────
+    private string SelName
+    {
+        get
+        {
+            var name = _sel ?? Worst.Producto;
+            return ProdMap.ContainsKey(name) ? name : Worst.Producto;
+        }
+    }
+
+    private Prod SelP => ProdMap[SelName];
+    private int SelDias => SelP.Dias;
+    private string SelPerdido => Money(SelP.Perdido);
+    private string SelMeta => $"{SelP.Maqs.Count} máq · {SelP.Slots} slot{(SelP.Slots > 1 ? "s" : "")}";
+
+    private List<VmSelect.VmSelectOption> ProdOptions =>
+        ProdMap.Values.Select(p => new VmSelect.VmSelectOption(p.Name, p.Name)).ToList();
+
+    private static int Hash(string s)
+    {
+        int h = 0;
+        foreach (var c in s) h = unchecked(h * 31 + c);
+        return h;
+    }
+
+    private List<BarVm> Bars
+    {
+        get
+        {
+            const int days = 12;
+            var labels = new List<string>();
+            var start = new DateTime(2026, 6, 28);
+            for (int i = 0; i < days; i++)
+                labels.Add(start.AddDays(-(days - 1 - i)).Day.ToString("D2"));
+
+            var selP = SelP;
+            var velP = selP.Vel > 0 ? selP.Vel : 1;
+            var series = new List<(int v, bool o)>();
+            for (int i = 0; i < days; i++)
+            {
+                var ago = days - 1 - i;
+                if (ago < selP.Dias) series.Add((0, true));
+                else
+                {
+                    var rr = 0.55 + Math.Abs(Math.Sin(Hash(SelName) + i * 1.7)) * 0.9;
+                    series.Add((Math.Max(1, (int)Math.Round(velP * rr)), false));
+                }
+            }
+            var maxV = Math.Max(series.Count > 0 ? series.Max(s => s.v) : 1, 1);
+            return series.Select((s, i) => new BarVm(
+                s.o ? "·" : s.v.ToString(),
+                s.o ? 3 : Math.Max(6, (int)Math.Round((double)s.v / maxV * 100)),
+                s.o ? "var(--signal-danger)" : "var(--ink-900)",
+                s.o ? "rgba(220,53,69,0.08)" : "transparent",
+                labels[i])).ToList();
+        }
+    }
+}

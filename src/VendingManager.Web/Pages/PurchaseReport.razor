@@ -1,203 +1,340 @@
 @page "/informe-compras"
-@using VendingManager.Shared.DTOs
-@using System.Net.Http.Json
-@inject HttpClient Http
-@inject IJSRuntime JS
 @attribute [Authorize]
+
+@* =============================================================================
+   Informe de Compras (reposición sugerida) — port visual fiel de
+   templates/informe-compras/InformeCompras.dc.html (VendingManager Design
+   System, lenguaje industrial v3). Solo visual: la data es la mock del
+   template, sin cablear a la API todavía. Layout sin scroll de página (ruta
+   fullscreen en MainLayout); el scroll vive dentro de la tabla. Estilos inline
+   con var(--token) copiados del template; el bloque <style> cubre keyframes,
+   hover y responsive.
+   ============================================================================= *@
 
 <PageTitle>Informe de Compras</PageTitle>
 
-<div class="industrial-wrapper container-fluid px-4 mt-4">
+<style>
+    @@keyframes icBlink { 50% { opacity: 0; } }
+    .ic-cursor { animation: icBlink 1s steps(1) infinite; }
+    .ic-row:hover td { background: var(--paper-50) !important; }
+    .ic-th { user-select: none; }
+    .ic-th.ic-sortable { cursor: pointer; }
+    .ic-th.ic-sortable:hover { background: var(--ink-900) !important; }
+    .ic-page h1 { user-select: none; }
+    @@media (prefers-reduced-motion: reduce) { .ic-cursor { animation: none !important; } }
+    @@media (max-width: 980px) {
+        .ic-cmd { flex-direction: column !important; align-items: stretch !important; }
+        .ic-cmd > * { width: 100% !important; }
+        .ic-kpis { grid-template-columns: repeat(2,1fr) !important; }
+    }
+</style>
 
-    <!-- HEADER INDUSTRIAL -->
-    <div class="row align-items-center mb-4 report-header">
-        <div class="col-12 d-flex justify-content-between align-items-center flex-wrap gap-3">
-            <div>
-                <h2 class="m-0 fw-bold text-uppercase" style="letter-spacing: -1px;">
-                    <i class="bi bi-box-seam me-2"></i>INFORME DE COMPRAS SUGERIDAS
-                </h2>
-                <small class="text-muted fw-bold report-subtitle">ANÁLISIS DE REPOSICIÓN POR PRODUCTO</small>
+<div class="ic-page" style="flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden;padding:0.9rem 1.4rem 1.05rem;gap:10px;">
+
+    <!-- ===== Header ===== -->
+    <div style="flex-shrink:0;display:flex;justify-content:space-between;align-items:flex-end;gap:14px;flex-wrap:wrap;border-bottom:3px solid var(--ink-900);padding-bottom:10px;">
+        <div>
+            <div style="display:inline-block;background:var(--ink-900);color:#fff;font-family:var(--font-mono);font-weight:700;font-size:0.58rem;letter-spacing:2px;padding:3px 9px;text-transform:uppercase;margin-bottom:7px;">Gestión · Compras</div>
+            <h1 style="margin:0;font-family:var(--font-mono);font-weight:700;text-transform:uppercase;letter-spacing:-1px;font-size:1.5rem;line-height:1;display:flex;align-items:center;gap:9px;"><i class="bi bi-box-seam-fill" style="font-size:1.2rem;"></i>Informe de Compras<span class="ic-cursor">_</span></h1>
+            <p style="margin:5px 0 0;font-family:var(--font-mono);font-size:0.68rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.4px;">Reposición sugerida por producto · orden de compra</p>
+        </div>
+        <div style="display:flex;align-items:center;gap:7px;font-family:var(--font-mono);font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);">
+            <i class="bi bi-cpu"></i><span>@UniversoN productos · @MachinesN máquinas · base @_dias d</span>
+        </div>
+    </div>
+
+    <!-- ===== Barra de comando ===== -->
+    <div style="flex-shrink:0;border:2px solid var(--ink-900);background:var(--paper-50);box-shadow:var(--shadow-card);padding:0.55rem 0.95rem;">
+        <div class="ic-cmd" style="display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap;">
+            <div style="min-width:260px;flex:1.4;">
+                <VmSelect Label="Máquina" Value="@_maquina" Options="MaquinaOptions" ValueChanged="@((string v) => _maquina = v)" />
+            </div>
+            <!-- Solo en máquinas -->
+            <label style="display:inline-flex;align-items:center;gap:9px;cursor:pointer;padding-bottom:7px;">
+                @if (_soloMaq)
+                {
+                    <button type="button" @onclick="() => _soloMaq = !_soloMaq" role="checkbox" aria-checked="true" style="width:20px;height:20px;flex-shrink:0;border:2px solid var(--ink-900);border-radius:0;background:var(--ink-900);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:0.7rem;line-height:1;"><i class="bi bi-check-lg"></i></button>
+                }
+                else
+                {
+                    <button type="button" @onclick="() => _soloMaq = !_soloMaq" role="checkbox" aria-checked="false" style="width:20px;height:20px;flex-shrink:0;border:2px solid var(--ink-900);border-radius:0;background:var(--paper-0);cursor:pointer;"></button>
+                }
+                <span style="font-family:var(--font-mono);font-weight:700;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.4px;white-space:nowrap;">Solo en máquinas</span>
+            </label>
+            <!-- Días de análisis -->
+            <div style="display:flex;flex-direction:column;gap:0.35rem;width:130px;">
+                <label style="font-family:var(--font-mono);font-size:0.64rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Días análisis</label>
+                <input type="number" min="1" max="120" value="@_dias" @onchange="OnDiasChanged" style="font-family:var(--font-mono);font-size:0.85rem;font-weight:700;border:2px solid var(--ink-900);border-radius:0;background:var(--paper-0);padding:0.42rem 0.6rem;outline:none;width:100%;" />
+            </div>
+            <div style="display:flex;gap:9px;align-items:flex-end;">
+                <VmButton Variant="dark" Icon="bi-calculator-fill" Width="150px">Calcular</VmButton>
+                <VmButton Variant="dark" Icon="bi-file-earmark-excel-fill" Width="180px" AdditionalAttributes="ExcelStyle">Exportar Excel</VmButton>
             </div>
         </div>
     </div>
 
-    <!-- CONTROLES DE FILTRO -->
-    <div class="d-flex flex-wrap gap-3 align-items-center mb-4 report-filters rounded-0 p-3">
-        <div class="input-group" style="max-width: 350px;">
-            <span class="input-group-text bg-dark text-white fw-bold border-dark">
-                <i class="bi bi-vending-machine me-2"></i> MÁQUINA
-            </span>
-            <select class="form-select border-dark shadow-sm" @bind="MaquinaActualId" @bind:after="LoadData">
-                <option value="0">:: CONSOLIDADO GLOBAL ::</option>
-                @foreach (var m in Maquinas)
-                {
-                    <option value="@m.Id">@m.Nombre</option>
-                }
-            </select>
+    <!-- ===== KPIs ===== -->
+    <div class="ic-kpis" style="flex-shrink:0;display:grid;grid-template-columns:repeat(4,1fr);gap:11px;">
+        <div style="border:2px solid var(--ink-900);background:var(--signal-danger);color:#fff;box-shadow:var(--shadow-card);padding:0.7rem 0.9rem;">
+            <div style="font-family:var(--font-mono);font-weight:700;font-size:0.62rem;text-transform:uppercase;letter-spacing:1px;opacity:.92;">Productos a reponer</div>
+            <div style="font-family:var(--font-sans);font-weight:700;font-size:2rem;letter-spacing:-2px;line-height:1;margin:2px 0 3px;">@KReponer</div>
+            <div style="font-family:var(--font-mono);font-size:0.58rem;text-transform:uppercase;letter-spacing:0.4px;opacity:.85;">requieren compra ahora</div>
         </div>
-
-        <div class="form-check form-switch">
-            <input class="form-check-input border-dark" type="checkbox" id="filterInMachine" @bind="showOnlyInMachine" />
-            <label class="form-check-label fw-bold" for="filterInMachine">Solo en Máquinas</label>
+        <div style="border:2px solid var(--ink-900);background:var(--ink-900);color:#fff;box-shadow:var(--shadow-card);padding:0.7rem 0.9rem;">
+            <div style="font-family:var(--font-mono);font-weight:700;font-size:0.62rem;text-transform:uppercase;letter-spacing:1px;opacity:.85;">Unidades a comprar</div>
+            <div style="font-family:var(--font-sans);font-weight:700;font-size:2rem;letter-spacing:-2px;line-height:1;margin:2px 0 3px;">@KUnidades</div>
+            <div style="font-family:var(--font-mono);font-size:0.58rem;text-transform:uppercase;letter-spacing:0.4px;opacity:.8;">suma del sugerido</div>
         </div>
-
-        <div class="d-flex align-items-center gap-2">
-            <label class="text-nowrap fw-bold text-uppercase small">DÍAS ANÁLISIS:</label>
-            <input type="number" class="form-control border-dark shadow-sm" style="width: 80px;" @bind="days" min="1" max="365" />
+        <div style="border:2px solid var(--ink-900);background:var(--paper-0);color:var(--ink-900);box-shadow:var(--shadow-card);padding:0.7rem 0.9rem;">
+            <div style="font-family:var(--font-mono);font-weight:700;font-size:0.62rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);">Inversión estimada</div>
+            <div style="font-family:var(--font-sans);font-weight:700;font-size:2rem;letter-spacing:-2px;line-height:1;margin:2px 0 3px;">@KInversion</div>
+            <div style="font-family:var(--font-mono);font-size:0.58rem;text-transform:uppercase;letter-spacing:0.4px;color:var(--text-muted);">a costo de bodega</div>
         </div>
-
-        <button class="btn btn-dark rounded-0 fw-bold shadow-sm" @onclick="LoadData">
-            <i class="bi bi-calculator me-1"></i> CALCULAR
-        </button>
-        <button class="btn btn-success rounded-0 fw-bold border-dark shadow-sm" @onclick="DownloadExcel">
-            <i class="bi bi-file-earmark-excel"></i> EXPORTAR EXCEL
-        </button>
+        <div style="border:2px solid var(--ink-900);background:var(--signal-success);color:#fff;box-shadow:var(--shadow-card);padding:0.7rem 0.9rem;">
+            <div style="font-family:var(--font-mono);font-weight:700;font-size:0.62rem;text-transform:uppercase;letter-spacing:1px;opacity:.92;">Cubiertos por bodega</div>
+            <div style="font-family:var(--font-sans);font-weight:700;font-size:2rem;letter-spacing:-2px;line-height:1;margin:2px 0 3px;">@KCubiertos</div>
+            <div style="font-family:var(--font-mono);font-size:0.58rem;text-transform:uppercase;letter-spacing:0.4px;opacity:.85;">déficit sin compra</div>
+        </div>
     </div>
 
-    @if (suggestions == null)
-    {
-        <!-- SPINNER INDUSTRIAL DE CARGA -->
-        <div class="text-center py-5 loading-container">
-            <div class="spinner-grow text-dark loading-spinner" role="status"></div>
-            <p class="mt-2 fw-bold text-uppercase loading-text" style="letter-spacing: 2px;">Cargando...</p>
+    <!-- ===== Orden de compra ===== -->
+    <section style="flex:1;min-height:0;display:flex;flex-direction:column;border:2px solid var(--ink-900);box-shadow:var(--shadow-card);background:var(--paper-0);overflow:hidden;">
+
+        <!-- Header negro -->
+        <div style="flex-shrink:0;background:var(--ink-900);color:#fff;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:0.5rem 0.85rem;">
+            <div style="font-family:var(--font-mono);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;font-size:0.84rem;display:flex;align-items:center;gap:8px;"><i class="bi bi-cart-check-fill"></i>Orden de compra sugerida<span style="font-family:var(--font-mono);font-weight:700;font-size:0.62rem;border:1px solid rgba(255,255,255,0.5);padding:2px 7px;">@Rows.Count ítems</span></div>
+            <!-- Solo con sugerencia -->
+            <button type="button" @onclick="() => _soloSug = !_soloSug" style="display:inline-flex;align-items:center;gap:7px;background:none;border:none;cursor:pointer;padding:0;color:#fff;">
+                @if (_soloSug)
+                {
+                    <span style="width:30px;height:16px;border-radius:9px;background:#fff;position:relative;flex-shrink:0;"><span style="position:absolute;top:2px;right:2px;width:12px;height:12px;border-radius:50%;background:var(--ink-900);"></span></span>
+                }
+                else
+                {
+                    <span style="width:30px;height:16px;border-radius:9px;background:#555;position:relative;flex-shrink:0;"><span style="position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;background:#fff;"></span></span>
+                }
+                <span style="font-family:var(--font-mono);font-weight:700;font-size:0.62rem;text-transform:uppercase;letter-spacing:0.4px;">Solo con sugerencia</span>
+            </button>
         </div>
-    }
-    else if (!FilteredSuggestions.Any())
-    {
-        <!-- ESTADO VACÍO -->
-        <div class="text-center py-5 border border-dark border-2 bg-light empty-state">
-            <i class="bi bi-inbox fs-1 text-muted empty-state-icon"></i>
-            <p class="mt-2 fw-bold text-uppercase empty-state-text">No hay sugerencias de compra para el período seleccionado (o filtro aplicado).</p>
+
+        <!-- Leyenda de la fórmula -->
+        <div style="flex-shrink:0;display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:0.55rem 0.85rem;border-bottom:2px solid var(--ink-900);background:var(--paper-50);font-family:var(--font-mono);font-size:0.64rem;line-height:1.4;">
+            <span style="background:var(--ink-900);color:#fff;font-weight:700;font-size:0.56rem;letter-spacing:0.5px;padding:3px 7px;text-transform:uppercase;">Fórmula</span>
+            <span style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;">
+                <strong style="color:var(--signal-danger);">Sugerido</strong><span style="color:var(--text-muted);">=</span>
+                <span>Déficit en máquinas</span><span style="color:var(--text-muted);">+</span>
+                <span>Ventas proyectadas (@_dias d)</span><span style="color:var(--text-muted);">−</span>
+                <span>Stock en bodega</span>
+                <span style="color:var(--text-muted);">· nunca negativo (“—” = bodega cubre el déficit)</span>
+            </span>
         </div>
-    }
-    else
-    {
-        <div class="table-responsive">
-            <table class="table table-striped table-hover align-middle result-table border-2 border-dark rounded-0">
-                <thead class="table-dark">
-                    <tr>
-                        <th class="text-center">En Máq.</th>
-                        <th>Producto</th>
-                        <th class="text-center">Ventas (@days días)</th>
-                        <th class="text-center">Stock en Máquinas</th>
-                        <th class="text-center">Stock Bodega</th>
-                        <th class="text-center">Sugerido Compra</th>
+
+        <!-- Tabla -->
+        <div style="flex:1;min-height:0;overflow:auto;">
+            <table style="width:100%;border-collapse:collapse;">
+                <thead style="position:sticky;top:0;z-index:2;">
+                    <tr style="background:var(--ink-700);color:#fff;font-family:var(--font-mono);text-transform:uppercase;font-size:0.62rem;letter-spacing:0.5px;">
+                        <th class="ic-th" style="text-align:center;padding:8px 10px;font-weight:700;background:var(--ink-700);">En máq.</th>
+                        <th class="ic-th ic-sortable" @onclick="@(() => SortBy("prod"))" style="text-align:left;padding:8px 12px;font-weight:700;background:var(--ink-700);">Producto@(Caret("prod"))</th>
+                        <th class="ic-th ic-sortable" @onclick="@(() => SortBy("ventas"))" style="text-align:right;padding:8px 12px;font-weight:700;background:var(--ink-700);">Ventas @_dias d@(Caret("ventas"))</th>
+                        <th class="ic-th ic-sortable" @onclick="@(() => SortBy("deficit"))" style="text-align:right;padding:8px 12px;font-weight:700;background:var(--ink-700);">Déficit máq.@(Caret("deficit"))</th>
+                        <th class="ic-th ic-sortable" @onclick="@(() => SortBy("bodega"))" style="text-align:right;padding:8px 12px;font-weight:700;background:var(--ink-700);">Stock bodega@(Caret("bodega"))</th>
+                        <th class="ic-th ic-sortable" @onclick="@(() => SortBy("sug"))" style="text-align:right;padding:8px 12px;font-weight:700;background:var(--ink-700);">Sugerido@(Caret("sug"))</th>
+                        <th class="ic-th ic-sortable" @onclick="@(() => SortBy("inv"))" style="text-align:right;padding:8px 14px;font-weight:700;background:var(--ink-700);">Inversión@(Caret("inv"))</th>
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var item in FilteredSuggestions)
+                    @foreach (var r in Rows)
                     {
-                        <tr class="@(item.CantidadSugerida > 0 ? "row-warning" : "")">
-                            <td class="text-center">
-                                @if (item.EnMaquina)
+                        <tr class="ic-row" style="border-bottom:1px solid var(--line-200);">
+                            <td style="text-align:center;padding:6px 10px;">
+                                @if (r.EnMaq)
                                 {
-                                    <span class="badge badge-success-custom rounded-0">Sí</span>
+                                    <span style="display:inline-block;background:var(--signal-success);color:#fff;font-family:var(--font-mono);font-weight:700;font-size:0.58rem;text-transform:uppercase;letter-spacing:0.5px;padding:2px 8px;">Sí</span>
                                 }
                                 else
                                 {
-                                    <span class="badge badge-secondary-custom rounded-0">No</span>
+                                    <span style="display:inline-block;background:var(--paper-0);color:var(--text-muted);border:1px solid var(--line-300);font-family:var(--font-mono);font-weight:700;font-size:0.58rem;text-transform:uppercase;letter-spacing:0.5px;padding:2px 8px;">No</span>
                                 }
                             </td>
-                            <td>
-                                <strong>@item.NombreProducto</strong>
-                            </td>
-                            <td class="text-center">@item.VentasUltimos30Dias</td>
-                            <td class="text-center">@item.StockActualMaquinas</td>
-                            <td class="text-center">@item.StockBodega</td>
-                            <td class="text-center fw-bold text-danger">
-                                @if(item.CantidadSugerida > 0)
+                            <td style="padding:6px 12px;font-family:var(--font-sans);font-weight:600;font-size:0.84rem;text-transform:uppercase;letter-spacing:-0.2px;">@r.Prod</td>
+                            <td style="padding:6px 12px;text-align:right;font-family:var(--font-mono);font-weight:700;font-size:0.82rem;">@r.Ventas</td>
+                            <td style="padding:6px 12px;text-align:right;font-family:var(--font-mono);font-weight:700;font-size:0.8rem;color:var(--signal-danger);">@r.Deficit</td>
+                            <td style="padding:6px 12px;text-align:right;font-family:var(--font-mono);font-weight:700;font-size:0.8rem;color:var(--text-secondary);">@r.Bodega</td>
+                            <td style="padding:6px 12px;text-align:right;">
+                                @if (r.SugPos)
                                 {
-                                    <span>@item.CantidadSugerida</span>
+                                    <span style="font-family:var(--font-mono);font-weight:700;font-size:0.92rem;color:var(--signal-danger);">@r.Sug</span>
                                 }
                                 else
                                 {
-                                    <span class="text-muted">-</span>
+                                    <span style="font-family:var(--font-mono);font-weight:700;font-size:0.82rem;color:var(--text-muted);">—</span>
+                                }
+                            </td>
+                            <td style="padding:6px 14px;text-align:right;font-family:var(--font-mono);font-weight:700;font-size:0.78rem;">
+                                @if (r.SugPos)
+                                {
+                                    <span>@r.Inv</span>
+                                }
+                                else
+                                {
+                                    <span style="color:var(--text-muted);">—</span>
                                 }
                             </td>
                         </tr>
                     }
                 </tbody>
+                <tfoot style="position:sticky;bottom:0;z-index:2;">
+                    <tr style="background:var(--ink-900);color:#fff;font-family:var(--font-mono);font-weight:700;text-transform:uppercase;font-size:0.74rem;letter-spacing:0.4px;">
+                        <td colspan="5" style="padding:9px 12px;">Total orden · @RowReponer productos</td>
+                        <td style="text-align:right;padding:9px 12px;color:#ff7a85;">@TotUnidades</td>
+                        <td style="text-align:right;padding:9px 14px;">@TotInversion</td>
+                    </tr>
+                </tfoot>
             </table>
+            @if (Rows.Count == 0)
+            {
+                <div style="padding:34px 16px;text-align:center;font-family:var(--font-mono);color:var(--text-muted);">
+                    <i class="bi bi-check-circle-fill" style="font-size:1.6rem;color:var(--signal-success);"></i>
+                    <div style="margin-top:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;font-size:0.8rem;color:var(--ink-900);">¡Todo en orden!</div>
+                    <div style="margin-top:4px;font-size:0.66rem;">Ningún producto requiere compra con los filtros activos.</div>
+                </div>
+            }
         </div>
-    }
+    </section>
 </div>
 
 @code {
-    private List<PurchaseSuggestionDto>? suggestions;
-    private List<MaquinaSimpleDto> Maquinas = new();
-    private int days = 30;
-    private bool showOnlyInMachine = false;
-    private int MaquinaActualId = 0;
+    // ── Estado de UI ──────────────────────────────────────────────────────────
+    private string _maquina = "0";
+    private int _dias = 30;
+    private bool _soloMaq = false;
+    private bool _soloSug = true;
+    private string _sortKey = "sug";
+    private string _sortDir = "desc";
 
-    private IEnumerable<PurchaseSuggestionDto> FilteredSuggestions
+    private void OnDiasChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var v)) _dias = Math.Min(120, Math.Max(1, v));
+    }
+
+    private void SortBy(string key)
+    {
+        if (_sortKey == key) _sortDir = _sortDir == "desc" ? "asc" : "desc";
+        else { _sortKey = key; _sortDir = key == "prod" ? "asc" : "desc"; }
+    }
+
+    private string Caret(string k) => _sortKey == k ? (_sortDir == "desc" ? " ▼" : " ▲") : "";
+
+    // Estilo verde del botón Exportar Excel (equivale al excelBtn.style del template)
+    private static readonly Dictionary<string, object> ExcelStyle = new()
+    {
+        ["style"] = "background:var(--signal-success);color:#fff;border-color:var(--ink-900);"
+    };
+
+    // ── Data mock (del template InformeCompras.dc.html) ────────────────────────
+    // [ producto, enMaq, ventas(30d), deficitMaq(negativo), stockBodega, costoUnit ]
+    private record Raw(string Prod, bool EnMaq, int Ventas30, int Deficit, int Bodega, int Costo);
+
+    private static readonly Raw[] DATA =
+    [
+        new("Lays XS 22 grs", true, 34, -38, 0, 380),
+        new("Maní Confitado", true, 25, -28, 0, 320),
+        new("Natur Arroz", true, 20, -29, 0, 340),
+        new("Choco chips nutra bien", true, 20, -23, 0, 360),
+        new("Maní Salado", true, 21, -21, 0, 300),
+        new("Brownie Chip de 62g", true, 18, -22, 9, 410),
+        new("Queque Marmol nutra bien", true, 18, -19, 6, 390),
+        new("Maní Chocolo", true, 12, -12, 0, 310),
+        new("Leche Colun 200ml", true, 17, -24, 18, 450),
+        new("Maní Japonés", true, 9, -12, 0, 330),
+        new("Ramitas Quemaditas", true, 19, -22, 8, 300),
+        new("Galleta Morocha", true, 13, -15, 0, 250),
+        new("Super 8", true, 28, -24, 40, 260),
+        new("Doritos Queso", true, 11, -14, 5, 430),
+        new("Red Bull 250cc", false, 6, -10, 0, 900),
+        new("Nestlé Chandelle", false, 14, -16, 0, 470),
+        new("Gatorade", true, 16, -18, 12, 620),
+        new("Pinguinos", true, 31, -28, 60, 280),
+        new("Trident Menta", true, 31, -20, 120, 240),
+        new("Cachantun (Light/Normal)", true, 35, -42, 300, 410),
+        new("Agua Mineral 500cc", true, 22, -26, 210, 360),
+        new("Score Gorila Lata 473cc", true, 67, -70, 418, 640),
+        new("Coca Cola Lata", true, 150, -154, 870, 520),
+        new("Coca Cola 580cc", true, 194, -238, 1716, 690),
+    ];
+
+    private const int MachinesN = 4;
+
+    private static readonly List<VmSelect.VmSelectOption> MaquinaOptions =
+    [
+        new("0", ":: Consolidado global ::"),
+        new("1", "Máquina 2410280023 Snack"),
+        new("2", "Máquina 2410280012 Snack"),
+        new("3", "Máquina 2410280033 Snack"),
+        new("4", "Máquina 2410280047 Café+Snack"),
+    ];
+
+    // ── Formato (es-CL) ─────────────────────────────────────────────────────────
+    private static readonly System.Globalization.NumberFormatInfo Nfi = new() { NumberGroupSeparator = ".", NumberDecimalDigits = 0 };
+    private static string Money(double n) => "$" + Math.Round(n).ToString("N0", Nfi);
+    private static string Num(double n) => Math.Round(n).ToString("N0", Nfi);
+
+    // ── Cálculo por producto (universo completo) ────────────────────────────────
+    private record Calc(string Prod, bool EnMaq, int Ventas, int Deficit, int Bodega, int Costo, int Sug, int Inv);
+
+    private double Factor => _dias / 30.0;
+    private int UniversoN => DATA.Length;
+
+    private IEnumerable<Calc> AllCalc => DATA.Select(d =>
+    {
+        var ventasProj = (int)Math.Round(d.Ventas30 * Factor);
+        var need = Math.Abs(d.Deficit) + ventasProj;
+        var sug = Math.Max(0, need - d.Bodega);
+        return new Calc(d.Prod, d.EnMaq, ventasProj, d.Deficit, d.Bodega, d.Costo, sug, sug * d.Costo);
+    });
+
+    private IEnumerable<Calc> Universe => _soloMaq ? AllCalc.Where(r => r.EnMaq) : AllCalc;
+
+    // ── KPIs ─────────────────────────────────────────────────────────────────────
+    private int KReponer => Universe.Count(r => r.Sug > 0);
+    private string KUnidades => Num(Universe.Where(r => r.Sug > 0).Sum(r => r.Sug));
+    private string KInversion => Money(Universe.Where(r => r.Sug > 0).Sum(r => (double)r.Inv));
+    private int KCubiertos => Universe.Count(r => r.Sug == 0 && r.Bodega >= Math.Abs(r.Deficit) + r.Ventas);
+
+    // ── Tabla (filtros + orden) ──────────────────────────────────────────────────
+    private record RowVm(string Prod, bool EnMaq, string Ventas, string Deficit, string Bodega, string Sug, bool SugPos, string Inv);
+
+    private List<Calc> View
     {
         get
         {
-            if (suggestions == null) return Enumerable.Empty<PurchaseSuggestionDto>();
-            if (showOnlyInMachine)
+            var view = Universe.AsEnumerable();
+            if (_soloSug) view = view.Where(r => r.Sug > 0);
+
+            var dir = _sortDir == "asc" ? 1 : -1;
+            Comparison<Calc> cmp = _sortKey switch
             {
-                return suggestions.Where(s => s.EnMaquina);
-            }
-            return suggestions;
+                "prod" => (a, b) => string.Compare(a.Prod, b.Prod, StringComparison.Ordinal) * dir,
+                "ventas" => (a, b) => (a.Ventas - b.Ventas) * dir,
+                "deficit" => (a, b) => (Math.Abs(a.Deficit) - Math.Abs(b.Deficit)) * dir,
+                "bodega" => (a, b) => (a.Bodega - b.Bodega) * dir,
+                "inv" => (a, b) => (a.Inv - b.Inv) * dir,
+                _ => (a, b) => (a.Sug - b.Sug) * dir,
+            };
+            var list = view.ToList();
+            list.Sort(cmp);
+            return list;
         }
     }
 
-    protected override async Task OnInitializedAsync()
-    {
-        Maquinas = await Http.GetFromJsonAsync<List<MaquinaSimpleDto>>("api/Ventas/lista-maquinas") ?? new();
-        await LoadData();
-    }
+    private List<RowVm> Rows => View.Select(r => new RowVm(
+        r.Prod, r.EnMaq, Num(r.Ventas),
+        "−" + Math.Abs(r.Deficit).ToString("N0", Nfi),
+        r.Bodega == 0 ? "0" : Num(r.Bodega),
+        Num(r.Sug), r.Sug > 0, Money(r.Inv))).ToList();
 
-    private async Task LoadData()
-    {
-        try
-        {
-            suggestions = null;
-            suggestions = await Http.GetFromJsonAsync<List<PurchaseSuggestionDto>>($"api/Ventas/purchase-suggestion?days={days}&maquinaId={MaquinaActualId}");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error loading purchase suggestions: {ex.Message}");
-        }
-    }
-
-    private async Task DownloadExcel()
-    {
-        try
-        {
-            var response = await Http.GetAsync($"api/Ventas/purchase-suggestion/export?days={days}&maquinaId={MaquinaActualId}");
-            if (response.IsSuccessStatusCode)
-            {
-                var fileContent = await response.Content.ReadAsByteArrayAsync();
-                if (fileContent.Length == 0)
-                {
-                    await JS.InvokeVoidAsync("alert", "El archivo generado está vacío.");
-                    return;
-                }
-
-                var fileName = MaquinaActualId > 0
-                    ? $"Sugerencia_Compra_M{MaquinaActualId}_{DateTime.Now:ddMMyy}.xlsx"
-                    : $"Sugerencia_Compra_{DateTime.Now:ddMMyy}.xlsx";
-
-                try
-                {
-                    await JS.InvokeVoidAsync("descargarArchivo", fileContent, fileName);
-                }
-                catch (Exception ex)
-                {
-                    await JS.InvokeVoidAsync("alert", $"Error JS: {ex.Message}");
-                }
-            }
-            else
-            {
-                var msg = await response.Content.ReadAsStringAsync();
-                await JS.InvokeVoidAsync("alert", $"Error al exportar: {msg}");
-            }
-        }
-        catch (Exception ex)
-        {
-             await JS.InvokeVoidAsync("alert", $"Error inesperado: {ex.Message}");
-             Console.WriteLine($"Error exporting: {ex.Message}");
-        }
-    }
+    private int RowReponer => View.Count(r => r.Sug > 0);
+    private string TotUnidades => Num(View.Sum(r => r.Sug));
+    private string TotInversion => Money(View.Sum(r => (double)r.Inv));
 }
