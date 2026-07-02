@@ -101,6 +101,12 @@
 
     private void ToggleMobile() =>
         _mobileOpen = !_mobileOpen;
+
+    // Logout: Blazor WASM no puede borrar la cookie server-side por sí mismo.
+    // forceLoad:true fuerza una recarga completa de página → el server ejecuta
+    // AccountController.Logout (SignOutAsync) → App.razor detecta que no hay
+    // sesión y <RedirectToLogin> manda a /login.
+    private void Logout() => Nav.NavigateTo("logout", true);
 }
 
 <!-- Barra superior -->
@@ -259,7 +265,8 @@
             </div>
 
             <!-- Cerrar Sesión -->
-            <button style="font-family:var(--font-mono);font-weight:var(--fw-bold);
+            <button @onclick="Logout"
+                    style="font-family:var(--font-mono);font-weight:var(--fw-bold);
                            font-size:1rem;text-transform:uppercase;letter-spacing:0.5px;
                            cursor:pointer;padding:5px 10px;border-radius:0;
                            background:transparent;color:var(--signal-danger);
@@ -405,7 +412,8 @@
         </div>
 
         <!-- Cerrar Sesión -->
-        <button style="font-family:var(--font-mono);font-weight:var(--fw-bold);
+        <button @onclick="Logout"
+                style="font-family:var(--font-mono);font-weight:var(--fw-bold);
                        font-size:1rem;text-transform:uppercase;letter-spacing:0.5px;
                        cursor:pointer;padding:10px 24px;border-radius:0;text-align:left;
                        background:transparent;color:var(--signal-danger);border:none;">
