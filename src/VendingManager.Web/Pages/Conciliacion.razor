@@ -508,6 +508,47 @@
     </div>
 }
 
+<!-- ===== MODAL: eliminar transferencia (confirmación fuerte) ===== -->
+@if (_eliminarModalOpen && _periodo is not null && _periodo.Transferencias.Count > 0)
+{
+    var transf = _periodo.Transferencias[0];
+    var comprasCount = transf.Compras.Count;
+    var totalMonto = transf.Compras.Sum(c => c.MontoTotal);
+    var fileName = transf.ComprobanteImagenPath is not null ? System.IO.Path.GetFileName(transf.ComprobanteImagenPath) : "Sin archivo";
+    var nameMatches = _eliminarConfirmName.Trim() == _periodo.Trabajador;
+
+    <div style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:2000;display:flex;align-items:center;justify-content:center;padding:16px;" @onclick="() => _eliminarModalOpen = false">
+        <div class="con-modal" style="width:100%;max-width:420px;background:var(--paper-0);border:2px solid var(--ink-900);box-shadow:4px 4px 0 #000;" @onclick:stopPropagation="true">
+            <div style="background:var(--signal-danger);color:#fff;display:flex;justify-content:space-between;align-items:center;padding:0.6rem 0.9rem;font-family:var(--font-mono);font-weight:700;text-transform:uppercase;letter-spacing:1px;">
+                <span>Eliminar transferencia</span>
+                <span style="cursor:pointer;font-size:1.2rem;line-height:1;" @onclick="() => _eliminarModalOpen = false">×</span>
+            </div>
+            <div style="padding:1.2rem;">
+                <div style="display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-family:var(--font-mono);font-size:0.74rem;margin-bottom:1rem;">
+                    <span style="color:var(--text-muted);font-weight:700;text-transform:uppercase;font-size:0.62rem;">Compras vinculadas</span>
+                    <span style="font-weight:700;">@comprasCount</span>
+                    <span style="color:var(--text-muted);font-weight:700;text-transform:uppercase;font-size:0.62rem;">Total monto</span>
+                    <span style="font-weight:700;">@Fmt(totalMonto)</span>
+                    <span style="color:var(--text-muted);font-weight:700;text-transform:uppercase;font-size:0.62rem;">Período</span>
+                    <span style="font-weight:700;">@_periodo.Name</span>
+                    <span style="color:var(--text-muted);font-weight:700;text-transform:uppercase;font-size:0.62rem;">Comprobante</span>
+                    <span style="font-weight:700;">@fileName</span>
+                </div>
+                <p style="font-family:var(--font-mono);font-size:0.72rem;color:var(--text-secondary);margin:0 0 0.8rem;">Para confirmar, escribí el nombre del trabajador: <b>@_periodo.Trabajador</b></p>
+                <input type="text" data-testid="eliminar-confirm-name" placeholder="@_periodo.Trabajador" @bind="_eliminarConfirmName" @bind:event="oninput" style="width:100%;padding:8px;border:2px solid var(--ink-900);font-family:var(--font-mono);font-size:0.82rem;margin-bottom:10px;" />
+                @if (_eliminarError is not null)
+                {
+                    <IndustrialAlert Message="@_eliminarError" Variant="IndustrialAlert.AlertVariant.Danger" />
+                }
+                <div style="display:flex;gap:10px;">
+                    <VmButton Variant="outline" Block="true" OnClick="CancelarEliminarTransferencia">Cancelar</VmButton>
+                    <button data-testid="eliminar-confirm-btn" disabled="@(!nameMatches)" @onclick="ConfirmarEliminarTransferencia" style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px;font-family:var(--font-mono);font-weight:700;font-size:0.78rem;text-transform:uppercase;letter-spacing:0.5px;background:@(nameMatches ? "var(--signal-danger)" : "var(--line-200)");color:@(nameMatches ? "#fff" : "var(--text-muted)");border:2px solid @(nameMatches ? "var(--signal-danger)" : "var(--line-200)");border-radius:0;cursor:@(nameMatches ? "pointer" : "not-allowed");padding:9px;"><i class="bi bi-trash"></i> Confirmar eliminación</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 <!-- ===== MODAL: nueva transferencia ===== -->
 @if (_showTransfModal)
 {
@@ -572,6 +613,7 @@
     private string? _successMessage;
     private bool _eliminarTransfChecked;
     private string _eliminarConfirmName = string.Empty;
+    private string? _eliminarError;
 
     // ── Compra modal state ────────────────────────────────────────────────────
     private string _compraTab = "vincular"; // "vincular" | "crear"
@@ -1190,7 +1232,53 @@
         await InvokeAsync(StateHasChanged);
     }
 
-    // ── Header modals ─────────────────────────────────────────────────────────
+    // ── Eliminar transferencia ────────────────────────────────────────────────
+    private void CancelarEliminarTransferencia()
+    {
+        _eliminarModalOpen = false;
+        _eliminarConfirmName = string.Empty;
+        _eliminarError = null;
+    }
+
+    private async Task ConfirmarEliminarTransferencia()
+    {
+        if (_periodo is null || _periodo.Transferencias.Count == 0) return;
+
+        var transf = _periodo.Transferencias[0];
+        _eliminarError = null;
+        try
+        {
+            var resp = await Http.DeleteAsync($"api/contabilidad/transferencia/{transf.Id}");
+            if (resp.IsSuccessStatusCode)
+            {
+                _eliminarModalOpen = false;
+                _eliminarTransfChecked = false;
+                _eliminarConfirmName = string.Empty;
+                _successMessage = "Transferencia eliminada exitosamente.";
+                _selectedId = 0;
+                await CargarPeriodos(CancellationToken.None);
+                if (_periodos.Count > 0)
+                {
+                    await CargarPeriodoDetalle(_periodos[0].Id, CancellationToken.None);
+                }
+                else
+                {
+                    _periodo = null;
+                }
+            }
+            else
+            {
+                var body = await resp.Content.ReadAsStringAsync();
+                _eliminarError = $"Error al eliminar transferencia: {body}";
+            }
+        }
+        catch (Exception)
+        {
+            _eliminarError = "Error de red al eliminar transferencia.";
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
     private void OnTransfFotoSelected(InputFileChangeEventArgs e)
     {
         _transfFoto = e.FileCount > 0 ? e.File : null;
