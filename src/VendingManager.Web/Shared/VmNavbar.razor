@@ -31,28 +31,30 @@
     private string _currentPath = "";
 
     // Items de navegación. Key se usa para el resaltado activo; Href para navegar.
-    record NavItem(string Label, string? Key = null, string? Href = null);
+    // IsPending: true → label en rojo (signal-danger). Indica que la página aún
+    //            no fue migrada al diseño industrial v3 (ver docs/design-v3/ARCHIVE.md).
+    record NavItem(string Label, string? Key = null, string? Href = null, bool IsPending = false);
 
     private static readonly NavItem[] Gestion = [
         new("Informe Ventas", "informe-ventas", "/informe-ventas"),
         new("Análisis Productos", "analisis-ventas", "/analisis-ventas"),
-        new("Quiebres de Stock", "stockout", "/stockout-dashboard"),
+        new("Quiebres de Stock", "stockout", "/stockout-dashboard", IsPending: true),
         new("Templates Recarga", "recarga", "/templates-recarga"),
-        new("Informe Compras", "informe-compras", "/informe-compras"),
+        new("Informe Compras", "informe-compras", "/informe-compras", IsPending: true),
         new("Caja", "caja", "/caja"),
         new("Conciliación", "contabilidad", "/contabilidad"),
     ];
     private static readonly NavItem[] Operaciones = [
-        new("Máquinas", "maquinas", "/maquinas"),
+        new("Máquinas", "maquinas", "/maquinas", IsPending: true),
         new("Compras", "compras", "/compras"),
-        new("Bodega", "bodega", "/inventario"),
-        new("Centro de Cargas", "cargas", "/cargas"),
+        new("Bodega", "bodega", "/inventario", IsPending: true),
+        new("Centro de Cargas", "cargas", "/cargas", IsPending: true),
     ];
     private static readonly NavItem[] Administracion = [
-        new("Auditoría", "auditoria", "/admin/auditoria"),
-        new("Gestión de Usuarios", "gestion-usuarios", "/admin/usuarios"),
-        new("Integridad de Datos", "integridad", "/admin/integridad-datos"),
-        new("Proveedores", "proveedores", "/admin/proveedores"),
+        new("Auditoría", "auditoria", "/admin/auditoria", IsPending: true),
+        new("Gestión de Usuarios", "gestion-usuarios", "/admin/usuarios", IsPending: true),
+        new("Integridad de Datos", "integridad", "/admin/integridad-datos", IsPending: true),
+        new("Proveedores", "proveedores", "/admin/proveedores", IsPending: true),
     ];
 
     protected override async Task OnInitializedAsync()
@@ -176,7 +178,7 @@
                                            letter-spacing:0.5px;padding:10px 15px;
                                            border:none;border-left:4px solid @(IsItemActive(item)?"var(--ink-900)":"transparent");
                                            background:@(IsItemActive(item)?"var(--line-200)":"var(--paper-0)");
-                                           color:@(disabled?"var(--ink-500)":"var(--ink-900)");
+                                           color:@(disabled ? "var(--ink-500)" : (item.IsPending && !IsItemActive(item) ? "var(--signal-danger)" : "var(--ink-900)"));
                                            cursor:@(disabled?"not-allowed":"pointer");
                                            opacity:@(disabled?"0.55":"1");">
                                 @item.Label@(disabled?" ·":"")
@@ -215,7 +217,7 @@
                                            letter-spacing:0.5px;padding:10px 15px;
                                            border:none;border-left:4px solid @(IsItemActive(item)?"var(--ink-900)":"transparent");
                                            background:@(IsItemActive(item)?"var(--line-200)":"var(--paper-0)");
-                                           color:@(disabled?"var(--ink-500)":"var(--ink-900)");
+                                           color:@(disabled ? "var(--ink-500)" : (item.IsPending && !IsItemActive(item) ? "var(--signal-danger)" : "var(--ink-900)"));
                                            cursor:@(disabled?"not-allowed":"pointer");
                                            opacity:@(disabled?"0.55":"1");">
                                 @item.Label@(disabled?" ·":"")
@@ -254,7 +256,7 @@
                                            letter-spacing:0.5px;padding:10px 15px;
                                            border:none;border-left:4px solid @(IsItemActive(item)?"var(--ink-900)":"transparent");
                                            background:@(IsItemActive(item)?"var(--line-200)":"var(--paper-0)");
-                                           color:@(disabled?"var(--ink-500)":"var(--ink-900)");
+                                           color:@(disabled ? "var(--ink-500)" : (item.IsPending && !IsItemActive(item) ? "var(--signal-danger)" : "var(--ink-900)"));
                                            cursor:@(disabled?"not-allowed":"pointer");
                                            opacity:@(disabled?"0.55":"1");">
                                 @item.Label@(disabled?" ·":"")
