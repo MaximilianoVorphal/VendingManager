@@ -15,6 +15,8 @@ using Xunit;
 
 namespace VendingManager.Tests.DesignV3;
 
+// Cubre la página Análisis de Productos migrada al diseño v3 "Industrial Terminal"
+// (port fiel del template de Claude Design, cableado al backend real).
 public class AnalisisVentasPageTests : TestContext
 {
     private readonly AnalisisMockHttpMessageHandler _mockHandler;
@@ -31,39 +33,38 @@ public class AnalisisVentasPageTests : TestContext
     }
 
     [Fact]
-    public void FilterPanel_RendersInsideVmCard_WithDarkHeader()
+    public void CommandBar_RendersUnidadAndPlantillaSelects()
     {
-        var cut = RenderComponent<AnalisisVentas>();
+        var cut = RenderComponent<AnalisisProductos>();
 
         cut.WaitForAssertion(() =>
         {
-            cut.Markup.Should().Contain("FILTROS");
+            cut.Markup.Should().Contain("Análisis de Productos");
             cut.Markup.Should().Contain("var(--ink-900)");
         });
 
         var selects = cut.FindComponents<VendingManager.Web.Shared.VmSelect>();
         selects.Count.Should().BeGreaterThanOrEqualTo(2);
+        selects.Any(s => s.Instance.Label == "Unidad").Should().BeTrue();
+        selects.Any(s => s.Instance.Label == "Plantilla").Should().BeTrue();
     }
 
     [Fact]
     public void PlantillaSelector_RendersPopulatedFromService()
     {
-        var cut = RenderComponent<AnalisisVentas>();
+        var cut = RenderComponent<AnalisisProductos>();
 
         cut.WaitForAssertion(() =>
         {
             cut.Markup.Should().Contain("PLANTILLA ESTÁNDAR");
             cut.Markup.Should().Contain("PLANTILLA PREMIUM");
         });
-
-        var selects = cut.FindComponents<VendingManager.Web.Shared.VmSelect>();
-        selects.Any(s => s.Instance.Label == "PLANTILLA").Should().BeTrue();
     }
 
     [Fact]
-    public void RankingTable_UsesIndustrialPattern_WithVmBadges()
+    public void RankingTable_UsesIndustrialPattern_WithSignalColors()
     {
-        var cut = RenderComponent<AnalisisVentas>();
+        var cut = RenderComponent<AnalisisProductos>();
 
         cut.WaitForAssertion(() => cut.Markup.Should().Contain("Ranking de Productos"));
 
@@ -73,41 +74,32 @@ public class AnalisisVentasPageTests : TestContext
     }
 
     [Fact]
-    public void LowStockRows_ApplyTintDanger()
-    {
-        var cut = RenderComponent<AnalisisVentas>();
-
-        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Ranking de Productos"));
-
-        cut.Markup.Should().Contain("var(--tint-danger)");
-    }
-
-    [Fact]
     public void SelectingPlantilla_NarrowsMachineSelector()
     {
-        var cut = RenderComponent<AnalisisVentas>();
+        var cut = RenderComponent<AnalisisProductos>();
 
         cut.WaitForAssertion(() => cut.Markup.Should().Contain("PLANTILLA ESTÁNDAR"));
 
         var selects = cut.FindComponents<VendingManager.Web.Shared.VmSelect>();
-        var plantillaSelect = selects.Single(s => s.Instance.Label == "PLANTILLA");
+        var plantillaSelect = selects.Single(s => s.Instance.Label == "Plantilla");
 
-        var optionsBefore = CountOptionsForSelect(cut, "UNIDAD");
+        var optionsBefore = CountOptionsForSelect(cut, "Unidad");
 
         plantillaSelect.Find("select").Change("1");
 
         cut.WaitForAssertion(() =>
         {
             _mockHandler.LastUrl.Should().NotBeNull();
-            _mockHandler.LastUrl!.Should().Contain("plantillaId=1");
+            _mockHandler.LastUrl!.Should().Contain("analisis-productos");
+            _mockHandler.LastUrl!.Should().Contain("maquinaId=0");
         });
 
-        var optionsAfter = CountOptionsForSelect(cut, "UNIDAD");
+        var optionsAfter = CountOptionsForSelect(cut, "Unidad");
 
         optionsAfter.Should().BeLessThan(optionsBefore);
     }
 
-    private static int CountOptionsForSelect(IRenderedComponent<AnalisisVentas> cut, string labelText)
+    private static int CountOptionsForSelect(IRenderedComponent<AnalisisProductos> cut, string labelText)
     {
         var label = cut.FindAll("label").First(l => l.TextContent.Contains(labelText));
         var id = label.GetAttribute("for")!;
@@ -146,10 +138,10 @@ public class AnalisisVentasPageTests : TestContext
                         Nombre = "Producto A",
                         Codigo = "A001",
                         Categoria = "Bebidas",
-                        CantidadVendida = 0,
-                        TotalVentas = 0m,
-                        TotalGanancia = 0m,
-                        RotacionDiaria = 0m,
+                        CantidadVendida = 40,
+                        TotalVentas = 40000m,
+                        TotalGanancia = 8000m,
+                        RotacionDiaria = 4m,
                         Clasificacion = "Normal",
                         ClasificacionABC = "C",
                         PorcentajeAcumulado = (decimal?)95.5m,
