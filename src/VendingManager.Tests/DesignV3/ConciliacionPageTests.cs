@@ -847,6 +847,45 @@ public class ConciliacionPageTests : TestContext
         }, TimeSpan.FromSeconds(10));
     }
 
+    [Fact]
+    public void EliminarTransferencia_Post200_MuestraSuccessYRefresca()
+    {
+        _mockHandler.DeleteResponse = HttpStatusCode.OK;
+        _mockHandler.DeleteResponseJson = "{\"ComprasUnlinked\":2,\"PeriodoId\":1}";
+
+        var cut = RenderComponent<Conciliacion>();
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("<select");
+        }, TimeSpan.FromSeconds(10));
+
+        // Check the delete checkbox to show the button
+        cut.Find("input[data-testid='eliminar-transf-checkbox']").Change(true);
+
+        // Click the delete button to open the modal
+        cut.Find("button[data-testid='eliminar-transf-btn']").Click();
+
+        // Wait for modal to open
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("Eliminar transferencia");
+        }, TimeSpan.FromSeconds(10));
+
+        // Type the EXACT worker name and confirm
+        cut.Find("input[data-testid='eliminar-confirm-name']").Input("Jose Miguel");
+        cut.Find("button[data-testid='eliminar-confirm-btn']").Click();
+
+        // Assert: success message shown, modal closed, period list refreshed
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("Transferencia eliminada exitosamente");
+            cut.Markup.Should().NotContain("Eliminar transferencia"); // modal closed
+            // Period list was refreshed (CargarPeriodos called)
+            _mockHandler.Requests.Should().Contain(r => r.Contains("periodos"));
+        }, TimeSpan.FromSeconds(10));
+    }
+
     // ── Mock handler ───────────────────────────────────────────────────────────
 
     private class ConciliacionMockHandler : HttpMessageHandler
