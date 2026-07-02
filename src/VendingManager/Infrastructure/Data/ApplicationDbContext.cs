@@ -41,6 +41,7 @@ namespace VendingManager.Infrastructure.Data
         public DbSet<RendicionHistory> RendicionesHistory { get; set; } = null!;
         public DbSet<ProductoEAN> ProductoEANs { get; set; } = null!;
         public DbSet<Devolucion> Devoluciones { get; set; } = null!;
+        public DbSet<SyncMetadata> SyncMetadata { get; set; } = null!;
         public DbSet<ProveedorCatalog> ProveedorCatalog { get; set; } = null!;
         public DbSet<ProveedorAlias> ProveedorAlias { get; set; } = null!;
         public DbSet<ProveedorCatalogHistory> ProveedorCatalogHistory { get; set; } = null!;

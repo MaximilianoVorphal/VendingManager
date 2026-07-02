@@ -78,7 +78,14 @@ namespace VendingManager.Infrastructure.Services
                     {
                         var resultado = await syncService.SincronizarDesdePortal(0);
                         _logger.LogInformation($"[AutoSync] (todas las mÃ¡quinas): {resultado}");
-                        _lastSyncTracker.SetLastSync(DateTime.Now);
+                        if (!resultado.StartsWith("Error"))
+                        {
+                            _lastSyncTracker.SetLastSync(DateTime.Now);
+                        }
+                        else
+                        {
+                            _logger.LogWarning($"[AutoSync] SincronizaciÃ³n fallÃ³, no se actualiza Ãºltimo sync: {resultado}");
+                        }
                     }
                     catch (Exception ex)
                     {
