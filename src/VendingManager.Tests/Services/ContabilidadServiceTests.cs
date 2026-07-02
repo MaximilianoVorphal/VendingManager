@@ -231,4 +231,20 @@ public class ContabilidadServiceTests : IDisposable
         var deletedTransf = await _context.Transferencias.FindAsync(transferencia.Id);
         deletedTransf.Should().BeNull();
     }
+
+    // ── T-05: Estado Conciliado guard ────────────────────────────────────────
+
+    [Fact]
+    public async Task EliminarTransferenciaCuadreAsync_EstadoConciliado_ThrowsInvalidOperationException()
+    {
+        // Arrange — transferencia with Estado = Conciliado
+        var (transferencia, _, _, _) = await CreateCuadreWithComprasAsync(1, TransferenciaEstado.Conciliado);
+
+        // Act
+        var act = () => _service.EliminarTransferenciaCuadreAsync(transferencia.Id);
+
+        // Assert
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("No se puede eliminar una transferencia ya conciliada.");
+    }
 }
