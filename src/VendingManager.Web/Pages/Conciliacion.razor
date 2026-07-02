@@ -221,7 +221,7 @@
                         </div>
                         <div>
                             <label style="font-family:var(--font-mono);font-weight:700;font-size:0.62rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);">Monto</label>
-                            <input id="compra-monto" type="number" @bind="_compraMonto" style="width:100%;padding:8px;border:2px solid var(--ink-900);font-family:var(--font-mono);font-size:0.82rem;" />
+                            <input id="compra-monto" type="text" inputmode="decimal" value="@_compraMontoText" @onchange="OnCompraMontoChanged" placeholder="ej: 12.500" style="width:100%;padding:8px;border:2px solid var(--ink-900);font-family:var(--font-mono);font-size:0.82rem;" />
                         </div>
                         @if (_compraError is not null)
                         {
@@ -248,7 +248,7 @@
                 <div style="display:flex;flex-direction:column;gap:10px;">
                     <div>
                         <label style="font-family:var(--font-mono);font-weight:700;font-size:0.62rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);">Monto</label>
-                        <input id="gasto-monto" type="number" @bind="_gastoMonto" style="width:100%;padding:8px;border:2px solid var(--ink-900);font-family:var(--font-mono);font-size:0.82rem;" />
+                        <input id="gasto-monto" type="text" inputmode="decimal" value="@_gastoMontoText" @onchange="OnGastoMontoChanged" placeholder="ej: 12.500" style="width:100%;padding:8px;border:2px solid var(--ink-900);font-family:var(--font-mono);font-size:0.82rem;" />
                     </div>
                     <div>
                         <label style="font-family:var(--font-mono);font-weight:700;font-size:0.62rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);">Trabajador</label>
@@ -572,7 +572,7 @@
                     </div>
                     <div>
                         <label style="font-family:var(--font-mono);font-weight:700;font-size:0.62rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);">Monto</label>
-                        <input id="transf-monto" type="number" @bind="_transfMonto" style="width:100%;padding:8px;border:2px solid var(--ink-900);font-family:var(--font-mono);font-size:0.82rem;" />
+                        <input id="transf-monto" type="text" inputmode="decimal" value="@_transfMontoText" @onchange="OnTransfMontoChanged" placeholder="ej: 340.000" style="width:100%;padding:8px;border:2px solid var(--ink-900);font-family:var(--font-mono);font-size:0.82rem;" />
                     </div>
                     <div>
                         <label style="font-family:var(--font-mono);font-weight:700;font-size:0.62rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);">Trabajador</label>
@@ -610,6 +610,7 @@
     private bool _eliminarModalOpen;
 #pragma warning restore CS0414
     private decimal _transfMonto;
+    private string _transfMontoText = string.Empty;
     private string _transfTrabajador = string.Empty;
     private DateTime _transfFecha = DateTime.Today;
     private IBrowserFile? _transfFoto;
@@ -624,6 +625,7 @@
     private string _compraTab = "vincular"; // "vincular" | "crear"
     private string _compraProveedor = string.Empty;
     private decimal _compraMonto;
+    private string _compraMontoText = string.Empty;
     private string? _compraError;
     private List<CompraDto> _boletasSinVincular = new();
     private string _boletaBusqueda = string.Empty;
@@ -644,6 +646,7 @@
 
     // ── Gasto modal state ─────────────────────────────────────────────────────
     private decimal _gastoMonto;
+    private string _gastoMontoText = string.Empty;
     private string _gastoTrabajador = string.Empty;
     private string _gastoDescripcion = string.Empty;
     private string _gastoCategoria = "GENERAL";
@@ -685,6 +688,25 @@
     // ── Formato de moneda (es-CL: punto como separador de miles) ──────────────
     private static readonly NumberFormatInfo Nfi = new() { NumberGroupSeparator = ".", NumberDecimalDigits = 0 };
     private static string Fmt(decimal n) => (n < 0 ? "-$" : "$") + Math.Abs(n).ToString("N0", Nfi);
+
+    // ── Handlers de input de monto (acepta formato chileno: 340.000, 340000, 340,000) ──
+    private void OnTransfMontoChanged(ChangeEventArgs e)
+    {
+        _transfMontoText = e.Value?.ToString() ?? string.Empty;
+        _transfMonto = ChileanAmountParser.TryParse(_transfMontoText, out var v) ? v : 0m;
+    }
+
+    private void OnCompraMontoChanged(ChangeEventArgs e)
+    {
+        _compraMontoText = e.Value?.ToString() ?? string.Empty;
+        _compraMonto = ChileanAmountParser.TryParse(_compraMontoText, out var v) ? v : 0m;
+    }
+
+    private void OnGastoMontoChanged(ChangeEventArgs e)
+    {
+        _gastoMontoText = e.Value?.ToString() ?? string.Empty;
+        _gastoMonto = ChileanAmountParser.TryParse(_gastoMontoText, out var v) ? v : 0m;
+    }
 
     // ── Construcción de secciones según el filtro ─────────────────────────────
     private List<SectionVm> BuildSections()
@@ -1331,6 +1353,7 @@
 
             _showTransfModal = false;
             _transfMonto = 0;
+            _transfMontoText = string.Empty;
             _transfTrabajador = string.Empty;
             _transfFecha = DateTime.Today;
             _transfFoto = null;
@@ -1480,6 +1503,7 @@
                 _showCompraModal = false;
                 _compraProveedor = string.Empty;
                 _compraMonto = 0;
+                _compraMontoText = string.Empty;
                 await CargarPeriodoDetalle(_periodo.Id, CancellationToken.None);
             }
             else
@@ -1520,6 +1544,7 @@
             {
                 _showGastoModal = false;
                 _gastoMonto = 0;
+                _gastoMontoText = string.Empty;
                 _gastoTrabajador = string.Empty;
                 _gastoDescripcion = string.Empty;
                 _gastoCategoria = "GENERAL";
