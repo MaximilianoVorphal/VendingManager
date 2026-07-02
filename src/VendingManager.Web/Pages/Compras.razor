@@ -1,159 +1,177 @@
 @page "/compras"
 @using VendingManager.Shared.DTOs
+@using VendingManager.Web.Components
+@using Microsoft.AspNetCore.Components.Forms
 @inject HttpClient Http
 @inject NavigationManager Navigation
-@inject IJSRuntime JS
+
+@* =============================================================================
+   Compras v2 — port fiel de templates/compras/Compras.dc.html al lenguaje
+   industrial. Una sola pantalla sin scroll de página (la tabla scrollea
+   internamente): franja de 3 KPIs siempre visibles, barra negra con filtros de
+   estado/tipo + buscador, y modales de Detalle, Confirmación (eliminar /
+   desvincular / reconstruir) y Nueva compra (con escaneo IA, catálogo, texto
+   libre y gasto general). Ruta "compras" es fullscreen en MainLayout.
+   ============================================================================= *@
 
 <PageTitle>COMPRAS</PageTitle>
 
-    <div class="industrial-wrapper container-fluid px-4 mt-4">
-    <div class="row align-items-center mb-4 border-bottom border-3 border-dark pb-3">
-        <div class="col-12 d-flex justify-content-between align-items-center flex-wrap gap-3">
-            <div>
-                <h2 class="m-0 fw-bold text-uppercase" style="letter-spacing: -1px;">CENTRO DE COMPRAS</h2>
-                <small class="text-muted fw-bold">GESTIÓN DE FACTURAS Y BOLETAS</small>
-            </div>
+<div class="cp-page" style="flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden;padding:0.95rem 1.4rem 1.1rem;gap:12px;position:relative;">
 
-            <div class="d-flex flex-wrap gap-2 justify-content-end align-items-center">
-                <!-- SEARCH BAR -->
-                <div class="input-group" style="max-width: 300px;">
-                    <span class="input-group-text bg-white border-dark rounded-0"><i class="bi bi-search"></i></span>
-                    <input type="text" class="form-control border-dark rounded-0 shadow-sm"
-                        placeholder="Buscar proveedor o documento..." @bind="SearchTerm" @bind:event="oninput" />
-                </div>
-                <button class="btn btn-dark rounded-0 fw-bold shadow animate__animated animate__fadeIn" @onclick='() => Navigation.NavigateTo("/compras/nueva")'>
-                    <i class="bi bi-plus-lg me-2"></i>NUEVA COMPRA
-                </button>
-                <button class="btn btn-danger rounded-0 fw-bold border-dark" @onclick="ConfirmarReconstruirCostos" disabled="@EjecutandoReconstruccion">
-                    @if (EjecutandoReconstruccion)
-                    {
-                        <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                    }
-                    else
-                    {
-                        <i class="bi bi-database-fill-gear me-2"></i>
-                    }
-                    RECONSTRUIR COSTOS
-                </button>
-            </div>
+    <!-- ===== Toast de confirmación ===== -->
+    @if (!string.IsNullOrEmpty(MensajeExito))
+    {
+        <div class="cp-toast" style="position:absolute;top:4px;left:50%;transform:translateX(-50%);z-index:1500;background:var(--ink-900);color:#fff;border:2px solid var(--ink-900);box-shadow:4px 4px 0 #000;padding:0.55rem 1rem;font-family:var(--font-mono);font-weight:700;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.4px;display:flex;align-items:center;gap:8px;max-width:80vw;">
+            <i class="bi bi-check-circle-fill" style="color:var(--signal-success);"></i><span>@MensajeExito</span>
+        </div>
+    }
+
+    <!-- ===== Header ===== -->
+    <div style="flex-shrink:0;display:flex;justify-content:space-between;align-items:flex-end;gap:14px;flex-wrap:wrap;border-bottom:3px solid var(--ink-900);padding-bottom:10px;">
+        <div>
+            <div style="display:inline-block;background:var(--ink-900);color:#fff;font-family:var(--font-mono);font-weight:700;font-size:0.58rem;letter-spacing:2px;padding:3px 9px;text-transform:uppercase;margin-bottom:7px;">Operaciones · Compras</div>
+            <h1 style="margin:0;font-family:var(--font-mono);font-weight:700;text-transform:uppercase;letter-spacing:-1px;font-size:1.5rem;line-height:1;display:flex;align-items:center;gap:9px;"><i class="bi bi-receipt" style="font-size:1.2rem;"></i>Centro de Compras<span class="cp-cursor">_</span></h1>
+            <p style="margin:5px 0 0;font-family:var(--font-mono);font-size:0.68rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.4px;">Gestión de facturas y boletas de abastecimiento</p>
+        </div>
+        <div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;">
+            <VmButton Variant="danger" Icon="bi-database-fill-gear" Disabled="@EjecutandoReconstruccion" OnClick="ConfirmarReconstruirCostos">Reconstruir costos</VmButton>
+            <VmButton Variant="dark" Icon="bi-plus-lg" OnClick="AbrirNuevaCompra">Nueva compra</VmButton>
         </div>
     </div>
 
     @if (!string.IsNullOrEmpty(Error))
     {
-        <div class="alert alert-danger border-dark rounded-0 fw-bold mb-4 shadow-sm fade show">
-            <i class="bi bi-exclamation-triangle-fill me-2"></i> @Error
-        </div>
-    }
-    
-    @if (!string.IsNullOrEmpty(MensajeExito))
-    {
-        <div class="alert alert-success border-dark rounded-0 fw-bold mb-4 shadow-sm fade show">
-            <i class="bi bi-check-circle-fill me-2"></i> @MensajeExito
+        <div style="flex-shrink:0;">
+            <IndustrialAlert Message="@Error" Variant="IndustrialAlert.AlertVariant.Danger" />
         </div>
     }
 
-    <div class="card border-2 border-dark rounded-0 shadow my-4">
-        <div class="card-header bg-dark text-white rounded-0 fw-bold d-flex justify-content-between align-items-center flex-wrap">
-            <span>HISTORIAL DE COMPRAS: @FilteredCompras.Count() REGISTROS</span>
-            <span>TOTAL GASTADO: @FilteredCompras.Sum(c => c.MontoTotal).ToString("C0")</span>
+    <!-- ===== KPIs ===== -->
+    <div class="cp-kpis" style="flex-shrink:0;display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
+
+        <!-- Total gastado -->
+        <div style="border:2px solid var(--ink-900);background:var(--ink-900);color:#fff;box-shadow:var(--shadow-card);padding:0.85rem 1rem;display:flex;flex-direction:column;gap:0.5rem;">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+                <span style="font-family:var(--font-mono);font-weight:700;font-size:0.68rem;text-transform:uppercase;letter-spacing:0.5px;opacity:0.75;">Total gastado</span>
+                <span style="font-family:var(--font-mono);font-weight:700;font-size:0.58rem;text-transform:uppercase;letter-spacing:0.5px;border:1px solid rgba(255,255,255,0.55);padding:2px 7px;white-space:nowrap;">@TotalComprasN compras</span>
+            </div>
+            <span style="font-family:var(--font-sans);font-weight:700;font-size:1.85rem;letter-spacing:-1px;line-height:1;">@TotalGastado.ToString("C0")</span>
+            <small style="font-family:var(--font-mono);font-size:0.66rem;opacity:0.6;">Mercadería + gastos generales</small>
         </div>
-        <div class="table-responsive">
-            <table class="table table-hover table-bordered border-dark m-0 align-middle">
-                <thead class="bg-secondary text-white text-uppercase small font-monospace fw-bold">
+
+        <!-- Costo mercadería -->
+        <div style="border:2px solid var(--ink-900);background:var(--paper-0);box-shadow:var(--shadow-card);padding:0.85rem 1rem;display:flex;flex-direction:column;gap:0.5rem;">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+                <span style="font-family:var(--font-mono);font-weight:700;font-size:0.68rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-secondary);">Costo mercadería</span>
+                <span style="font-family:var(--font-mono);font-weight:700;font-size:0.58rem;text-transform:uppercase;letter-spacing:0.5px;background:var(--ink-900);color:#fff;padding:2px 7px;white-space:nowrap;">@MercN facturas</span>
+            </div>
+            <span style="font-family:var(--font-sans);font-weight:700;font-size:1.85rem;letter-spacing:-1px;line-height:1;">@MontoMerc.ToString("C0")</span>
+            <small style="font-family:var(--font-mono);font-size:0.66rem;color:var(--text-muted);">Gasto general: @MontoGasto.ToString("C0")</small>
+        </div>
+
+        <!-- Sin vincular -->
+        <div style="border:2px solid var(--ink-900);background:var(--paper-0);box-shadow:var(--shadow-card);padding:0.85rem 1rem;display:flex;flex-direction:column;gap:0.5rem;">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+                <span style="font-family:var(--font-mono);font-weight:700;font-size:0.68rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-secondary);">Sin vincular</span>
+                <span style="font-family:var(--font-mono);font-weight:700;font-size:0.58rem;text-transform:uppercase;letter-spacing:0.5px;border:1px solid var(--ink-900);padding:2px 7px;white-space:nowrap;">Transferencia</span>
+            </div>
+            <span style="font-family:var(--font-sans);font-weight:700;font-size:1.85rem;letter-spacing:-1px;line-height:1;">@SinVincN</span>
+            <small style="font-family:var(--font-mono);font-size:0.66rem;color:var(--text-muted);">Facturas por conciliar en Caja</small>
+        </div>
+    </div>
+
+    <!-- ===== Historial de compras ===== -->
+    <section style="flex:1;min-height:0;display:flex;flex-direction:column;border:2px solid var(--ink-900);box-shadow:var(--shadow-card);background:var(--paper-0);overflow:hidden;">
+
+        <!-- Barra negra: título + filtros + búsqueda -->
+        <div class="cp-bar" style="flex-shrink:0;background:var(--ink-900);color:#fff;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:0.55rem 0.9rem;">
+            <div style="font-family:var(--font-mono);font-weight:700;text-transform:uppercase;letter-spacing:1px;font-size:0.84rem;display:flex;align-items:center;gap:8px;white-space:nowrap;"><i class="bi bi-folder2-open"></i>Historial de compras<span style="color:rgba(255,255,255,0.55);font-size:0.72rem;font-weight:400;text-transform:none;letter-spacing:0;">&nbsp;@FilteredCompras.Count() registros</span></div>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                <select @bind="FilterEstado" style="border:2px solid #fff;background:var(--ink-900);color:#fff;font-family:var(--font-mono);font-weight:700;font-size:0.7rem;text-transform:uppercase;padding:5px 8px;border-radius:0;cursor:pointer;">
+                    <option value="TODAS">Todos los estados</option>
+                    <option value="PAGADA">Pagadas</option>
+                    <option value="PENDIENTE">Pendientes</option>
+                </select>
+                <select @bind="FilterTipo" style="border:2px solid #fff;background:var(--ink-900);color:#fff;font-family:var(--font-mono);font-weight:700;font-size:0.7rem;text-transform:uppercase;padding:5px 8px;border-radius:0;cursor:pointer;">
+                    <option value="TODOS">Todos los tipos</option>
+                    <option value="ABASTECER">Abastecimiento</option>
+                    <option value="GASTO">Gasto general</option>
+                </select>
+                <input type="text" placeholder="Buscar proveedor o documento…" @bind="SearchTerm" @bind:event="oninput" style="border:2px solid #fff;background:#fff;color:var(--ink-900);font-family:var(--font-mono);font-size:0.75rem;padding:5px 8px;width:220px;border-radius:0;outline:none;" />
+            </div>
+        </div>
+
+        <!-- Tabla -->
+        <div style="flex:1;min-height:0;overflow:auto;">
+            <table style="width:100%;border-collapse:collapse;">
+                <thead>
                     <tr>
-                        <th>FECHA <i class="bi bi-calendar"></i></th>
-                        <th>PROVEEDOR <i class="bi bi-shop"></i></th>
-                        <th class="text-center">TIPO <i class="bi bi-tag"></i></th>
-                        <th>Nº DOCUMENTO <i class="bi bi-file-earmark-text"></i></th>
-                        <th class="text-end">MONTO TOTAL <i class="bi bi-currency-dollar"></i></th>
-                        <th class="text-center">ESTADO <i class="bi bi-info-circle"></i></th>
-                        <th class="text-center" style="min-width: 140px;">ACCIONES</th>
+                        <th style="position:sticky;top:0;background:var(--ink-700);color:#fff;text-align:left;padding:8px 12px;font-family:var(--font-mono);font-weight:700;font-size:0.62rem;text-transform:uppercase;letter-spacing:0.5px;white-space:nowrap;">Fecha</th>
+                        <th style="position:sticky;top:0;background:var(--ink-700);color:#fff;text-align:left;padding:8px 12px;font-family:var(--font-mono);font-weight:700;font-size:0.62rem;text-transform:uppercase;letter-spacing:0.5px;">Proveedor</th>
+                        <th class="cp-hide-sm" style="position:sticky;top:0;background:var(--ink-700);color:#fff;text-align:center;padding:8px 12px;font-family:var(--font-mono);font-weight:700;font-size:0.62rem;text-transform:uppercase;letter-spacing:0.5px;white-space:nowrap;">Tipo</th>
+                        <th class="cp-hide-sm" style="position:sticky;top:0;background:var(--ink-700);color:#fff;text-align:left;padding:8px 12px;font-family:var(--font-mono);font-weight:700;font-size:0.62rem;text-transform:uppercase;letter-spacing:0.5px;white-space:nowrap;">Nº Documento</th>
+                        <th style="position:sticky;top:0;background:var(--ink-700);color:#fff;text-align:right;padding:8px 12px;font-family:var(--font-mono);font-weight:700;font-size:0.62rem;text-transform:uppercase;letter-spacing:0.5px;white-space:nowrap;">Monto total</th>
+                        <th style="position:sticky;top:0;background:var(--ink-700);color:#fff;text-align:center;padding:8px 12px;font-family:var(--font-mono);font-weight:700;font-size:0.62rem;text-transform:uppercase;letter-spacing:0.5px;white-space:nowrap;">Estado</th>
+                        <th style="position:sticky;top:0;background:var(--ink-700);color:#fff;text-align:center;padding:8px 12px;font-family:var(--font-mono);font-weight:700;font-size:0.62rem;text-transform:uppercase;letter-spacing:0.5px;white-space:nowrap;">Acciones</th>
                     </tr>
                 </thead>
-                <tbody class="bg-white fw-bold" style="font-size: 0.9rem;">
+                <tbody>
                     @if (Cargando)
                     {
-                        <tr>
-                            <td colspan="7" class="text-center p-4">
-                                <div class="spinner-border text-dark spinner-border-sm me-2" role="status"></div>
-                                Cargando datos...
-                            </td>
-                        </tr>
+                        <tr><td colspan="7" style="padding:2.5rem;text-align:center;font-family:var(--font-mono);color:var(--text-muted);text-transform:uppercase;font-size:0.8rem;"><span class="cp-spin" style="width:14px;height:14px;display:inline-block;border:2px solid var(--line-300);border-top-color:var(--ink-900);border-radius:50%;margin-right:8px;vertical-align:middle;"></span>Cargando datos…</td></tr>
                     }
                     else if (!ListaCompras.Any())
                     {
-                        <tr>
-                            <td colspan="7" class="text-center p-4 text-muted">No se han registrado compras.</td>
-                        </tr>
+                        <tr><td colspan="7" style="padding:2.5rem;text-align:center;font-family:var(--font-mono);color:var(--text-muted);text-transform:uppercase;font-size:0.8rem;">No se han registrado compras.</td></tr>
                     }
                     else if (!FilteredCompras.Any())
                     {
-                        <tr>
-                            <td colspan="7" class="text-center p-4 text-muted">No se encontraron resultados para "@SearchTerm".</td>
-                        </tr>
+                        <tr><td colspan="7" style="padding:2.5rem;text-align:center;font-family:var(--font-mono);color:var(--text-muted);text-transform:uppercase;font-size:0.8rem;">No se encontraron compras para el filtro actual.</td></tr>
                     }
                     else
                     {
                         @foreach (var c in FilteredCompras)
                         {
-                            <tr>
-                                <td>@c.FechaCompra.ToString("dd/MM/yyyy HH:mm")</td>
-                                <td>@c.Proveedor</td>
-                                <td class="text-center">
+                            <tr class="cp-row" style="border-bottom:1px solid var(--line-200);">
+                                <td style="padding:9px 12px;"><span style="font-family:var(--font-mono);font-size:0.76rem;color:var(--text-secondary);white-space:nowrap;">@c.FechaCompra.ToString("dd/MM/yyyy HH:mm")</span></td>
+                                <td style="padding:9px 12px;"><span style="font-family:var(--font-sans);font-weight:600;text-transform:uppercase;font-size:0.84rem;letter-spacing:-0.2px;">@c.Proveedor</span></td>
+                                <td class="cp-hide-sm" style="padding:9px 12px;text-align:center;">
                                     @if (c.TipoFactura == "GASTO_GENERAL")
                                     {
-                                        <span class="badge bg-primary rounded-0 small px-2 py-1"><i class="bi bi-fuel-pump-fill me-1"></i>GASTO</span>
+                                        <span style="display:inline-flex;align-items:center;gap:5px;font-family:var(--font-mono);font-size:0.6rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;padding:3px 7px;border:2px solid var(--ink-900);background:var(--paper-0);color:var(--ink-900);white-space:nowrap;"><i class="bi bi-fuel-pump-fill"></i>Gasto</span>
                                     }
                                     else
                                     {
-                                        <span class="badge bg-success rounded-0 small px-2 py-1"><i class="bi bi-box-seam-fill me-1"></i>ABASTECER</span>
+                                        <span style="display:inline-flex;align-items:center;gap:5px;font-family:var(--font-mono);font-size:0.6rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;padding:3px 7px;border:2px solid var(--ink-900);background:var(--ink-900);color:#fff;white-space:nowrap;"><i class="bi bi-box-seam-fill"></i>Abastecer</span>
                                     }
                                 </td>
-                                <td><span class="font-monospace">@(string.IsNullOrEmpty(c.NumeroDocumento) ? "S/N" : c.NumeroDocumento)</span></td>
-                                <td class="text-end text-success font-monospace">@c.MontoTotal.ToString("C0")</td>
-                                <td class="text-center">
-                                    @if(c.Estado == "PAGADA")
-                                    {
-                                        <span class="badge bg-success border border-dark rounded-0 text-white"><i class="bi bi-check-circle-fill me-1"></i>PAGADA</span>
-                                    }
-                                    else
-                                    {
-                                        <span class="badge bg-warning border border-dark rounded-0 text-dark"><i class="bi bi-clock-history me-1"></i>PENDIENTE</span>
-                                    }
-                                    @if (c.TransferenciaId != null)
-                                    {
-                                        <span class="badge bg-success rounded-0 ms-1" title="Vinculada a transferencia"><i class="bi bi-link"></i> VINCRON.</span>
-                                    }
-                                    else
-                                    {
-                                        <span class="badge bg-secondary rounded-0 ms-1" title="Sin vincular"><i class="bi bi-unlink"></i> SIN VINC.</span>
-                                    }
-                                </td>
-                                <td class="text-center">
-                                    <div class="d-flex justify-content-center gap-2 flex-wrap">
-                                        @if (!string.IsNullOrEmpty(c.FacturaImagenPath))
-                                        {
-                                            <a href="api/compras/@c.Id/factura" target="_blank" 
-                                               class="btn btn-sm btn-outline-info rounded-0 fw-bold border-dark" title="Ver factura escaneada">
-                                                <i class="bi bi-file-earmark-arrow-down-fill"></i> VER FACTURA
-                                            </a>
-                                        }
-                                        <button class="btn btn-sm btn-outline-dark rounded-0 fw-bold border-dark" title="Ver Detalles" @onclick="() => VerDetalles(c)">
-                                            <i class="bi bi-eye-fill"></i> DETALLES
-                                        </button>
-                                        <button class="btn btn-sm btn-outline-warning rounded-0 fw-bold border-dark text-dark" title="Editar Compra" @onclick='() => Navigation.NavigateTo($"/compras/editar/{c.Id}")'>
-                                            <i class="bi bi-pencil-square"></i>
-                                        </button>
+                                <td class="cp-hide-sm" style="padding:9px 12px;"><span style="font-family:var(--font-mono);font-size:0.78rem;">@(string.IsNullOrEmpty(c.NumeroDocumento) ? "S/N" : c.NumeroDocumento)</span></td>
+                                <td style="padding:9px 12px;text-align:right;"><span style="font-family:var(--font-mono);font-weight:700;color:var(--signal-success);">@c.MontoTotal.ToString("C0")</span></td>
+                                <td style="padding:9px 12px;text-align:center;">
+                                    <div style="display:flex;flex-direction:column;gap:3px;align-items:center;">
                                         @if (c.TransferenciaId != null)
                                         {
-                                            <button class="btn btn-sm btn-outline-dark rounded-0 fw-bold border-dark" title="Desvincular de transferencia" @onclick="() => ConfirmarDesvinculacion(c)">
-                                                <i class="bi bi-link-45deg"></i> DESVINC.
-                                            </button>
+                                            <span style="display:inline-flex;align-items:center;gap:4px;font-family:var(--font-mono);font-size:0.56rem;font-weight:700;text-transform:uppercase;padding:1px 5px;border:1px solid var(--signal-success);color:var(--signal-success);white-space:nowrap;"><i class="bi bi-link"></i>Vinculada</span>
                                         }
-                                        <button class="btn btn-sm btn-outline-danger rounded-0 fw-bold border-dark" title="Eliminar Compra" @onclick="() => ConfirmarEliminacion(c)">
-                                            <i class="bi bi-trash-fill"></i>
-                                        </button>
+                                        else
+                                        {
+                                            <span style="display:inline-flex;align-items:center;gap:4px;font-family:var(--font-mono);font-size:0.56rem;font-weight:700;text-transform:uppercase;padding:1px 5px;border:1px solid var(--line-300);color:var(--text-muted);white-space:nowrap;"><i class="bi bi-unlink"></i>Sin vinc.</span>
+                                        }
+                                    </div>
+                                </td>
+                                <td style="padding:9px 12px;">
+                                    <div style="display:flex;justify-content:center;gap:5px;">
+                                        @if (!string.IsNullOrEmpty(c.FacturaImagenPath))
+                                        {
+                                            <a href="api/compras/@c.Id/factura" target="_blank" aria-label="Ver factura" title="Ver factura escaneada" class="cp-icon-btn" style="width:28px;height:28px;border:1px solid var(--ink-900);background:var(--paper-0);cursor:pointer;border-radius:0;display:flex;align-items:center;justify-content:center;font-size:0.75rem;color:var(--ink-900);text-decoration:none;"><i class="bi bi-file-earmark-arrow-down-fill"></i></a>
+                                        }
+                                        <button aria-label="Detalles" title="Ver detalles" @onclick="() => VerDetalles(c)" class="cp-icon-btn" style="width:28px;height:28px;border:1px solid var(--ink-900);background:var(--paper-0);cursor:pointer;border-radius:0;display:flex;align-items:center;justify-content:center;font-size:0.75rem;"><i class="bi bi-eye-fill"></i></button>
+                                        <button aria-label="Editar" title="Editar compra" @onclick='() => Navigation.NavigateTo($"/compras/editar/{c.Id}")' class="cp-icon-btn" style="width:28px;height:28px;border:1px solid var(--ink-900);background:var(--paper-0);cursor:pointer;border-radius:0;display:flex;align-items:center;justify-content:center;font-size:0.75rem;"><i class="bi bi-pencil-square"></i></button>
+                                        @if (c.TransferenciaId != null)
+                                        {
+                                            <button aria-label="Desvincular" title="Desvincular transferencia" @onclick="() => ConfirmarDesvinculacion(c)" class="cp-icon-btn" style="width:28px;height:28px;border:1px solid var(--ink-900);background:var(--paper-0);cursor:pointer;border-radius:0;display:flex;align-items:center;justify-content:center;font-size:0.75rem;"><i class="bi bi-link-45deg"></i></button>
+                                        }
+                                        <button aria-label="Eliminar" title="Eliminar compra" @onclick="() => ConfirmarEliminacion(c)" style="width:28px;height:28px;border:1px solid var(--signal-danger);color:var(--signal-danger);background:var(--paper-0);cursor:pointer;border-radius:0;display:flex;align-items:center;justify-content:center;font-size:0.75rem;"><i class="bi bi-trash-fill"></i></button>
                                     </div>
                                 </td>
                             </tr>
@@ -162,98 +180,83 @@
                 </tbody>
             </table>
         </div>
-    </div>
+    </section>
 </div>
 
-<!-- MODAL VER DETALLES -->
+<!-- ===== MODAL: Detalle de compra ===== -->
 @if (CompraSeleccionada != null)
 {
-    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5); z-index: 1200; position: fixed; top: 0; left: 0; width: 100%; height: 100%;">
-        <div class="modal-dialog modal-dialog-centered modal-lg" style="z-index: 1201;">
-            <div class="modal-content rounded-0 border-2 border-dark shadow-lg">
-                <div class="modal-header bg-dark text-white rounded-0">
-                    <h5 class="modal-title fw-bold"><i class="bi bi-receipt me-2"></i>DETALLE DE COMPRA</h5>
-                    <button type="button" class="btn-close btn-close-white" @onclick="CerrarModalDetalles"></button>
-                </div>
-                <div class="modal-body p-4">
-                    <div class="row mb-4 bg-light border border-dark p-3 mx-0">
-                        <div class="col-md-6">
-                            <p class="mb-1 text-muted small fw-bold">PROVEEDOR:</p>
-                            <span class="fw-bold fs-5">@CompraSeleccionada.Proveedor</span>
-                            <br/>
-                            <p class="mb-1 mt-2 text-muted small fw-bold">Nº FACTURA/BOLETA:</p>
-                            <span class="font-monospace fw-bold">@(string.IsNullOrEmpty(CompraSeleccionada.NumeroDocumento) ? "S/N" : CompraSeleccionada.NumeroDocumento)</span>
-                        </div>
-                        <div class="col-md-6 text-md-end">
-                            <p class="mb-1 text-muted small fw-bold">FECHA:</p>
-                            <span class="fw-bold fs-5">@CompraSeleccionada.FechaCompra.ToString("dd/MM/yyyy HH:mm")</span>
-                            <br/>
-                            <p class="mb-1 mt-2 text-muted small fw-bold">TOTAL PAGADO:</p>
-                            <span class="text-success fw-bold fs-4 font-monospace">@CompraSeleccionada.MontoTotal.ToString("C0")</span>
-                        </div>
-                    </div>
-                    
-                    @if (!string.IsNullOrEmpty(CompraSeleccionada.FacturaImagenPath))
-                    {
-                        <div class="mb-4 p-3 border border-dark bg-white">
-                            <h6 class="fw-bold mb-2"><i class="bi bi-file-earmark-arrow-down-fill me-2"></i>FACTURA ESCANEADA</h6>
-                            <a href="api/compras/@CompraSeleccionada.Id/factura" target="_blank">
-                                <img src="api/compras/@CompraSeleccionada.Id/factura" 
-                                     class="img-fluid border border-dark" 
-                                     style="max-height: 400px; width: 100%; object-fit: contain; background: #f5f5f5;"
-                                     alt="Factura de @CompraSeleccionada.Proveedor" />
-                            </a>
-                            <div class="mt-2">
-                                <a href="api/compras/@CompraSeleccionada.Id/factura" target="_blank" 
-                                   class="btn btn-sm btn-outline-dark rounded-0 fw-bold">
-                                    <i class="bi bi-arrows-fullscreen me-1"></i> ABRIR EN PANTALLA COMPLETA
-                                </a>
-                            </div>
-                        </div>
-                    }
+    var cs = CompraSeleccionada;
+    <div style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:2000;display:flex;align-items:flex-start;justify-content:center;padding:4vh 16px;overflow:auto;" @onclick="CerrarModalDetalles">
+        <div class="cp-modal" style="width:100%;max-width:540px;background:var(--paper-0);border:2px solid var(--ink-900);box-shadow:4px 4px 0 #000;" @onclick:stopPropagation="true">
+            <div style="background:var(--ink-900);color:#fff;display:flex;justify-content:space-between;align-items:center;padding:0.6rem 0.9rem;font-family:var(--font-mono);font-weight:700;text-transform:uppercase;letter-spacing:1px;">
+                <span><i class="bi bi-receipt" style="margin-right:8px;"></i>Detalle de compra</span>
+                <span style="cursor:pointer;font-size:1.2rem;line-height:1;" @onclick="CerrarModalDetalles">×</span>
+            </div>
+            <div style="background:var(--bg-surface-inset);padding:1.1rem;display:flex;flex-direction:column;gap:1rem;max-height:76vh;overflow:auto;">
 
-                    <h6 class="fw-bold mb-3 border-bottom border-dark pb-2">
-                        @(CompraSeleccionada.TipoFactura == "MERCADERIA" ? "PRODUCTOS ADQUIRIDOS" : "DETALLE DE GASTOS")
-                    </h6>
-                    <div class="table-responsive">
-                        <table class="table table-bordered border-dark table-sm align-middle">
-<thead class="bg-secondary text-white text-uppercase">
-                                <tr>
-                                    <th>PRODUCTO</th>
-                                    <th class="text-center">CANTIDAD</th>
-                                    <th class="text-end">COSTO UNIT.</th>
-                                    <th class="text-end">SUBTOTAL</th>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;background:var(--paper-0);border:1px solid var(--ink-900);padding:0.9rem 1rem;">
+                    <div>
+                        <small style="display:block;font-family:var(--font-mono);font-weight:700;color:var(--text-muted);text-transform:uppercase;font-size:0.62rem;">Proveedor</small>
+                        <span style="font-family:var(--font-sans);font-weight:700;font-size:1.05rem;">@cs.Proveedor</span>
+                        <small style="display:block;margin-top:8px;font-family:var(--font-mono);font-weight:700;color:var(--text-muted);text-transform:uppercase;font-size:0.62rem;">Nº documento</small>
+                        <span style="font-family:var(--font-mono);font-weight:700;">@(string.IsNullOrEmpty(cs.NumeroDocumento) ? "S/N" : cs.NumeroDocumento)</span>
+                    </div>
+                    <div style="text-align:right;">
+                        <small style="display:block;font-family:var(--font-mono);font-weight:700;color:var(--text-muted);text-transform:uppercase;font-size:0.62rem;">Fecha</small>
+                        <span style="font-family:var(--font-sans);font-weight:700;">@cs.FechaCompra.ToString("dd/MM/yyyy HH:mm")</span>
+                        <small style="display:block;margin-top:8px;font-family:var(--font-mono);font-weight:700;color:var(--text-muted);text-transform:uppercase;font-size:0.62rem;">Total pagado</small>
+                        <span style="font-family:var(--font-mono);font-weight:700;font-size:1.25rem;color:var(--signal-success);">@cs.MontoTotal.ToString("C0")</span>
+                    </div>
+                </div>
+
+                @if (!string.IsNullOrEmpty(cs.FacturaImagenPath))
+                {
+                    <div style="border:2px solid var(--ink-900);background:var(--paper-0);padding:0.75rem;display:flex;flex-direction:column;gap:8px;">
+                        <span style="font-family:var(--font-mono);font-weight:700;font-size:0.68rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);"><i class="bi bi-file-earmark-arrow-down-fill" style="margin-right:6px;"></i>Factura escaneada</span>
+                        <a href="api/compras/@cs.Id/factura" target="_blank">
+                            <img src="api/compras/@cs.Id/factura" style="max-height:340px;width:100%;object-fit:contain;background:#f5f5f5;border:1px solid var(--ink-900);" alt="Factura de @cs.Proveedor" />
+                        </a>
+                        <a href="api/compras/@cs.Id/factura" target="_blank" style="align-self:flex-start;display:inline-flex;align-items:center;gap:6px;font-family:var(--font-mono);font-weight:700;font-size:0.64rem;text-transform:uppercase;letter-spacing:0.5px;background:var(--paper-0);color:var(--ink-900);border:2px solid var(--ink-900);border-radius:0;padding:6px 11px;text-decoration:none;"><i class="bi bi-arrows-fullscreen"></i> Abrir en pantalla completa</a>
+                    </div>
+                }
+                else
+                {
+                    <div style="border:2px dashed var(--line-300);padding:1rem;text-align:center;font-family:var(--font-mono);font-weight:700;font-size:0.72rem;text-transform:uppercase;color:var(--text-muted);">
+                        <i class="bi bi-paperclip"></i> Sin comprobante adjunto
+                    </div>
+                }
+
+                <div>
+                    <div style="font-family:var(--font-mono);font-weight:700;text-transform:uppercase;font-size:0.76rem;border-bottom:2px solid var(--ink-900);padding-bottom:6px;margin-bottom:8px;">@(cs.TipoFactura == "MERCADERIA" ? "Productos adquiridos" : "Detalle de gastos")</div>
+                    <table style="width:100%;border-collapse:collapse;background:var(--paper-0);">
+                        <thead>
+                            <tr>
+                                <th style="text-align:left;background:var(--ink-700);color:#fff;padding:6px 8px;font-family:var(--font-mono);font-weight:700;font-size:0.6rem;text-transform:uppercase;letter-spacing:0.5px;">Producto</th>
+                                <th style="text-align:center;background:var(--ink-700);color:#fff;padding:6px 8px;font-family:var(--font-mono);font-weight:700;font-size:0.6rem;text-transform:uppercase;letter-spacing:0.5px;">Cant.</th>
+                                <th style="text-align:right;background:var(--ink-700);color:#fff;padding:6px 8px;font-family:var(--font-mono);font-weight:700;font-size:0.6rem;text-transform:uppercase;letter-spacing:0.5px;">Costo unit.</th>
+                                <th style="text-align:right;background:var(--ink-700);color:#fff;padding:6px 8px;font-family:var(--font-mono);font-weight:700;font-size:0.6rem;text-transform:uppercase;letter-spacing:0.5px;">Subtotal</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var d in cs.Detalles)
+                            {
+                                <tr style="border-bottom:1px solid var(--line-200);">
+                                    <td style="padding:7px 8px;"><span style="font-family:var(--font-sans);font-weight:600;text-transform:uppercase;font-size:0.8rem;">@(string.IsNullOrEmpty(d.ProductoNombre) ? d.DescripcionItem : d.ProductoNombre)</span></td>
+                                    <td style="padding:7px 8px;text-align:center;font-family:var(--font-mono);font-weight:700;font-size:0.8rem;">@d.Cantidad</td>
+                                    <td style="padding:7px 8px;text-align:right;font-family:var(--font-mono);color:var(--text-muted);font-size:0.8rem;">@d.CostoUnitario.ToString("C0")</td>
+                                    <td style="padding:7px 8px;text-align:right;font-family:var(--font-mono);font-weight:700;color:var(--signal-success);font-size:0.8rem;">@((d.Cantidad * d.CostoUnitario).ToString("C0"))</td>
                                 </tr>
-                            </thead>
-                            <tbody class="fw-bold" style="font-size: 0.9rem;">
-                                @foreach (var d in CompraSeleccionada.Detalles)
-                                {
-                                    <tr>
-                                        <td>@(string.IsNullOrEmpty(d.ProductoNombre) ? d.DescripcionItem : d.ProductoNombre)</td>
-                                        <td class="text-center text-primary">@d.Cantidad</td>
-                                        <td class="text-end font-monospace text-muted">@d.CostoUnitario.ToString("C0")</td>
-                                        <td class="text-end text-success font-monospace">@((d.Cantidad * d.CostoUnitario).ToString("C0"))</td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
-                    </div>
+                            }
+                        </tbody>
+                    </table>
                 </div>
-                <div class="modal-footer bg-light rounded-0">
-                    <button type="button" class="btn btn-outline-dark rounded-0 fw-bold" @onclick="CerrarModalDetalles">CERRAR</button>
-                    @if (CompraSeleccionada.Estado != "PAGADA")
+
+                <div style="display:flex;gap:10px;">
+                    <VmButton Variant="outline" Block="true" OnClick="CerrarModalDetalles">Cerrar</VmButton>
+                    @if (cs.Estado != "PAGADA")
                     {
-                        <button type="button" class="btn btn-success fw-bold border-dark rounded-0" @onclick="MarcarPagada" disabled="@ProcesandoPago">
-                            @if(ProcesandoPago)
-                            {
-                                <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                            }
-                            else
-                            {
-                                <i class="bi bi-check-circle me-2"></i>
-                            }
-                            MARCAR COMO PAGADA
-                        </button>
+                        <VmButton Variant="dark" Icon="bi-check-circle" Block="true" Disabled="@ProcesandoPago" OnClick="MarcarPagada">Marcar como pagada</VmButton>
                     }
                 </div>
             </div>
@@ -261,113 +264,275 @@
     </div>
 }
 
-<!-- MODAL ELIMINAR COMPRA -->
-@if (CompraAEliminar != null)
+<!-- ===== MODAL: Confirmación (eliminar / desvincular / reconstruir) ===== -->
+@if (_confirmType != null)
 {
-    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5); z-index: 1200; position: fixed; top: 0; left: 0; width: 100%; height: 100%;">
-        <div class="modal-dialog modal-dialog-centered" style="z-index: 1201;">
-            <div class="modal-content rounded-0 border-2 border-dark shadow-lg">
-                <div class="modal-header bg-danger text-white rounded-0 border-bottom border-dark">
-                    <h5 class="modal-title fw-bold"><i class="bi bi-exclamation-triangle-fill me-2"></i>ELIMINAR COMPRA</h5>
-                    <button type="button" class="btn-close btn-close-white" @onclick="CancelarEliminacion"></button>
-                </div>
-                <div class="modal-body p-4 text-center">
-                    <p class="fs-5">¿Estás seguro de que deseas eliminar esta compra de <strong>@CompraAEliminar.Proveedor</strong>?</p>
-                    <p class="text-danger fw-bold"><i class="bi bi-info-circle-fill me-1"></i>Esta acción revertirá el stock de los productos y eliminará el movimiento de caja asociado.</p>
-                </div>
-                <div class="modal-footer bg-light rounded-0">
-                    <button type="button" class="btn btn-outline-dark rounded-0 fw-bold" @onclick="CancelarEliminacion" disabled="@ProcesandoEliminacion">CANCELAR</button>
-                    <button type="button" class="btn btn-danger rounded-0 border-dark fw-bold px-4" @onclick="EliminarCompra" disabled="@ProcesandoEliminacion">
-                        @if(ProcesandoEliminacion)
-                        {
-                            <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                        }
-                        else
-                        {
-                            <i class="bi bi-trash-fill me-2"></i>
-                        }
-                        SÍ, ELIMINAR CORREGIR
-                    </button>
-                </div>
+    var esEliminar = _confirmType == "eliminar";
+    var esReconstruir = _confirmType == "reconstruir";
+    var headerBg = esEliminar ? "var(--signal-danger)" : "var(--signal-warning)";
+    var headerFg = esEliminar ? "#fff" : "var(--ink-900)";
+    var headerIcon = esEliminar ? "bi-exclamation-triangle-fill" : (esReconstruir ? "bi-database-fill-gear" : "bi-link-45deg");
+    <div style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:2000;display:flex;align-items:center;justify-content:center;padding:16px;overflow:auto;" @onclick="CerrarConfirm">
+        <div class="cp-modal" style="width:100%;max-width:440px;background:var(--paper-0);border:2px solid var(--ink-900);box-shadow:4px 4px 0 #000;" @onclick:stopPropagation="true">
+            <div style="background:@headerBg;color:@headerFg;display:flex;justify-content:space-between;align-items:center;padding:0.6rem 0.9rem;font-family:var(--font-mono);font-weight:700;text-transform:uppercase;letter-spacing:1px;">
+                <span><i class="bi @headerIcon" style="margin-right:8px;"></i>@_confirmTitulo</span>
+                <span style="cursor:pointer;font-size:1.2rem;line-height:1;" @onclick="CerrarConfirm">×</span>
+            </div>
+            <div style="padding:1.3rem;text-align:center;background:var(--paper-0);">
+                <p style="margin:0;font-family:var(--font-sans);font-size:0.96rem;line-height:1.5;">@((MarkupString)_confirmMensaje)</p>
+            </div>
+            <div style="display:flex;gap:10px;padding:0 1.3rem 1.3rem;">
+                <VmButton Variant="outline" Block="true" Disabled="@_confirmProcesando" OnClick="CerrarConfirm">Cancelar</VmButton>
+                @if (esEliminar)
+                {
+                    <VmButton Variant="danger" Icon="bi-trash-fill" Block="true" Disabled="@_confirmProcesando" OnClick="EjecutarConfirm">@_confirmLabel</VmButton>
+                }
+                else
+                {
+                    <VmButton Variant="dark" Icon="bi-check-circle" Block="true" Disabled="@_confirmProcesando" OnClick="EjecutarConfirm">@_confirmLabel</VmButton>
+                }
             </div>
         </div>
     </div>
 }
 
-<!-- MODAL RECONSTRUIR COSTOS -->
-@if (MostrarModalReconstruccion)
+<!-- ===== MODAL: Nueva compra ===== -->
+@if (_nuevaOpen)
 {
-    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5); z-index: 1200; position: fixed; top: 0; left: 0; width: 100%; height: 100%;">
-        <div class="modal-dialog modal-dialog-centered" style="z-index: 1201;">
-            <div class="modal-content rounded-0 border-2 border-dark shadow-lg">
-                <div class="modal-header bg-warning text-dark rounded-0 border-bottom border-dark">
-                    <h5 class="modal-title fw-bold"><i class="bi bi-database-fill-gear me-2"></i>RECONSTRUIR COSTOS</h5>
-                    <button type="button" class="btn-close" @onclick="CancelarReconstruccion"></button>
-                </div>
-                <div class="modal-body p-4 text-center">
-                    <p class="fs-5 fw-bold">Se van a reconstruir todos los costos históricos desde las compras. ¿Confirmás?</p>
-                    <p class="text-muted small">Esta operación eliminará todos los registros de ProductoCosto y los recreará desde cero.</p>
-                </div>
-                <div class="modal-footer bg-light rounded-0">
-                    <button type="button" class="btn btn-outline-dark rounded-0 fw-bold" @onclick="CancelarReconstruccion" disabled="@EjecutandoReconstruccion">CANCELAR</button>
-                    <button type="button" class="btn btn-warning rounded-0 border-dark fw-bold px-4" @onclick="EjecutarReconstruccionCostos" disabled="@EjecutandoReconstruccion">
-                        @if (EjecutandoReconstruccion)
-                        {
-                            <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                        }
-                        else
-                        {
-                            <i class="bi bi-check-circle me-2"></i>
-                        }
-                        SÍ, RECONSTRUIR
-                    </button>
-                </div>
+    <div style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:2000;display:flex;align-items:center;justify-content:center;padding:3.5vh 16px;overflow:auto;" @onclick="CerrarNuevaCompra">
+        <div class="cp-modal" style="width:100%;max-width:920px;background:var(--paper-0);border:2px solid var(--ink-900);box-shadow:4px 4px 0 #000;" @onclick:stopPropagation="true">
+            <div style="background:var(--ink-900);color:#fff;display:flex;justify-content:space-between;align-items:center;padding:0.6rem 0.9rem;font-family:var(--font-mono);font-weight:700;text-transform:uppercase;letter-spacing:1px;">
+                <span><i class="bi bi-cart-plus" style="margin-right:8px;"></i>Registrar nueva compra</span>
+                <span style="cursor:pointer;font-size:1.2rem;line-height:1;" @onclick="CerrarNuevaCompra">×</span>
             </div>
-        </div>
-    </div>
-}
 
-<!-- MODAL DESVINCULAR TRANSFERENCIA -->
-@if (CompraADesvincular != null)
-{
-    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5); z-index: 1200; position: fixed; top: 0; left: 0; width: 100%; height: 100%;">
-        <div class="modal-dialog modal-dialog-centered" style="z-index: 1201;">
-            <div class="modal-content rounded-0 border-2 border-dark shadow-lg">
-                <div class="modal-header bg-warning text-dark rounded-0 border-bottom border-dark">
-                    <h5 class="modal-title fw-bold"><i class="bi bi-link-45deg me-2"></i>DESVINCULAR TRANSFERENCIA</h5>
-                    <button type="button" class="btn-close" @onclick="CancelarDesvinculacion"></button>
-                </div>
-                <div class="modal-body p-4 text-center">
-                    <p class="fs-5">¿Desvincular la boleta/factura de <strong>@CompraADesvincular.Proveedor</strong> de su transferencia?</p>
-                    <p class="text-muted"><i class="bi bi-info-circle-fill me-1"></i>El documento Nº @(string.IsNullOrEmpty(CompraADesvincular.NumeroDocumento) ? "S/N" : CompraADesvincular.NumeroDocumento) quedará sin transferencia asociada. Podés vincularlo a otra después.</p>
-                </div>
-                <div class="modal-footer bg-light rounded-0">
-                    <button type="button" class="btn btn-outline-dark rounded-0 fw-bold" @onclick="CancelarDesvinculacion" disabled="@ProcesandoDesvinculacion">CANCELAR</button>
-                    <button type="button" class="btn btn-warning rounded-0 border-dark fw-bold px-4" @onclick="DesvincularTransferencia" disabled="@ProcesandoDesvinculacion">
-                        @if(ProcesandoDesvinculacion)
+            <div class="cp-nueva-grid" style="display:grid;grid-template-columns:300px 1fr;gap:0;max-height:82vh;">
+
+                <!-- Columna izquierda: datos del documento -->
+                <div style="background:var(--bg-surface-inset);border-right:2px solid var(--ink-900);padding:1rem;display:flex;flex-direction:column;gap:12px;overflow:auto;">
+                    <span style="font-family:var(--font-mono);font-weight:700;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-secondary);">Datos del documento</span>
+
+                    <label style="display:flex;align-items:center;justify-content:center;gap:8px;font-family:var(--font-mono);font-weight:700;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.5px;padding:8px 10px;background:var(--paper-0);color:var(--ink-900);border:2px solid var(--ink-900);border-radius:0;cursor:@(ProcesandoOCR ? "wait" : "pointer");">
+                        @if (ProcesandoOCR)
                         {
-                            <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                            <span class="cp-spin" style="width:13px;height:13px;border:2px solid var(--line-300);border-top-color:var(--ink-900);border-radius:50%;display:inline-block;"></span><span>Escaneando con IA…</span>
                         }
                         else
                         {
-                            <i class="bi bi-check-circle me-2"></i>
+                            <i class="bi bi-camera"></i><span>Escanear factura (IA)</span>
                         }
-                        SÍ, DESVINCULAR
-                    </button>
+                        <InputFile OnChange="HandleImageUpload" accept="image/*,application/pdf" disabled="@ProcesandoOCR" style="display:none;" />
+                    </label>
+
+                    <VmInput Label="Proveedor *" Placeholder="Ej: Alvi, El Molino…" @bind-Value="factura.Proveedor" />
+                    <VmInput Label="Nº Factura / Boleta" Placeholder="Ej: F-123456" @bind-Value="factura.NumeroDocumento" />
+                    <VmInput Label="Fecha de compra" Type="date" @bind-Value="FechaCompraText" />
+
+                    <div>
+                        <label style="font-family:var(--font-mono);font-weight:700;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.5px;">Tipo de documento</label>
+                        <div style="display:flex;border:2px solid var(--ink-900);margin-top:6px;">
+                            <button type="button" @onclick="SetTipoMercaderia" style="flex:1;font-family:var(--font-mono);font-weight:700;font-size:0.7rem;text-transform:uppercase;padding:0.5rem 0.2rem;cursor:pointer;border:none;border-radius:0;background:@(factura.TipoFactura == "MERCADERIA" ? "var(--ink-900)" : "var(--paper-0)");color:@(factura.TipoFactura == "MERCADERIA" ? "#fff" : "var(--ink-900)");"><i class="bi bi-box-seam-fill"></i> Mercadería</button>
+                            <button type="button" @onclick="SetTipoGasto" style="flex:1;font-family:var(--font-mono);font-weight:700;font-size:0.7rem;text-transform:uppercase;padding:0.5rem 0.2rem;cursor:pointer;border:none;border-left:2px solid var(--ink-900);border-radius:0;background:@(factura.TipoFactura == "GASTO_GENERAL" ? "var(--ink-900)" : "var(--paper-0)");color:@(factura.TipoFactura == "GASTO_GENERAL" ? "#fff" : "var(--ink-900)");"><i class="bi bi-fuel-pump-fill"></i> Gasto</button>
+                        </div>
+                    </div>
+
+                    @if (factura.TipoFactura == "GASTO_GENERAL")
+                    {
+                        <div>
+                            <label style="font-family:var(--font-mono);font-weight:700;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.5px;">Categoría del gasto</label>
+                            <select @bind="factura.SubcategoriaGasto" style="width:100%;margin-top:6px;border:2px solid var(--ink-900);border-radius:0;padding:0.45rem 0.6rem;font-family:var(--font-mono);font-weight:700;font-size:0.75rem;text-transform:uppercase;background:var(--paper-100);">
+                                <option value="">Gastos generales</option>
+                                <option value="LOGISTICA">Logística (Bencina / Fletes)</option>
+                                <option value="PEAJES">Peajes / TAG</option>
+                            </select>
+                        </div>
+                    }
+
+                    <label style="display:flex;align-items:center;gap:8px;font-family:var(--font-mono);font-weight:700;font-size:0.66rem;text-transform:uppercase;letter-spacing:0.4px;border-top:1px solid var(--line-300);padding-top:12px;cursor:pointer;">
+                        <input type="checkbox" @bind="factura.PagadaCaja" style="width:16px;height:16px;accent-color:var(--ink-900);" />
+                        Pagada al contado (genera gasto en caja)
+                    </label>
+
+                    @if (!string.IsNullOrEmpty(FacturaPreviewUrl))
+                    {
+                        <div style="display:flex;align-items:center;justify-content:space-between;gap:7px;border:1px solid var(--signal-warning);background:rgba(255,193,7,0.18);padding:6px 8px;font-family:var(--font-mono);font-weight:700;font-size:0.64rem;text-transform:uppercase;letter-spacing:0.3px;">
+                            <span><i class="bi bi-paperclip"></i> Factura adjunta</span>
+                            <button type="button" @onclick="ClearFacturaPreview" style="border:1px solid var(--signal-danger);color:var(--signal-danger);background:var(--paper-0);cursor:pointer;border-radius:0;width:22px;height:22px;"><i class="bi bi-x-lg"></i></button>
+                        </div>
+                    }
                 </div>
+
+                <!-- Columna derecha: detalle de productos -->
+                <div style="display:flex;flex-direction:column;min-height:0;overflow:hidden;">
+                    <div style="flex-shrink:0;background:var(--ink-900);color:#fff;display:flex;justify-content:space-between;align-items:center;gap:10px;padding:0.5rem 0.9rem;">
+                        <span style="font-family:var(--font-mono);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;font-size:0.8rem;"><i class="bi bi-box-seam"></i> Detalle de productos</span>
+                        <span style="font-family:var(--font-mono);font-weight:700;font-size:0.62rem;border:1px solid rgba(255,255,255,0.5);padding:3px 8px;text-transform:uppercase;">Total: @CalcularTotal().ToString("C0")</span>
+                    </div>
+
+                    <div style="flex-shrink:0;padding:0.85rem 0.9rem;border-bottom:2px solid var(--ink-900);background:var(--paper-50);display:flex;flex-direction:column;gap:9px;">
+                        @if (factura.TipoFactura == "MERCADERIA")
+                        {
+                            <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;">
+                                <div style="flex:1;min-width:200px;">
+                                    <label style="font-family:var(--font-mono);font-weight:700;font-size:0.62rem;text-transform:uppercase;">Añadir producto del catálogo</label>
+                                    <select @bind="productoSeleccionadoId" style="width:100%;margin-top:4px;border:2px solid var(--ink-900);border-radius:0;padding:0.4rem 0.6rem;font-family:var(--font-sans);font-size:0.82rem;">
+                                        <option value="0">— Seleccione un producto —</option>
+                                        @foreach (var p in ProductosDisponibles)
+                                        {
+                                            <option value="@p.Id">@p.Nombre (Stock: @p.StockBodega)</option>
+                                        }
+                                    </select>
+                                </div>
+                                <VmButton Variant="outline" Icon="bi-plus-lg" Disabled="@(productoSeleccionadoId == 0)" OnClick="AgregarProducto">Añadir</VmButton>
+                            </div>
+                            <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;border-top:1px dashed var(--line-300);padding-top:9px;">
+                                <div style="flex:2;min-width:160px;">
+                                    <label style="font-family:var(--font-mono);font-weight:700;font-size:0.62rem;text-transform:uppercase;">Texto libre (sin producto)</label>
+                                    <input type="text" placeholder="Ej: Maní 2kg, bolsas…" @bind="textoLibreDescripcion" style="width:100%;margin-top:4px;border:2px solid var(--ink-900);border-radius:0;padding:0.4rem 0.6rem;font-family:var(--font-sans);font-size:0.82rem;outline:none;" />
+                                </div>
+                                <div style="width:70px;">
+                                    <label style="font-family:var(--font-mono);font-weight:700;font-size:0.62rem;text-transform:uppercase;">Cant.</label>
+                                    <input type="number" min="1" @bind="textoLibreCantidad" style="width:100%;margin-top:4px;border:2px solid var(--ink-900);border-radius:0;padding:0.4rem 0.5rem;font-family:var(--font-mono);font-weight:700;text-align:center;outline:none;" />
+                                </div>
+                                <div style="width:100px;">
+                                    <label style="font-family:var(--font-mono);font-weight:700;font-size:0.62rem;text-transform:uppercase;">Precio $</label>
+                                    <input type="number" min="0" @bind="textoLibrePrecio" style="width:100%;margin-top:4px;border:2px solid var(--ink-900);border-radius:0;padding:0.4rem 0.5rem;font-family:var(--font-mono);font-weight:700;text-align:right;outline:none;" />
+                                </div>
+                                <VmButton Variant="outline" Icon="bi-plus-lg" Disabled="@(string.IsNullOrWhiteSpace(textoLibreDescripcion) || textoLibreCantidad < 1)" OnClick="AgregarTextoLibre"></VmButton>
+                            </div>
+                        }
+                        else
+                        {
+                            <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;">
+                                <div style="flex:2;min-width:180px;">
+                                    <label style="font-family:var(--font-mono);font-weight:700;font-size:0.62rem;text-transform:uppercase;">Descripción del gasto</label>
+                                    <input type="text" placeholder="Ej: Gasolina camioneta" @bind="descripcionGastoLibre" style="width:100%;margin-top:4px;border:2px solid var(--ink-900);border-radius:0;padding:0.4rem 0.6rem;font-family:var(--font-sans);font-size:0.82rem;outline:none;" />
+                                </div>
+                                <div style="width:120px;">
+                                    <label style="font-family:var(--font-mono);font-weight:700;font-size:0.62rem;text-transform:uppercase;">Monto $</label>
+                                    <input type="number" min="0" @bind="montoGastoLibre" style="width:100%;margin-top:4px;border:2px solid var(--ink-900);border-radius:0;padding:0.4rem 0.5rem;font-family:var(--font-mono);font-weight:700;text-align:right;outline:none;" />
+                                </div>
+                                <VmButton Variant="dark" Icon="bi-plus-lg" Disabled="@(string.IsNullOrWhiteSpace(descripcionGastoLibre) || montoGastoLibre <= 0)" OnClick="AgregarGastoGeneral">Añadir</VmButton>
+                            </div>
+                        }
+                    </div>
+
+                    <div style="flex:1;min-height:0;overflow:auto;padding:0 0.9rem;">
+                        @if (detalles.Any())
+                        {
+                            <table style="width:100%;border-collapse:collapse;margin-top:9px;">
+                                <thead>
+                                    <tr>
+                                        <th style="position:sticky;top:0;text-align:left;background:var(--ink-700);color:#fff;padding:6px 8px;font-family:var(--font-mono);font-weight:700;font-size:0.6rem;text-transform:uppercase;letter-spacing:0.5px;">Producto</th>
+                                        <th style="position:sticky;top:0;text-align:center;background:var(--ink-700);color:#fff;padding:6px 8px;font-family:var(--font-mono);font-weight:700;font-size:0.6rem;text-transform:uppercase;letter-spacing:0.5px;width:60px;">Cant.</th>
+                                        <th style="position:sticky;top:0;text-align:right;background:var(--ink-700);color:#fff;padding:6px 8px;font-family:var(--font-mono);font-weight:700;font-size:0.6rem;text-transform:uppercase;letter-spacing:0.5px;width:100px;">Precio</th>
+                                        <th style="position:sticky;top:0;text-align:right;background:var(--ink-700);color:#fff;padding:6px 8px;font-family:var(--font-mono);font-weight:700;font-size:0.6rem;text-transform:uppercase;letter-spacing:0.5px;width:100px;">Subtotal</th>
+                                        <th style="position:sticky;top:0;text-align:center;background:var(--ink-700);color:#fff;padding:6px 8px;font-family:var(--font-mono);font-weight:700;font-size:0.6rem;text-transform:uppercase;letter-spacing:0.5px;width:50px;">Pend.</th>
+                                        <th style="position:sticky;top:0;background:var(--ink-700);color:#fff;padding:6px 8px;width:36px;"></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var d in detalles)
+                                    {
+                                        <tr style="border-bottom:1px solid var(--line-200);@(d.EsPendiente ? "background:var(--tint-pending, rgba(255,193,7,0.12));" : "")">
+                                            <td style="padding:7px 8px;">
+                                                @if (factura.TipoFactura == "MERCADERIA")
+                                                {
+                                                    @if (d.ProductoId == null || d.ProductoId == 0)
+                                                    {
+                                                        <select @bind="d.ProductoId" style="width:100%;border:2px solid var(--signal-warning);border-radius:0;padding:0.3rem 0.4rem;font-family:var(--font-sans);font-weight:700;font-size:0.78rem;background:var(--paper-50);">
+                                                            <option value="">⚠️ Asignar: "@d.ProductoNombre"</option>
+                                                            @foreach (var p in ProductosDisponibles)
+                                                            {
+                                                                <option value="@p.Id">@p.Nombre</option>
+                                                            }
+                                                        </select>
+                                                    }
+                                                    else
+                                                    {
+                                                        <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;">
+                                                            <span style="font-family:var(--font-sans);font-weight:600;text-transform:uppercase;font-size:0.8rem;">@d.ProductoNombre</span>
+                                                            <button type="button" title="Corregir asociación" @onclick="() => d.ProductoId = null" style="border:none;background:none;cursor:pointer;color:var(--ink-900);"><i class="bi bi-pencil-square"></i></button>
+                                                        </div>
+                                                    }
+                                                    @if (!string.IsNullOrEmpty(d.Ean))
+                                                    {
+                                                        <div style="display:flex;align-items:center;gap:6px;margin-top:4px;">
+                                                            <span title="EAN detectado por OCR" style="font-family:var(--font-mono);font-size:0.6rem;font-weight:700;background:var(--ink-900);color:#fff;padding:1px 5px;">@d.Ean</span>
+                                                            <span style="font-family:var(--font-mono);font-size:0.58rem;text-transform:uppercase;color:var(--text-muted);">Pack</span>
+                                                            <input type="number" min="1" placeholder="1" title="Unidades por pack" @bind="d.PackSize" style="width:56px;border:2px solid var(--ink-900);border-radius:0;padding:0.2rem 0.3rem;font-family:var(--font-mono);font-weight:700;text-align:center;" />
+                                                        </div>
+                                                    }
+                                                    @if (d.RequiereConfirmacionPack && d.PackSize > 1)
+                                                    {
+                                                        <div style="margin-top:4px;font-family:var(--font-mono);font-size:0.62rem;font-weight:700;color:var(--ink-900);">
+                                                            📦 Pack de @d.PackSize → @d.Cantidad unids, @d.CostoUnitario.ToString("C0") c/u
+                                                            <label style="display:flex;align-items:center;gap:5px;margin-top:3px;cursor:pointer;text-transform:uppercase;">
+                                                                <input type="checkbox" @bind="d.PackConfirmado" style="accent-color:var(--ink-900);" /> Confirmar pack
+                                                            </label>
+                                                        </div>
+                                                    }
+                                                }
+                                                else
+                                                {
+                                                    <input type="text" placeholder="Descripción del gasto…" @bind="d.DescripcionItem" style="width:100%;border:2px solid var(--ink-900);border-radius:0;padding:0.3rem 0.4rem;font-family:var(--font-sans);font-size:0.8rem;" />
+                                                }
+                                            </td>
+                                            <td style="padding:7px 8px;text-align:center;">
+                                                <input type="number" min="1" @bind="d.Cantidad" disabled="@(factura.TipoFactura == "GASTO_GENERAL")" style="width:50px;border:2px solid var(--ink-900);border-radius:0;padding:0.2rem 0.3rem;font-family:var(--font-mono);font-weight:700;text-align:center;" />
+                                            </td>
+                                            <td style="padding:7px 8px;text-align:right;">
+                                                <input type="number" min="0" @bind="d.CostoUnitario" style="width:90px;border:2px solid var(--ink-900);border-radius:0;padding:0.2rem 0.3rem;font-family:var(--font-mono);font-weight:700;text-align:right;" />
+                                            </td>
+                                            <td style="padding:7px 8px;text-align:right;font-family:var(--font-mono);font-weight:700;color:var(--signal-success);font-size:0.8rem;">@((d.Cantidad * d.CostoUnitario).ToString("C0"))</td>
+                                            <td style="padding:7px 8px;text-align:center;">
+                                                <input type="checkbox" title="Dejar pendiente" @bind="d.EsPendiente" style="accent-color:var(--ink-900);" />
+                                            </td>
+                                            <td style="padding:7px 8px;text-align:center;">
+                                                <button type="button" aria-label="Eliminar" @onclick="() => EliminarDetalle(d)" style="width:26px;height:26px;border:1px solid var(--signal-danger);color:var(--signal-danger);background:var(--paper-0);cursor:pointer;border-radius:0;"><i class="bi bi-trash-fill" style="font-size:0.7rem;"></i></button>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        }
+                        else
+                        {
+                            <div style="text-align:center;padding:2.4rem 1rem;color:var(--text-muted);">
+                                <i class="bi bi-cart-x" style="font-size:2rem;"></i>
+                                <div style="font-family:var(--font-mono);font-weight:700;text-transform:uppercase;font-size:0.78rem;margin-top:8px;">Canasta vacía</div>
+                                <div style="font-family:var(--font-mono);font-size:0.68rem;margin-top:3px;">Escanea una factura o agrega ítems manualmente.</div>
+                            </div>
+                        }
+                    </div>
+
+                    <div style="flex-shrink:0;padding:0.85rem 0.9rem;border-top:2px solid var(--ink-900);display:flex;flex-direction:column;gap:9px;">
+                        @if (!string.IsNullOrEmpty(NuevaError))
+                        {
+                            <div style="font-family:var(--font-mono);font-weight:700;font-size:0.72rem;color:var(--signal-danger);text-transform:uppercase;display:flex;align-items:center;gap:6px;"><i class="bi bi-exclamation-triangle-fill"></i>@NuevaError</div>
+                        }
+                        <div style="display:flex;gap:10px;">
+                            <VmButton Variant="outline" Block="true" Disabled="@Guardando" OnClick="CerrarNuevaCompra">Cancelar</VmButton>
+                            <VmButton Variant="dark" Icon="bi-save-fill" Block="true" Disabled="@(Guardando || detalles.Any(d => d.RequiereConfirmacionPack && !d.PackConfirmado))" OnClick="GuardarNuevaCompra">Confirmar compra (@CalcularTotal().ToString("C0"))</VmButton>
+                        </div>
+                    </div>
+                </div>
+
             </div>
         </div>
     </div>
 }
 
 @code {
+    // ── Estado del listado ────────────────────────────────────────────────────
     private List<CompraDto> ListaCompras = new();
     private bool Cargando = true;
     private string? Error;
     private string? MensajeExito;
     private string SearchTerm = "";
-    
-    // Filtro basado en búsqueda
+    private string FilterEstado = "TODAS";
+    private string FilterTipo = "TODOS";
+
     private IEnumerable<CompraDto> FilteredCompras
     {
         get
@@ -376,23 +541,79 @@
 
             if (!string.IsNullOrWhiteSpace(SearchTerm))
             {
-                var term = SearchTerm.ToLower();
-                query = query.Where(c => 
-                    (c.Proveedor?.ToLower().Contains(term) ?? false) ||
-                    (c.NumeroDocumento?.ToLower().Contains(term) ?? false));
+                var term = SearchTerm.ToLowerInvariant();
+                query = query.Where(c =>
+                    (c.Proveedor?.ToLowerInvariant().Contains(term) ?? false) ||
+                    (c.NumeroDocumento?.ToLowerInvariant().Contains(term) ?? false));
             }
-            
+
+            if (FilterEstado != "TODAS")
+                query = query.Where(c => c.Estado == FilterEstado);
+
+            if (FilterTipo == "ABASTECER")
+                query = query.Where(c => c.TipoFactura != "GASTO_GENERAL");
+            else if (FilterTipo == "GASTO")
+                query = query.Where(c => c.TipoFactura == "GASTO_GENERAL");
+
             return query.ToList();
         }
     }
-    
-    // Modal Ver Detalles
+
+    // ── KPIs ──────────────────────────────────────────────────────────────────
+    private decimal TotalGastado => ListaCompras.Sum(c => c.MontoTotal);
+    private int TotalComprasN => ListaCompras.Count;
+    private IEnumerable<CompraDto> Mercaderia => ListaCompras.Where(c => c.TipoFactura != "GASTO_GENERAL");
+    private decimal MontoMerc => Mercaderia.Sum(c => c.MontoTotal);
+    private int MercN => Mercaderia.Count();
+    private decimal MontoGasto => ListaCompras.Where(c => c.TipoFactura == "GASTO_GENERAL").Sum(c => c.MontoTotal);
+    private int SinVincN => ListaCompras.Count(c => c.TransferenciaId == null);
+
+    // ── Modal Detalle ─────────────────────────────────────────────────────────
     private CompraDto? CompraSeleccionada;
     private bool ProcesandoPago = false;
+
+    // ── Modal Confirmación unificado ──────────────────────────────────────────
+    private string? _confirmType;           // "eliminar" | "desvincular" | "reconstruir"
+    private CompraDto? _confirmCompra;       // eliminar / desvincular
+    private string _confirmTitulo = "";
+    private string _confirmMensaje = "";
+    private string _confirmLabel = "";
+    private bool _confirmProcesando = false;
+    private bool EjecutandoReconstruccion = false;
+
+    // ── Modal Nueva compra ────────────────────────────────────────────────────
+    private bool _nuevaOpen = false;
+    private RegistrarCompraRequestDto factura = new();
+    private List<ProductoSimpleDto> ProductosDisponibles = new();
+    private List<DetalleUI> detalles = new();
+    private int productoSeleccionadoId = 0;
+    private string descripcionGastoLibre = "";
+    private decimal montoGastoLibre = 0;
+    private string textoLibreDescripcion = "";
+    private int textoLibreCantidad = 1;
+    private decimal textoLibrePrecio = 0;
+    private bool Guardando = false;
+    private bool ProcesandoOCR = false;
+    private string? NuevaError;
+    private IBrowserFile? FacturaFile;
+    private string? FacturaPreviewUrl;
+    private byte[]? FacturaPreviewData;
+
+    // Puente de fecha para VmInput (type=date usa string yyyy-MM-dd).
+    private string FechaCompraText
+    {
+        get => factura.FechaCompra.ToString("yyyy-MM-dd");
+        set
+        {
+            if (DateTime.TryParse(value, out var dt))
+                factura.FechaCompra = dt;
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {
         await CargarCompras();
+        await CargarProductos();
     }
 
     private async Task CargarCompras()
@@ -401,7 +622,6 @@
         {
             Cargando = true;
             Error = null;
-            MensajeExito = null;
             ListaCompras = await Http.GetFromJsonAsync<List<CompraDto>>("api/compras") ?? new();
         }
         catch (Exception ex)
@@ -414,136 +634,43 @@
         }
     }
 
-    private async Task VerDetalles(CompraDto compra)
+    private async Task CargarProductos()
     {
-        await JS.InvokeVoidAsync("modalScrollLock.lock");
+        try
+        {
+            var prods = await Http.GetFromJsonAsync<List<ProductoSimpleDto>>("api/productos");
+            if (prods != null)
+                ProductosDisponibles = prods.OrderBy(p => p.Nombre).ToList();
+        }
+        catch (Exception ex)
+        {
+            Error = "Error al cargar productos: " + ex.Message;
+        }
+    }
+
+    // ── Detalle ───────────────────────────────────────────────────────────────
+    private void VerDetalles(CompraDto compra)
+    {
         CompraSeleccionada = compra;
         Error = null;
         MensajeExito = null;
     }
 
-    private async Task CerrarModalDetalles()
-    {
-        await JS.InvokeVoidAsync("modalScrollLock.unlock");
-        CompraSeleccionada = null;
-    }
-    
-    // Modal Eliminar
-    private CompraDto? CompraAEliminar;
-    private bool ProcesandoEliminacion = false;
-
-    // Modal Reconstruir Costos
-    private bool MostrarModalReconstruccion = false;
-    private bool EjecutandoReconstruccion = false;
-    private ReconstruirCostosResult? ResultadoReconstruccion;
-
-    // Modal Desvincular Transferencia
-    private CompraDto? CompraADesvincular;
-    private bool ProcesandoDesvinculacion = false;
-
-    private async Task ConfirmarDesvinculacion(CompraDto compra)
-    {
-        await JS.InvokeVoidAsync("modalScrollLock.lock");
-        CompraADesvincular = compra;
-        Error = null;
-        MensajeExito = null;
-    }
-
-    private async Task CancelarDesvinculacion()
-    {
-        await JS.InvokeVoidAsync("modalScrollLock.unlock");
-        CompraADesvincular = null;
-    }
-
-    private async Task DesvincularTransferencia()
-    {
-        if (CompraADesvincular == null) return;
-
-        try
-        {
-            ProcesandoDesvinculacion = true;
-            var response = await Http.DeleteAsync($"api/compras/{CompraADesvincular.Id}/transferencia");
-
-            if (response.IsSuccessStatusCode)
-            {
-                MensajeExito = $"La compra de {CompraADesvincular.Proveedor} fue desvinculada de la transferencia.";
-                await CancelarDesvinculacion();
-                await CargarCompras();
-            }
-            else
-            {
-                Error = "Error al desvincular: " + await response.Content.ReadAsStringAsync();
-            }
-        }
-        catch (Exception ex)
-        {
-            Error = $"Error: {ex.Message}";
-        }
-        finally
-        {
-            ProcesandoDesvinculacion = false;
-        }
-    }
-
-    private async Task ConfirmarEliminacion(CompraDto compra)
-    {
-        await JS.InvokeVoidAsync("modalScrollLock.lock");
-        CompraAEliminar = compra;
-        Error = null;
-        MensajeExito = null;
-    }
-
-    private async Task CancelarEliminacion()
-    {
-        await JS.InvokeVoidAsync("modalScrollLock.unlock");
-        CompraAEliminar = null;
-    }
-
-    private async Task EliminarCompra()
-    {
-        if (CompraAEliminar == null) return;
-
-        try
-        {
-            ProcesandoEliminacion = true;
-            var response = await Http.DeleteAsync($"api/compras/{CompraAEliminar.Id}");
-
-            if (response.IsSuccessStatusCode)
-            {
-                MensajeExito = "La compra ha sido eliminada y se ha revertido el stock y la caja.";
-                await CancelarEliminacion();
-                await CargarCompras();
-            }
-            else
-            {
-                Error = "Error al eliminar la compra: " + await response.Content.ReadAsStringAsync();
-            }
-        }
-        catch (Exception ex)
-        {
-            Error = $"Error: {ex.Message}";
-        }
-        finally
-        {
-            ProcesandoEliminacion = false;
-        }
-    }
-
-
+    private void CerrarModalDetalles() => CompraSeleccionada = null;
 
     private async Task MarcarPagada()
     {
         if (CompraSeleccionada == null) return;
-        
+
         try
         {
             ProcesandoPago = true;
             var response = await Http.PostAsync($"api/compras/{CompraSeleccionada.Id}/pagar", null);
-            
+
             if (response.IsSuccessStatusCode)
             {
-                MensajeExito = $"La factura de {CompraSeleccionada.Proveedor} fue marcada como pagada. Se ha registrado el egreso en Caja.";
-                await CerrarModalDetalles();
+                MensajeExito = $"La factura de {CompraSeleccionada.Proveedor} fue marcada como pagada. Se registró el egreso en Caja.";
+                CerrarModalDetalles();
                 await CargarCompras();
             }
             else
@@ -558,38 +685,130 @@
         finally
         {
             ProcesandoPago = false;
-            if(CompraSeleccionada != null) await CerrarModalDetalles();
         }
     }
 
-    private async Task ConfirmarReconstruirCostos()
+    // ── Confirmación (eliminar / desvincular / reconstruir) ────────────────────
+    private void ConfirmarEliminacion(CompraDto compra)
     {
-        await JS.InvokeVoidAsync("modalScrollLock.lock");
-        MostrarModalReconstruccion = true;
+        _confirmType = "eliminar";
+        _confirmCompra = compra;
+        _confirmTitulo = "Eliminar compra";
+        _confirmMensaje = $"¿Eliminar esta compra de <strong>{compra.Proveedor}</strong>? Esta acción revertirá el stock de los productos y eliminará el movimiento de caja asociado.";
+        _confirmLabel = "Sí, eliminar";
         Error = null;
         MensajeExito = null;
     }
 
-    private async Task CancelarReconstruccion()
+    private void ConfirmarDesvinculacion(CompraDto compra)
     {
-        await JS.InvokeVoidAsync("modalScrollLock.unlock");
-        MostrarModalReconstruccion = false;
+        _confirmType = "desvincular";
+        _confirmCompra = compra;
+        _confirmTitulo = "Desvincular transferencia";
+        var doc = string.IsNullOrEmpty(compra.NumeroDocumento) ? "S/N" : compra.NumeroDocumento;
+        _confirmMensaje = $"¿Desvincular la boleta/factura de <strong>{compra.Proveedor}</strong> (Nº {doc}) de su transferencia? Quedará sin transferencia asociada y podés vincularla a otra después.";
+        _confirmLabel = "Sí, desvincular";
+        Error = null;
+        MensajeExito = null;
+    }
+
+    private void ConfirmarReconstruirCostos()
+    {
+        _confirmType = "reconstruir";
+        _confirmCompra = null;
+        _confirmTitulo = "Reconstruir costos";
+        _confirmMensaje = "Se reconstruirán todos los costos históricos desde las compras. Esta operación elimina todos los registros de ProductoCosto y los recrea desde cero. ¿Confirmás?";
+        _confirmLabel = "Sí, reconstruir";
+        Error = null;
+        MensajeExito = null;
+    }
+
+    private void CerrarConfirm()
+    {
+        if (_confirmProcesando) return;
+        _confirmType = null;
+        _confirmCompra = null;
+    }
+
+    private async Task EjecutarConfirm()
+    {
+        switch (_confirmType)
+        {
+            case "eliminar": await EliminarCompra(); break;
+            case "desvincular": await DesvincularTransferencia(); break;
+            case "reconstruir": await EjecutarReconstruccionCostos(); break;
+        }
+    }
+
+    private async Task EliminarCompra()
+    {
+        if (_confirmCompra == null) return;
+        try
+        {
+            _confirmProcesando = true;
+            var response = await Http.DeleteAsync($"api/compras/{_confirmCompra.Id}");
+            if (response.IsSuccessStatusCode)
+            {
+                MensajeExito = "La compra fue eliminada y se revirtió el stock y la caja.";
+                _confirmProcesando = false;
+                _confirmType = null;
+                _confirmCompra = null;
+                await CargarCompras();
+            }
+            else
+            {
+                Error = "Error al eliminar la compra: " + await response.Content.ReadAsStringAsync();
+                _confirmProcesando = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            Error = $"Error: {ex.Message}";
+            _confirmProcesando = false;
+        }
+    }
+
+    private async Task DesvincularTransferencia()
+    {
+        if (_confirmCompra == null) return;
+        try
+        {
+            _confirmProcesando = true;
+            var response = await Http.DeleteAsync($"api/compras/{_confirmCompra.Id}/transferencia");
+            if (response.IsSuccessStatusCode)
+            {
+                MensajeExito = $"La compra de {_confirmCompra.Proveedor} fue desvinculada de la transferencia.";
+                _confirmProcesando = false;
+                _confirmType = null;
+                _confirmCompra = null;
+                await CargarCompras();
+            }
+            else
+            {
+                Error = "Error al desvincular: " + await response.Content.ReadAsStringAsync();
+                _confirmProcesando = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            Error = $"Error: {ex.Message}";
+            _confirmProcesando = false;
+        }
     }
 
     private async Task EjecutarReconstruccionCostos()
     {
         try
         {
+            _confirmProcesando = true;
             EjecutandoReconstruccion = true;
             var response = await Http.PostAsync("api/compras/reconstruir-costos", null);
-
             if (response.IsSuccessStatusCode)
             {
-                ResultadoReconstruccion = await response.Content.ReadFromJsonAsync<ReconstruirCostosResult>();
-                MensajeExito = $"Costos reconstruidos: {ResultadoReconstruccion?.ProductosProcesados} productos, " +
-                    $"{ResultadoReconstruccion?.ComprasReprocesadas} compras, " +
-                    $"{ResultadoReconstruccion?.RegistrosProductoCostoCreados} costos creados.";
-                await CancelarReconstruccion();
+                var resultado = await response.Content.ReadFromJsonAsync<ReconstruirCostosResult>();
+                MensajeExito = $"Costos reconstruidos: {resultado?.ProductosProcesados} productos, " +
+                    $"{resultado?.ComprasReprocesadas} compras, {resultado?.RegistrosProductoCostoCreados} costos creados.";
+                _confirmType = null;
             }
             else
             {
@@ -602,7 +821,404 @@
         }
         finally
         {
+            _confirmProcesando = false;
             EjecutandoReconstruccion = false;
         }
+    }
+
+    // ── Nueva compra ──────────────────────────────────────────────────────────
+    private void AbrirNuevaCompra()
+    {
+        factura = new RegistrarCompraRequestDto { TipoFactura = "MERCADERIA", FechaCompra = DateTime.Today };
+        detalles = new();
+        productoSeleccionadoId = 0;
+        descripcionGastoLibre = "";
+        montoGastoLibre = 0;
+        textoLibreDescripcion = "";
+        textoLibreCantidad = 1;
+        textoLibrePrecio = 0;
+        ClearFacturaPreview();
+        NuevaError = null;
+        Error = null;
+        MensajeExito = null;
+        _nuevaOpen = true;
+    }
+
+    private void CerrarNuevaCompra()
+    {
+        if (Guardando) return;
+        _nuevaOpen = false;
+    }
+
+    private void SetTipoMercaderia() => factura.TipoFactura = "MERCADERIA";
+    private void SetTipoGasto() => factura.TipoFactura = "GASTO_GENERAL";
+
+    private void AgregarProducto()
+    {
+        if (productoSeleccionadoId == 0) return;
+
+        if (detalles.Any(d => d.ProductoId == productoSeleccionadoId))
+        {
+            detalles.First(d => d.ProductoId == productoSeleccionadoId).Cantidad++;
+        }
+        else
+        {
+            var p = ProductosDisponibles.FirstOrDefault(x => x.Id == productoSeleccionadoId);
+            if (p != null)
+            {
+                detalles.Add(new DetalleUI
+                {
+                    ProductoId = p.Id,
+                    ProductoNombre = p.Nombre,
+                    DescripcionItem = p.Nombre,
+                    Cantidad = 1,
+                    CostoUnitario = p.CostoPromedio
+                });
+            }
+        }
+
+        productoSeleccionadoId = 0;
+    }
+
+    private void AgregarGastoGeneral()
+    {
+        if (string.IsNullOrWhiteSpace(descripcionGastoLibre)) return;
+
+        detalles.Add(new DetalleUI
+        {
+            ProductoId = null,
+            ProductoNombre = descripcionGastoLibre,
+            DescripcionItem = descripcionGastoLibre,
+            Cantidad = 1,
+            CostoUnitario = montoGastoLibre
+        });
+
+        descripcionGastoLibre = "";
+        montoGastoLibre = 0;
+    }
+
+    private void AgregarTextoLibre()
+    {
+        if (string.IsNullOrWhiteSpace(textoLibreDescripcion) || textoLibreCantidad < 1) return;
+
+        detalles.Add(new DetalleUI
+        {
+            ProductoId = null,
+            ProductoNombre = textoLibreDescripcion,
+            DescripcionItem = textoLibreDescripcion,
+            Cantidad = textoLibreCantidad,
+            CostoUnitario = textoLibrePrecio
+        });
+
+        textoLibreDescripcion = "";
+        textoLibreCantidad = 1;
+        textoLibrePrecio = 0;
+    }
+
+    private void EliminarDetalle(DetalleUI d) => detalles.Remove(d);
+
+    private decimal CalcularTotal() => detalles.Where(d => !d.EsPendiente).Sum(d => d.Cantidad * d.CostoUnitario);
+
+    private async Task GuardarNuevaCompra()
+    {
+        NuevaError = null;
+
+        if (string.IsNullOrWhiteSpace(factura.Proveedor))
+        {
+            NuevaError = "Debe ingresar el nombre del proveedor.";
+            return;
+        }
+
+        if (!detalles.Any())
+        {
+            NuevaError = "Debe agregar al menos un producto o gasto.";
+            return;
+        }
+
+        if (factura.TipoFactura == "MERCADERIA" && detalles.Any(d => !d.EsPendiente && d.ProductoId == null && string.IsNullOrWhiteSpace(d.DescripcionItem)))
+        {
+            NuevaError = "Cada ítem debe tener un producto asignado o una descripción (texto libre).";
+            return;
+        }
+
+        if (factura.TipoFactura == "GASTO_GENERAL" && detalles.Any(d => string.IsNullOrWhiteSpace(d.DescripcionItem)))
+        {
+            NuevaError = "Todos los gastos deben tener una descripción.";
+            return;
+        }
+
+        if (detalles.Any(d => d.RequiereConfirmacionPack && !d.PackConfirmado))
+        {
+            NuevaError = "Debe confirmar los packs detectados antes de guardar.";
+            return;
+        }
+
+        Guardando = true;
+
+        try
+        {
+            factura.Estado = factura.PagadaCaja ? "PAGADA" : "PENDIENTE";
+            factura.Detalles = detalles.Select(d => new RegistrarDetalleCompraRequestDto
+            {
+                ProductoId = d.ProductoId,
+                DescripcionItem = d.DescripcionItem,
+                Cantidad = d.Cantidad,
+                CostoUnitario = d.CostoUnitario,
+                EsPendiente = d.EsPendiente,
+                Ean = d.Ean,
+                Sku = d.Sku,
+                PackSize = d.RequiereConfirmacionPack ? null : d.PackSize
+            }).ToList();
+
+            var response = await Http.PostAsJsonAsync("api/compras", factura);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+                int compraId = result.GetProperty("id").GetInt32();
+
+                bool uploadOk = true;
+                if (FacturaPreviewData != null)
+                    uploadOk = await UploadFacturaImagen(compraId);
+
+                if (uploadOk)
+                {
+                    ClearFacturaPreview();
+                    _nuevaOpen = false;
+                    MensajeExito = $"Compra de {factura.Proveedor} registrada correctamente.";
+                    await CargarCompras();
+                }
+            }
+            else
+            {
+                NuevaError = $"Error al registrar: {await response.Content.ReadAsStringAsync()}";
+            }
+        }
+        catch (Exception ex)
+        {
+            NuevaError = $"Ocurrió un error inesperado: {ex.Message}";
+        }
+        finally
+        {
+            Guardando = false;
+        }
+    }
+
+    private async Task<bool> UploadFacturaImagen(int compraId)
+    {
+        if (FacturaPreviewData == null) return true;
+
+        try
+        {
+            using var content = new MultipartFormDataContent();
+            var byteContent = new ByteArrayContent(FacturaPreviewData);
+            byteContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(FacturaFile?.ContentType ?? "image/jpeg");
+            content.Add(byteContent, "file", FacturaFile?.Name ?? "factura.jpg");
+
+            var uploadResponse = await Http.PostAsync($"api/compras/{compraId}/factura", content);
+            if (!uploadResponse.IsSuccessStatusCode)
+            {
+                NuevaError = $"Compra guardada (ID: {compraId}), pero falló la carga de la imagen: {await uploadResponse.Content.ReadAsStringAsync()}";
+                return false;
+            }
+            return true;
+        }
+        catch (Exception ex)
+        {
+            NuevaError = $"Compra guardada (ID: {compraId}), pero falló la carga de la imagen: {ex.Message}";
+            return false;
+        }
+    }
+
+    private async Task HandleImageUpload(InputFileChangeEventArgs e)
+    {
+        NuevaError = null;
+        var file = e.File;
+        if (file == null) return;
+
+        const long maxSize = 10 * 1024 * 1024; // 10MB
+        if (file.Size > maxSize)
+        {
+            NuevaError = "La imagen supera los 10MB.";
+            return;
+        }
+
+        ProcesandoOCR = true;
+
+        try
+        {
+            byte[] fileBytes;
+            using (var stream = file.OpenReadStream(maxSize))
+            using (var memoryStream = new MemoryStream())
+            {
+                await stream.CopyToAsync(memoryStream);
+                fileBytes = memoryStream.ToArray();
+            }
+
+            FacturaFile = file;
+            FacturaPreviewData = fileBytes;
+            FacturaPreviewUrl = $"data:{file.ContentType};base64,{Convert.ToBase64String(fileBytes)}";
+
+            using var content = new MultipartFormDataContent();
+            var byteContent = new ByteArrayContent(fileBytes);
+            var mimeType = ResolveMimeType(file.Name, file.ContentType);
+            byteContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(mimeType);
+            content.Add(byteContent, "file", file.Name);
+
+            var response = await Http.PostAsync("api/compras/upload-factura", content);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<OcrInvoiceResultDto>();
+                if (result != null)
+                {
+                    if (!string.IsNullOrEmpty(result.Proveedor)) factura.Proveedor = result.Proveedor;
+                    if (!string.IsNullOrEmpty(result.NumeroDocumento)) factura.NumeroDocumento = result.NumeroDocumento;
+
+                    if (TryParseFechaChile(result.Fecha, out DateTime dtOut))
+                        factura.FechaCompra = dtOut;
+
+                    var provLower = (factura.Proveedor ?? "").ToLowerInvariant();
+                    if (provLower.Contains("bencina") || provLower.Contains("copec") || provLower.Contains("shell") ||
+                        provLower.Contains("petrobras") || provLower.Contains("petro") || provLower.Contains("gasolin"))
+                    {
+                        factura.SubcategoriaGasto = "LOGISTICA";
+                    }
+                    else if (provLower.Contains("peaje") || provLower.Contains("autopista") || provLower.Contains("tag") ||
+                             provLower.Contains("costanera") || provLower.Contains("vespucio"))
+                    {
+                        factura.SubcategoriaGasto = "PEAJES";
+                    }
+
+                    foreach (var item in result.Items)
+                    {
+                        int idProducto = 0;
+                        string nombreProd = item.Producto ?? "Desconocido";
+
+                        if (item.ProductoIdMatch.HasValue && item.ProductoIdMatch.Value > 0)
+                        {
+                            var matchDb = ProductosDisponibles.FirstOrDefault(p => p.Id == item.ProductoIdMatch.Value);
+                            if (matchDb != null)
+                            {
+                                idProducto = matchDb.Id;
+                                nombreProd = matchDb.Nombre;
+                            }
+                        }
+
+                        detalles.Add(new DetalleUI
+                        {
+                            ProductoId = idProducto > 0 ? idProducto : null,
+                            ProductoNombre = nombreProd,
+                            DescripcionItem = nombreProd,
+                            Cantidad = item.Cantidad > 0 ? (int)Math.Round(item.Cantidad) : 1,
+                            CostoUnitario = item.CostoUnitario,
+                            Ean = item.Ean,
+                            Sku = item.Sku,
+                            PackSize = item.PackSize,
+                            RequiereConfirmacionPack = item.RequiereConfirmacionPack,
+                            PackConfirmado = !item.RequiereConfirmacionPack
+                        });
+                    }
+
+                    var tieneMatches = result.Items.Any(i => i.ProductoIdMatch.HasValue && i.ProductoIdMatch.Value > 0);
+                    if (!tieneMatches && result.Items.Count <= 1)
+                    {
+                        factura.TipoFactura = "GASTO_GENERAL";
+                        if (result.Items.Count == 1)
+                        {
+                            var unico = result.Items[0];
+                            if (!string.IsNullOrEmpty(unico.Producto))
+                            {
+                                foreach (var d in detalles)
+                                {
+                                    d.DescripcionItem = unico.Producto;
+                                    d.ProductoNombre = unico.Producto;
+                                }
+                            }
+                        }
+                    }
+
+                    if (detalles.Count == 0 && result.MontoTotal > 0)
+                    {
+                        var descripcion = string.IsNullOrEmpty(result.Proveedor) ? "Gasto general" : result.Proveedor;
+                        detalles.Add(new DetalleUI
+                        {
+                            ProductoId = null,
+                            ProductoNombre = descripcion,
+                            DescripcionItem = descripcion,
+                            Cantidad = 1,
+                            CostoUnitario = result.MontoTotal
+                        });
+                        factura.TipoFactura = "GASTO_GENERAL";
+                    }
+                }
+            }
+            else
+            {
+                NuevaError = "Error al escanear la imagen. " + await response.Content.ReadAsStringAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            NuevaError = "Error procesando IA: " + ex.Message;
+        }
+        finally
+        {
+            ProcesandoOCR = false;
+        }
+    }
+
+    private void ClearFacturaPreview()
+    {
+        FacturaFile = null;
+        FacturaPreviewUrl = null;
+        FacturaPreviewData = null;
+    }
+
+    private static string ResolveMimeType(string fileName, string? contentType)
+    {
+        if (!string.IsNullOrEmpty(contentType))
+            return contentType;
+
+        var ext = Path.GetExtension(fileName)?.ToLowerInvariant();
+        return ext switch
+        {
+            ".jpg" or ".jpeg" or ".jpge" => "image/jpeg",
+            ".png" => "image/png",
+            ".webp" => "image/webp",
+            ".bmp" => "image/bmp",
+            ".gif" => "image/gif",
+            ".pdf" => "application/pdf",
+            _ => "application/octet-stream"
+        };
+    }
+
+    private static bool TryParseFechaChile(string? fecha, out DateTime result)
+    {
+        result = default;
+        if (string.IsNullOrWhiteSpace(fecha)) return false;
+
+        string[] formats = { "yyyy-MM-dd", "yyyy/MM/dd", "dd-MM-yy", "dd/MM/yy",
+                             "dd-MM-yyyy", "dd/MM/yyyy", "d-M-yy", "d/M/yy",
+                             "d-M-yyyy", "d/M/yyyy" };
+
+        return DateTime.TryParseExact(fecha.Trim(), formats,
+            System.Globalization.CultureInfo.InvariantCulture,
+            System.Globalization.DateTimeStyles.None, out result);
+    }
+
+    private class DetalleUI
+    {
+        public int? ProductoId { get; set; }
+        public string ProductoNombre { get; set; } = string.Empty;
+        public string DescripcionItem { get; set; } = string.Empty;
+        public int Cantidad { get; set; }
+        public decimal CostoUnitario { get; set; }
+        public bool EsPendiente { get; set; }
+        public string? Ean { get; set; }
+        public string? Sku { get; set; }
+        public int? PackSize { get; set; }
+        public bool RequiereConfirmacionPack { get; set; }
+        public bool PackConfirmado { get; set; } = true;
     }
 }
