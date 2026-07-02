@@ -12,11 +12,19 @@ public class ContabilidadService : IContabilidadService
 {
     private readonly ApplicationDbContext _context;
     private readonly IAccountingPeriodRepository _periodRepository;
+    private readonly IUploadPathProvider? _uploadPathProvider;
 
     public ContabilidadService(ApplicationDbContext context, IAccountingPeriodRepository periodRepository)
     {
         _context = context;
         _periodRepository = periodRepository;
+    }
+
+    public ContabilidadService(ApplicationDbContext context, IAccountingPeriodRepository periodRepository, IUploadPathProvider uploadPathProvider)
+    {
+        _context = context;
+        _periodRepository = periodRepository;
+        _uploadPathProvider = uploadPathProvider;
     }
 
     public async Task<Transferencia> CrearTransferenciaConMovimientoAsync(
@@ -366,6 +374,103 @@ public class ContabilidadService : IContabilidadService
             await transaction.RollbackAsync();
             throw;
         }
+    }
+
+    public async Task<EliminarTransferenciaResultDto> EliminarTransferenciaCuadreAsync(
+        int transferenciaId, CancellationToken ct = default)
+    {
+        await using var transaction = await _context.Database
+            .BeginTransactionAsync(IsolationLevel.ReadCommitted, ct);
+
+        string? comprobantePath = null;
+        int? periodoId = null;
+        int comprasUnlinked = 0;
+
+        try
+        {
+            // (a) Load Transferencia with Compras / AccountingPeriod / Rendicion
+            var transferencia = await _context.Transferencias
+                .Include(t => t.Compras)
+                .FirstOrDefaultAsync(t => t.Id == transferenciaId, ct)
+                ?? throw new KeyNotFoundException($"Transferencia {transferenciaId} no encontrada.");
+
+            // (b) State guard — reject Conciliado
+            if (transferencia.Estado == TransferenciaEstado.Conciliado)
+                throw new InvalidOperationException("No se puede eliminar una transferencia ya conciliada.");
+
+            // Capture comprobante path for post-commit deletion
+            if (!string.IsNullOrEmpty(transferencia.ComprobanteImagenPath) && _uploadPathProvider is not null)
+            {
+                var basePath = _uploadPathProvider.GetUploadBasePath();
+                comprobantePath = Path.Combine(basePath, transferencia.ComprobanteImagenPath.TrimStart('/'));
+            }
+
+            // (c) Unlink all Compras
+            comprasUnlinked = transferencia.Compras.Count;
+            foreach (var compra in transferencia.Compras)
+            {
+                compra.TransferenciaId = null;
+                _context.Compras.Update(compra);
+            }
+
+            // (d) Delete comprobante file (post-commit, handled below)
+
+            // (e) If PeriodoId set → delete AccountingPeriod + Rendicion
+            if (transferencia.PeriodoId.HasValue)
+            {
+                periodoId = transferencia.PeriodoId.Value;
+                var period = await _context.AccountingPeriods
+                    .FirstOrDefaultAsync(p => p.Id == periodoId.Value, ct);
+                if (period is not null)
+                {
+                    _context.AccountingPeriods.Remove(period);
+                }
+
+                if (transferencia.RendicionId.HasValue)
+                {
+                    var rendicion = await _context.Rendiciones
+                        .FirstOrDefaultAsync(r => r.Id == transferencia.RendicionId.Value, ct);
+                    if (rendicion is not null)
+                    {
+                        _context.Rendiciones.Remove(rendicion);
+                    }
+                }
+            }
+            else
+            {
+                // (f) Legacy: PeriodoId == null → clear RendicionId so source Rendicion survives
+                transferencia.RendicionId = null;
+            }
+
+            // (g) Delete the Transferencia row
+            _context.Transferencias.Remove(transferencia);
+
+            await _context.SaveChangesAsync(ct);
+            await transaction.CommitAsync(ct);
+        }
+        catch
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
+
+        // (h) Post-commit: delete comprobante file (non-transactional)
+        if (comprobantePath is not null)
+        {
+            try
+            {
+                if (File.Exists(comprobantePath))
+                    File.Delete(comprobantePath);
+            }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+        }
+
+        return new EliminarTransferenciaResultDto
+        {
+            ComprasUnlinked = comprasUnlinked,
+            PeriodoId = periodoId
+        };
     }
 
     public async Task VincularCompraExistenteAsync(

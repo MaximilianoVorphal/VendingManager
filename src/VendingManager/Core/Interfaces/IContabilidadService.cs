@@ -53,4 +53,12 @@ public interface IContabilidadService
     /// Requires at least one of PeriodoId / RendicionId.
     /// </summary>
     Task<DevolucionDto> RegistrarDevolucionAsync(RegistrarDevolucionRequest request, CancellationToken ct = default);
+
+    /// <summary>
+    /// Destructive delete of a Transferencia: unlinks all Compras, deletes the comprobante file,
+    /// removes the auto-created AccountingPeriod + Rendicion (cuadre), and deletes the Transferencia row.
+    /// All inside a single EF transaction. File deletion is post-commit, non-transactional.
+    /// Throws InvalidOperationException if Estado == Conciliado.
+    /// </summary>
+    Task<EliminarTransferenciaResultDto> EliminarTransferenciaCuadreAsync(int transferenciaId, CancellationToken ct = default);
 }
