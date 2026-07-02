@@ -268,4 +268,111 @@ public class ContabilidadServiceTests : IDisposable
         var deletedTransf = await _context.Transferencias.FindAsync(transferencia.Id);
         deletedTransf.Should().BeNull();
     }
+
+    // ── T-09: Transactional rollback on mid-transaction failure ─────────────
+
+    /// <summary>
+    /// DbContext subclass that throws on SaveChangesAsync to simulate mid-transaction failure.
+    /// </summary>
+    private class ThrowingDbContext : ApplicationDbContext
+    {
+        public ThrowingDbContext(DbContextOptions<ApplicationDbContext> options) : base(options) { }
+
+        public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+        {
+            throw new DbUpdateException("Simulated DB failure mid-transaction.",
+                new InvalidOperationException("Constraint violation"));
+        }
+    }
+
+    [Fact]
+    public async Task EliminarTransferenciaCuadreAsync_MidTransactionFailure_ExceptionPropagatesAndComprobanteStays()
+    {
+        // Arrange — use a context that will throw on SaveChangesAsync
+        // Note: EF InMemory ignores real transactions. This test verifies that
+        // (1) the exception propagates (not swallowed by the service) and
+        // (2) the comprobante file is NOT deleted (post-commit, non-transactional).
+        var dbName = $"RollbackTest_{Guid.NewGuid()}";
+        var options = new DbContextOptionsBuilder<ApplicationDbContext>()
+            .UseInMemoryDatabase(dbName)
+            .ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.InMemoryEventId.TransactionIgnoredWarning))
+            .Options;
+
+        // Seed data using a normal context
+        int transferenciaId;
+        using (var seedContext = new ApplicationDbContext(options))
+        {
+            var period = new AccountingPeriod
+            {
+                Name = "Rollback Period",
+                FechaInicio = new DateTime(2026, 7, 1),
+                FechaFin = new DateTime(2026, 7, 31),
+                Trabajador = "Test",
+                Estado = AccountingPeriodEstado.Abierto
+            };
+            seedContext.AccountingPeriods.Add(period);
+            await seedContext.SaveChangesAsync();
+
+            var rendicion = new Rendicion
+            {
+                Trabajador = "Test",
+                FechaInicio = new DateTime(2026, 7, 1),
+                Observaciones = "Test rendicion"
+            };
+            seedContext.Rendiciones.Add(rendicion);
+            await seedContext.SaveChangesAsync();
+
+            var transferencia = new Transferencia
+            {
+                Fecha = new DateTime(2026, 7, 1),
+                Monto = 5000m,
+                Trabajador = "Test",
+                Estado = TransferenciaEstado.Pendiente,
+                RendicionId = rendicion.Id,
+                PeriodoId = period.Id,
+                ComprobanteImagenPath = "/uploads/transferencias/rollback-test.jpg"
+            };
+            seedContext.Transferencias.Add(transferencia);
+            await seedContext.SaveChangesAsync();
+            transferenciaId = transferencia.Id;
+
+            var compra = new Compra
+            {
+                FechaCompra = new DateTime(2026, 7, 1),
+                Proveedor = "Test",
+                NumeroDocumento = "ROLL-001",
+                MontoTotal = 1000m,
+                Estado = "Registrada",
+                TipoFactura = "MERCADERIA",
+                Trabajador = "Test",
+                TransferenciaId = transferencia.Id
+            };
+            seedContext.Compras.Add(compra);
+            await seedContext.SaveChangesAsync();
+        }
+
+        // Create comprobante file on disk
+        var basePath = _uploadProvider.GetUploadBasePath();
+        var comprobantePhysicalPath = Path.Combine(basePath, "uploads", "transferencias", "rollback-test.jpg");
+        Directory.CreateDirectory(Path.GetDirectoryName(comprobantePhysicalPath)!);
+        File.WriteAllText(comprobantePhysicalPath, "test content");
+
+        // Create service with throwing context
+        using var throwingContext = new ThrowingDbContext(options);
+        var throwingPeriodRepo = new AccountingPeriodRepository(throwingContext);
+        var throwingService = new ContabilidadService(throwingContext, throwingPeriodRepo, _uploadProvider);
+
+        // Act — should throw DbUpdateException
+        var act = () => throwingService.EliminarTransferenciaCuadreAsync(transferenciaId);
+
+        // Assert — exception propagates (not swallowed)
+        await act.Should().ThrowAsync<DbUpdateException>();
+
+        // Assert — comprobante file is NOT deleted (file deletion is post-commit)
+        File.Exists(comprobantePhysicalPath).Should().BeTrue(
+            "comprobante file must survive when transaction fails");
+
+        // Cleanup
+        File.Delete(comprobantePhysicalPath);
+    }
 }
