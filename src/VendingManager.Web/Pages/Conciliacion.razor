@@ -116,6 +116,21 @@
             <div style="padding:0.7rem 0.9rem;border-right:1px solid var(--line-200);display:flex;flex-direction:column;gap:4px;">
                 <span style="font-family:var(--font-mono);font-weight:700;font-size:0.92rem;text-transform:uppercase;letter-spacing:-0.3px;">@_periodo.Trabajador</span>
                 <span style="font-family:var(--font-mono);font-size:0.68rem;color:var(--text-muted);">@_periodo.FechaInicio.ToString("dd/MM/yyyy") · @(_periodo.Estado == AccountingPeriodEstado.Abierto ? "Rendición abierta" : "Rendición cerrada")</span>
+                @if (_periodo.Transferencias.Count > 0)
+                {
+                    var transf = _periodo.Transferencias[0];
+                    var isConciliado = transf.Estado == VendingManager.Shared.Enums.TransferenciaEstado.Conciliado;
+                    <div style="display:flex;align-items:center;gap:6px;margin-top:4px;">
+                        <label style="display:flex;align-items:center;gap:4px;cursor:@(isConciliado ? "not-allowed" : "pointer");opacity:@(isConciliado ? "0.5" : "1");">
+                            <input type="checkbox" data-testid="eliminar-transf-checkbox" @bind="_eliminarTransfChecked" disabled="@isConciliado" title="@(isConciliado ? "No se puede eliminar una transferencia ya conciliada." : "")" />
+                            <span style="font-family:var(--font-mono);font-weight:700;font-size:0.62rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);">Eliminar</span>
+                        </label>
+                    </div>
+                    @if (_eliminarTransfChecked && !isConciliado)
+                    {
+                        <button @onclick="() => _eliminarModalOpen = true" data-testid="eliminar-transf-btn" style="display:flex;align-items:center;gap:6px;font-family:var(--font-mono);font-weight:700;font-size:0.66rem;text-transform:uppercase;letter-spacing:0.5px;background:var(--signal-danger);color:#fff;border:2px solid var(--signal-danger);border-radius:0;cursor:pointer;padding:6px 10px;margin-top:4px;"><i class="bi bi-trash"></i> Eliminar transferencia</button>
+                    }
+                }
             </div>
             <!-- Transferido -->
             <div style="padding:0.7rem 0.9rem;border-right:1px solid var(--line-200);text-align:center;display:flex;flex-direction:column;gap:3px;justify-content:center;">
@@ -545,6 +560,7 @@
     private bool _showTransfModal;
     private bool _showCompraModal;
     private bool _showGastoModal;
+    private bool _eliminarModalOpen;
 #pragma warning restore CS0414
     private decimal _transfMonto;
     private string _transfTrabajador = string.Empty;
@@ -554,6 +570,8 @@
     private string? _comprobanteError;
     private bool _uploadingComprobante;
     private string? _successMessage;
+    private bool _eliminarTransfChecked;
+    private string _eliminarConfirmName = string.Empty;
 
     // ── Compra modal state ────────────────────────────────────────────────────
     private string _compraTab = "vincular"; // "vincular" | "crear"
