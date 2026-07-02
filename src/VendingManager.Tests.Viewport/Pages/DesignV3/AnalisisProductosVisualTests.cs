@@ -7,11 +7,11 @@ using NUnit.Framework;
 /// Visual baseline for the redesigned Análisis de Productos page.
 /// </summary>
 [TestFixture]
-public class AnalisisVentasVisualTests : VisualTestBase
+public class AnalisisProductosVisualTests : VisualTestBase
 {
     [Test]
-    public async Task CaptureAnalisisVentasBaseline()
+    public async Task CaptureAnalisisProductosBaseline()
     {
-        await CaptureBaselineAsync("/analisis-ventas", "analisis-ventas");
+        await CaptureBaselineAsync("/analisis-productos", "analisis-productos");
     }
 }
