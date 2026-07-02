@@ -715,10 +715,10 @@ public class ConciliacionPageTests : TestContext
         }, TimeSpan.FromSeconds(5));
     }
 
-    // ── T-14, T-15: Eliminar transferencia checkbox + button ───────────────
+    // ── Eliminar transferencia button (refactored from checkbox pattern) ───
 
     [Fact]
-    public void EliminarCheckbox_Unchecked_BotonNoEnDOM()
+    public void EliminarTransferencia_BotonVisibleEnHeader()
     {
         var cut = RenderComponent<Conciliacion>();
 
@@ -727,12 +727,12 @@ public class ConciliacionPageTests : TestContext
             cut.Markup.Should().Contain("<select");
         }, TimeSpan.FromSeconds(10));
 
-        // Default state: checkbox unchecked → "Eliminar transferencia" button must NOT be in DOM
-        cut.Markup.Should().NotContain("Eliminar transferencia");
+        // Button is always visible in header when transferencias exist
+        cut.Markup.Should().Contain("Eliminar Transferencia");
     }
 
     [Fact]
-    public void EliminarCheckbox_Checked_BotonEnDOM()
+    public void EliminarTransferencia_BotonAbreModal()
     {
         var cut = RenderComponent<Conciliacion>();
 
@@ -741,18 +741,20 @@ public class ConciliacionPageTests : TestContext
             cut.Markup.Should().Contain("<select");
         }, TimeSpan.FromSeconds(10));
 
-        // Check the delete-transferencia checkbox
-        var checkbox = cut.Find("input[data-testid='eliminar-transf-checkbox']");
-        checkbox.Change(true);
+        // Click the delete button to open the modal
+        cut.Find("button[data-testid='eliminar-transf-btn']").Click();
 
-        // Now the "Eliminar transferencia" button must be in the DOM
-        cut.Markup.Should().Contain("Eliminar transferencia");
+        // Modal must open
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("Compras vinculadas");
+        }, TimeSpan.FromSeconds(10));
     }
 
     // ── T-17: Conciliado guard ──────────────────────────────────────────────
 
     [Fact]
-    public void EliminarCheckbox_Conciliado_DeshabilitadoConTooltip()
+    public void EliminarTransferencia_Conciliado_BotonDeshabilitadoConTooltip()
     {
         _mockHandler.TransferenciaConciliado = true;
 
@@ -763,9 +765,9 @@ public class ConciliacionPageTests : TestContext
             cut.Markup.Should().Contain("<select");
         }, TimeSpan.FromSeconds(10));
 
-        // Checkbox must be disabled
-        var checkbox = cut.Find("input[data-testid='eliminar-transf-checkbox']");
-        checkbox.HasAttribute("disabled").Should().BeTrue();
+        // Button must be disabled when transferencia is Conciliado
+        var btn = cut.Find("button[data-testid='eliminar-transf-btn']");
+        btn.HasAttribute("disabled").Should().BeTrue();
 
         // Tooltip text must be present in the DOM
         cut.Markup.Should().Contain("No se puede eliminar una transferencia ya conciliada.");
@@ -782,9 +784,6 @@ public class ConciliacionPageTests : TestContext
         {
             cut.Markup.Should().Contain("<select");
         }, TimeSpan.FromSeconds(10));
-
-        // Check the delete checkbox to show the button
-        cut.Find("input[data-testid='eliminar-transf-checkbox']").Change(true);
 
         // Click the delete button to open the modal
         cut.Find("button[data-testid='eliminar-transf-btn']").Click();
@@ -816,9 +815,6 @@ public class ConciliacionPageTests : TestContext
         {
             cut.Markup.Should().Contain("<select");
         }, TimeSpan.FromSeconds(10));
-
-        // Check the delete checkbox to show the button
-        cut.Find("input[data-testid='eliminar-transf-checkbox']").Change(true);
 
         // Click the delete button to open the modal
         cut.Find("button[data-testid='eliminar-transf-btn']").Click();
@@ -859,9 +855,6 @@ public class ConciliacionPageTests : TestContext
         {
             cut.Markup.Should().Contain("<select");
         }, TimeSpan.FromSeconds(10));
-
-        // Check the delete checkbox to show the button
-        cut.Find("input[data-testid='eliminar-transf-checkbox']").Change(true);
 
         // Click the delete button to open the modal
         cut.Find("button[data-testid='eliminar-transf-btn']").Click();
