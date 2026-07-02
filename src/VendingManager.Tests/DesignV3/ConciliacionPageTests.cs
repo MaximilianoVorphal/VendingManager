@@ -749,6 +749,28 @@ public class ConciliacionPageTests : TestContext
         cut.Markup.Should().Contain("Eliminar transferencia");
     }
 
+    // ── T-17: Conciliado guard ──────────────────────────────────────────────
+
+    [Fact]
+    public void EliminarCheckbox_Conciliado_DeshabilitadoConTooltip()
+    {
+        _mockHandler.TransferenciaConciliado = true;
+
+        var cut = RenderComponent<Conciliacion>();
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("<select");
+        }, TimeSpan.FromSeconds(10));
+
+        // Checkbox must be disabled
+        var checkbox = cut.Find("input[data-testid='eliminar-transf-checkbox']");
+        checkbox.HasAttribute("disabled").Should().BeTrue();
+
+        // Tooltip text must be present in the DOM
+        cut.Markup.Should().Contain("No se puede eliminar una transferencia ya conciliada.");
+    }
+
     // ── Mock handler ───────────────────────────────────────────────────────────
 
     private class ConciliacionMockHandler : HttpMessageHandler
@@ -766,6 +788,7 @@ public class ConciliacionPageTests : TestContext
         public bool ComprobanteNotFound { get; set; }
         public bool MultiPeriod { get; set; }
         public bool TransferenciaHasComprobante { get; set; }
+        public bool TransferenciaConciliado { get; set; }
 
         protected override async Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request, CancellationToken cancellationToken)
@@ -855,7 +878,7 @@ public class ConciliacionPageTests : TestContext
                             Monto = 273000m,
                             Descripcion = "Fondos junio",
                             Trabajador = "Jose Miguel",
-                            Estado = 0,
+                            Estado = TransferenciaConciliado ? 2 : 0,
                             RendicionId = (int?)1,
                             PeriodoId = (int?)1,
                             MovimientoCajaId = (int?)null,
