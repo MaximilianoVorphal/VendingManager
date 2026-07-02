@@ -16,7 +16,6 @@ namespace VendingManager.Web.Pages
         [Inject] protected ILogger<StockoutDashboard> Logger { get; set; } = default!;
         [Inject] protected NavigationManager NavManager { get; set; } = default!;
         [Inject] protected IJSRuntime JS { get; set; } = default!;
-        private bool Cargando = false;
         private string MensajeError = "";
         private DateTime FechaInicio = DateTime.Today.AddDays(-7);
         private DateTime FechaFin = DateTime.Today;
@@ -24,7 +23,6 @@ namespace VendingManager.Web.Pages
         private double UmbralHoras = 24;
         private bool SoloConQuiebre = true;
         private bool soloDeadSlots = false;
-        private bool verAgrupado = true; // Vista agrupada por producto por defecto
 
         // Templates
         private int TemplateSeleccionado = 0;
@@ -175,7 +173,6 @@ namespace VendingManager.Web.Pages
         {
             if (TemplateSeleccionado == 0) return;
 
-            Cargando = true;
             MensajeError = "";
             Datos = null;
             VentasDiarias = null;
@@ -230,14 +227,12 @@ namespace VendingManager.Web.Pages
             }
             finally
             {
-                Cargando = false;
                 StateHasChanged();
             }
         }
 
         private async Task CargarDatos()
         {
-            Cargando = true;
             MensajeError = "";
             Datos = null;
             StateHasChanged();
@@ -256,10 +251,6 @@ namespace VendingManager.Web.Pages
             {
                 MensajeError = "Error al cargar análisis: " + ex.Message;
                 Logger.LogError(ex, "Error cargando stockout analysis");
-            }
-            finally
-            {
-                Cargando = false;
             }
         }
 
@@ -444,10 +435,6 @@ namespace VendingManager.Web.Pages
         }
         private bool IsPlaying = false;
         private System.Threading.Timer? PlaybackTimer;
-
-        // View State
-        private bool ShowDetailView = false;
-        private bool _timelineVisible = false;
 
         // Data
         private int CalculateStockAtTime(StockoutAnalysisDto item, DateTime time)
