@@ -771,6 +771,82 @@ public class ConciliacionPageTests : TestContext
         cut.Markup.Should().Contain("No se puede eliminar una transferencia ya conciliada.");
     }
 
+    // ── T-19, T-20: Strong-confirmation modal ──────────────────────────────
+
+    [Fact]
+    public void EliminarModal_NombreNoCoincide_ConfirmDeshabilitado()
+    {
+        var cut = RenderComponent<Conciliacion>();
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("<select");
+        }, TimeSpan.FromSeconds(10));
+
+        // Check the delete checkbox to show the button
+        cut.Find("input[data-testid='eliminar-transf-checkbox']").Change(true);
+
+        // Click the delete button to open the modal
+        cut.Find("button[data-testid='eliminar-transf-btn']").Click();
+
+        // Modal must be open — assert data fields are visible
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("Eliminar transferencia");
+            cut.Markup.Should().Contain("Jose Miguel"); // worker name displayed
+        }, TimeSpan.FromSeconds(10));
+
+        // Type a name that does NOT match
+        cut.Find("input[data-testid='eliminar-confirm-name']").Input("Wrong Name");
+
+        // Confirm button must be disabled
+        var confirmBtn = cut.Find("button[data-testid='eliminar-confirm-btn']");
+        confirmBtn.HasAttribute("disabled").Should().BeTrue();
+    }
+
+    [Fact]
+    public void EliminarModal_NombreCoincide_ConfirmHabilitado_DisparaDelete()
+    {
+        _mockHandler.DeleteResponse = HttpStatusCode.OK;
+        _mockHandler.DeleteResponseJson = "{\"ComprasUnlinked\":2,\"PeriodoId\":1}";
+
+        var cut = RenderComponent<Conciliacion>();
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("<select");
+        }, TimeSpan.FromSeconds(10));
+
+        // Check the delete checkbox to show the button
+        cut.Find("input[data-testid='eliminar-transf-checkbox']").Change(true);
+
+        // Click the delete button to open the modal
+        cut.Find("button[data-testid='eliminar-transf-btn']").Click();
+
+        // Wait for modal to open
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("Eliminar transferencia");
+        }, TimeSpan.FromSeconds(10));
+
+        // Type the EXACT worker name (case-sensitive, trimmed)
+        cut.Find("input[data-testid='eliminar-confirm-name']").Input("Jose Miguel");
+
+        // Confirm button must be enabled
+        var confirmBtn = cut.Find("button[data-testid='eliminar-confirm-btn']");
+        confirmBtn.HasAttribute("disabled").Should().BeFalse();
+
+        // Click confirm
+        confirmBtn.Click();
+
+        // Assert exactly one DELETE was fired to the correct endpoint
+        cut.WaitForAssertion(() =>
+        {
+            _mockHandler.DeleteRequests.Should().HaveCount(1);
+            _mockHandler.DeleteRequests[0].Should().Contain("api/contabilidad/transferencia/");
+        }, TimeSpan.FromSeconds(10));
+    }
+
     // ── Mock handler ───────────────────────────────────────────────────────────
 
     private class ConciliacionMockHandler : HttpMessageHandler
