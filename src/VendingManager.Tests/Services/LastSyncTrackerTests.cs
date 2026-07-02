@@ -1,4 +1,8 @@
 using FluentAssertions;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Moq;
+using VendingManager.Infrastructure.Data;
 using VendingManager.Infrastructure.Services;
 using Xunit;
 
@@ -6,10 +10,25 @@ namespace VendingManager.Tests.Services;
 
 public class LastSyncTrackerTests
 {
+    private static LastSyncTracker CreateTracker()
+    {
+        var scopeFactoryMock = new Mock<IServiceScopeFactory>();
+        var scopeMock = new Mock<IServiceScope>();
+        var providerMock = new Mock<IServiceProvider>();
+        var options = new DbContextOptionsBuilder<ApplicationDbContext>()
+            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+            .Options;
+        var db = new ApplicationDbContext(options);
+        providerMock.Setup(p => p.GetService(typeof(ApplicationDbContext))).Returns(db);
+        scopeMock.Setup(s => s.ServiceProvider).Returns(providerMock.Object);
+        scopeFactoryMock.Setup(f => f.CreateScope()).Returns(scopeMock.Object);
+        return new LastSyncTracker(scopeFactoryMock.Object);
+    }
+
     [Fact]
     public void GetLastSync_ReturnsNull_WhenNotSet()
     {
-        var tracker = new LastSyncTracker();
+        var tracker = CreateTracker();
 
         var result = tracker.GetLastSync();
 
@@ -19,7 +38,7 @@ public class LastSyncTrackerTests
     [Fact]
     public void SetLastSync_ThenGetLastSync_ReturnsSameValue()
     {
-        var tracker = new LastSyncTracker();
+        var tracker = CreateTracker();
         var expected = new DateTime(2026, 6, 30, 14, 30, 0);
 
         tracker.SetLastSync(expected);
@@ -31,7 +50,7 @@ public class LastSyncTrackerTests
     [Fact]
     public void SetLastSync_OverwritesPreviousValue()
     {
-        var tracker = new LastSyncTracker();
+        var tracker = CreateTracker();
         var first = new DateTime(2026, 6, 30, 10, 0, 0);
         var second = new DateTime(2026, 6, 30, 14, 30, 0);
 
@@ -45,7 +64,7 @@ public class LastSyncTrackerTests
     [Fact]
     public void GetLastSync_IsThreadSafe()
     {
-        var tracker = new LastSyncTracker();
+        var tracker = CreateTracker();
         var baseTime = new DateTime(2026, 6, 30, 12, 0, 0);
 
         // Write sequentially to establish a known state

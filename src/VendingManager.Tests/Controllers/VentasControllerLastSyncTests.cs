@@ -1,8 +1,11 @@
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Moq;
 using VendingManager.Controllers;
 using VendingManager.Core.Interfaces;
+using VendingManager.Infrastructure.Data;
 using VendingManager.Infrastructure.Services;
 using Xunit;
 
@@ -17,7 +20,22 @@ public class VentasControllerLastSyncTests
     private readonly Mock<IPurchasingService> _mockPurchasing = new();
     private readonly Mock<ISalesImportService> _mockSalesImport = new();
     private readonly Mock<IAuditService> _mockAudit = new();
-    private readonly LastSyncTracker _tracker = new();
+    private readonly LastSyncTracker _tracker = CreateTracker();
+
+    private static LastSyncTracker CreateTracker()
+    {
+        var scopeFactoryMock = new Mock<IServiceScopeFactory>();
+        var scopeMock = new Mock<IServiceScope>();
+        var providerMock = new Mock<IServiceProvider>();
+        var options = new DbContextOptionsBuilder<ApplicationDbContext>()
+            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+            .Options;
+        var db = new ApplicationDbContext(options);
+        providerMock.Setup(p => p.GetService(typeof(ApplicationDbContext))).Returns(db);
+        scopeMock.Setup(s => s.ServiceProvider).Returns(providerMock.Object);
+        scopeFactoryMock.Setup(f => f.CreateScope()).Returns(scopeMock.Object);
+        return new LastSyncTracker(scopeFactoryMock.Object);
+    }
 
     private VentasController CreateController()
     {
