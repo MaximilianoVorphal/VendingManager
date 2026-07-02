@@ -255,4 +255,83 @@ public class ConciliacionControllerTests
         // Assert
         result.Should().BeOfType<ConflictObjectResult>();
     }
+
+    // ── EliminarTransferencia ────────────────────────────────────────────
+
+    [Fact]
+    public async Task EliminarTransferencia_HappyPath_Returns200WithDto()
+    {
+        // Arrange
+        var expectedDto = new EliminarTransferenciaResultDto
+        {
+            ComprasUnlinked = 3,
+            PeriodoId = 42
+        };
+        _mockService
+            .Setup(s => s.EliminarTransferenciaCuadreAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(expectedDto);
+
+        // Act
+        var result = await _controller.EliminarTransferencia(1);
+
+        // Assert — 200 OK with body
+        var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        var dto = okResult.Value.Should().BeOfType<EliminarTransferenciaResultDto>().Subject;
+        dto.ComprasUnlinked.Should().Be(3);
+        dto.PeriodoId.Should().Be(42);
+    }
+
+    [Fact]
+    public async Task EliminarTransferencia_LegacyPath_Returns200WithNullPeriodoId()
+    {
+        // Arrange
+        var expectedDto = new EliminarTransferenciaResultDto
+        {
+            ComprasUnlinked = 2,
+            PeriodoId = null
+        };
+        _mockService
+            .Setup(s => s.EliminarTransferenciaCuadreAsync(5, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(expectedDto);
+
+        // Act
+        var result = await _controller.EliminarTransferencia(5);
+
+        // Assert
+        var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        var dto = okResult.Value.Should().BeOfType<EliminarTransferenciaResultDto>().Subject;
+        dto.ComprasUnlinked.Should().Be(2);
+        dto.PeriodoId.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task EliminarTransferencia_Conciliado_Returns400WithLiteralMessage()
+    {
+        // Arrange
+        _mockService
+            .Setup(s => s.EliminarTransferenciaCuadreAsync(1, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("No se puede eliminar una transferencia ya conciliada."));
+
+        // Act
+        var result = await _controller.EliminarTransferencia(1);
+
+        // Assert — 400 BadRequest with literal message
+        var badRequest = result.Result.Should().BeOfType<BadRequestObjectResult>().Subject;
+        badRequest.Value.Should().Be("No se puede eliminar una transferencia ya conciliada.");
+    }
+
+    [Fact]
+    public async Task EliminarTransferencia_NotFound_Returns404()
+    {
+        // Arrange
+        _mockService
+            .Setup(s => s.EliminarTransferenciaCuadreAsync(999, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new KeyNotFoundException("Transferencia 999 no encontrada."));
+
+        // Act
+        var result = await _controller.EliminarTransferencia(999);
+
+        // Assert
+        result.Result.Should().BeOfType<NotFoundObjectResult>();
+    }
 }
