@@ -1,3 +1,4 @@
+@page "/caja"
 @page "/caja-v2"
 @using System.Globalization
 @using System.Net.Http.Headers
@@ -115,7 +116,7 @@
                     <option value="APORTE">Aportes</option>
                     <option value="RETIRO">Retiros</option>
                 </select>
-                <button @onclick="AbrirGastosFijos" style="display:flex;align-items:center;gap:6px;font-family:var(--font-mono);font-weight:700;font-size:0.72rem;text-transform:uppercase;padding:5px 10px;background:transparent;color:var(--paper-0);border:2px solid var(--paper-0);border-radius:0;cursor:pointer;"><i class="bi bi-gear"></i>Gastos fijos@if (Pendientes.Any()){<span style="background:var(--signal-warning);color:var(--ink-900);border-radius:999px;min-width:17px;height:17px;display:inline-flex;align-items:center;justify-content:center;font-size:0.62rem;padding:0 4px;">@Pendientes.Count</span>}</button>
+                <button @onclick="AbrirGastosFijos" style="display:flex;align-items:center;gap:6px;font-family:var(--font-mono);font-weight:700;font-size:0.72rem;text-transform:uppercase;padding:5px 10px;background:transparent;color:var(--paper-0);border:2px solid var(--paper-0);border-radius:0;cursor:pointer;"><i class="bi bi-gear"></i><span>Gastos fijos</span>@if (Pendientes.Any()){<span style="background:var(--signal-warning);color:var(--ink-900);border-radius:999px;min-width:17px;height:17px;display:inline-flex;align-items:center;justify-content:center;font-size:0.62rem;padding:0 4px;">@Pendientes.Count</span>}</button>
                 <button @onclick="AbrirResultados" style="display:flex;align-items:center;gap:6px;font-family:var(--font-mono);font-weight:700;font-size:0.72rem;text-transform:uppercase;padding:5px 10px;background:transparent;color:var(--paper-0);border:2px solid var(--paper-0);border-radius:0;cursor:pointer;"><i class="bi bi-graph-up-arrow"></i>Estado resultados</button>
             </div>
         </div>
