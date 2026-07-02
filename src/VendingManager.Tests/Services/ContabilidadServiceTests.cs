@@ -247,4 +247,25 @@ public class ContabilidadServiceTests : IDisposable
         await act.Should().ThrowAsync<InvalidOperationException>()
             .WithMessage("No se puede eliminar una transferencia ya conciliada.");
     }
+
+    // ── T-07: Comprobante file missing on disk ─────────────────────────────
+
+    [Fact]
+    public async Task EliminarTransferenciaCuadreAsync_ComprobanteMissingOnDisk_NoError()
+    {
+        // Arrange — cuadre with comprobante path set but file NOT on disk
+        var (transferencia, period, _, compras) = await CreateCuadreWithComprasAsync(1);
+        // Don't create the file on disk — it's already missing
+
+        // Act — should NOT throw
+        var result = await _service.EliminarTransferenciaCuadreAsync(transferencia.Id);
+
+        // Assert — still succeeds
+        result.ComprasUnlinked.Should().Be(1);
+        result.PeriodoId.Should().Be(period.Id);
+
+        // Assert — transferencia deleted
+        var deletedTransf = await _context.Transferencias.FindAsync(transferencia.Id);
+        deletedTransf.Should().BeNull();
+    }
 }
