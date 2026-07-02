@@ -153,4 +153,82 @@ public class ContabilidadServiceTests : IDisposable
         var deletedTransf = await _context.Transferencias.FindAsync(transferencia.Id);
         deletedTransf.Should().BeNull();
     }
+
+    // ── T-03: Legacy path (PeriodoId == null, Rendicion survives) ─────────
+
+    private async Task<(Transferencia transferencia, Rendicion rendicion, List<Compra> compras)>
+        CreateLegacyTransferenciaAsync(int compraCount = 2)
+    {
+        var rendicion = new Rendicion
+        {
+            Trabajador = "Pedro",
+            FechaInicio = new DateTime(2026, 7, 1),
+            Observaciones = "Existing rendicion"
+        };
+        _context.Rendiciones.Add(rendicion);
+        await _context.SaveChangesAsync();
+
+        var transferencia = new Transferencia
+        {
+            Fecha = new DateTime(2026, 7, 1),
+            Monto = 5000m,
+            Descripcion = "Legacy transferencia",
+            Trabajador = "Pedro",
+            Estado = TransferenciaEstado.EnUso,
+            RendicionId = rendicion.Id,
+            PeriodoId = null // legacy — no period
+        };
+        _context.Transferencias.Add(transferencia);
+        await _context.SaveChangesAsync();
+
+        var compras = new List<Compra>();
+        for (int i = 0; i < compraCount; i++)
+        {
+            var compra = new Compra
+            {
+                FechaCompra = new DateTime(2026, 7, 1),
+                Proveedor = $"Proveedor {i}",
+                NumeroDocumento = $"LEG-{i}",
+                MontoTotal = 500m * (i + 1),
+                Estado = "Registrada",
+                TipoFactura = "MERCADERIA",
+                Trabajador = "Pedro",
+                TransferenciaId = transferencia.Id
+            };
+            _context.Compras.Add(compra);
+            compras.Add(compra);
+        }
+        await _context.SaveChangesAsync();
+
+        return (transferencia, rendicion, compras);
+    }
+
+    [Fact]
+    public async Task EliminarTransferenciaCuadreAsync_LegacyPath_ComprasUnlinkedRendicionSurvives()
+    {
+        // Arrange — legacy transferencia (PeriodoId == null, RendicionId set)
+        var (transferencia, rendicion, compras) = await CreateLegacyTransferenciaAsync(2);
+
+        // Act
+        var result = await _service.EliminarTransferenciaCuadreAsync(transferencia.Id);
+
+        // Assert — result DTO
+        result.ComprasUnlinked.Should().Be(2);
+        result.PeriodoId.Should().BeNull();
+
+        // Assert — compras unlinked
+        foreach (var compra in compras)
+        {
+            var reloaded = await _context.Compras.FindAsync(compra.Id);
+            reloaded!.TransferenciaId.Should().BeNull();
+        }
+
+        // Assert — source Rendicion survives
+        var survivingRendicion = await _context.Rendiciones.FindAsync(rendicion.Id);
+        survivingRendicion.Should().NotBeNull();
+
+        // Assert — transferencia row deleted
+        var deletedTransf = await _context.Transferencias.FindAsync(transferencia.Id);
+        deletedTransf.Should().BeNull();
+    }
 }
