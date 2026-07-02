@@ -173,6 +173,10 @@ public class ContabilidadController(
     }
 
     [HttpDelete("transferencia/{id}")]
+    [ProducesResponseType(typeof(EliminarTransferenciaResultDto), 200)]
+    [ProducesResponseType(typeof(string), 400)]
+    [ProducesResponseType(typeof(string), 401)]
+    [ProducesResponseType(typeof(string), 404)]
     public async Task<ActionResult<EliminarTransferenciaResultDto>> EliminarTransferencia(
         int id, CancellationToken ct = default)
     {
