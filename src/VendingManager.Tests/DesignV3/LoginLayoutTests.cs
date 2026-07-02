@@ -30,8 +30,8 @@ public class LoginLayoutTests : TestContext
                 builder.AddMarkupContent(0, "<p data-testid=\"body\">page body</p>"))));
 
         cut.Markup.Should().Contain("page body");
-        cut.Markup.Should().Contain("align-items:center");
-        cut.Markup.Should().Contain("justify-content:center");
+        cut.Markup.Should().Contain("display:grid");
+        cut.Markup.Should().Contain("place-items:center");
     }
 
     [Fact]
