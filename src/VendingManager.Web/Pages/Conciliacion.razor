@@ -168,7 +168,21 @@
                 @if (_compraTab == "vincular")
                 {
                     <div style="display:flex;flex-direction:column;gap:10px;">
-                        <input type="text" placeholder="Buscar proveedor o Nº documento…" @bind="_boletaBusqueda" @bind:event="oninput" style="width:100%;padding:8px;border:2px solid var(--ink-900);font-family:var(--font-mono);font-size:0.82rem;" />
+                        <input type="text" placeholder="Buscar proveedor o Nº documento…" @bind="_boletaBusqueda" @bind:event="oninput" @bind:after="OnBoletaFiltroChanged" style="width:100%;padding:8px;border:2px solid var(--ink-900);font-family:var(--font-mono);font-size:0.82rem;" />
+                        <div style="display:flex;gap:8px;align-items:end;">
+                            <div style="flex:1;display:flex;flex-direction:column;gap:3px;">
+                                <label style="font-family:var(--font-mono);font-weight:700;font-size:0.58rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);">Desde</label>
+                                <input type="date" @bind="_boletaDesde" @bind:event="onchange" @bind:after="OnBoletaFiltroChanged" max="@(_boletaHasta?.ToString("yyyy-MM-dd"))" style="width:100%;padding:7px;border:2px solid var(--ink-900);font-family:var(--font-mono);font-size:0.78rem;" />
+                            </div>
+                            <div style="flex:1;display:flex;flex-direction:column;gap:3px;">
+                                <label style="font-family:var(--font-mono);font-weight:700;font-size:0.58rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);">Hasta</label>
+                                <input type="date" @bind="_boletaHasta" @bind:event="onchange" @bind:after="OnBoletaFiltroChanged" min="@(_boletaDesde?.ToString("yyyy-MM-dd"))" style="width:100%;padding:7px;border:2px solid var(--ink-900);font-family:var(--font-mono);font-size:0.78rem;" />
+                            </div>
+                            @if (_boletaDesde.HasValue || _boletaHasta.HasValue)
+                            {
+                                <button @onclick="LimpiarFiltrosFecha" title="Limpiar fechas" style="padding:7px 10px;border:2px solid var(--ink-900);background:var(--paper-0);color:var(--ink-900);font-family:var(--font-mono);font-weight:700;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.5px;cursor:pointer;border-radius:0;align-self:end;">×</button>
+                            }
+                        </div>
                         @if (_compraError is not null)
                         {
                             <IndustrialAlert Message="@_compraError" Variant="IndustrialAlert.AlertVariant.Danger" />
@@ -613,14 +627,12 @@
     private string? _compraError;
     private List<CompraDto> _boletasSinVincular = new();
     private string _boletaBusqueda = string.Empty;
+    private DateTime? _boletaDesde;
+    private DateTime? _boletaHasta;
     private bool _cargandoBoletas;
+    private CancellationTokenSource? _boletaFiltroCts;
 
-    private IEnumerable<CompraDto> BoletasFiltradas =>
-        string.IsNullOrWhiteSpace(_boletaBusqueda)
-            ? _boletasSinVincular
-            : _boletasSinVincular.Where(b =>
-                (b.Proveedor?.Contains(_boletaBusqueda, StringComparison.OrdinalIgnoreCase) ?? false)
-                || (b.NumeroDocumento?.Contains(_boletaBusqueda, StringComparison.OrdinalIgnoreCase) ?? false));
+    private IEnumerable<CompraDto> BoletasFiltradas => _boletasSinVincular;
 
     // ── Reasignar proveedor (inline) ──────────────────────────────────────────
     private bool _reasignarOpen;
@@ -1337,17 +1349,59 @@
         _compraTab = "vincular";
         _compraError = null;
         _boletaBusqueda = string.Empty;
+        _boletaDesde = null;
+        _boletaHasta = null;
         _showCompraModal = true;
         await CargarBoletasSinVincular();
     }
 
-    private async Task CargarBoletasSinVincular()
+    /// <summary>
+    /// Triggered by any of the search inputs (text, desde, hasta) after a debounce.
+    /// Cancels the in-flight request and schedules a fresh one 300ms later.
+    /// </summary>
+    private async Task OnBoletaFiltroChanged()
     {
-        _cargandoBoletas = true;
-        StateHasChanged();
+        _boletaFiltroCts?.Cancel();
+        _boletaFiltroCts = new CancellationTokenSource();
+        var token = _boletaFiltroCts.Token;
         try
         {
-            var data = await Http.GetFromJsonAsync<List<CompraDto>>("api/rendicion/compras-no-vinculadas");
+            await Task.Delay(300, token);
+        }
+        catch (TaskCanceledException)
+        {
+            return;
+        }
+        await CargarBoletasSinVincular();
+    }
+
+    private void LimpiarFiltrosFecha()
+    {
+        _boletaDesde = null;
+        _boletaHasta = null;
+        _ = OnBoletaFiltroChanged();
+    }
+
+    private async Task CargarBoletasSinVincular()
+    {
+        _compraError = null;
+        _cargandoBoletas = true;
+        await InvokeAsync(StateHasChanged);
+        try
+        {
+            var qs = new List<string>();
+            if (!string.IsNullOrWhiteSpace(_boletaBusqueda))
+            {
+                qs.Add($"proveedor={Uri.EscapeDataString(_boletaBusqueda)}");
+                qs.Add($"numeroDocumento={Uri.EscapeDataString(_boletaBusqueda)}");
+            }
+            if (_boletaDesde.HasValue)
+                qs.Add($"desde={_boletaDesde.Value:yyyy-MM-dd}");
+            if (_boletaHasta.HasValue)
+                qs.Add($"hasta={_boletaHasta.Value:yyyy-MM-dd}");
+
+            var url = "api/rendicion/compras-no-vinculadas" + (qs.Count > 0 ? "?" + string.Join("&", qs) : "");
+            var data = await Http.GetFromJsonAsync<List<CompraDto>>(url);
             _boletasSinVincular = data ?? new();
         }
         catch (Exception)
@@ -1528,5 +1582,7 @@
     {
         _loadCts?.Cancel();
         _loadCts?.Dispose();
+        _boletaFiltroCts?.Cancel();
+        _boletaFiltroCts?.Dispose();
     }
 }
