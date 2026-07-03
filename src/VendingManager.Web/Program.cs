@@ -21,7 +21,7 @@ builder.Logging.SetMinimumLevel(LogLevel.Debug);
 builder.Services.AddAuthorizationCore();
 builder.Services.AddScoped<AuthenticationStateProvider, VendingManager.Web.Auth.CookieAuthenticationStateProvider>();
 
-// Mock services para UI/UX design v3 (reemplazar por implementaciones reales cuando existan)
-builder.Services.AddScoped<IPlantillaService, MockPlantillaService>();
+// Plantillas = templates de recarga reales (api/TemplateRecarga)
+builder.Services.AddScoped<IPlantillaService, PlantillaService>();
 
 await builder.Build().RunAsync();
