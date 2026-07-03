@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
+using VendingManager.Web.Shared;
 
 namespace VendingManager.Web.Pages
 {
@@ -109,6 +110,178 @@ namespace VendingManager.Web.Pages
                     })
                     .OrderByDescending(p => p.GananciaPerdidaEstimada)
                     .ToList();
+            }
+        }
+
+        // ============================================================================
+        // v3 markup adapter — bridges the already-wired pipeline (Datos / DatosAgrupados,
+        // loaded from api/Ventas/stockout-analysis and api/TemplateRecarga/{id}/analyze)
+        // to the industrial-v3 markup view-models. DTOs are NOT reshaped; this layer is
+        // pure string/format mapping + selection state.
+        // ============================================================================
+
+        private bool verAgrupado = true;
+        private string? _sel;
+
+        // Bridge the v3 toggles/selects onto the existing wired filter state so they drive
+        // the real DatosFiltrados / DatosAgrupados pipeline.
+        private bool _soloDead { get => soloDeadSlots; set => soloDeadSlots = value; }
+        private bool _soloQuiebres { get => SoloConQuiebre; set => SoloConQuiebre = value; }
+        private bool _agrupar { get => verAgrupado; set => verAgrupado = value; }
+
+        private string _template
+        {
+            get => TemplateSeleccionado.ToString();
+            set { if (int.TryParse(value, out var v)) { TemplateSeleccionado = v; _ = OnTemplateChanged(); } }
+        }
+        private string _maquina
+        {
+            get => MaquinaFiltroTemplate.ToString();
+            set { if (int.TryParse(value, out var v)) MaquinaFiltroTemplate = v; }
+        }
+        private int _umbral
+        {
+            get => (int)Math.Round(UmbralHoras);
+            set => UmbralHoras = Math.Max(1, value);
+        }
+        private void OnUmbralChanged(ChangeEventArgs e)
+        {
+            if (int.TryParse(e.Value?.ToString(), out var v)) UmbralHoras = Math.Max(1, v);
+        }
+
+        private List<VmSelect.VmSelectOption> TemplateOptions =>
+            new List<VmSelect.VmSelectOption> { new("0", ":: Seleccionar template ::") }
+                .Concat((ListaTemplates ?? new()).Select(t =>
+                    new VmSelect.VmSelectOption(t.Id.ToString(), $"{t.Nombre} ({t.CantidadMaquinas} máq.)")))
+                .ToList();
+
+        private List<VmSelect.VmSelectOption> MaquinaOptions =>
+            new List<VmSelect.VmSelectOption> { new("0", ":: Todas las máquinas ::") }
+                .Concat((ListaMaquinas ?? new()).Select(m =>
+                    new VmSelect.VmSelectOption(m.Id.ToString(), m.Nombre)))
+                .ToList();
+
+        // Header counters
+        private int AnalizadosN => Datos?.Count ?? 0;
+        private int MachinesN => Datos?.Select(d => d.MaquinaId).Distinct().Count() ?? 0;
+        private int Umbral48 => (int)Math.Round(UmbralHoras);
+
+        // Format (es-CL: dot thousands separator, matches the template)
+        private static readonly System.Globalization.NumberFormatInfo Nfi =
+            new() { NumberGroupSeparator = ".", NumberDecimalDigits = 0 };
+        private static string Money(decimal n) => "$" + Math.Round(n).ToString("N0", Nfi);
+        private static string FmtFecha(DateTime? dt) => dt.HasValue ? dt.Value.ToString("dd/MM HH:mm") : "—";
+
+        // View models the markup binds to
+        private record RowVm(string Producto, string MaqSlot, int Stock, int Cap, string UltVenta, int Dias, string Vel, string Perdido, string Est);
+        private record TlVm(int Rank, string Name, string MaqText, int Pct, string Color, int Dias);
+        private record BarVm(string Val, int Hpct, string Col, string ColBg, string Day);
+
+        private static string SevColor(string est) =>
+            est == "critico" ? "var(--signal-danger)" : (est == "dead" ? "var(--ink-500)" : "var(--signal-warning)");
+
+        private static string EstadoSlot(StockoutAnalysisDto d) =>
+            d.EsDeadSlot ? "dead" : (d.NivelAlerta is "Crítico" or "Alto" ? "critico" : "alerta");
+        private static string EstadoProducto(StockoutProductoDto p) =>
+            p.NivelAlerta is "Crítico" or "Alto" ? "critico" : "alerta";
+
+        private List<StockoutProductoDto> KpiProductos => Datos == null ? new() : DatosAgrupados;
+
+        private List<RowVm> Rows
+        {
+            get
+            {
+                if (Datos == null) return new();
+                if (verAgrupado)
+                {
+                    return DatosAgrupados.Select(p => new RowVm(
+                        p.ProductoNombre,
+                        $"{p.Maquinas.Count} máq · {p.CantidadTotalSlots} slot{(p.CantidadTotalSlots > 1 ? "s" : "")}",
+                        Math.Max(0, p.StockInicialTotal - p.CantidadVendidaTotal),
+                        p.StockInicialTotal,
+                        FmtFecha(p.UltimaVenta),
+                        (int)Math.Round(p.DiasSinStock),
+                        p.VelocidadDiaria.ToString("0.0"),
+                        p.GananciaPerdidaEstimada > 0 ? Money(p.GananciaPerdidaEstimada) : "—",
+                        EstadoProducto(p))).ToList();
+                }
+                return DatosFiltrados.Select(d => new RowVm(
+                    d.ProductoNombre,
+                    $"{d.MaquinaNombre} · {d.NumeroSlot}",
+                    d.StockActual,
+                    d.StockInicial,
+                    FmtFecha(d.UltimaVenta),
+                    (int)Math.Round(d.DiasSinStock),
+                    d.VelocidadDiaria.ToString("0.0"),
+                    d.GananciaPerdidaEstimada > 0 ? Money(d.GananciaPerdidaEstimada) : "—",
+                    EstadoSlot(d))).ToList();
+            }
+        }
+
+        // KPIs (grouped by product, over the filtered set)
+        private int KCritico => KpiProductos.Count(p => EstadoProducto(p) == "critico");
+        private int KAlerta => KpiProductos.Count;
+        private string KPerdido => Money(KpiProductos.Sum(p => p.DineroPerdidoEstimado));
+        private string KGanancia => Money(KpiProductos.Sum(p => p.GananciaPerdidaEstimada));
+        private StockoutProductoDto? Worst =>
+            KpiProductos.OrderByDescending(p => p.GananciaPerdidaEstimada).ThenByDescending(p => p.DiasSinStock).FirstOrDefault();
+        private string KWorstName => Worst?.ProductoNombre ?? "—";
+        private string KWorstMeta => Worst == null ? "—" : $"{Worst.MaquinasResumen} · {(int)Math.Round(Worst.DiasSinStock)} días sin stock";
+
+        private List<TlVm> Timeline
+        {
+            get
+            {
+                var prods = KpiProductos;
+                if (prods.Count == 0) return new();
+                var maxDias = Math.Max(prods.Max(p => p.DiasSinStock), 1);
+                return prods.OrderByDescending(p => p.DiasSinStock).Take(6)
+                    .Select((p, i) => new TlVm(
+                        i + 1, p.ProductoNombre, $"{p.Maquinas.Count} máq",
+                        (int)Math.Round(p.DiasSinStock / maxDias * 100),
+                        SevColor(EstadoProducto(p)), (int)Math.Round(p.DiasSinStock)))
+                    .ToList();
+            }
+        }
+
+        // Selection + daily bars
+        private string SelName
+        {
+            get
+            {
+                var names = KpiProductos.Select(p => p.ProductoNombre).ToList();
+                if (_sel != null && names.Contains(_sel)) return _sel;
+                return names.FirstOrDefault() ?? "—";
+            }
+        }
+        private StockoutProductoDto? SelP => KpiProductos.FirstOrDefault(p => p.ProductoNombre == SelName);
+        private int SelDias => (int)Math.Round(SelP?.DiasSinStock ?? 0);
+        private string SelPerdido => Money(SelP?.GananciaPerdidaEstimada ?? 0);
+        private string SelMeta => SelP == null ? "—" : $"{SelP.Maquinas.Count} máq · {SelP.CantidadTotalSlots} slot{(SelP.CantidadTotalSlots > 1 ? "s" : "")}";
+        private List<VmSelect.VmSelectOption> ProdOptions =>
+            KpiProductos.Select(p => new VmSelect.VmSelectOption(p.ProductoNombre, p.ProductoNombre)).ToList();
+
+        private List<BarVm> Bars
+        {
+            get
+            {
+                const int days = 12;
+                var name = SelName;
+                var fechas = (Datos ?? new())
+                    .Where(d => d.ProductoNombre == name)
+                    .SelectMany(d => d.FechasVentas)
+                    .ToList();
+                var end = FechaFin.Date;
+                var labels = new List<DateTime>();
+                for (int i = 0; i < days; i++) labels.Add(end.AddDays(-(days - 1 - i)));
+                var counts = labels.Select(day => fechas.Count(f => f.Date == day)).ToList();
+                var maxV = Math.Max(counts.Count > 0 ? counts.Max() : 1, 1);
+                return counts.Select((v, i) => new BarVm(
+                    v == 0 ? "·" : v.ToString(),
+                    v == 0 ? 3 : Math.Max(6, (int)Math.Round((double)v / maxV * 100)),
+                    v == 0 ? "var(--signal-danger)" : "var(--ink-900)",
+                    v == 0 ? "rgba(220,53,69,0.08)" : "transparent",
+                    labels[i].Day.ToString("D2"))).ToList();
             }
         }
 

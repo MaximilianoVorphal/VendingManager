@@ -4,7 +4,9 @@
 @* =============================================================================
    Quiebres de Stock — port visual fiel de templates/quiebres-de-stock/
    QuiebresDeStock.dc.html (VendingManager Design System, lenguaje industrial v3).
-   Solo visual: la data es la mock del template, sin cablear a la API todavía.
+   Data real: cableada al backend vía el partial StockoutDashboard.razor.cs
+   (HttpClient + stockout-analysis / TemplateRecarga/{id}/analyze). Un adapter
+   en el code-behind mapea Datos/DatosAgrupados a los view-models del markup.
    Layout sin scroll de página (ruta fullscreen en MainLayout); el scroll vive
    dentro de la tabla y el aside. Estilos inline con var(--token) copiados del
    template; el bloque <style> cubre keyframes, hover y responsive.
@@ -44,6 +46,13 @@
         </div>
     </div>
 
+    @if (!string.IsNullOrEmpty(MensajeError))
+    {
+        <div style="flex-shrink:0;border:2px solid var(--signal-danger);background:#fff0f1;color:var(--signal-danger);font-family:var(--font-mono);font-weight:700;font-size:0.68rem;text-transform:uppercase;letter-spacing:0.4px;padding:0.5rem 0.8rem;display:flex;align-items:center;gap:8px;">
+            <i class="bi bi-exclamation-octagon-fill"></i><span>@MensajeError</span>
+        </div>
+    }
+
     <!-- ===== Barra de comando ===== -->
     <div style="flex-shrink:0;border:2px solid var(--ink-900);background:var(--paper-50);box-shadow:var(--shadow-card);padding:0.55rem 0.85rem;">
         <div class="qs-cmd-row" style="display:flex;gap:12px;align-items:flex-end;">
@@ -75,7 +84,7 @@
                 <input type="number" value="@_umbral" @onchange="OnUmbralChanged" style="font-family:var(--font-mono);font-size:0.85rem;font-weight:700;border:2px solid var(--ink-900);border-radius:0;background:var(--paper-0);padding:0.42rem 0.6rem;outline:none;width:100%;" />
             </div>
             <div style="flex:1.4;min-width:200px;">
-                <VmButton Variant="danger" Icon="bi-radar" Block="true" Width="100%">Analizar por template</VmButton>
+                <VmButton Variant="danger" Icon="bi-radar" Block="true" Width="100%" OnClick="CargarDatosPorTemplate">Analizar por template</VmButton>
             </div>
         </div>
     </div>
@@ -205,7 +214,15 @@
                         </tr>
                     </tfoot>
                 </table>
-                @if (Rows.Count == 0)
+                @if (Datos == null)
+                {
+                    <div style="padding:34px 16px;text-align:center;font-family:var(--font-mono);color:var(--text-muted);">
+                        <i class="bi bi-radar" style="font-size:1.6rem;color:var(--ink-500);"></i>
+                        <div style="margin-top:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;font-size:0.8rem;color:var(--ink-900);">Sin análisis todavía</div>
+                        <div style="margin-top:4px;font-size:0.66rem;">Elegí un template. Ejecutá el análisis para ver los quiebres.</div>
+                    </div>
+                }
+                else if (Rows.Count == 0)
                 {
                     <div style="padding:34px 16px;text-align:center;font-family:var(--font-mono);color:var(--text-muted);">
                         <i class="bi bi-check-circle-fill" style="font-size:1.6rem;color:var(--signal-success);"></i>
@@ -277,250 +294,3 @@
         </aside>
     </div>
 </div>
-
-@code {
-    // ── Estado de UI ──────────────────────────────────────────────────────────
-    private string _template = "0";
-    private string _maquina = "0";
-    private int _umbral = 24;
-    private bool _soloDead = false;
-    private bool _soloQuiebres = true;
-    private bool _agrupar = true;
-    private string? _sel;
-
-    private void OnUmbralChanged(ChangeEventArgs e)
-    {
-        if (int.TryParse(e.Value?.ToString(), out var v)) _umbral = Math.Max(1, v);
-    }
-
-    // ── Data mock (del template QuiebresDeStock.dc.html) ───────────────────────
-    // [ maq, slot, producto, stock, cap, vendido, ultVenta, dias, vel, perdido ]
-    private record Raw(string Maq, string Slot, string Producto, int Stock, int Cap, int Vendido, string UltVenta, int Dias, double Vel, int Perdido);
-
-    private static readonly Raw[] DATA =
-    [
-        new("0023", "A2", "Coca Cola 580cc",      0, 8,  206, "22/06 14:20", 6, 6.4, 48200),
-        new("0023", "B4", "Score Gorila 473cc",   0, 6,  66,  "24/06 09:10", 4, 2.1, 21300),
-        new("0012", "C1", "Lays XS 22g",          1, 6,  36,  "27/06 18:05", 1, 1.2, 4200),
-        new("0012", "D3", "Papas Lays Original",  0, 6,  88,  "23/06 11:40", 5, 2.8, 18600),
-        new("0033", "A1", "Snickers",             2, 8,  52,  "28/06 07:30", 0, 1.6, 0),
-        new("0023", "E2", "Limón Soda 500cc",     0, 8,  24,  "25/06 16:00", 3, 0.9, 9100),
-        new("0047", "C5", "Agua Mineral 500cc",   0, 12, 0,   "—",           9, 0.0, 0),
-        new("0033", "B7", "Galletas Tritón",      0, 9,  41,  "26/06 13:15", 2, 1.4, 6800),
-        new("0012", "F1", "Red Bull 250cc",       1, 8,  16,  "28/06 10:00", 0, 0.7, 0),
-        new("0047", "D2", "Doritos Queso",        0, 6,  11,  "21/06 19:30", 8, 0.5, 14200),
-        new("0023", "G3", "Trident Menta",        0, 10, 0,   "—",          12, 0.0, 0),
-        new("0033", "C2", "Super 8",              0, 8,  28,  "24/06 20:10", 4, 1.1, 7600),
-        new("0012", "H4", "Gatorade",             2, 8,  16,  "28/06 08:45", 0, 0.6, 0),
-        new("0047", "A3", "Kem Piña 500cc",       0, 8,  24,  "23/06 12:00", 5, 0.8, 11400),
-    ];
-
-    private const int AnalizadosN = 28;
-
-    private static readonly List<VmSelect.VmSelectOption> TemplateOptions =
-    [
-        new("0", "aasa (1 máq.)"),
-        new("1", "Planograma Snack v3 (4 máq.)"),
-        new("2", "Verano — Bebidas (6 máq.)"),
-    ];
-
-    private static readonly List<VmSelect.VmSelectOption> MaquinaOptions =
-    [
-        new("0", ":: Todas las máquinas ::"),
-        new("0023", "Máquina 2410280023 Snack (28/06 08:00)"),
-        new("0012", "Máquina 2410280012 Snack (28/06 07:40)"),
-        new("0033", "Máquina 2410280033 Snack (27/06 19:10)"),
-        new("0047", "Máquina 2410280047 Snack (28/06 09:25)"),
-    ];
-
-    // ── Formato (es-CL: punto separador de miles) ──────────────────────────────
-    private static readonly System.Globalization.NumberFormatInfo Nfi = new() { NumberGroupSeparator = ".", NumberDecimalDigits = 0 };
-    private static string Money(double n) => "$" + Math.Round(n).ToString("N0", Nfi);
-
-    // ── View models ────────────────────────────────────────────────────────────
-    private record RowVm(string Producto, string MaqSlot, int Stock, int Cap, string UltVenta, int Dias, string Vel, string Perdido, string Est);
-    private record TlVm(int Rank, string Name, string MaqText, int Pct, string Color, int Dias);
-    private record BarVm(string Val, int Hpct, string Col, string ColBg, string Day);
-    private sealed class Prod
-    {
-        public string Name = "";
-        public int Dias;
-        public double Vel;
-        public int Perdido;
-        public int Vendido;
-        public HashSet<string> Maqs = new();
-        public int Slots;
-        public string Est = "alerta";
-        public string Ult = "";
-    }
-
-    private int UmbralDias => Math.Max(1, (int)Math.Round(_umbral / 24.0));
-    private int Umbral48 => UmbralDias * 24;
-    private int MachinesN => DATA.Select(r => r.Maq).Distinct().Count();
-
-    private string Estado(Raw r)
-    {
-        if (r.Vendido == 0) return "dead";
-        if (r.Stock == 0 && r.Dias >= UmbralDias) return "critico";
-        return "alerta";
-    }
-
-    private static string SevColor(string est) =>
-        est == "critico" ? "var(--signal-danger)" : (est == "dead" ? "var(--ink-500)" : "var(--signal-warning)");
-
-    // Slots base con estado calculado
-    private IEnumerable<(Raw r, string est)> Base => DATA.Select(r => (r, Estado(r)));
-
-    // KPIs
-    private int KCritico => Base.Count(x => x.est == "critico");
-    private int KAlerta => DATA.Length;
-    private int TotPerdido => DATA.Sum(r => r.Perdido);
-    private string KPerdido => Money(TotPerdido);
-    private string KGanancia => Money(TotPerdido * 0.38);
-    private Raw Worst => DATA.OrderByDescending(r => r.Perdido).ThenByDescending(r => r.Dias).First();
-    private string KWorstName => Worst.Producto;
-    private string KWorstMeta => $"Máq {Worst.Maq} · {Worst.Dias} días sin stock";
-
-    // Mapa por producto (para timeline y selección)
-    private Dictionary<string, Prod> ProdMap
-    {
-        get
-        {
-            var map = new Dictionary<string, Prod>();
-            var order = new Dictionary<string, int> { ["critico"] = 0, ["dead"] = 1, ["alerta"] = 2 };
-            foreach (var (r, est) in Base)
-            {
-                if (!map.TryGetValue(r.Producto, out var p))
-                {
-                    p = new Prod { Name = r.Producto, Ult = r.UltVenta, Est = est };
-                    map[r.Producto] = p;
-                }
-                p.Dias = Math.Max(p.Dias, r.Dias);
-                p.Vel += r.Vel; p.Perdido += r.Perdido; p.Vendido += r.Vendido;
-                p.Maqs.Add(r.Maq); p.Slots += 1;
-                if (order[est] < order[p.Est]) p.Est = est;
-            }
-            return map;
-        }
-    }
-
-    private List<TlVm> Timeline
-    {
-        get
-        {
-            var prods = ProdMap.Values.ToList();
-            var maxDias = Math.Max(prods.Count > 0 ? prods.Max(p => p.Dias) : 1, 1);
-            return prods.OrderByDescending(p => p.Dias).Take(6)
-                .Select((p, i) => new TlVm(
-                    i + 1, p.Name, $"{p.Maqs.Count} máq",
-                    (int)Math.Round((double)p.Dias / maxDias * 100), SevColor(p.Est), p.Dias))
-                .ToList();
-        }
-    }
-
-    private List<RowVm> Rows
-    {
-        get
-        {
-            var view = Base.AsEnumerable();
-            if (_maquina != "0") view = view.Where(x => x.r.Maq == _maquina);
-            if (_soloQuiebres) view = view.Where(x => x.r.Stock == 0);
-            if (_soloDead) view = view.Where(x => x.r.Vendido == 0);
-
-            List<RowVm> display;
-            if (_agrupar)
-            {
-                var order = new Dictionary<string, int> { ["critico"] = 0, ["dead"] = 1, ["alerta"] = 2 };
-                var g = new Dictionary<string, (int stock, int cap, int vendido, int dias, double vel, int perdido, HashSet<string> maqs, int slots, string ult, string est)>();
-                foreach (var (r, est) in view)
-                {
-                    if (!g.TryGetValue(r.Producto, out var p))
-                        p = (0, 0, 0, 0, 0, 0, new HashSet<string>(), 0, "", est);
-                    p.stock += r.Stock; p.cap += r.Cap; p.vendido += r.Vendido;
-                    p.dias = Math.Max(p.dias, r.Dias); p.vel += r.Vel; p.perdido += r.Perdido;
-                    p.maqs.Add(r.Maq); p.slots += 1;
-                    if (order[est] < order[p.est]) p.est = est;
-                    if (r.UltVenta != "—" && string.Compare(r.UltVenta, p.ult, StringComparison.Ordinal) > 0) p.ult = r.UltVenta;
-                    g[r.Producto] = p;
-                }
-                display = g.Select(kv => new RowVm(
-                    kv.Key,
-                    $"{kv.Value.maqs.Count} máq · {kv.Value.slots} slot{(kv.Value.slots > 1 ? "s" : "")}",
-                    kv.Value.stock, kv.Value.cap,
-                    string.IsNullOrEmpty(kv.Value.ult) ? "—" : kv.Value.ult,
-                    kv.Value.dias, kv.Value.vel.ToString("0.0"),
-                    kv.Value.perdido > 0 ? Money(kv.Value.perdido) : "—",
-                    kv.Value.est)).ToList();
-            }
-            else
-            {
-                display = view.Select(x => new RowVm(
-                    x.r.Producto, $"{x.r.Maq} · {x.r.Slot}", x.r.Stock, x.r.Cap,
-                    x.r.UltVenta, x.r.Dias, x.r.Vel.ToString("0.0"),
-                    x.r.Perdido > 0 ? Money(x.r.Perdido) : "—", x.est)).ToList();
-            }
-            return display.OrderByDescending(d => ParseMoney(d.Perdido)).ThenByDescending(d => d.Dias).ToList();
-        }
-    }
-
-    private static int ParseMoney(string s) =>
-        s == "—" ? 0 : int.Parse(new string(s.Where(char.IsDigit).ToArray()));
-
-    // ── Selección + gráfico de ventas diarias ──────────────────────────────────
-    private string SelName
-    {
-        get
-        {
-            var name = _sel ?? Worst.Producto;
-            return ProdMap.ContainsKey(name) ? name : Worst.Producto;
-        }
-    }
-
-    private Prod SelP => ProdMap[SelName];
-    private int SelDias => SelP.Dias;
-    private string SelPerdido => Money(SelP.Perdido);
-    private string SelMeta => $"{SelP.Maqs.Count} máq · {SelP.Slots} slot{(SelP.Slots > 1 ? "s" : "")}";
-
-    private List<VmSelect.VmSelectOption> ProdOptions =>
-        ProdMap.Values.Select(p => new VmSelect.VmSelectOption(p.Name, p.Name)).ToList();
-
-    private static int Hash(string s)
-    {
-        int h = 0;
-        foreach (var c in s) h = unchecked(h * 31 + c);
-        return h;
-    }
-
-    private List<BarVm> Bars
-    {
-        get
-        {
-            const int days = 12;
-            var labels = new List<string>();
-            var start = new DateTime(2026, 6, 28);
-            for (int i = 0; i < days; i++)
-                labels.Add(start.AddDays(-(days - 1 - i)).Day.ToString("D2"));
-
-            var selP = SelP;
-            var velP = selP.Vel > 0 ? selP.Vel : 1;
-            var series = new List<(int v, bool o)>();
-            for (int i = 0; i < days; i++)
-            {
-                var ago = days - 1 - i;
-                if (ago < selP.Dias) series.Add((0, true));
-                else
-                {
-                    var rr = 0.55 + Math.Abs(Math.Sin(Hash(SelName) + i * 1.7)) * 0.9;
-                    series.Add((Math.Max(1, (int)Math.Round(velP * rr)), false));
-                }
-            }
-            var maxV = Math.Max(series.Count > 0 ? series.Max(s => s.v) : 1, 1);
-            return series.Select((s, i) => new BarVm(
-                s.o ? "·" : s.v.ToString(),
-                s.o ? 3 : Math.Max(6, (int)Math.Round((double)s.v / maxV * 100)),
-                s.o ? "var(--signal-danger)" : "var(--ink-900)",
-                s.o ? "rgba(220,53,69,0.08)" : "transparent",
-                labels[i])).ToList();
-        }
-    }
-}
