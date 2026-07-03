@@ -2,13 +2,10 @@
 @attribute [Authorize]
 
 @* =============================================================================
-   Informe de Compras (reposición sugerida) — port visual fiel de
-   templates/informe-compras/InformeCompras.dc.html (VendingManager Design
-   System, lenguaje industrial v3). Solo visual: la data es la mock del
-   template, sin cablear a la API todavía. Layout sin scroll de página (ruta
-   fullscreen en MainLayout); el scroll vive dentro de la tabla. Estilos inline
-   con var(--token) copiados del template; el bloque <style> cubre keyframes,
-   hover y responsive.
+   Informe de Compras (reposición sugerida). Markup industrial-v3; la lógica y
+   el fetch viven en PurchaseReport.razor.cs. Data real desde
+   api/Ventas/purchase-suggestion. Layout sin scroll de página (ruta fullscreen
+   en MainLayout); el scroll vive dentro de la tabla.
    ============================================================================= *@
 
 <PageTitle>Informe de Compras</PageTitle>
@@ -67,11 +64,18 @@
                 <input type="number" min="1" max="120" value="@_dias" @onchange="OnDiasChanged" style="font-family:var(--font-mono);font-size:0.85rem;font-weight:700;border:2px solid var(--ink-900);border-radius:0;background:var(--paper-0);padding:0.42rem 0.6rem;outline:none;width:100%;" />
             </div>
             <div style="display:flex;gap:9px;align-items:flex-end;">
-                <VmButton Variant="dark" Icon="bi-calculator-fill" Width="150px">Calcular</VmButton>
-                <VmButton Variant="dark" Icon="bi-file-earmark-excel-fill" Width="180px" AdditionalAttributes="ExcelStyle">Exportar Excel</VmButton>
+                <VmButton Variant="dark" Icon="bi-calculator-fill" Width="150px" OnClick="Calcular" Disabled="_loading">@(_loading ? "Calculando…" : "Calcular")</VmButton>
+                <VmButton Variant="dark" Icon="bi-file-earmark-excel-fill" Width="180px" OnClick="Exportar" Disabled="_exporting" AdditionalAttributes="ExcelStyle">@(_exporting ? "Exportando…" : "Exportar Excel")</VmButton>
             </div>
         </div>
     </div>
+
+    @if (_error != null)
+    {
+        <div style="flex-shrink:0;border:2px solid var(--signal-danger);background:var(--signal-danger);color:#fff;font-family:var(--font-mono);font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;padding:0.55rem 0.95rem;">
+            <i class="bi bi-exclamation-triangle-fill"></i> @_error
+        </div>
+    }
 
     <!-- ===== KPIs ===== -->
     <div class="ic-kpis" style="flex-shrink:0;display:grid;grid-template-columns:repeat(4,1fr);gap:11px;">
@@ -86,14 +90,14 @@
             <div style="font-family:var(--font-mono);font-size:0.58rem;text-transform:uppercase;letter-spacing:0.4px;opacity:.8;">suma del sugerido</div>
         </div>
         <div style="border:2px solid var(--ink-900);background:var(--paper-0);color:var(--ink-900);box-shadow:var(--shadow-card);padding:0.7rem 0.9rem;">
-            <div style="font-family:var(--font-mono);font-weight:700;font-size:0.62rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);">Inversión estimada</div>
-            <div style="font-family:var(--font-sans);font-weight:700;font-size:2rem;letter-spacing:-2px;line-height:1;margin:2px 0 3px;">@KInversion</div>
-            <div style="font-family:var(--font-mono);font-size:0.58rem;text-transform:uppercase;letter-spacing:0.4px;color:var(--text-muted);">a costo de bodega</div>
+            <div style="font-family:var(--font-mono);font-weight:700;font-size:0.62rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);">Universo analizado</div>
+            <div style="font-family:var(--font-sans);font-weight:700;font-size:2rem;letter-spacing:-2px;line-height:1;margin:2px 0 3px;">@UniversoN</div>
+            <div style="font-family:var(--font-mono);font-size:0.58rem;text-transform:uppercase;letter-spacing:0.4px;color:var(--text-muted);">productos evaluados</div>
         </div>
         <div style="border:2px solid var(--ink-900);background:var(--signal-success);color:#fff;box-shadow:var(--shadow-card);padding:0.7rem 0.9rem;">
             <div style="font-family:var(--font-mono);font-weight:700;font-size:0.62rem;text-transform:uppercase;letter-spacing:1px;opacity:.92;">Cubiertos por bodega</div>
             <div style="font-family:var(--font-sans);font-weight:700;font-size:2rem;letter-spacing:-2px;line-height:1;margin:2px 0 3px;">@KCubiertos</div>
-            <div style="font-family:var(--font-mono);font-size:0.58rem;text-transform:uppercase;letter-spacing:0.4px;opacity:.85;">déficit sin compra</div>
+            <div style="font-family:var(--font-mono);font-size:0.58rem;text-transform:uppercase;letter-spacing:0.4px;opacity:.85;">sin compra necesaria</div>
         </div>
     </div>
 
@@ -122,10 +126,10 @@
             <span style="background:var(--ink-900);color:#fff;font-weight:700;font-size:0.56rem;letter-spacing:0.5px;padding:3px 7px;text-transform:uppercase;">Fórmula</span>
             <span style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;">
                 <strong style="color:var(--signal-danger);">Sugerido</strong><span style="color:var(--text-muted);">=</span>
-                <span>Déficit en máquinas</span><span style="color:var(--text-muted);">+</span>
-                <span>Ventas proyectadas (@_dias d)</span><span style="color:var(--text-muted);">−</span>
+                <span>Ventas del período (@_dias d)</span><span style="color:var(--text-muted);">−</span>
+                <span>Stock en máquinas</span><span style="color:var(--text-muted);">−</span>
                 <span>Stock en bodega</span>
-                <span style="color:var(--text-muted);">· nunca negativo (“—” = bodega cubre el déficit)</span>
+                <span style="color:var(--text-muted);">· nunca negativo (“—” = bodega y máquinas cubren la demanda)</span>
             </span>
         </div>
 
@@ -137,10 +141,9 @@
                         <th class="ic-th" style="text-align:center;padding:8px 10px;font-weight:700;background:var(--ink-700);">En máq.</th>
                         <th class="ic-th ic-sortable" @onclick="@(() => SortBy("prod"))" style="text-align:left;padding:8px 12px;font-weight:700;background:var(--ink-700);">Producto@(Caret("prod"))</th>
                         <th class="ic-th ic-sortable" @onclick="@(() => SortBy("ventas"))" style="text-align:right;padding:8px 12px;font-weight:700;background:var(--ink-700);">Ventas @_dias d@(Caret("ventas"))</th>
-                        <th class="ic-th ic-sortable" @onclick="@(() => SortBy("deficit"))" style="text-align:right;padding:8px 12px;font-weight:700;background:var(--ink-700);">Déficit máq.@(Caret("deficit"))</th>
+                        <th class="ic-th ic-sortable" @onclick="@(() => SortBy("stockmaq"))" style="text-align:right;padding:8px 12px;font-weight:700;background:var(--ink-700);">Stock máq.@(Caret("stockmaq"))</th>
                         <th class="ic-th ic-sortable" @onclick="@(() => SortBy("bodega"))" style="text-align:right;padding:8px 12px;font-weight:700;background:var(--ink-700);">Stock bodega@(Caret("bodega"))</th>
-                        <th class="ic-th ic-sortable" @onclick="@(() => SortBy("sug"))" style="text-align:right;padding:8px 12px;font-weight:700;background:var(--ink-700);">Sugerido@(Caret("sug"))</th>
-                        <th class="ic-th ic-sortable" @onclick="@(() => SortBy("inv"))" style="text-align:right;padding:8px 14px;font-weight:700;background:var(--ink-700);">Inversión@(Caret("inv"))</th>
+                        <th class="ic-th ic-sortable" @onclick="@(() => SortBy("sug"))" style="text-align:right;padding:8px 14px;font-weight:700;background:var(--ink-700);">Sugerido@(Caret("sug"))</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -159,9 +162,9 @@
                             </td>
                             <td style="padding:6px 12px;font-family:var(--font-sans);font-weight:600;font-size:0.84rem;text-transform:uppercase;letter-spacing:-0.2px;">@r.Prod</td>
                             <td style="padding:6px 12px;text-align:right;font-family:var(--font-mono);font-weight:700;font-size:0.82rem;">@r.Ventas</td>
-                            <td style="padding:6px 12px;text-align:right;font-family:var(--font-mono);font-weight:700;font-size:0.8rem;color:var(--signal-danger);">@r.Deficit</td>
+                            <td style="padding:6px 12px;text-align:right;font-family:var(--font-mono);font-weight:700;font-size:0.8rem;color:var(--text-secondary);">@r.StockMaq</td>
                             <td style="padding:6px 12px;text-align:right;font-family:var(--font-mono);font-weight:700;font-size:0.8rem;color:var(--text-secondary);">@r.Bodega</td>
-                            <td style="padding:6px 12px;text-align:right;">
+                            <td style="padding:6px 14px;text-align:right;">
                                 @if (r.SugPos)
                                 {
                                     <span style="font-family:var(--font-mono);font-weight:700;font-size:0.92rem;color:var(--signal-danger);">@r.Sug</span>
@@ -171,28 +174,24 @@
                                     <span style="font-family:var(--font-mono);font-weight:700;font-size:0.82rem;color:var(--text-muted);">—</span>
                                 }
                             </td>
-                            <td style="padding:6px 14px;text-align:right;font-family:var(--font-mono);font-weight:700;font-size:0.78rem;">
-                                @if (r.SugPos)
-                                {
-                                    <span>@r.Inv</span>
-                                }
-                                else
-                                {
-                                    <span style="color:var(--text-muted);">—</span>
-                                }
-                            </td>
                         </tr>
                     }
                 </tbody>
                 <tfoot style="position:sticky;bottom:0;z-index:2;">
                     <tr style="background:var(--ink-900);color:#fff;font-family:var(--font-mono);font-weight:700;text-transform:uppercase;font-size:0.74rem;letter-spacing:0.4px;">
-                        <td colspan="5" style="padding:9px 12px;">Total orden · @RowReponer productos</td>
-                        <td style="text-align:right;padding:9px 12px;color:#ff7a85;">@TotUnidades</td>
-                        <td style="text-align:right;padding:9px 14px;">@TotInversion</td>
+                        <td colspan="4" style="padding:9px 12px;">Total orden · @RowReponer productos</td>
+                        <td colspan="2" style="text-align:right;padding:9px 14px;color:#ff7a85;">@TotUnidades unidades</td>
                     </tr>
                 </tfoot>
             </table>
-            @if (Rows.Count == 0)
+            @if (_loading)
+            {
+                <div style="padding:34px 16px;text-align:center;font-family:var(--font-mono);color:var(--text-muted);">
+                    <i class="bi bi-arrow-repeat" style="font-size:1.6rem;"></i>
+                    <div style="margin-top:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;font-size:0.8rem;color:var(--ink-900);">Calculando…</div>
+                </div>
+            }
+            else if (Rows.Count == 0)
             {
                 <div style="padding:34px 16px;text-align:center;font-family:var(--font-mono);color:var(--text-muted);">
                     <i class="bi bi-check-circle-fill" style="font-size:1.6rem;color:var(--signal-success);"></i>
@@ -203,138 +202,3 @@
         </div>
     </section>
 </div>
-
-@code {
-    // ── Estado de UI ──────────────────────────────────────────────────────────
-    private string _maquina = "0";
-    private int _dias = 30;
-    private bool _soloMaq = false;
-    private bool _soloSug = true;
-    private string _sortKey = "sug";
-    private string _sortDir = "desc";
-
-    private void OnDiasChanged(ChangeEventArgs e)
-    {
-        if (int.TryParse(e.Value?.ToString(), out var v)) _dias = Math.Min(120, Math.Max(1, v));
-    }
-
-    private void SortBy(string key)
-    {
-        if (_sortKey == key) _sortDir = _sortDir == "desc" ? "asc" : "desc";
-        else { _sortKey = key; _sortDir = key == "prod" ? "asc" : "desc"; }
-    }
-
-    private string Caret(string k) => _sortKey == k ? (_sortDir == "desc" ? " ▼" : " ▲") : "";
-
-    // Estilo verde del botón Exportar Excel (equivale al excelBtn.style del template)
-    private static readonly Dictionary<string, object> ExcelStyle = new()
-    {
-        ["style"] = "background:var(--signal-success);color:#fff;border-color:var(--ink-900);"
-    };
-
-    // ── Data mock (del template InformeCompras.dc.html) ────────────────────────
-    // [ producto, enMaq, ventas(30d), deficitMaq(negativo), stockBodega, costoUnit ]
-    private record Raw(string Prod, bool EnMaq, int Ventas30, int Deficit, int Bodega, int Costo);
-
-    private static readonly Raw[] DATA =
-    [
-        new("Lays XS 22 grs", true, 34, -38, 0, 380),
-        new("Maní Confitado", true, 25, -28, 0, 320),
-        new("Natur Arroz", true, 20, -29, 0, 340),
-        new("Choco chips nutra bien", true, 20, -23, 0, 360),
-        new("Maní Salado", true, 21, -21, 0, 300),
-        new("Brownie Chip de 62g", true, 18, -22, 9, 410),
-        new("Queque Marmol nutra bien", true, 18, -19, 6, 390),
-        new("Maní Chocolo", true, 12, -12, 0, 310),
-        new("Leche Colun 200ml", true, 17, -24, 18, 450),
-        new("Maní Japonés", true, 9, -12, 0, 330),
-        new("Ramitas Quemaditas", true, 19, -22, 8, 300),
-        new("Galleta Morocha", true, 13, -15, 0, 250),
-        new("Super 8", true, 28, -24, 40, 260),
-        new("Doritos Queso", true, 11, -14, 5, 430),
-        new("Red Bull 250cc", false, 6, -10, 0, 900),
-        new("Nestlé Chandelle", false, 14, -16, 0, 470),
-        new("Gatorade", true, 16, -18, 12, 620),
-        new("Pinguinos", true, 31, -28, 60, 280),
-        new("Trident Menta", true, 31, -20, 120, 240),
-        new("Cachantun (Light/Normal)", true, 35, -42, 300, 410),
-        new("Agua Mineral 500cc", true, 22, -26, 210, 360),
-        new("Score Gorila Lata 473cc", true, 67, -70, 418, 640),
-        new("Coca Cola Lata", true, 150, -154, 870, 520),
-        new("Coca Cola 580cc", true, 194, -238, 1716, 690),
-    ];
-
-    private const int MachinesN = 4;
-
-    private static readonly List<VmSelect.VmSelectOption> MaquinaOptions =
-    [
-        new("0", ":: Consolidado global ::"),
-        new("1", "Máquina 2410280023 Snack"),
-        new("2", "Máquina 2410280012 Snack"),
-        new("3", "Máquina 2410280033 Snack"),
-        new("4", "Máquina 2410280047 Café+Snack"),
-    ];
-
-    // ── Formato (es-CL) ─────────────────────────────────────────────────────────
-    private static readonly System.Globalization.NumberFormatInfo Nfi = new() { NumberGroupSeparator = ".", NumberDecimalDigits = 0 };
-    private static string Money(double n) => "$" + Math.Round(n).ToString("N0", Nfi);
-    private static string Num(double n) => Math.Round(n).ToString("N0", Nfi);
-
-    // ── Cálculo por producto (universo completo) ────────────────────────────────
-    private record Calc(string Prod, bool EnMaq, int Ventas, int Deficit, int Bodega, int Costo, int Sug, int Inv);
-
-    private double Factor => _dias / 30.0;
-    private int UniversoN => DATA.Length;
-
-    private IEnumerable<Calc> AllCalc => DATA.Select(d =>
-    {
-        var ventasProj = (int)Math.Round(d.Ventas30 * Factor);
-        var need = Math.Abs(d.Deficit) + ventasProj;
-        var sug = Math.Max(0, need - d.Bodega);
-        return new Calc(d.Prod, d.EnMaq, ventasProj, d.Deficit, d.Bodega, d.Costo, sug, sug * d.Costo);
-    });
-
-    private IEnumerable<Calc> Universe => _soloMaq ? AllCalc.Where(r => r.EnMaq) : AllCalc;
-
-    // ── KPIs ─────────────────────────────────────────────────────────────────────
-    private int KReponer => Universe.Count(r => r.Sug > 0);
-    private string KUnidades => Num(Universe.Where(r => r.Sug > 0).Sum(r => r.Sug));
-    private string KInversion => Money(Universe.Where(r => r.Sug > 0).Sum(r => (double)r.Inv));
-    private int KCubiertos => Universe.Count(r => r.Sug == 0 && r.Bodega >= Math.Abs(r.Deficit) + r.Ventas);
-
-    // ── Tabla (filtros + orden) ──────────────────────────────────────────────────
-    private record RowVm(string Prod, bool EnMaq, string Ventas, string Deficit, string Bodega, string Sug, bool SugPos, string Inv);
-
-    private List<Calc> View
-    {
-        get
-        {
-            var view = Universe.AsEnumerable();
-            if (_soloSug) view = view.Where(r => r.Sug > 0);
-
-            var dir = _sortDir == "asc" ? 1 : -1;
-            Comparison<Calc> cmp = _sortKey switch
-            {
-                "prod" => (a, b) => string.Compare(a.Prod, b.Prod, StringComparison.Ordinal) * dir,
-                "ventas" => (a, b) => (a.Ventas - b.Ventas) * dir,
-                "deficit" => (a, b) => (Math.Abs(a.Deficit) - Math.Abs(b.Deficit)) * dir,
-                "bodega" => (a, b) => (a.Bodega - b.Bodega) * dir,
-                "inv" => (a, b) => (a.Inv - b.Inv) * dir,
-                _ => (a, b) => (a.Sug - b.Sug) * dir,
-            };
-            var list = view.ToList();
-            list.Sort(cmp);
-            return list;
-        }
-    }
-
-    private List<RowVm> Rows => View.Select(r => new RowVm(
-        r.Prod, r.EnMaq, Num(r.Ventas),
-        "−" + Math.Abs(r.Deficit).ToString("N0", Nfi),
-        r.Bodega == 0 ? "0" : Num(r.Bodega),
-        Num(r.Sug), r.Sug > 0, Money(r.Inv))).ToList();
-
-    private int RowReponer => View.Count(r => r.Sug > 0);
-    private string TotUnidades => Num(View.Sum(r => r.Sug));
-    private string TotInversion => Money(View.Sum(r => (double)r.Inv));
-}
