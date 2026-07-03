@@ -35,8 +35,10 @@
     }
     .ap-page h1 { user-select: none; }
     .ap-page :is(button, select, input):focus:not(:focus-visible) { outline: none; }
+    /* Foco dibujado hacia adentro (inset) para que el control no cambie de
+       tamaño externo al recibir foco; mantiene el indicador accesible. */
     .ap-page :is(button, select, input):focus-visible {
-        outline: 2px solid var(--ink-900); outline-offset: 2px;
+        outline: none; box-shadow: inset 0 0 0 2px var(--ink-900);
     }
 </style>
 
@@ -52,19 +54,19 @@
     <!-- ===== Barra de comando ===== -->
     <div style="flex-shrink:0;border:2px solid var(--ink-900);background:var(--paper-50);box-shadow:var(--shadow-card);padding:0.55rem 1rem;margin:10px 0;">
         <div class="ap-cmd" style="display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap;">
-            <div style="min-width:240px;">
+            <div style="width:240px;flex-shrink:0;">
                 <VmSelect Label="Unidad" Value="@_unit" ValueChanged="OnUnitChanged" Options="UnitOptions" />
             </div>
-            <div style="min-width:240px;">
+            <div style="width:240px;flex-shrink:0;">
                 <VmSelect Label="Plantilla" Value="@_plantilla" ValueChanged="OnPlantillaChanged" Options="PlantillaOptions" />
             </div>
             <div style="display:flex;flex-direction:column;gap:0.35rem;">
                 <label style="font-family:var(--font-mono);font-size:0.66rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Desde</label>
-                <input type="date" value="@_desde" @onchange="e => _desde = e.Value?.ToString() ?? _desde" style="font-family:var(--font-mono);font-size:0.8rem;font-weight:700;border:2px solid var(--ink-900);border-radius:0;background:var(--paper-0);padding:0.45rem 0.6rem;outline:none;" />
+                <input type="date" value="@_desde" disabled="@FechaFijadaPorPlantilla" title="@(FechaFijadaPorPlantilla ? "Fecha determinada por la plantilla" : null)" @onchange="e => _desde = e.Value?.ToString() ?? _desde" style="font-family:var(--font-mono);font-size:0.8rem;font-weight:700;border:2px solid var(--ink-900);border-radius:0;background:@(FechaFijadaPorPlantilla ? "var(--paper-100)" : "var(--paper-0)");color:@(FechaFijadaPorPlantilla ? "var(--text-muted)" : "var(--text-primary)");padding:0.45rem 0.6rem;outline:none;cursor:@(FechaFijadaPorPlantilla ? "not-allowed" : "auto")" />
             </div>
             <div style="display:flex;flex-direction:column;gap:0.35rem;">
                 <label style="font-family:var(--font-mono);font-size:0.66rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Hasta</label>
-                <input type="date" value="@_hasta" @onchange="e => _hasta = e.Value?.ToString() ?? _hasta" style="font-family:var(--font-mono);font-size:0.8rem;font-weight:700;border:2px solid var(--ink-900);border-radius:0;background:var(--paper-0);padding:0.45rem 0.6rem;outline:none;" />
+                <input type="date" value="@_hasta" disabled="@FechaFijadaPorPlantilla" title="@(FechaFijadaPorPlantilla ? "Fecha determinada por la plantilla" : null)" @onchange="e => _hasta = e.Value?.ToString() ?? _hasta" style="font-family:var(--font-mono);font-size:0.8rem;font-weight:700;border:2px solid var(--ink-900);border-radius:0;background:@(FechaFijadaPorPlantilla ? "var(--paper-100)" : "var(--paper-0)");color:@(FechaFijadaPorPlantilla ? "var(--text-muted)" : "var(--text-primary)");padding:0.45rem 0.6rem;outline:none;cursor:@(FechaFijadaPorPlantilla ? "not-allowed" : "auto")" />
             </div>
             <div style="flex:1;min-width:160px;display:flex;justify-content:flex-end;">
                 <VmButton Variant="dark" Icon="bi-bar-chart-line-fill" Width="190px" OnClick="CargarDatos" Disabled="_cargando">@(_cargando ? "Procesando…" : "Analizar")</VmButton>
@@ -243,9 +245,10 @@
             if (_plantilla == "0" || _plantillas == null) return _maquinas;
             if (!int.TryParse(_plantilla, out var pid)) return _maquinas;
             var plantilla = _plantillas.FirstOrDefault(p => p.Id == pid);
-            if (plantilla == null) return _maquinas;
-            var termino = plantilla.Nombre.Replace("PLANTILLA ", "", StringComparison.OrdinalIgnoreCase);
-            return _maquinas.Where(m => m.Nombre.Contains(termino, StringComparison.OrdinalIgnoreCase));
+            // Cada template de recarga conoce sus máquinas por sus períodos.
+            // Acotamos el dropdown de unidades a esas máquinas reales.
+            if (plantilla?.MaquinaIds is not { Count: > 0 } maquinaIds) return _maquinas;
+            return _maquinas.Where(m => maquinaIds.Contains(m.Id));
         }
     }
 
@@ -289,8 +292,24 @@
     {
         _plantilla = value ?? "0";
         _unit = "0"; // al cambiar plantilla se resetea la unidad
+
+        // El template determina el rango de fechas: lo toma de sus períodos
+        // (primera recarga → último fin). Con "Todas" el rango vuelve a ser libre.
+        if (SelectedPlantilla is { } pl)
+        {
+            if (pl.Desde is { } d) _desde = d.ToString("yyyy-MM-dd");
+            if (pl.Hasta is { } h) _hasta = h.ToString("yyyy-MM-dd");
+        }
+
         await CargarDatos();
     }
+
+    private Plantilla? SelectedPlantilla =>
+        int.TryParse(_plantilla, out var pid) && pid > 0
+            ? _plantillas?.FirstOrDefault(p => p.Id == pid)
+            : null;
+
+    private bool FechaFijadaPorPlantilla => SelectedPlantilla is not null;
 
     private async Task ToggleIncluir()
     {
