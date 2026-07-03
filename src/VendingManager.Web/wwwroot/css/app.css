@@ -7,6 +7,15 @@ body {
     margin: 0;
 }
 
+/* Blazor <FocusOnNavigate Selector="h1"> foca el h1 en cada navegación
+   (le agrega tabindex="-1" por accesibilidad). El anillo de foco del navegador
+   sobre un heading no interactivo se ve como un recuadro raro; lo ocultamos
+   solo para elementos enfocados por programa, sin tocar el foco de controles
+   interactivos reales (botones, inputs, links). */
+[tabindex="-1"]:focus {
+    outline: none;
+}
+
 /* =========================================
    CSS CUSTOM PROPERTIES (DESIGN TOKENS)
    ========================================= */
