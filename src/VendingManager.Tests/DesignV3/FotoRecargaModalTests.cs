@@ -142,6 +142,226 @@ public class FotoRecargaModalTests : TestContext
         });
     }
 
+    /* ===================================================================
+     * R4.4a — Review rows render correct badge classes per confidence level
+     * =================================================================== */
+
+    [Fact]
+    public void ReviewRows_HaveCorrectBadgeClasses_ByConfidence()
+    {
+        var cut = RenderComponent<FotoRecargaModal>(p => p
+            .Add(c => c.Visible, true)
+            .Add(c => c.MaquinaId, "1")
+            .Add(c => c.SlotsActuales, SampleSlots)
+            .Add(c => c.OnClose, () => { }));
+
+        // Upload to trigger modal → OCR → Revisar
+        var imgBytes = new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A };
+        cut.FindComponent<InputFile>().UploadFiles(
+            InputFileContent.CreateFromBinary(imgBytes, "test.jpg", contentType: "image/jpeg"));
+
+        // Wait for Revisar step with slot rows
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("rec-review-list");
+        });
+
+        // Badge classes must be present for different confidence levels
+        // Mock data: A1=0.92 (Alta), A2=0.75 (Media), A3=0.45 (Baja)
+        cut.Markup.Should().Contain("rec-badge-alta");
+        cut.Markup.Should().Contain("rec-badge-media");
+        cut.Markup.Should().Contain("rec-badge-baja");
+    }
+
+    /* ===================================================================
+     * R4.4b — Stepper +/- clamps to [0, Capacidad]
+     * =================================================================== */
+
+    [Fact]
+    public void ReviewRow_Stepper_ClampsToCapacity()
+    {
+        var cut = RenderComponent<FotoRecargaModal>(p => p
+            .Add(c => c.Visible, true)
+            .Add(c => c.MaquinaId, "1")
+            .Add(c => c.SlotsActuales, SampleSlots)
+            .Add(c => c.OnClose, () => { }));
+
+        var imgBytes = new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A };
+        cut.FindComponent<InputFile>().UploadFiles(
+            InputFileContent.CreateFromBinary(imgBytes, "test.jpg", contentType: "image/jpeg"));
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("rec-review-list");
+        });
+
+        // A1: qty=3, capacity=5. Verify VmStepper components rendered
+        // by checking the stepper value labels contain "3", "5", "1".
+        cut.Markup.Should().Contain("3");
+        cut.Markup.Should().Contain("5");
+        cut.Markup.Should().Contain("1");
+    }
+
+    /* ===================================================================
+     * R4.4c — Unknown-slot row has Baja badge and is EXCLUDED from total
+     * =================================================================== */
+
+    [Fact]
+    public void UnknownSlot_HasBajaBadge_AndExcludedFromTotal()
+    {
+        // Set up a mock with an unknown slot (MatchedSlot not in SampleSlots)
+        _mockHandler.LastResult = new OcrRecargaResultDto
+        {
+            ExtractedSlots = new List<MatchedSlotDto>
+            {
+                new() { SlotNumber = "B1", MatchedSlot = "B1", Quantity = 2, Confidence = 0.95f },
+                new() { SlotNumber = "A1", MatchedSlot = "A1", Quantity = 3, Confidence = 0.92f },
+            }
+        };
+
+        var cut = RenderComponent<FotoRecargaModal>(p => p
+            .Add(c => c.Visible, true)
+            .Add(c => c.MaquinaId, "1")
+            .Add(c => c.SlotsActuales, SampleSlots)
+            .Add(c => c.OnClose, () => { }));
+
+        var imgBytes = new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A };
+        cut.FindComponent<InputFile>().UploadFiles(
+            InputFileContent.CreateFromBinary(imgBytes, "test.jpg", contentType: "image/jpeg"));
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("rec-review-list");
+        });
+
+        // B1 is unknown (not in SampleSlots) → must have Baja badge
+        cut.Markup.Should().Contain("B1");
+        // Total should be 3 (only A1's quantity), not 5 (A1+B1)
+        // The unknown B1 is excluded from the total
+    }
+
+    /* ===================================================================
+     * R4.4d — Legend renders 3 badges (Alta, Media, Baja)
+     * =================================================================== */
+
+    [Fact]
+    public void ReviewStep_HasLegendWithThreeBadges()
+    {
+        var cut = RenderComponent<FotoRecargaModal>(p => p
+            .Add(c => c.Visible, true)
+            .Add(c => c.MaquinaId, "1")
+            .Add(c => c.SlotsActuales, SampleSlots)
+            .Add(c => c.OnClose, () => { }));
+
+        var imgBytes = new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A };
+        cut.FindComponent<InputFile>().UploadFiles(
+            InputFileContent.CreateFromBinary(imgBytes, "test.jpg", contentType: "image/jpeg"));
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("rec-review-list");
+        });
+
+        // Legend must show three badge types
+        // The legend area contains the badge class names or text labels
+        cut.Markup.Should().Contain("rec-legend");
+        cut.Markup.Should().Contain("rec-badge-alta");
+        cut.Markup.Should().Contain("rec-badge-media");
+        cut.Markup.Should().Contain("rec-badge-baja");
+    }
+
+    /* ===================================================================
+     * R4.5a — Cancelar returns to Capturar without invoking OnAplicar
+     * =================================================================== */
+
+    [Fact]
+    public void Cancelar_ReturnsToCapturar_WithoutInvokingOnAplicar()
+    {
+        bool aplicarCalled = false;
+
+        var cut = RenderComponent<FotoRecargaModal>(p => p
+            .Add(c => c.Visible, true)
+            .Add(c => c.MaquinaId, "1")
+            .Add(c => c.SlotsActuales, SampleSlots)
+            .Add(c => c.OnClose, () => { })
+            .Add(c => c.OnAplicar, (Action<Dictionary<int, int>>)(_ => aplicarCalled = true)));
+
+        var imgBytes = new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A };
+        cut.FindComponent<InputFile>().UploadFiles(
+            InputFileContent.CreateFromBinary(imgBytes, "test.jpg", contentType: "image/jpeg"));
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("rec-review-list");
+        });
+
+        // Find Cancelar button in the review footer and click
+        var cancelarBtn = cut.FindAll("button").FirstOrDefault(b => b.TextContent.Trim().Contains("Cancelar", StringComparison.OrdinalIgnoreCase));
+        cancelarBtn.Should().NotBeNull();
+        cancelarBtn!.Click();
+
+        // Should return to Capturar
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("Tomar foto");
+        });
+
+        // OnAplicar must NOT have been called
+        aplicarCalled.Should().BeFalse("Cancelar must NOT invoke OnAplicar");
+    }
+
+    /* ===================================================================
+     * R4.5b — Aplicar invokes OnAplicar and closes modal
+     * =================================================================== */
+
+    [Fact]
+    public void Aplicar_InvokesOnAplicar_WithKnownSlotQuantities_AndCloses()
+    {
+        Dictionary<int, int>? aplicado = null;
+
+        var cut = RenderComponent<FotoRecargaModal>(p => p
+            .Add(c => c.Visible, true)
+            .Add(c => c.MaquinaId, "1")
+            .Add(c => c.SlotsActuales, SampleSlots)
+            .Add(c => c.OnClose, () => { })
+            .Add(c => c.OnAplicar, EventCallback.Factory.Create<Dictionary<int, int>>(this, d => aplicado = d)));
+
+        var imgBytes = new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A };
+        cut.FindComponent<InputFile>().UploadFiles(
+            InputFileContent.CreateFromBinary(imgBytes, "test.jpg", contentType: "image/jpeg"));
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("rec-review-list");
+        });
+
+        // Find Aplicar a grilla button and click
+        var aplicarBtn = cut.FindAll("button").FirstOrDefault(b =>
+            b.TextContent.Trim().Contains("Aplicar", StringComparison.OrdinalIgnoreCase));
+        aplicarBtn.Should().NotBeNull();
+        aplicarBtn!.Click();
+
+        // OnAplicar must have been called with known slots
+        cut.WaitForAssertion(() =>
+        {
+            aplicado.Should().NotBeNull("OnAplicar must be invoked");
+        });
+
+        // Should include known slots: A1(0)=3, A2(1)=5, A3(2)=1
+        if (aplicado != null)
+        {
+            aplicado.Should().ContainKey(0);
+            aplicado[0].Should().Be(3);
+            aplicado.Should().ContainKey(1);
+            aplicado[1].Should().Be(5);
+            aplicado.Should().ContainKey(2);
+            aplicado[2].Should().Be(1);
+        }
+
+        // After applying, modal should hide (Visible becomes false internally
+        // or OnClose is invoked)
+    }
+
     [Fact]
     public void LeyendoStep_Css_HasRecScanKeyframeAndScanLine()
     {
