@@ -327,32 +327,24 @@ public class TemplatesRecargaShellTests : TestContext
         cut.FindComponents<VmButton>().First(b => b.Markup.Contains("Abrir")).Find("button").Click();
         cut.WaitForAssertion(() => cut.Markup.Should().Contain("rec-split"));
 
-        // R1.1a: both InputFiles exist with ids and accept="image/*"
+        // R1.1a: OCR InputFile exists with id and accept="image/*"
         var ocrInputEl = cut.Find("#ocrRecargaFileInput");
         ocrInputEl.GetAttribute("accept").Should().Be("image/*");
 
-        var guiaInputEl = cut.Find("#fotoGuiaFileInput");
-        guiaInputEl.GetAttribute("accept").Should().Be("image/*");
-
         // R1.1b: Upload to OCR InputFile → handler fires (side-effect: error from mock 404)
-        var inputs = cut.FindComponents<InputFile>();
-        inputs.Count.Should().Be(2);
-
         var imgBytes = new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A }; // minimal PNG
-        inputs[0].UploadFiles(InputFileContent.CreateFromBinary(imgBytes, "test.jpg", contentType: "image/jpeg"));
+        var ocrInput = cut.FindComponent<InputFile>();
+        ocrInput.UploadFiles(InputFileContent.CreateFromBinary(imgBytes, "test.jpg", contentType: "image/jpeg"));
 
         cut.WaitForAssertion(() =>
         {
             cut.Markup.Should().Contain("Error OCR");
         });
 
-        // R1.1c: Upload to FotoGuia InputFile → handler fires (side-effect: persist error shown)
-        inputs[1].UploadFiles(InputFileContent.CreateFromBinary(imgBytes, "test.jpg", contentType: "image/jpeg"));
-
-        cut.WaitForAssertion(() =>
-        {
-            cut.Markup.Should().Contain("No se pudo guardar la foto guía");
-        });
+        // R1.1c (migrated): Subir InputFile in FotoGuiaPanel has accept="image/*"
+        // (verified via panel-specific tests in FotoGuiaPanelTests.Footer_HasCameraAndSubirInputFiles_WithCorrectAttributes)
+        // The old hidden fotoGuiaFileInput + HandleFotoGuiaUpload path was removed in PR2 revision.
+        // Upload path: panel Subir button → OnFotoUpload → HandlePanelFotoUpload → sets FotoGuiaUrl.
     }
 
     private class TemplatesMockHttpMessageHandler : HttpMessageHandler
@@ -624,6 +616,83 @@ public class TemplatesRecargaShellTests : TestContext
 
         css.Should().Contain(".rec-list__head");
         css.Should().MatchRegex(@"\.rec-list__head\s*\{[^}]*border-bottom:\s*(?:3px\s+solid\s+var\(--ink-900\)|var\(--border-3\))");
+    }
+
+    // =====================================================================
+    // R3.1a/R3.1b — Foto Guía Panel toggle on/off + button hide/show
+    // =====================================================================
+
+    [Fact]
+    public void GuiaPanel_Toggle_ShowsPanelAndHidesButton()
+    {
+        var cut = RenderComponent<TemplatesTestHost>();
+
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Template Activo"));
+
+        // Open the editor
+        cut.FindComponents<VmButton>().First(b => b.Markup.Contains("Abrir")).Find("button").Click();
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("rec-split"));
+
+        // R3.1b: Initially (panel closed), "Foto guía" button IS visible
+        var fotoGuiaButton = cut.FindComponents<VmButton>()
+            .FirstOrDefault(b => b.Markup.Contains("Foto guia"));
+        fotoGuiaButton.Should().NotBeNull("Foto guía button must be visible when panel is closed");
+
+        // R3.1a: No .rec-guia in DOM when toggle is off
+        cut.FindAll("aside.rec-guia").Should().BeEmpty("panel must NOT be rendered when toggle is off");
+
+        // Click "Foto guía" button to open the panel
+        fotoGuiaButton!.Find("button").Click();
+
+        // R3.1a: Panel renders as 3rd child of .rec-split
+        cut.WaitForAssertion(() =>
+        {
+            var split = cut.FindAll(".rec-split > *");
+            // .rec-split > .rec-rail (rail) + .rec-shelf (shelf) + .rec-guia (panel)
+            var guiaChildren = split.Where(e => e.ClassList.Contains("rec-guia"));
+            guiaChildren.Should().NotBeEmpty("FotoGuiaPanel must be a direct child of .rec-split when visible");
+        });
+
+        // R3.1b: "Foto guía" button is hidden when panel is open
+        cut.FindComponents<VmButton>().Any(b => b.Markup.Contains("Foto guia"))
+            .Should().BeFalse("Foto guía button must be hidden when panel is open");
+    }
+
+    [Fact]
+    public void GuiaPanel_CloseButton_HidesPanelAndShowsButton()
+    {
+        var cut = RenderComponent<TemplatesTestHost>();
+
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Template Activo"));
+
+        // Open the editor
+        cut.FindComponents<VmButton>().First(b => b.Markup.Contains("Abrir")).Find("button").Click();
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("rec-split"));
+
+        // Open the panel
+        var fotoGuiaButton = cut.FindComponents<VmButton>()
+            .FirstOrDefault(b => b.Markup.Contains("Foto guia"));
+        fotoGuiaButton.Should().NotBeNull();
+        fotoGuiaButton!.Find("button").Click();
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.FindAll("aside.rec-guia").Should().NotBeEmpty();
+        });
+
+        // Click close × button inside the panel
+        var closeBtn = cut.Find("button.rec-guia-close");
+        closeBtn.Click();
+
+        // R3.1a: Panel removed from DOM
+        cut.WaitForAssertion(() =>
+        {
+            cut.FindAll("aside.rec-guia").Should().BeEmpty("panel must be removed when close × clicked");
+        });
+
+        // R3.1b: "Foto guía" button visible again
+        cut.FindComponents<VmButton>().Any(b => b.Markup.Contains("Foto guia"))
+            .Should().BeTrue("Foto guía button must reappear when panel is closed");
     }
 
     [Fact]
