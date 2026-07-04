@@ -4,6 +4,13 @@
  * Exports flat module-level functions (no controller object pattern)
  * so bUnit can test the Blazor-to-JS dispatch via SetupModule + SetupVoid/Setup.
  *
+ * Module-level state is intentional: only one FotoGuiaPanel exists per
+ * page. bUnit 1.39.5 cannot mock IJSObjectReference return values from
+ * SetupModule, so the controller-pattern from the design (#580) is replaced
+ * with flat module-level exports (initPanZoom, zoomIn, zoomOut, reset,
+ * label). If multi-panel support is needed, refactor to per-container
+ * closure pattern.
+ *
  * Usage:
  *   import { initPanZoom } from './js/foto-guia.js';
  *   const el = document.getElementById('...');
