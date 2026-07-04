@@ -34,6 +34,7 @@ public partial class FotoGuiaPanel : ComponentBase, IAsyncDisposable
     private IJSObjectReference? _jsModule;
     private string _zoomLabel = "100%";
     private bool _disposed;
+    private string? _lastPanZoomUrl;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -44,17 +45,30 @@ public partial class FotoGuiaPanel : ComponentBase, IAsyncDisposable
             try
             {
                 _jsModule = await JS.InvokeAsync<IJSObjectReference>("import", "./js/foto-guia.js");
-
-                if (_jsModule != null && !string.IsNullOrEmpty(FotoGuiaUrl))
-                {
-                    await _jsModule.InvokeVoidAsync("initPanZoom", _bodyRef);
-                    _zoomLabel = await _jsModule.InvokeAsync<string>("label");
-                    StateHasChanged();
-                }
             }
             catch
             {
                 // JS interop failures are non-fatal — panel still renders with defaults
+            }
+        }
+
+        // Initialize pan/zoom whenever a photo URL becomes available or changes,
+        // regardless of whether this is the first render or a re-render.
+        // This handles: first render with photo, async photo load arriving after
+        // first render, user uploading a photo from within the panel, and user
+        // replacing an existing photo with a new one.
+        if (_jsModule != null && !string.IsNullOrEmpty(FotoGuiaUrl) && FotoGuiaUrl != _lastPanZoomUrl)
+        {
+            try
+            {
+                await _jsModule.InvokeVoidAsync("initPanZoom", _bodyRef);
+                _zoomLabel = await _jsModule.InvokeAsync<string>("label");
+                _lastPanZoomUrl = FotoGuiaUrl;
+                StateHasChanged();
+            }
+            catch
+            {
+                // JS interop failures are non-fatal
             }
         }
     }
