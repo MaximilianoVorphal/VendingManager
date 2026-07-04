@@ -916,15 +916,16 @@
         _guiaVisible = false;
     }
 
-    private async Task HandlePanelFotoUpload(byte[] bytes)
+    private Task HandlePanelFotoUpload(byte[] bytes)
     {
-        if (bytes == null || bytes.Length == 0) return;
+        if (bytes == null || bytes.Length == 0) return Task.CompletedTask;
 
         RevokeFotoGuiaUrl();
         FotoGuiaData = bytes;
         FotoGuiaUrl = $"data:image/jpeg;base64,{Convert.ToBase64String(bytes)}";
         _guiaVisible = true;
         StateHasChanged();
+        return Task.CompletedTask;
     }
 
     private bool Cargando = false;
