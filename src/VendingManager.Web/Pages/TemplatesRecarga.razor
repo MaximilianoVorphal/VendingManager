@@ -3,9 +3,11 @@
 @using VendingManager.Shared.Constants
 @using VendingManager.Shared.DTOs
 @using VendingManager.Shared.Enums
+@using VendingManager.Shared.Models
 @using Microsoft.AspNetCore.Components.Forms
 @using System.Globalization
 @using VendingManager.Web.Layout
+@using VendingManager.Web.Components
 @using VendingManager.Web.Components.Shared
 @attribute [Authorize(Roles = Roles.Admin)]
 @inject HttpClient Http
@@ -302,13 +304,6 @@
             </div>
         </div>
 
-        @if (ProcesandoOcr)
-        {
-            <div style="position: absolute; inset: 0; background: rgba(0,0,0,0.6); z-index: 50; display: flex; flex-direction: column; align-items: center; justify-content: center;">
-                <div class="spinner-border text-light mb-3" style="width: 3rem; height: 3rem;" role="status"></div>
-                <span class="text-white fw-bold text-uppercase" style="letter-spacing: 2px;">PROCESANDO OCR...</span>
-            </div>
-        }
         @if (!string.IsNullOrEmpty(MensajeErrorOcr))
         {
             <div class="alert alert-danger border-2 border-dark rounded-0 mb-3 small fw-bold">
@@ -322,10 +317,9 @@
             </div>
         }
 
-        <!-- Hidden InputFile element for JS-triggered OCR upload -->
-        <InputFile id="ocrRecargaFileInput" OnChange="HandleOcrPhotoUpload" accept="image/*" class="d-none" />
-        <!-- Note: foto-guía upload is handled via FotoGuiaPanel.OnFotoUpload → HandlePanelFotoUpload.
-             The old TriggerFotoGuiaUpload / HandleFotoGuiaUpload path was removed in PR2 revision. -->
+        <!-- PR3 Migration: OCR upload now goes through FotoRecargaModal Capturar step.
+             The old Hidden InputFile id="ocrRecargaFileInput" + HandleOcrPhotoUpload + TriggerOcrUpload
+             were removed in PR3. The "Foto recarga" button opens the modal instead. -->
 
         <div class="rec-split">
             <!-- Rail de maquinas -->
@@ -390,7 +384,7 @@
                         <input class="rec-search" placeholder="Buscar slot o producto..." @bind="SlotSearch" @bind:event="oninput" />
                         <VmSegmented @bind-Value="DensidadKey"
                                      Options="@(new[] { ("comoda","Cómoda"), ("compacta","Compacta") })" />
-                        <VmButton Variant="outline" Size="sm" Icon="bi-camera" OnClick="TriggerOcrUpload">Foto recarga</VmButton>
+                        <VmButton Variant="outline" Size="sm" Icon="bi-camera" OnClick="() => _recargaVisible = true">Foto recarga</VmButton>
                         @if (!_guiaVisible)
                         {
                             <VmButton Variant="outline" Size="sm" Icon="bi-image" OnClick="ToggleGuiaPanel">Foto guia</VmButton>
@@ -505,6 +499,16 @@
                                OnFotoUpload="HandlePanelFotoUpload" />
             }
         </div>
+
+        <!-- Foto Recarga Modal (PR3 — replaces old direct-apply OCR path) -->
+        @if (PeriodoEnEdicionVisual != null)
+        {
+            <FotoRecargaModal Visible="@_recargaVisible"
+                              MaquinaId="@(PeriodoEnEdicionVisual.MaquinaId.ToString())"
+                              SlotsActuales="@ProjectedSlotsActual()"
+                              OnClose="() => _recargaVisible = false"
+                              OnAplicar="AplicarRecarga" />
+        }
 
         <!-- PRODUCT SELECTOR OVERLAY (for slot product change) -->
         @if (SlotConProductoSelector != null && ListaProductos != null)
@@ -653,7 +657,7 @@
     private IEnumerable<TemplateRecargaDto>? TemplatesFiltrados => SoloPendientes ? Templates?.Where(t => t.CantidadSlotsPendientes > 0) : Templates;
 
     // OCR-related state
-    private bool ProcesandoOcr = false;
+    private bool _recargaVisible = false; // FotoRecargaModal visibility (PR3)
     private string MensajeErrorOcr = "";
     private string MensajeInfoOcr = "";
     private byte[]? FotoGuiaData; // Photo 2 — never sent to server
@@ -722,7 +726,6 @@
         var periodo = PeriodoEnEdicionVisual;
         if (periodo == null) return;
         // Reset OCR state when opening
-        ProcesandoOcr = false;
         MensajeErrorOcr = "";
         MensajeInfoOcr = "";
         // Clear photo state before loading new periodo — prevents stale photo leakage
@@ -844,162 +847,52 @@
         }
     }
 
-    private async Task TriggerOcrUpload()
-    {
-        await JS.InvokeVoidAsync("eval", "document.getElementById('ocrRecargaFileInput').click()");
-    }
+    // PR3 Migration: TriggerOcrUpload and HandleOcrPhotoUpload were moved into
+    // FotoRecargaModal.Capturar step. The "Foto recarga" button now opens the modal.
+    // The modal handles HTTP POST + OcrRecargaMapper mapping + review.
+    // The page keeps only AplicarRecarga which writes confirmed quantities to the grid.
 
-    private async Task HandleOcrPhotoUpload(InputFileChangeEventArgs e)
+    private void AplicarRecarga(Dictionary<int, int> map)
     {
         if (PeriodoEnEdicionVisual == null) return;
 
-        var file = e.File;
-        MensajeErrorOcr = "";
-        MensajeInfoOcr = "";
-
-        // Client-side validation
-        if (file == null || file.Size == 0)
+        int confirmed = 0;
+        foreach (var kvp in map)
         {
-            MensajeErrorOcr = "No se seleccionó ningún archivo.";
-            return;
+            var slotIdx = kvp.Key;
+            var qty = kvp.Value;
+            if (slotIdx >= 0 && slotIdx < PeriodoEnEdicionVisual.SnapshotSlots.Count)
+            {
+                PeriodoEnEdicionVisual.SnapshotSlots[slotIdx].CantidadInicial = qty;
+                confirmed++;
+            }
         }
 
-        const long maxSize = 10 * 1024 * 1024; // 10MB
-        if (file.Size > maxSize)
-        {
-            MensajeErrorOcr = "La foto supera los 10MB. Usá una foto más pequeña.";
-            return;
-        }
-
-        var allowedTypes = new[] { "image/jpeg", "image/png", "image/jpg", "image/heic", "image/webp" };
-        if (!allowedTypes.Contains(file.ContentType.ToLowerInvariant()))
-        {
-            MensajeErrorOcr = "Formato no soportado. Usá JPG, PNG o HEIC.";
-            return;
-        }
-
-        ProcesandoOcr = true;
-        MensajeErrorOcr = "";
+        MensajeInfoOcr = $"Se aplicaron {confirmed} slots desde OCR.";
+        _recargaVisible = false;
         StateHasChanged();
-
-        try
-        {
-            using var stream = file.OpenReadStream(maxSize);
-            using var memoryStream = new MemoryStream();
-            await stream.CopyToAsync(memoryStream);
-            memoryStream.Position = 0;
-
-            var content = new MultipartFormDataContent();
-            var byteContent = new ByteArrayContent(memoryStream.ToArray());
-            byteContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(file.ContentType);
-            content.Add(byteContent, "file", file.Name);
-
-            var response = await Http.PostAsync(
-                $"api/ordencarga/from-photo?maquinaId={PeriodoEnEdicionVisual.MaquinaId}",
-                content);
-
-            if (!response.IsSuccessStatusCode)
-            {
-                var error = await response.Content.ReadAsStringAsync();
-                MensajeErrorOcr = "Error OCR: " + error;
-                return;
-            }
-
-            var result = await response.Content.ReadFromJsonAsync<OcrRecargaResultDto>();
-            if (result == null)
-            {
-                MensajeErrorOcr = "No se recibió respuesta del servicio OCR.";
-                return;
-            }
-
-            // Empty result
-            if (result.ExtractedSlots.Count == 0 && result.UnmatchedOcrSlots.Count == 0)
-            {
-                MensajeInfoOcr = "No se detectaron slots en la foto. Verificá que la foto sea legible.";
-                return;
-            }
-
-            // Pre-fill matched slots
-            SlotsResaltados.Clear();
-            foreach (var matched in result.ExtractedSlots)
-            {
-                var slot = PeriodoEnEdicionVisual.SnapshotSlots
-                    .FirstOrDefault(s => s.NumeroSlot == matched.MatchedSlot);
-
-                if (slot != null)
-                {
-                    slot.CantidadInicial = matched.Quantity;
-                    SlotsResaltados.Add(slot.NumeroSlot);
-
-                    // Si la cantidad es 0, el slot no se recargó → Vacío automático
-                    if (matched.Quantity == 0)
-                    {
-                        slot.ProductoId = null;
-                        slot.Estado = EstadoSlot.Vacio;
-                    }
-                }
-            }
-
-            // Build unmatched list with quantities (subtract matched from raw OCR slots)
-            var matchedSlotNumbers = result.ExtractedSlots
-                .Where(e => e.MatchedSlot != null)
-                .Select(e => e.MatchedSlot!)
-                .ToHashSet(StringComparer.OrdinalIgnoreCase);
-
-            UltimosSlotsNoCoincidentes = result.Slots
-                .Where(s => !matchedSlotNumbers.Contains(s.SlotNumber))
-                .ToList();
-
-            // Persist OCR photo to backend (non-critical: failure does not block slot population)
-            if (PeriodoEnEdicionVisual?.Id > 0)
-            {
-                try
-                {
-                    memoryStream.Position = 0;
-                    var persistContent = new MultipartFormDataContent();
-                    var persistBytes = new ByteArrayContent(memoryStream.ToArray());
-                    persistBytes.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(file.ContentType);
-                    persistContent.Add(persistBytes, "file", file.Name);
-
-                    var persistResp = await Http.PutAsync(
-                        $"api/TemplateRecarga/{_currentTemplateId}/periodo/{PeriodoEnEdicionVisual.Id}/foto-ocr",
-                        persistContent);
-
-                    if (!persistResp.IsSuccessStatusCode)
-                    {
-                        Logger.LogWarning("OCR photo persist failed with {Status} for periodo {PeriodoId}",
-                            persistResp.StatusCode, PeriodoEnEdicionVisual.Id);
-                        // Non-critical — do not interrupt the user experience
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Logger.LogWarning(ex, "Error persisting OCR photo for periodo {PeriodoId}", PeriodoEnEdicionVisual.Id);
-                    // Non-critical failure — slot population continues
-                }
-            }
-
-            // Brief green flash for matched slots — clean up after 1.5s
-            _ = Task.Run(async () =>
-            {
-                await Task.Delay(1500);
-                await InvokeAsync(() =>
-                {
-                    SlotsResaltados.Clear();
-                    StateHasChanged();
-                });
-            });
-        }
-        catch (Exception ex)
-        {
-            MensajeErrorOcr = "Error de red: " + ex.Message;
-        }
-        finally
-        {
-            ProcesandoOcr = false;
-            StateHasChanged();
-        }
     }
+
+    private List<SlotActual> ProjectedSlotsActual()
+    {
+        if (PeriodoEnEdicionVisual == null) return new();
+
+        return PeriodoEnEdicionVisual.SnapshotSlots
+            .Select((s, i) => new SlotActual
+            {
+                Index = i,
+                Slot = s.NumeroSlot,
+                Producto = s.ProductoNombre,
+                Capacidad = s.CapacidadSlot
+            })
+            .ToList();
+    }
+
+    // PR3 Migration: HandleOcrPhotoUpload removed.
+    // OCR upload + HTTP call + mapping + review are now handled by FotoRecargaModal.
+    // The page's AplicarRecarga method writes confirmed quantities to the grid.
+    // The old direct-apply path (L992-L1009) no longer exists.
+    // Persist photo via PUT .../foto-ocr is deferred (non-critical, not yet re-implemented).
 
     private void RevokeFotoGuiaUrl()
     {

@@ -542,6 +542,7 @@
    7. RESPONSIVE + MOTION
    ========================================================================= */
 @keyframes recBlink { 50% { opacity: 0; } }
+@keyframes recScan { 0% { top: 0; } 100% { top: 100%; } }
 
 @media (max-width: 1000px) {
   .rec-split { flex-direction: column; }
@@ -562,6 +563,8 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .rec-title__cursor { animation: none; }
+  .rec-scan-line { animation: none; display: none; }
+  .rec-scan-cursor { animation: none; }
 }
 
 /* =========================================================================
