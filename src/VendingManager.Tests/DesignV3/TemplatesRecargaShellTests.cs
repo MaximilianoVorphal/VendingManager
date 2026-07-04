@@ -317,34 +317,30 @@ public class TemplatesRecargaShellTests : TestContext
     }
 
     [Fact]
-    public void HiddenInputFiles_RenderWithAcceptImage_AndUploadFiresHandler()
+    public void FotoRecargaButton_OpensModal()
     {
         var cut = RenderComponent<TemplatesTestHost>();
 
         cut.WaitForAssertion(() => cut.Markup.Should().Contain("Template Activo"));
 
-        // Open the editor where the InputFiles are placed
+        // Open the editor where the Foto recarga button is
         cut.FindComponents<VmButton>().First(b => b.Markup.Contains("Abrir")).Find("button").Click();
         cut.WaitForAssertion(() => cut.Markup.Should().Contain("rec-split"));
 
-        // R1.1a: OCR InputFile exists with id and accept="image/*"
-        var ocrInputEl = cut.Find("#ocrRecargaFileInput");
-        ocrInputEl.GetAttribute("accept").Should().Be("image/*");
-
-        // R1.1b: Upload to OCR InputFile → handler fires (side-effect: error from mock 404)
-        var imgBytes = new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A }; // minimal PNG
-        var ocrInput = cut.FindComponent<InputFile>();
-        ocrInput.UploadFiles(InputFileContent.CreateFromBinary(imgBytes, "test.jpg", contentType: "image/jpeg"));
+        // PR3 Migration: The old hidden #ocrRecargaFileInput was removed.
+        // The "Foto recarga" button now opens the FotoRecargaModal.
+        // R4.1a analogue: Click "Foto recarga" → modal overlay appears
+        var fotoRecargaBtn = cut.FindComponents<VmButton>()
+            .FirstOrDefault(b => b.Markup.Contains("Foto recarga"));
+        fotoRecargaBtn.Should().NotBeNull("Foto recarga button must be visible in editor toolbar");
+        fotoRecargaBtn!.Find("button").Click();
 
         cut.WaitForAssertion(() =>
         {
-            cut.Markup.Should().Contain("Error OCR");
+            // Modal overlay should appear with Tomar foto button
+            cut.Markup.Should().Contain("rec-overlay");
+            cut.Markup.Should().Contain("Tomar foto");
         });
-
-        // R1.1c (migrated): Subir InputFile in FotoGuiaPanel has accept="image/*"
-        // (verified via panel-specific tests in FotoGuiaPanelTests.Footer_HasCameraAndSubirInputFiles_WithCorrectAttributes)
-        // The old hidden fotoGuiaFileInput + HandleFotoGuiaUpload path was removed in PR2 revision.
-        // Upload path: panel Subir button → OnFotoUpload → HandlePanelFotoUpload → sets FotoGuiaUrl.
     }
 
     private class TemplatesMockHttpMessageHandler : HttpMessageHandler
