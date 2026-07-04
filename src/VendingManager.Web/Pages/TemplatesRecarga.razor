@@ -322,9 +322,10 @@
             </div>
         }
 
-        <!-- Hidden InputFile elements for JS-triggered uploads -->
+        <!-- Hidden InputFile element for JS-triggered OCR upload -->
         <InputFile id="ocrRecargaFileInput" OnChange="HandleOcrPhotoUpload" accept="image/*" class="d-none" />
-        <InputFile id="fotoGuiaFileInput" OnChange="HandleFotoGuiaUpload" accept="image/*" class="d-none" />
+        <!-- Note: foto-guía upload is handled via FotoGuiaPanel.OnFotoUpload → HandlePanelFotoUpload.
+             The old TriggerFotoGuiaUpload / HandleFotoGuiaUpload path was removed in PR2 revision. -->
 
         <div class="rec-split">
             <!-- Rail de maquinas -->
@@ -848,11 +849,6 @@
         await JS.InvokeVoidAsync("eval", "document.getElementById('ocrRecargaFileInput').click()");
     }
 
-    private async Task TriggerFotoGuiaUpload()
-    {
-        await JS.InvokeVoidAsync("eval", "document.getElementById('fotoGuiaFileInput').click()");
-    }
-
     private async Task HandleOcrPhotoUpload(InputFileChangeEventArgs e)
     {
         if (PeriodoEnEdicionVisual == null) return;
@@ -1002,51 +998,6 @@
         {
             ProcesandoOcr = false;
             StateHasChanged();
-        }
-    }
-
-    private async Task HandleFotoGuiaUpload(InputFileChangeEventArgs e)
-    {
-        var file = e.File;
-        if (file == null || file.Size == 0) return;
-
-        RevokeFotoGuiaUrl();
-
-        using var stream = file.OpenReadStream();
-        using var memoryStream = new MemoryStream();
-        await stream.CopyToAsync(memoryStream);
-        FotoGuiaData = memoryStream.ToArray();
-
-        // Create blob URL — this is reference-only, never sent to any backend
-        var url = $"data:{file.ContentType};base64,{Convert.ToBase64String(FotoGuiaData)}";
-        FotoGuiaUrl = url;
-        _guiaVisible = true; // Show the panel after upload
-        StateHasChanged();
-
-        // Immediate persist to backend if we have a periodo ID
-        if (PeriodoEnEdicionVisual?.Id > 0)
-        {
-            try
-            {
-                var content = new MultipartFormDataContent();
-                var byteContent = new ByteArrayContent(FotoGuiaData);
-                byteContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(file.ContentType);
-                content.Add(byteContent, "file", file.Name);
-
-                var resp = await Http.PutAsync(
-                    $"api/TemplateRecarga/{_currentTemplateId}/periodo/{PeriodoEnEdicionVisual.Id}/foto-guia",
-                    content);
-
-                if (!resp.IsSuccessStatusCode)
-                {
-                    MensajeErrorOcr = "No se pudo guardar la foto guía en el servidor. La foto está en memoria pero se perderá al cerrar.";
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.LogWarning(ex, "Error persisting foto guia for periodo {PeriodoId}", PeriodoEnEdicionVisual.Id);
-                MensajeErrorOcr = "No se pudo guardar la foto guía en el servidor.";
-            }
         }
     }
 
