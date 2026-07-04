@@ -329,7 +329,7 @@
             builder.AddContent(10, "No se detectaron slots en la foto.");
             builder.CloseElement();
 
-            // Footer with only Cancelar
+            // Footer with Cancelar and disabled Aplicar
             builder.OpenElement(11, "div");
             builder.AddAttribute(12, "class", "rec-review-foot");
             builder.OpenElement(13, "span");
@@ -339,6 +339,7 @@
             builder.OpenElement(16, "div");
             builder.AddAttribute(17, "class", "rec-review-foot-actions");
             RenderCancelarBtn(builder, 18);
+            RenderAplicarBtn(builder, 21);
             builder.CloseElement();
             builder.CloseElement();
         }

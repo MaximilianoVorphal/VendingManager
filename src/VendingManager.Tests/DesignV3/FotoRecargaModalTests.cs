@@ -362,6 +362,145 @@ public class FotoRecargaModalTests : TestContext
         // or OnClose is invoked)
     }
 
+    /* ===================================================================
+     * R4.6a — Upload triggers POST and transitions to Revisar with mapped data
+     * =================================================================== */
+
+    [Fact]
+    public void Upload_TriggersHttpPost_AndTransitionsToRevisar()
+    {
+        var cut = RenderComponent<FotoRecargaModal>(p => p
+            .Add(c => c.Visible, true)
+            .Add(c => c.MaquinaId, "1")
+            .Add(c => c.SlotsActuales, SampleSlots)
+            .Add(c => c.OnClose, () => { }));
+
+        var imgBytes = new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A };
+        cut.FindComponent<InputFile>().UploadFiles(
+            InputFileContent.CreateFromBinary(imgBytes, "test.jpg", contentType: "image/jpeg"));
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("Revisar lectura");
+        });
+
+        // HTTP POST was called
+        _mockHandler.FromPhotoCallCount.Should().Be(1, "OCR HTTP POST must be called exactly once");
+    }
+
+    /* ===================================================================
+     * R4.7a — 0 OCR slots → empty-state + Aplicar DISABLED
+     * =================================================================== */
+
+    [Fact]
+    public void ZeroOcrSlots_ShowsEmptyState_WithAplicarDisabled()
+    {
+        // Mock returns empty result
+        _mockHandler.LastResult = new OcrRecargaResultDto
+        {
+            ExtractedSlots = new List<MatchedSlotDto>()
+        };
+
+        var cut = RenderComponent<FotoRecargaModal>(p => p
+            .Add(c => c.Visible, true)
+            .Add(c => c.MaquinaId, "1")
+            .Add(c => c.SlotsActuales, SampleSlots)
+            .Add(c => c.OnClose, () => { }));
+
+        var imgBytes = new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A };
+        cut.FindComponent<InputFile>().UploadFiles(
+            InputFileContent.CreateFromBinary(imgBytes, "test.jpg", contentType: "image/jpeg"));
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("No se detectaron slots");
+        });
+
+        // Aplicar button must be disabled
+        var aplicarBtn = cut.FindAll("button").FirstOrDefault(b =>
+            b.TextContent.Trim().Contains("Aplicar", StringComparison.OrdinalIgnoreCase));
+        aplicarBtn.Should().NotBeNull();
+        aplicarBtn!.HasAttribute("disabled").Should().BeTrue("Aplicar must be disabled when there are 0 slots");
+    }
+
+    /* ===================================================================
+     * R4.7b — Mid-review close → OnAplicar NOT invoked, OnClose invoked
+     * =================================================================== */
+
+    [Fact]
+    public void ClickOverlay_ClosesModal_WithoutInvokingOnAplicar()
+    {
+        bool aplicarCalled = false;
+        bool closeCalled = false;
+
+        var cut = RenderComponent<FotoRecargaModal>(p => p
+            .Add(c => c.Visible, true)
+            .Add(c => c.MaquinaId, "1")
+            .Add(c => c.SlotsActuales, SampleSlots)
+            .Add(c => c.OnClose, (Action)(() => closeCalled = true))
+            .Add(c => c.OnAplicar, (Action<Dictionary<int, int>>)(_ => aplicarCalled = true)));
+
+        var imgBytes = new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A };
+        cut.FindComponent<InputFile>().UploadFiles(
+            InputFileContent.CreateFromBinary(imgBytes, "test.jpg", contentType: "image/jpeg"));
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("Revisar lectura");
+        });
+
+        // Click the overlay (background) — this fires Cerrar → OnClose
+        cut.Find(".rec-overlay").Click();
+
+        // OnClose must be invoked
+        closeCalled.Should().BeTrue("OnClose must be invoked when clicking overlay");
+
+        // OnAplicar must NOT be invoked
+        aplicarCalled.Should().BeFalse("OnAplicar must NOT be invoked on overlay click");
+    }
+
+    /* ===================================================================
+     * R4.7c — Mapper integration: confidence grading via mocked OCR result
+     * =================================================================== */
+
+    [Fact]
+    public void MapperIntegration_ConfidenceGrading_MatchesReviewBadges()
+    {
+        // Mock an OCR result with specific confidence values to test grading
+        _mockHandler.LastResult = new OcrRecargaResultDto
+        {
+            ExtractedSlots = new List<MatchedSlotDto>
+            {
+                new() { SlotNumber = "A1", MatchedSlot = "A1", Quantity = 3, Confidence = 0.88f }, // Alta (>=0.85)
+                new() { SlotNumber = "A2", MatchedSlot = "A2", Quantity = 2, Confidence = 0.62f }, // Media (>=0.60)
+                new() { SlotNumber = "A3", MatchedSlot = "A3", Quantity = 5, Confidence = 0.30f }, // Baja (<0.60)
+            }
+        };
+
+        var cut = RenderComponent<FotoRecargaModal>(p => p
+            .Add(c => c.Visible, true)
+            .Add(c => c.MaquinaId, "1")
+            .Add(c => c.SlotsActuales, SampleSlots)
+            .Add(c => c.OnClose, () => { }));
+
+        var imgBytes = new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A };
+        cut.FindComponent<InputFile>().UploadFiles(
+            InputFileContent.CreateFromBinary(imgBytes, "test.jpg", contentType: "image/jpeg"));
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("Revisar lectura");
+        });
+
+        // All three badge types must appear
+        cut.Markup.Should().Contain("rec-badge-alta");
+        cut.Markup.Should().Contain("rec-badge-media");
+        cut.Markup.Should().Contain("rec-badge-baja");
+
+        // The warning about pending review should appear (A2 Media + A3 Baja)
+        cut.Markup.Should().Contain("2 pendientes de revisión");
+    }
+
     [Fact]
     public void LeyendoStep_Css_HasRecScanKeyframeAndScanLine()
     {
