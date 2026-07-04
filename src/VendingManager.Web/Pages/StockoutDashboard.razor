@@ -22,6 +22,8 @@
     .qs-row-sel td { background: #eef0f2 !important; }
     .qs-row-sel td:first-child { box-shadow: inset 4px 0 0 var(--ink-900); }
     .qs-tl-item:hover { background: var(--paper-50); }
+    .qs-slot { transition: transform .1s, box-shadow .1s; }
+    .qs-slot:hover { transform: translateY(-1px); z-index: 1; }
     .qs-th { user-select: none; }
     .qs-page h1 { user-select: none; }
     @@media (prefers-reduced-motion: reduce) { .qs-cursor { animation: none !important; } }
@@ -131,7 +133,7 @@
     <div class="qs-split" style="flex:1;min-width:0;display:flex;gap:11px;overflow:hidden;">
 
         <!-- ----- Izquierda: Dashboard de Alertas ----- -->
-        <section style="flex:2.2;min-width:0;display:flex;flex-direction:column;border:2px solid var(--ink-900);box-shadow:var(--shadow-card);background:var(--paper-0);overflow:hidden;">
+        <section style="flex:2;min-width:0;display:flex;flex-direction:column;border:2px solid var(--ink-900);box-shadow:var(--shadow-card);background:var(--paper-0);overflow:hidden;">
             <div style="flex-shrink:0;background:var(--ink-900);color:#fff;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:0.45rem 0.8rem;">
                 <div style="font-family:var(--font-mono);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;font-size:0.8rem;display:flex;align-items:center;gap:8px;"><i class="bi bi-grid-3x3-gap-fill"></i>Dashboard de alertas<span style="font-family:var(--font-mono);font-weight:700;font-size:0.62rem;border:1px solid rgba(255,255,255,0.5);padding:2px 7px;">@Rows.Count</span></div>
                 <div style="display:flex;gap:14px;align-items:center;">
@@ -243,11 +245,56 @@
             </div>
         </section>
 
-        <!-- ----- Derecha: Timeline + Ventas diarias ----- -->
-        <aside class="qs-aside" style="flex:1;min-width:0;display:flex;flex-direction:column;gap:11px;overflow:hidden;">
+        <!-- ----- Derecha: Mapa + Timeline + Ventas diarias ----- -->
+        <aside class="qs-aside" style="flex:1.2;min-width:0;display:flex;flex-direction:column;gap:11px;overflow:hidden;">
+
+            <!-- Mapa de agotamiento (esquema de la máquina; los slots se colorean al vaciarse) -->
+            <section style="flex:1.3;min-height:0;display:flex;flex-direction:column;border:2px solid var(--ink-900);box-shadow:var(--shadow-card);background:var(--paper-0);overflow:hidden;">
+                <div style="flex-shrink:0;background:var(--ink-900);color:#fff;display:flex;justify-content:space-between;align-items:center;gap:8px;padding:0.45rem 0.8rem;">
+                    <div style="font-family:var(--font-mono);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;font-size:0.74rem;display:flex;align-items:center;gap:8px;"><i class="bi bi-diagram-3-fill"></i>Mapa de agotamiento</div>
+                    <div style="display:flex;align-items:center;gap:6px;">
+                        <span style="font-family:var(--font-mono);font-weight:700;font-size:0.54rem;letter-spacing:0.5px;background:rgba(255,255,255,0.14);border:1px solid rgba(255,255,255,0.4);padding:2px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px;">MÁQ @FocusMaqLabel</span>
+                        <button type="button" @onclick="OpenMap" title="Ver en grande con línea de tiempo" style="flex-shrink:0;display:inline-flex;align-items:center;gap:5px;background:#fff;color:var(--ink-900);border:2px solid var(--ink-900);cursor:pointer;font-family:var(--font-mono);font-weight:700;font-size:0.54rem;text-transform:uppercase;letter-spacing:0.5px;padding:3px 7px;"><i class="bi bi-arrows-fullscreen"></i>Timeline</button>
+                    </div>
+                </div>
+                @if (FocusSlots.Count == 0)
+                {
+                    <div style="flex:1;display:flex;align-items:center;justify-content:center;padding:16px;text-align:center;font-family:var(--font-mono);font-size:0.62rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.4px;">Sin slots para mapear</div>
+                }
+                else
+                {
+                    <div style="flex-shrink:0;padding:5px 10px 2px;font-family:var(--font-mono);font-size:0.55rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.4px;">@SchematicMeta</div>
+                    <div style="flex:1;min-height:0;overflow:auto;padding:4px 10px 8px;display:flex;flex-direction:column;gap:7px;">
+                        @foreach (var fl in SchematicFloors)
+                        {
+                            <div>
+                                <div style="font-family:var(--font-mono);font-weight:700;font-size:0.5rem;text-transform:uppercase;letter-spacing:0.6px;color:var(--text-muted);margin-bottom:3px;">@fl.Label</div>
+                                <div style="display:grid;grid-template-columns:repeat(10,1fr);gap:3px;">
+                                    @foreach (var s in fl.Slots)
+                                    {
+                                        <button type="button" class="qs-slot" title="@s.Num · @s.Prod · @s.Stock/@s.Cap" @onclick="() => _sel = s.Prod" style="position:relative;height:26px;border:1px solid var(--ink-900);background:var(--paper-0);cursor:pointer;padding:0;overflow:hidden;@(s.Selected ? "box-shadow:inset 0 0 0 2px var(--ink-900);" : "")">
+                                            <span style="position:absolute;left:0;right:0;bottom:0;height:@(s.FillPct)%;background:@s.Color;transition:height .2s ease;"></span>
+                                            @if (!string.IsNullOrEmpty(s.Badge))
+                                            {
+                                                <span style="position:absolute;top:1px;right:2px;font-family:var(--font-mono);font-weight:700;font-size:0.42rem;color:@(s.Light ? "#fff" : "var(--ink-900)");z-index:1;">@s.Badge</span>
+                                            }
+                                        </button>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </div>
+                    <div style="flex-shrink:0;border-top:2px solid var(--ink-900);background:var(--paper-50);padding:4px 10px;display:flex;gap:9px;flex-wrap:wrap;font-family:var(--font-mono);font-size:0.5rem;text-transform:uppercase;letter-spacing:0.3px;color:var(--text-secondary);">
+                        <span style="display:inline-flex;align-items:center;gap:3px;"><span style="width:9px;height:9px;background:var(--signal-success);"></span>OK</span>
+                        <span style="display:inline-flex;align-items:center;gap:3px;"><span style="width:9px;height:9px;background:var(--signal-warning);"></span>Alerta</span>
+                        <span style="display:inline-flex;align-items:center;gap:3px;"><span style="width:9px;height:9px;background:var(--signal-danger);"></span>Crítico</span>
+                        <span style="display:inline-flex;align-items:center;gap:3px;"><span style="width:9px;height:9px;background:var(--ink-500);"></span>Dead</span>
+                    </div>
+                }
+            </section>
 
             <!-- Timeline de agotamiento -->
-            <section style="flex:1;min-height:0;display:flex;flex-direction:column;border:2px solid var(--ink-900);box-shadow:var(--shadow-card);background:var(--paper-0);overflow:hidden;">
+            <section style="flex:0.85;min-height:0;display:flex;flex-direction:column;border:2px solid var(--ink-900);box-shadow:var(--shadow-card);background:var(--paper-0);overflow:hidden;">
                 <div style="flex-shrink:0;background:var(--ink-900);color:#fff;display:flex;align-items:center;gap:8px;padding:0.45rem 0.8rem;font-family:var(--font-mono);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;font-size:0.74rem;"><i class="bi bi-clock-history"></i>Timeline de agotamiento</div>
                 <div style="flex:1;min-height:0;overflow:auto;padding:4px 0;">
                     @foreach (var t in Timeline)
@@ -268,7 +315,7 @@
             </section>
 
             <!-- Ventas diarias por producto -->
-            <section style="flex:1.15;min-height:0;display:flex;flex-direction:column;border:2px solid var(--ink-900);box-shadow:var(--shadow-card);background:var(--paper-0);overflow:hidden;">
+            <section style="flex:1;min-height:0;display:flex;flex-direction:column;border:2px solid var(--ink-900);box-shadow:var(--shadow-card);background:var(--paper-0);overflow:hidden;">
                 <div style="flex-shrink:0;background:var(--ink-900);color:#fff;display:flex;justify-content:space-between;align-items:center;gap:8px;padding:0.4rem 0.8rem;">
                     <div style="font-family:var(--font-mono);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;font-size:0.74rem;display:flex;align-items:center;gap:8px;"><i class="bi bi-graph-up"></i>Ventas diarias</div>
                     <div style="max-width:180px;">
@@ -304,4 +351,73 @@
         </aside>
     </div>
     </div>
+
+    <!-- ===== Modal: Mapa de agotamiento con línea de tiempo ===== -->
+    @if (mapOpen)
+    {
+        <div @onclick="CloseMap" style="position:fixed;inset:0;z-index:50;background:rgba(20,22,24,0.62);display:flex;align-items:center;justify-content:center;padding:3vh 3vw;">
+            <div @onclick:stopPropagation="true" style="width:min(1000px,94vw);height:min(760px,94vh);display:flex;flex-direction:column;background:var(--paper-0);border:3px solid var(--ink-900);box-shadow:10px 10px 0 rgba(0,0,0,0.35);overflow:hidden;">
+
+                <!-- Header modal -->
+                <div style="flex-shrink:0;background:var(--ink-900);color:#fff;display:flex;justify-content:space-between;align-items:center;gap:10px;padding:0.6rem 1rem;">
+                    <div style="font-family:var(--font-mono);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;font-size:0.92rem;display:flex;align-items:center;gap:9px;"><i class="bi bi-diagram-3-fill"></i>Mapa de agotamiento<span style="font-family:var(--font-mono);font-weight:700;font-size:0.58rem;letter-spacing:0.5px;background:rgba(255,255,255,0.16);border:1px solid rgba(255,255,255,0.4);padding:2px 7px;">MÁQ @FocusMaqLabel</span></div>
+                    <button type="button" @onclick="CloseMap" title="Cerrar" style="width:34px;height:34px;flex-shrink:0;border:2px solid rgba(255,255,255,0.6);background:transparent;color:#fff;cursor:pointer;font-size:1.1rem;display:flex;align-items:center;justify-content:center;"><i class="bi bi-x-lg"></i></button>
+                </div>
+
+                <!-- Esquema grande -->
+                <div style="flex:1;min-height:0;overflow:auto;padding:14px 18px;display:flex;flex-direction:column;gap:14px;background:var(--paper-50);">
+                    @foreach (var fl in ModalFloors)
+                    {
+                        <div>
+                            <div style="font-family:var(--font-mono);font-weight:700;font-size:0.62rem;text-transform:uppercase;letter-spacing:0.8px;color:var(--text-secondary);margin-bottom:5px;display:flex;align-items:center;gap:7px;"><span style="width:5px;height:14px;background:var(--ink-900);display:inline-block;"></span>@fl.Label</div>
+                            <div style="display:grid;grid-template-columns:repeat(10,1fr);gap:6px;">
+                                @foreach (var s in fl.Slots)
+                                {
+                                    <button type="button" class="qs-slot" title="@s.Num · @s.Prod · @s.Stock/@s.Cap" @onclick="() => _sel = s.Prod" style="position:relative;height:80px;border:2px solid var(--ink-900);background:var(--paper-0);cursor:pointer;padding:0;overflow:hidden;@(s.Selected ? "box-shadow:inset 0 0 0 3px var(--ink-900);" : "")">
+                                        <span style="position:absolute;left:0;right:0;bottom:0;height:@(s.FillPct)%;background:@s.Color;transition:height .2s ease, background .2s ease;"></span>
+                                        <span style="position:absolute;top:4px;left:5px;font-family:var(--font-mono);font-weight:700;font-size:0.56rem;color:var(--ink-900);z-index:1;">@s.Num</span>
+                                        @if (!string.IsNullOrEmpty(s.Badge))
+                                        {
+                                            <span style="position:absolute;top:3px;right:3px;background:@s.Color;color:@s.BadgeTx;font-family:var(--font-mono);font-weight:700;font-size:0.52rem;line-height:1;padding:1px 3px;z-index:1;">@s.Badge</span>
+                                        }
+                                        <span style="position:absolute;left:5px;right:5px;bottom:15px;font-family:var(--font-sans);font-weight:700;font-size:0.5rem;line-height:1.05;color:@(s.Light ? "#fff" : "var(--ink-900)");text-transform:uppercase;z-index:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;@(s.Light ? "text-shadow:0 1px 1px rgba(0,0,0,.3);" : "")">@s.Prod</span>
+                                        <span style="position:absolute;left:5px;bottom:3px;font-family:var(--font-mono);font-weight:700;font-size:0.54rem;color:@(s.Light ? "#fff" : "var(--ink-900)");z-index:1;@(s.Light ? "text-shadow:0 1px 1px rgba(0,0,0,.3);" : "")">@s.Stock/@s.Cap</span>
+                                    </button>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+
+                <!-- Barra de tiempo (scrubber) -->
+                <div style="flex-shrink:0;border-top:3px solid var(--ink-900);background:var(--paper-50);padding:0.7rem 1rem 0.85rem;">
+                    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:7px;">
+                        <div style="font-family:var(--font-mono);font-weight:700;font-size:0.62rem;text-transform:uppercase;letter-spacing:0.6px;color:var(--text-secondary);display:flex;align-items:center;gap:7px;"><i class="bi bi-clock-history"></i>Línea de tiempo · desde la recarga</div>
+                        <div style="font-family:var(--font-mono);font-weight:700;font-size:0.62rem;text-transform:uppercase;letter-spacing:0.4px;color:var(--signal-danger);">@ModalQuiebreN en quiebre</div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:12px;">
+                        <button type="button" @onclick="TogglePlayback" title="Reproducir agotamiento" style="width:44px;height:44px;flex-shrink:0;border:2px solid var(--ink-900);background:var(--ink-900);color:#fff;cursor:pointer;font-size:1.15rem;display:flex;align-items:center;justify-content:center;"><i class="bi @(IsPlaying ? "bi-pause-fill" : "bi-play-fill")"></i></button>
+                        <div style="flex:1;min-width:0;">
+                            <input type="range" min="0" max="@TotalSteps" step="1" value="@CurrentStepIndex" @oninput="OnScrubInput" style="width:100%;accent-color:var(--ink-900);cursor:pointer;" />
+                            <div style="display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:0.52rem;text-transform:uppercase;letter-spacing:0.4px;color:var(--text-muted);margin-top:2px;">
+                                <span><i class="bi bi-box-seam" style="margin-right:3px;"></i>Recarga</span>
+                                <span>Hoy<i class="bi bi-geo-alt-fill" style="margin-left:3px;"></i></span>
+                            </div>
+                        </div>
+                        <div style="flex-shrink:0;text-align:right;min-width:112px;">
+                            <div style="font-family:var(--font-sans);font-weight:700;font-size:1.15rem;line-height:1;letter-spacing:-0.5px;">@ScrubDateLabel</div>
+                            <div style="font-family:var(--font-mono);font-size:0.55rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);margin-top:3px;">@ScrubDayLabel</div>
+                        </div>
+                    </div>
+                    <!-- Leyenda -->
+                    <div style="display:flex;gap:14px;flex-wrap:wrap;font-family:var(--font-mono);font-size:0.55rem;text-transform:uppercase;letter-spacing:0.3px;color:var(--text-secondary);margin-top:9px;padding-top:8px;border-top:1px solid var(--line-200);">
+                        <span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:11px;height:11px;background:var(--signal-success);"></span>OK</span>
+                        <span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:11px;height:11px;background:var(--signal-warning);"></span>Bajo</span>
+                        <span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:11px;height:11px;background:var(--signal-danger);"></span>Quiebre</span>
+                        <span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:11px;height:11px;background:var(--ink-500);"></span>Dead slot</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
 </div>
