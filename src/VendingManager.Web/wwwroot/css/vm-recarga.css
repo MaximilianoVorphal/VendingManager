@@ -27,6 +27,7 @@
   --rec-foot-h:        66px;        /* alto mínimo de las bandas de pie       */
   --rec-card-min:      246px;       /* ancho mínimo del slot (densidad cómoda)*/
   --rec-card-min-cmp:  184px;       /* ancho mínimo del slot (densidad compacta)*/
+  --bg-shelf-inset:    #e6e7ea;     /* fondo de la estantería (Slice E polish)*/
 }
 
 /* =========================================================================
@@ -242,7 +243,7 @@
   flex: 1;
   min-height: 0;
   overflow: auto;
-  background: var(--bg-surface-inset);
+  background: var(--bg-shelf-inset);
   padding: 16px;
 }
 .rec-shelf__foot {
