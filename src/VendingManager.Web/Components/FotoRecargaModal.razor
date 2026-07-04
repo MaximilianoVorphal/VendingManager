@@ -1,0 +1,215 @@
+@namespace VendingManager.Web.Components
+@using VendingManager.Shared.Models
+@using VendingManager.Shared.DTOs
+@using VendingManager.Shared.Mappers
+@using VendingManager.Shared.Enums
+
+@inject HttpClient Http
+
+@if (Visible)
+{
+    <div class="rec-overlay" @onclick="Cerrar">
+        <div class="rec-modal" @onclick:stopPropagation="true">
+            @switch (_paso)
+            {
+                case Paso.Capturar:
+                    @RenderCapturar()
+                    break;
+                case Paso.Leyendo:
+                    @RenderLeyendo()
+                    break;
+                case Paso.Revisar:
+                    @RenderRevisar()
+                    break;
+            }
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool Visible { get; set; }
+    [Parameter] public string MaquinaId { get; set; } = "";
+    [Parameter] public IReadOnlyList<SlotActual> SlotsActuales { get; set; } = Array.Empty<SlotActual>();
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback<Dictionary<int, int>> OnAplicar { get; set; }
+
+    private enum Paso { Capturar, Leyendo, Revisar }
+    private Paso _paso = Paso.Capturar;
+    private LecturaRecarga? _lectura;
+    private string _previewUrl = "";
+
+    protected override void OnParametersSet()
+    {
+        if (Visible)
+        {
+            _paso = Paso.Capturar;
+            _lectura = null;
+            _previewUrl = "";
+        }
+    }
+
+    private async Task Cerrar()
+    {
+        await OnClose.InvokeAsync();
+    }
+
+    private async Task Leer(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file == null || file.Size == 0) return;
+
+        const long maxSize = 10 * 1024 * 1024; // 10MB
+        if (file.Size > maxSize) return;
+
+        var allowedTypes = new[] { "image/jpeg", "image/png", "image/jpg", "image/heic", "image/webp" };
+        if (!allowedTypes.Contains(file.ContentType.ToLowerInvariant())) return;
+
+        // Show preview and transition to Leyendo
+        using var stream = file.OpenReadStream(maxSize);
+        using var memoryStream = new MemoryStream();
+        await stream.CopyToAsync(memoryStream);
+        memoryStream.Position = 0;
+
+        var bytes = memoryStream.ToArray();
+        _previewUrl = $"data:{file.ContentType};base64,{Convert.ToBase64String(bytes)}";
+        _paso = Paso.Leyendo;
+        StateHasChanged();
+
+        try
+        {
+            // HTTP call to OCR endpoint
+            memoryStream.Position = 0;
+            var content = new MultipartFormDataContent();
+            var byteContent = new ByteArrayContent(bytes);
+            byteContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(file.ContentType);
+            content.Add(byteContent, "file", file.Name);
+
+            var response = await Http.PostAsync(
+                $"api/ordencarga/from-photo?maquinaId={MaquinaId}",
+                content);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<OcrRecargaResultDto>();
+                if (result != null)
+                {
+                    _lectura = OcrRecargaMapper.FromOcr(result, SlotsActuales);
+                }
+            }
+
+            _paso = Paso.Revisar;
+            StateHasChanged();
+        }
+        catch
+        {
+            _paso = Paso.Capturar;
+            _lectura = null;
+            StateHasChanged();
+        }
+    }
+
+    // ===================================================================
+    // Capturar step
+    // ===================================================================
+
+    private RenderFragment RenderCapturar() => builder =>
+    {
+        builder.OpenElement(0, "div");
+        builder.AddAttribute(1, "class", "rec-capture");
+
+        // Header
+        builder.OpenElement(2, "h3");
+        builder.AddContent(3, "Foto recarga");
+        builder.CloseElement();
+
+        // Tomar foto
+        builder.OpenElement(4, "label");
+        builder.AddAttribute(5, "class", "rec-cap-btn");
+        builder.AddContent(6, "Tomar foto");
+        builder.OpenElement(7, "i");
+        builder.AddAttribute(8, "class", "bi bi-camera");
+        builder.CloseElement();
+        builder.OpenComponent<InputFile>(9);
+        builder.AddAttribute(10, "accept", "image/*");
+        builder.AddAttribute(11, "capture", "environment");
+        builder.AddAttribute(12, "OnChange", EventCallback.Factory.Create<InputFileChangeEventArgs>(this, Leer));
+        builder.CloseComponent();
+        builder.CloseElement();
+
+        // Subir archivo
+        builder.OpenElement(13, "label");
+        builder.AddAttribute(14, "class", "rec-cap-btn");
+        builder.AddContent(15, "Subir archivo");
+        builder.OpenElement(16, "i");
+        builder.AddAttribute(17, "class", "bi bi-upload");
+        builder.CloseElement();
+        builder.OpenComponent<InputFile>(18);
+        builder.AddAttribute(19, "accept", "image/*");
+        builder.AddAttribute(20, "OnChange", EventCallback.Factory.Create<InputFileChangeEventArgs>(this, Leer));
+        builder.CloseComponent();
+        builder.CloseElement();
+
+        // Info note
+        builder.OpenElement(21, "p");
+        builder.AddAttribute(22, "class", "rec-cap-info");
+        builder.AddContent(23, "La foto debe mostrar la lista de recarga claramente. Formatos aceptados: JPG, PNG o HEIC.");
+        builder.CloseElement();
+
+        // Cancelar
+        builder.OpenElement(24, "button");
+        builder.AddAttribute(25, "class", "rec-cap-cancel");
+        builder.AddAttribute(26, "onclick", EventCallback.Factory.Create<Microsoft.AspNetCore.Components.Web.MouseEventArgs>(this, Cerrar));
+        builder.AddContent(27, "Cancelar");
+        builder.CloseElement();
+
+        builder.CloseElement();
+    };
+
+    // ===================================================================
+    // Leyendo step
+    // ===================================================================
+
+    private RenderFragment RenderLeyendo() => builder =>
+    {
+        builder.OpenElement(0, "div");
+        builder.AddAttribute(1, "class", "rec-processing");
+
+        // Image preview
+        if (!string.IsNullOrEmpty(_previewUrl))
+        {
+            builder.OpenElement(2, "div");
+            builder.AddAttribute(3, "class", "rec-scan");
+            builder.OpenElement(4, "img");
+            builder.AddAttribute(5, "src", _previewUrl);
+            builder.AddAttribute(6, "class", "rec-scan-img");
+            builder.AddAttribute(7, "alt", "Vista previa");
+            builder.CloseElement();
+            builder.OpenElement(8, "div");
+            builder.AddAttribute(9, "class", "rec-scan-line");
+            builder.CloseElement();
+            builder.CloseElement();
+        }
+
+        builder.OpenElement(10, "p");
+        builder.AddAttribute(11, "class", "rec-scan-text");
+        builder.AddContent(12, "Leyendo lista de recarga");
+        builder.OpenElement(13, "span");
+        builder.AddAttribute(14, "class", "rec-scan-cursor");
+        builder.AddContent(15, "|");
+        builder.CloseElement();
+        builder.CloseElement();
+
+        builder.CloseElement();
+    };
+
+    // ===================================================================
+    // Revisar step (stub — will be completed in T-D4)
+    // ===================================================================
+
+    private RenderFragment RenderRevisar() => builder =>
+    {
+        builder.OpenElement(0, "div");
+        builder.AddContent(1, "Revisar pendiente");
+        builder.CloseElement();
+    };
+}

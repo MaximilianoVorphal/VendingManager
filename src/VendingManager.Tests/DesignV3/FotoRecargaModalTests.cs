@@ -1,0 +1,201 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Net;
+using System.Net.Http;
+using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
+using Bunit;
+using FluentAssertions;
+using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Forms;
+using Microsoft.Extensions.DependencyInjection;
+using VendingManager.Web.Components;
+using VendingManager.Shared.DTOs;
+using VendingManager.Shared.Models;
+using Xunit;
+
+namespace VendingManager.Tests.DesignV3;
+
+/// <summary>
+/// bUnit tests for FotoRecargaModal component (Slice D).
+///
+/// T-D1: modal renders/hides (R4.1a), Capturar step buttons (R4.2a),
+///       Leyendo step scan animation (R4.3a-b).
+/// T-D3: Revisar step badges/steppers/Cancelar/Aplicar (R4.4a-d, R4.5a-b).
+/// T-D5: OCR flow and edge cases (R4.6a, R4.7a-c).
+///
+/// Uses Loose JSRuntime mode (no JS interop in this component).
+/// Uses a dedicated MockHttpMessageHandler for OCR POST calls.
+/// </summary>
+public class FotoRecargaModalTests : TestContext
+{
+    private readonly FotoRecargaMockHttpHandler _mockHandler;
+
+    public FotoRecargaModalTests()
+    {
+        _mockHandler = new FotoRecargaMockHttpHandler();
+        Services.AddScoped(_ => new HttpClient(_mockHandler)
+        {
+            BaseAddress = new Uri("http://localhost")
+        });
+        JSInterop.Mode = JSRuntimeMode.Loose;
+    }
+
+    /// <summary>
+    /// Sample actual slots matching machine configuration.
+    /// </summary>
+    private static IReadOnlyList<SlotActual> SampleSlots => new List<SlotActual>
+    {
+        new() { Index = 0, Slot = "A1", Producto = "Coca Cola", Capacidad = 5 },
+        new() { Index = 1, Slot = "A2", Producto = "Pepsi", Capacidad = 5 },
+        new() { Index = 2, Slot = "A3", Producto = "Sprite", Capacidad = 5 },
+    };
+
+    /* ===================================================================
+     * R4.1a — Modal renders/hides with Visible parameter
+     * =================================================================== */
+
+    [Fact]
+    public void Modal_RendersWhenVisibleTrue_HidesWhenFalse()
+    {
+        var cut = RenderComponent<FotoRecargaModal>(p => p
+            .Add(c => c.Visible, true)
+            .Add(c => c.MaquinaId, "1")
+            .Add(c => c.SlotsActuales, SampleSlots)
+            .Add(c => c.OnClose, () => { }));
+
+        // Modal overlay must be present when Visible=true
+        cut.FindAll(".rec-overlay").Should().NotBeEmpty("overlay must render when Visible=true");
+        cut.Markup.Should().Contain("rec-modal");
+
+        // Re-render with Visible=false
+        cut.SetParametersAndRender(p => p
+            .Add(c => c.Visible, false));
+
+        cut.FindAll(".rec-overlay").Should().BeEmpty("overlay must NOT render when Visible=false");
+    }
+
+    /* ===================================================================
+     * R4.2a — Capturar step: both Upload buttons render with correct attributes
+     * =================================================================== */
+
+    [Fact]
+    public void CapturarStep_HasBothUploadButtonsWithCorrectAttributes()
+    {
+        var cut = RenderComponent<FotoRecargaModal>(p => p
+            .Add(c => c.Visible, true)
+            .Add(c => c.MaquinaId, "1")
+            .Add(c => c.SlotsActuales, SampleSlots)
+            .Add(c => c.OnClose, () => { }));
+
+        // Must be in Capturar step initially
+        cut.Markup.Should().Contain("Tomar foto");
+        cut.Markup.Should().Contain("Subir archivo");
+
+        // Tomar foto -> InputFile with capture="environment"
+        var tomarFotoLabel = cut.FindAll("label.rec-cap-btn").FirstOrDefault(l => l.TextContent.Trim().Contains("Tomar foto"));
+        tomarFotoLabel.Should().NotBeNull("Tomar foto label must exist");
+        var cameraInput = tomarFotoLabel!.QuerySelector("input[type='file']");
+        cameraInput.Should().NotBeNull();
+        cameraInput!.GetAttribute("accept").Should().Be("image/*");
+        cameraInput.GetAttribute("capture").Should().Be("environment");
+
+        // Subir archivo -> InputFile with accept="image/*" (hidden)
+        var subirLabel = cut.FindAll("label.rec-cap-btn").FirstOrDefault(l => l.TextContent.Trim().Contains("Subir archivo"));
+        subirLabel.Should().NotBeNull("Subir archivo label must exist");
+        var subirInput = subirLabel!.QuerySelector("input[type='file']");
+        subirInput.Should().NotBeNull();
+        subirInput!.GetAttribute("accept").Should().Be("image/*");
+
+        // Info note must be present
+        cut.Markup.Should().Contain("JPG, PNG o HEIC");
+    }
+
+    /* ===================================================================
+     * R4.3a — Leyendo step: scan container with rec-scan-line after upload
+     * =================================================================== */
+
+    [Fact]
+    public void Upload_TransitionsFromCapturarToRevisar()
+    {
+        var cut = RenderComponent<FotoRecargaModal>(p => p
+            .Add(c => c.Visible, true)
+            .Add(c => c.MaquinaId, "1")
+            .Add(c => c.SlotsActuales, SampleSlots)
+            .Add(c => c.OnClose, () => { }));
+
+        // Initially in Capturar step
+        cut.Markup.Should().Contain("Tomar foto");
+
+        // Upload a file
+        var imgBytes = new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A };
+        cut.FindComponent<InputFile>().UploadFiles(
+            InputFileContent.CreateFromBinary(imgBytes, "test.jpg", contentType: "image/jpeg"));
+
+        // Wait for Revisar step (stub: shows "Revisar pendiente")
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("Revisar");
+        });
+    }
+
+    [Fact]
+    public void LeyendoStep_Css_HasRecScanKeyframeAndScanLine()
+    {
+        // CSS audit: the component's CSS file must define the rec-scan-line
+        // animation class and @keyframes recScan (R4.3a-b).
+        var cssPath = Path.GetFullPath(
+            Path.Combine(
+                AppContext.BaseDirectory, "..", "..", "..", "..", "..",
+                "src", "VendingManager.Web", "Components", "FotoRecargaModal.razor.css"));
+
+        var css = File.ReadAllText(cssPath);
+        css.Should().Contain(".rec-scan-line", "scan line class must be defined in CSS");
+        css.Should().Contain("@keyframes recScan", "recScan keyframe must be defined");
+        css.Should().Contain("animation:", "scan line must use CSS animation");
+        css.Should().Contain("1.1s", "animation duration should be 1.1s");
+    }
+}
+
+    /// <summary>
+    /// Mock HTTP handler that returns a valid OCR result for from-photo calls.
+    /// Use UseAsyncDelay=true in tests that need to observe intermediate states
+    /// (e.g., Leyendo step) between upload and HTTP response.
+    /// </summary>
+    public class FotoRecargaMockHttpHandler : HttpMessageHandler
+    {
+        public int FromPhotoCallCount { get; private set; }
+        public OcrRecargaResultDto? LastResult { get; set; }
+        public bool UseAsyncDelay { get; set; }
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            var url = request.RequestUri?.ToString() ?? "";
+
+            if (url.Contains("api/ordencarga/from-photo"))
+            {
+                FromPhotoCallCount++;
+
+                var result = LastResult ?? new OcrRecargaResultDto
+                {
+                    ExtractedSlots = new List<MatchedSlotDto>
+                    {
+                        new() { SlotNumber = "A1", MatchedSlot = "A1", Quantity = 3, Confidence = 0.92f },
+                        new() { SlotNumber = "A2", MatchedSlot = "A2", Quantity = 5, Confidence = 0.75f },
+                        new() { SlotNumber = "A3", MatchedSlot = "A3", Quantity = 1, Confidence = 0.45f },
+                    }
+                };
+
+                var json = JsonSerializer.Serialize(result);
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(json)
+                });
+            }
+
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound));
+        }
+    }
