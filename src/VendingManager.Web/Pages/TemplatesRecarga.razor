@@ -663,8 +663,8 @@
     private byte[]? FotoGuiaData; // Photo 2 — never sent to server
     private string? FotoGuiaUrl; // Blob URL for display
     private bool _guiaVisible = false; // Panel visibility (replaces old modal MostrarFotoGuia)
-    private HashSet<string> SlotsResaltados = new(); // Slots recently pre-filled via OCR
-    private List<OcrRecargaSlotDto> UltimosSlotsNoCoincidentes = new(); // Unmatched OCR slots with quantity
+    // PR3: SlotsResaltados and UltimosSlotsNoCoincidentes removed — no longer used
+    // (the old direct-apply OCR path was replaced by FotoRecargaModal in PR3)
 
     // Pan/zoom state is handled by foto-guia.js — no C# fields needed
     private Dictionary<string, CancellationTokenSource> _syncCtors = new();
