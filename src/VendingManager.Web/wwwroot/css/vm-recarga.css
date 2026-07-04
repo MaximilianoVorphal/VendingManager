@@ -552,6 +552,13 @@
     border-bottom: var(--border-2);
     max-height: 260px;
   }
+  .rec-guia {
+    flex: none !important;
+    width: 100% !important;
+    border-left: none !important;
+    border-top: 2px solid black;
+    max-height: 400px;
+  }
 }
 @media (prefers-reduced-motion: reduce) {
   .rec-title__cursor { animation: none; }

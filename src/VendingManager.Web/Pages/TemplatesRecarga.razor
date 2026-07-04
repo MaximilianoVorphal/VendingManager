@@ -390,7 +390,10 @@
                         <VmSegmented @bind-Value="DensidadKey"
                                      Options="@(new[] { ("comoda","Cómoda"), ("compacta","Compacta") })" />
                         <VmButton Variant="outline" Size="sm" Icon="bi-camera" OnClick="TriggerOcrUpload">Foto recarga</VmButton>
-                        <VmButton Variant="outline" Size="sm" Icon="bi-image" OnClick="TriggerFotoGuiaUpload">Foto guia</VmButton>
+                        @if (!_guiaVisible)
+                        {
+                            <VmButton Variant="outline" Size="sm" Icon="bi-image" OnClick="ToggleGuiaPanel">Foto guia</VmButton>
+                        }
                     </div>
                 </div>
 
@@ -491,6 +494,15 @@
                     </div>
                 </div>
             </section>
+
+            <!-- Foto Guía Panel (3rd column, replaces old fullscreen modal) -->
+            @if (_guiaVisible)
+            {
+                <FotoGuiaPanel MaquinaId="@(PeriodoEnEdicionVisual?.MaquinaId.ToString() ?? "")"
+                               FotoGuiaUrl="@FotoGuiaUrl"
+                               OnClose="CerrarGuiaPanel"
+                               OnFotoUpload="HandlePanelFotoUpload" />
+            }
         </div>
 
         <!-- PRODUCT SELECTOR OVERLAY (for slot product change) -->
@@ -537,65 +549,6 @@
 {
     <div class="rec-toast">
         <i class="@ToastIcon"></i>@ToastMessage
-    </div>
-}
-
-<!-- MODAL FOTO GUÍA (Photo 2 — reference only, never sent to backend) -->
-@if (MostrarFotoGuia && !string.IsNullOrEmpty(FotoGuiaUrl))
-{
-    <div @ref="fotoGuiaModalRef" tabindex="-1"
-         class="modal fade show d-block" style="background-color: rgba(0,0,0,0.9); z-index: 1130; outline: none;"
-         @onkeydown="OnFotoGuiaKeydown">
-        <div class="modal-dialog modal-xl modal-dialog-centered">
-            <div class="modal-content border-3 border-dark rounded-0 bg-dark">
-                <div class="modal-header bg-dark text-white rounded-0 border-bottom border-dark">
-                    <h5 class="modal-title fw-bold text-uppercase">
-                        <i class="bi bi-image-fill me-2"></i> FOTO GUÍA — @((ListaMaquinas?.FirstOrDefault(m => m.Id == PeriodoEnEdicionVisual?.MaquinaId)?.Nombre ?? "MÁQUINA"))
-                    </h5>
-                    <button type="button" class="btn-close btn-close-white" @onclick="CerrarFotoGuiaModal"></button>
-                </div>
-                <div class="modal-body p-0"
-                     style="background-color: #111; overflow: hidden; position: relative; height: 80vh; cursor: @(_fotoGuiaDragging ? "grabbing" : "grab"); user-select: none;"
-                     @onwheel:preventDefault="true"
-                     @onwheel="OnFotoGuiaZoom"
-                     @onmousedown="OnFotoGuiaPanStart"
-                     @onmousemove="OnFotoGuiaPanMove"
-                     @onmouseup="OnFotoGuiaPanEnd"
-                     @onmouseleave="OnFotoGuiaPanLeave"
-                     @ontouchstart="OnFotoGuiaTouchStart"
-                     @ontouchmove:preventDefault="true"
-                     @ontouchmove="OnFotoGuiaTouchMove"
-                     @ontouchend="OnFotoGuiaTouchEnd">
-                    <div style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%;">
-                        <img src="@FotoGuiaUrl" alt="Foto Guía"
-                             style="max-width: 100%; max-height: 100%; object-fit: contain; transform-origin: center; transform: @FotoGuiaTransform; pointer-events: none; display: block;" />
-                    </div>
-                </div>
-                <div class="modal-footer bg-dark border-top border-dark rounded-0 d-flex justify-content-between align-items-center">
-                    <div class="d-flex align-items-center gap-3">
-                        <button class="btn btn-sm btn-outline-danger rounded-0 fw-bold" @onclick="EliminarFotoGuia" title="Eliminar foto guía">
-                            <i class="bi bi-trash me-1"></i>ELIMINAR FOTO
-                        </button>
-                        <small class="text-muted">
-                            <i class="bi bi-info-circle-fill me-1"></i>
-                            Esta foto es solo referencia.
-                        </small>
-                    </div>
-                    <div class="d-flex align-items-center gap-2">
-                        @if (_fotoGuiaZoom > 1.0 || _fotoGuiaPanX != 0 || _fotoGuiaPanY != 0)
-                        {
-                            <button class="btn btn-sm btn-outline-light rounded-0 fw-bold" @onclick="ResetFotoGuiaView" title="Restablecer zoom">
-                                <i class="bi bi-arrow-counterclockwise me-1"></i>RESTABLECER
-                            </button>
-                        }
-                        <span class="text-muted small fw-bold font-monospace">@(FotoGuiaZoomDisplay)x</span>
-                        <button type="button" class="btn btn-light rounded-0 fw-bold ms-2" @onclick="CerrarFotoGuiaModal">
-                            CERRAR
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
     </div>
 }
 
@@ -704,17 +657,11 @@
     private string MensajeInfoOcr = "";
     private byte[]? FotoGuiaData; // Photo 2 — never sent to server
     private string? FotoGuiaUrl; // Blob URL for display
-    private bool MostrarFotoGuia = false;
+    private bool _guiaVisible = false; // Panel visibility (replaces old modal MostrarFotoGuia)
     private HashSet<string> SlotsResaltados = new(); // Slots recently pre-filled via OCR
     private List<OcrRecargaSlotDto> UltimosSlotsNoCoincidentes = new(); // Unmatched OCR slots with quantity
 
-    // Foto Guía zoom/pan state (persists across photo modal close/reopen, resets when opening a different period)
-    private double _fotoGuiaZoom = 1.0;
-    private double _fotoGuiaPanX = 0;
-    private double _fotoGuiaPanY = 0;
-    private bool _fotoGuiaDragging = false;
-    private double _fotoGuiaLastMouseX = 0;
-    private double _fotoGuiaLastMouseY = 0;
+    // Pan/zoom state is handled by foto-guia.js — no C# fields needed
     private Dictionary<string, CancellationTokenSource> _syncCtors = new();
 
     // OCR photo state (persisted to backend on successful OCR)
@@ -735,14 +682,6 @@
     private async Task UnlockScroll() {
         try { await JS.InvokeVoidAsync("modalScrollLock.unlock"); } catch { }
     }
-
-    // CSS transform string — must use InvariantCulture or comma-decimal cultures break CSS syntax
-    private string FotoGuiaTransform =>
-        $"scale({_fotoGuiaZoom.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)}) translate({_fotoGuiaPanX.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)}px, {_fotoGuiaPanY.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)}px)";
-
-    // Zoom display for footer — also InvariantCulture to avoid comma decimals in es-AR etc.
-    private string FotoGuiaZoomDisplay =>
-        _fotoGuiaZoom.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture);
 
     private async Task AbrirEdicionVisual(PeriodoFormModel periodo)
     {
@@ -785,10 +724,6 @@
         ProcesandoOcr = false;
         MensajeErrorOcr = "";
         MensajeInfoOcr = "";
-        // Reset zoom/pan for new period (different machine = different photo)
-        _fotoGuiaZoom = 1.0;
-        _fotoGuiaPanX = 0;
-        _fotoGuiaPanY = 0;
         // Clear photo state before loading new periodo — prevents stale photo leakage
         RevokeFotoGuiaUrl();
         FotoGuiaData = null;
@@ -808,10 +743,7 @@
 
     private async Task CerrarEdicionVisual()
     {
-        if (MostrarFotoGuia)
-        {
-            MostrarFotoGuia = false;
-        }
+        _guiaVisible = false;
         PeriodoEnEdicionVisual = null;
         // Photos kept in memory for convenience across reopens — no revoke here
         // Restaurar navbar al salir del editor
@@ -1088,6 +1020,7 @@
         // Create blob URL — this is reference-only, never sent to any backend
         var url = $"data:{file.ContentType};base64,{Convert.ToBase64String(FotoGuiaData)}";
         FotoGuiaUrl = url;
+        _guiaVisible = true; // Show the panel after upload
         StateHasChanged();
 
         // Immediate persist to backend if we have a periodo ID
@@ -1117,78 +1050,6 @@
         }
     }
 
-    private async Task MostrarFotoGuiaModal()
-    {
-        if (!string.IsNullOrEmpty(FotoGuiaUrl))
-        {
-            try { await JS.InvokeVoidAsync("eval", "document.body.style.overflow='hidden';"); } catch { }
-            MostrarFotoGuia = true;
-        }
-    }
-
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (MostrarFotoGuia)
-        {
-            // Focus the modal wrapper so @onkeydown captures ESC immediately
-            // without the user having to click anything first.
-            try { await fotoGuiaModalRef.FocusAsync(); } catch { /* best effort */ }
-        }
-        else if (PeriodoEnEdicionVisual != null)
-        {
-            // Defensive: ensure scroll is never locked while in slot editor
-            // This catches edge cases where modal close didn't properly reset overflow
-            try { await JS.InvokeVoidAsync("eval", "if(document.body.style.overflow==='hidden')document.body.style.overflow='';"); } catch { }
-        }
-    }
-
-    // ElementReference for the foto guía modal wrapper — needed for FocusAsync
-    private ElementReference fotoGuiaModalRef;
-
-    private async Task CerrarFotoGuiaModal()
-    {
-        MostrarFotoGuia = false;
-        try { await JS.InvokeVoidAsync("eval", "document.body.style.overflow='';"); } catch { }
-        StateHasChanged();
-    }
-
-    private async Task EliminarFotoGuia()
-    {
-        // Close the modal first
-        MostrarFotoGuia = false;
-        try { await JS.InvokeVoidAsync("eval", "document.body.style.overflow='';"); } catch { }
-
-        // Clear local state
-        RevokeFotoGuiaUrl();
-        FotoGuiaData = null;
-
-        // Delete from backend if we have a periodo
-        if (PeriodoEnEdicionVisual?.Id > 0)
-        {
-            try
-            {
-                var response = await Http.DeleteAsync($"api/TemplateRecarga/{_currentTemplateId}/periodo/{PeriodoEnEdicionVisual.Id}/foto-guia");
-                if (!response.IsSuccessStatusCode && response.StatusCode != System.Net.HttpStatusCode.NotFound)
-                {
-                    Logger.LogWarning("Failed to delete foto guía for periodo {PeriodoId}: {Status}", PeriodoEnEdicionVisual.Id, response.StatusCode);
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.LogWarning(ex, "Error deleting foto guía for periodo {PeriodoId}", PeriodoEnEdicionVisual.Id);
-                // Non-critical: local state already cleared
-            }
-        }
-
-        StateHasChanged();
-    }
-
-    private async Task OnFotoGuiaKeydown(KeyboardEventArgs e)
-    {
-        if (e.Key == "Escape" && MostrarFotoGuia)
-            await CerrarFotoGuiaModal();
-    }
-
     private void RevokeFotoGuiaUrl()
     {
         if (!string.IsNullOrEmpty(FotoGuiaUrl))
@@ -1198,76 +1059,26 @@
         // FotoGuiaData is kept in memory for convenience across opens
     }
 
-    // === Foto Guía Zoom/Pan handlers ===
-    private void OnFotoGuiaZoom(WheelEventArgs e)
+    // === Foto Guía Panel management (replaces old fullscreen modal + C# pan/zoom) ===
+    private void ToggleGuiaPanel()
     {
-        // Proportional zoom based on actual scroll distance.
-        // Mouse scrolls send DeltaY ~ ±120 per notch → ~ ±0.3 zoom per notch
-        // Touchpad smooth scrolling sends DeltaY ~ ±(1–15) per frame → fine-grained, proportional
-        var zoomDelta = -e.DeltaY / 400.0;
-        _fotoGuiaZoom = Math.Clamp(_fotoGuiaZoom + zoomDelta, 1.0, 5.0);
+        _guiaVisible = !_guiaVisible;
     }
 
-    private void OnFotoGuiaPanStart(MouseEventArgs e)
+    private void CerrarGuiaPanel()
     {
-        _fotoGuiaDragging = true;
-        _fotoGuiaLastMouseX = e.ClientX;
-        _fotoGuiaLastMouseY = e.ClientY;
+        _guiaVisible = false;
     }
 
-    private void OnFotoGuiaPanMove(MouseEventArgs e)
+    private async Task HandlePanelFotoUpload(byte[] bytes)
     {
-        if (!_fotoGuiaDragging) return;
-        var dx = e.ClientX - _fotoGuiaLastMouseX;
-        var dy = e.ClientY - _fotoGuiaLastMouseY;
-        _fotoGuiaPanX += dx / _fotoGuiaZoom;
-        _fotoGuiaPanY += dy / _fotoGuiaZoom;
-        _fotoGuiaLastMouseX = e.ClientX;
-        _fotoGuiaLastMouseY = e.ClientY;
-    }
+        if (bytes == null || bytes.Length == 0) return;
 
-    private void OnFotoGuiaPanEnd(MouseEventArgs e)
-    {
-        _fotoGuiaDragging = false;
-    }
-
-    private void OnFotoGuiaPanLeave()
-    {
-        _fotoGuiaDragging = false;
-    }
-
-    // Touch handlers for mobile panning
-    private void OnFotoGuiaTouchStart(TouchEventArgs e)
-    {
-        if (e.Touches.Length == 1)
-        {
-            _fotoGuiaDragging = true;
-            _fotoGuiaLastMouseX = e.Touches[0].ClientX;
-            _fotoGuiaLastMouseY = e.Touches[0].ClientY;
-        }
-    }
-
-    private void OnFotoGuiaTouchMove(TouchEventArgs e)
-    {
-        if (!_fotoGuiaDragging || e.Touches.Length != 1) return;
-        var dx = e.Touches[0].ClientX - _fotoGuiaLastMouseX;
-        var dy = e.Touches[0].ClientY - _fotoGuiaLastMouseY;
-        _fotoGuiaPanX += dx / _fotoGuiaZoom;
-        _fotoGuiaPanY += dy / _fotoGuiaZoom;
-        _fotoGuiaLastMouseX = e.Touches[0].ClientX;
-        _fotoGuiaLastMouseY = e.Touches[0].ClientY;
-    }
-
-    private void OnFotoGuiaTouchEnd(TouchEventArgs e)
-    {
-        _fotoGuiaDragging = false;
-    }
-
-    private void ResetFotoGuiaView()
-    {
-        _fotoGuiaZoom = 1.0;
-        _fotoGuiaPanX = 0;
-        _fotoGuiaPanY = 0;
+        RevokeFotoGuiaUrl();
+        FotoGuiaData = bytes;
+        FotoGuiaUrl = $"data:image/jpeg;base64,{Convert.ToBase64String(bytes)}";
+        _guiaVisible = true;
+        StateHasChanged();
     }
 
     private bool Cargando = false;
