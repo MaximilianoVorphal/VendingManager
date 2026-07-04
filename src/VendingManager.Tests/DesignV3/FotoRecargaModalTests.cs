@@ -376,12 +376,13 @@ public class FotoRecargaModalTests : TestContext
     public void Aplicar_InvokesOnAplicar_WithKnownSlotQuantities_AndCloses()
     {
         Dictionary<int, int>? aplicado = null;
+        bool closeCalled = false;
 
         var cut = RenderComponent<FotoRecargaModal>(p => p
             .Add(c => c.Visible, true)
             .Add(c => c.MaquinaId, "1")
             .Add(c => c.SlotsActuales, SampleSlots)
-            .Add(c => c.OnClose, () => { })
+            .Add(c => c.OnClose, (Action)(() => closeCalled = true))
             .Add(c => c.OnAplicar, EventCallback.Factory.Create<Dictionary<int, int>>(this, d => aplicado = d)));
 
         var imgBytes = new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A };
@@ -416,8 +417,11 @@ public class FotoRecargaModalTests : TestContext
             aplicado[2].Should().Be(1);
         }
 
-        // After applying, modal should hide (Visible becomes false internally
-        // or OnClose is invoked)
+        // After applying, modal must invoke OnClose (which hides the modal)
+        cut.WaitForAssertion(() =>
+        {
+            closeCalled.Should().BeTrue("OnClose must be invoked after Aplicar");
+        });
     }
 
     /* ===================================================================
