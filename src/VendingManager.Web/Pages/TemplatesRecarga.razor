@@ -701,6 +701,15 @@
     private async Task AbrirEdicionVisual(TemplateRecargaDto template, PeriodoRecargaDto periodo)
     {
         _currentTemplateId = template.Id;
+        // Capture template-level fields so a visual-editor save (PUT) doesn't overwrite
+        // Nombre/Descripcion with empty values — the PUT endpoint does not re-validate them.
+        EsEdicion = true;
+        TemplateIdEdicion = template.Id;
+        TemplateActual = new TemplateFormModel
+        {
+            Nombre = template.Nombre,
+            Descripcion = template.Descripcion
+        };
         PeriodosActuales = template.Periodos.Select(p => new PeriodoFormModel
         {
             Id = p.Id,
@@ -1103,8 +1112,43 @@
 
     private async Task GuardarCarga()
     {
-        // Persisted save flows through the edit modal / full template save.
-        await CerrarEdicionVisual();
+        // A brand-new, not-yet-persisted template (no id) has nothing to PUT.
+        // It must be created first via the modal save — just close the editor.
+        if (_currentTemplateId <= 0)
+        {
+            await CerrarEdicionVisual();
+            return;
+        }
+
+        Guardando = true;
+        StateHasChanged();
+
+        try
+        {
+            var dto = BuildTemplateDto();
+            var response = await Http.PutAsJsonAsync($"api/TemplateRecarga/{_currentTemplateId}", dto);
+            var body = await response.Content.ReadAsStringAsync();
+
+            if (response.IsSuccessStatusCode)
+            {
+                ShowToast("Carga guardada", "bi-check-circle-fill");
+                await CargarTemplates();
+                await CerrarEdicionVisual();
+            }
+            else
+            {
+                ShowToast($"Error HTTP {(int)response.StatusCode}: {body}", "bi-exclamation-triangle-fill");
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "[GuardarCarga] Excepción al guardar la carga");
+            ShowToast("Error al guardar: " + ex.Message, "bi-exclamation-triangle-fill");
+        }
+        finally
+        {
+            Guardando = false;
+        }
     }
 
     // Sincronización
@@ -1554,6 +1598,52 @@
         }
     }
 
+    /// <summary>
+    /// Builds the persistence DTO from the in-memory form state.
+    /// Shared by the modal save (GuardarTemplate) and the visual editor save (GuardarCarga)
+    /// so both flows hit the same backend contract.
+    /// Normalizes empty/pending slots (clears product + quantity) as a side effect.
+    /// </summary>
+    private CreateTemplateDto BuildTemplateDto()
+    {
+        return new CreateTemplateDto
+        {
+            Nombre = TemplateActual.Nombre,
+            Descripcion = TemplateActual.Descripcion,
+            Periodos = PeriodosActuales
+                .Where(p => p.MaquinaId > 0)
+                .Select(p => new CreatePeriodoDto
+                {
+                    MaquinaId = p.MaquinaId,
+                    FechaRecarga = p.FechaRecarga,
+                    SnapshotSlots = p.SnapshotSlots
+                        .Select(s =>
+                        {
+                            // Solo limpiar Pendiente si no tiene producto seleccionado (sigue pendiente)
+                            // Vacío → siempre limpiar
+                            if (s.Estado == EstadoSlot.Vacio)
+                            {
+                                s.ProductoId = null;
+                                s.CantidadInicial = 0;
+                            }
+                            else if (s.Estado == EstadoSlot.Pendiente && (!s.ProductoId.HasValue || s.ProductoId <= 0))
+                            {
+                                s.ProductoId = null;
+                                s.CantidadInicial = 0;
+                            }
+                            return new CreateSnapshotSlotDto
+                            {
+                                NumeroSlot = s.NumeroSlot,
+                                ProductoId = s.ProductoId,
+                                CantidadInicial = s.CantidadInicial,
+                                CapacidadSlot = 5,
+                                Estado = s.Estado
+                            };
+                        }).ToList()
+                }).ToList()
+        };
+    }
+
     private async Task GuardarTemplate()
     {
         if (string.IsNullOrWhiteSpace(TemplateActual.Nombre))
@@ -1573,42 +1663,7 @@
 
         try
         {
-            var dto = new CreateTemplateDto
-            {
-                Nombre = TemplateActual.Nombre,
-                Descripcion = TemplateActual.Descripcion,
-                Periodos = PeriodosActuales
-            .Where(p => p.MaquinaId > 0)
-            .Select(p => new CreatePeriodoDto
-            {
-                MaquinaId = p.MaquinaId,
-                FechaRecarga = p.FechaRecarga,
-                SnapshotSlots = p.SnapshotSlots
-            .Select(s =>
-            {
-                // Solo limpiar Pendiente si no tiene producto seleccionado (sigue pendiente)
-                // Vacío → siempre limpiar
-                if (s.Estado == EstadoSlot.Vacio)
-                {
-                    s.ProductoId = null;
-                    s.CantidadInicial = 0;
-                }
-                else if (s.Estado == EstadoSlot.Pendiente && (!s.ProductoId.HasValue || s.ProductoId <= 0))
-                {
-                    s.ProductoId = null;
-                    s.CantidadInicial = 0;
-                }
-                return new CreateSnapshotSlotDto
-                {
-                    NumeroSlot = s.NumeroSlot,
-                    ProductoId = s.ProductoId,
-                    CantidadInicial = s.CantidadInicial,
-                    CapacidadSlot = 5,
-                    Estado = s.Estado
-                };
-            }).ToList()
-            }).ToList()
-            };
+            var dto = BuildTemplateDto();
 
             // [DEBUG] Log the exact payload being sent so we can confirm shape + counts.
             var debugJson = System.Text.Json.JsonSerializer.Serialize(dto);
