@@ -42,6 +42,56 @@ public class TemplatesRecargaTokenAuditTests_Editor
 
     private static string CanonicalCssContent => File.ReadAllText(CanonicalCssPath);
 
+    private static string FotoGuiaPanelCssPath => Path.GetFullPath(
+        Path.Combine(
+            AppContext.BaseDirectory,
+            "..", "..", "..", "..", "..",
+            "src", "VendingManager.Web", "Components", "FotoGuiaPanel.razor.css"));
+
+    private static string FotoGuiaPanelCssContent => File.ReadAllText(FotoGuiaPanelCssPath);
+
+    /// <summary>
+    /// Extracts the content of an @media block whose condition contains the given text.
+    /// </summary>
+    private static string ExtractMediaBlock(string css, string conditionSubstring)
+    {
+        var idx = 0;
+        while (idx < css.Length)
+        {
+            var atMedia = css.IndexOf("@media", idx, StringComparison.Ordinal);
+            if (atMedia < 0) break;
+
+            var openParen = css.IndexOf('(', atMedia);
+            if (openParen < 0) { idx = atMedia + 6; continue; }
+
+            var blockStart = css.IndexOf('{', openParen);
+            if (blockStart < 0) break;
+
+            // Extract the condition text between @media and the opening {
+            var conditionEnd = css.LastIndexOf(')', blockStart);
+            var condition = conditionEnd >= 0
+                ? css.Substring(atMedia + 6, conditionEnd - atMedia - 5).Trim()
+                : "";
+
+            if (condition.Contains(conditionSubstring, StringComparison.Ordinal))
+            {
+                var depth = 1;
+                var pos = blockStart + 1;
+                while (pos < css.Length && depth > 0)
+                {
+                    var ch = css[pos];
+                    if (ch == '{') depth++;
+                    else if (ch == '}') depth--;
+                    pos++;
+                }
+                return css.Substring(blockStart + 1, pos - blockStart - 2);
+            }
+
+            idx = blockStart + 1;
+        }
+        return "";
+    }
+
     private static string ExtractBlocks(string css, string[] selectors)
     {
         var sb = new System.Text.StringBuilder();
@@ -166,5 +216,92 @@ public class TemplatesRecargaTokenAuditTests_Editor
             ".rec-mcard.is-active / .rec-status use --signal-success");
         canonicalBlock.Should().Contain("var(--signal-warning)",
             ".rec-tag-empty / .rec-badge--pending use --signal-warning");
+    }
+
+    /* ─────────────────────────────────────────────────────────────────────
+     * Slice E — Visual Polish audit (R5.1a, R5.2a, R5.3a, R5.4a-b, R3.6a, R4.3b)
+     * ───────────────────────────────────────────────────────────────────── */
+
+    [Fact]
+    public void Polish_ShelfBodyBackground_UsesShelfInsetToken()
+    {
+        // R5.2a — Shelf grid background must use --bg-shelf-inset token, defined as #e6e7ea
+        var block = ExtractBlocks(CanonicalCssContent, new[] { ".rec-shelf__body" });
+
+        block.Should().NotBeNullOrWhiteSpace(".rec-shelf__body must be defined in canonical CSS");
+        block.Should().Contain("--bg-shelf-inset",
+            ".rec-shelf__body background should use the --bg-shelf-inset token");
+
+        // Verify the token is defined in :root with matching value
+        CanonicalCssContent.Should().Contain("--bg-shelf-inset:",
+            "--bg-shelf-inset must be defined as a CSS custom property in :root");
+        CanonicalCssContent.Should().Contain("#e6e7ea",
+            "--bg-shelf-inset must resolve to #e6e7ea");
+    }
+
+    [Fact]
+    public void Polish_ResponsiveQuery_CollapsesRecGuiaToFullWidth()
+    {
+        // R5.4a — At ≤1000px the .rec-guia must be full width (not fixed 384px)
+        var mediaBody = ExtractMediaBlock(CanonicalCssContent, "max-width: 1000px");
+
+        mediaBody.Should().NotBeNullOrWhiteSpace(
+            "@media (max-width: 1000px) block must exist in canonical CSS");
+        mediaBody.Should().Contain(".rec-guia",
+            "responsive block must target .rec-guia");
+        mediaBody.Should().Contain("width: 100%",
+            ".rec-guia must be full-width at narrow viewport");
+    }
+
+    [Fact]
+    public void Polish_Headers_UseRecBandHForMinHeight()
+    {
+        // R5.3a — All three split headers must share --rec-band-h for min-height alignment.
+        // Note: the exact tokens may be "var(--rec-band-h)" (vm-recarga.css) or
+        // "var(--rec-band-h, 62px)" (scoped CSS with fallback), so match on --rec-band-h.
+        var railHeadBlock = ExtractBlocks(CanonicalCssContent, new[] { ".rec-rail__head" });
+        var shelfHeadBlock = ExtractBlocks(CanonicalCssContent, new[] { ".rec-shelf__head" });
+
+        railHeadBlock.Should().NotBeNullOrWhiteSpace(".rec-rail__head must be defined");
+        railHeadBlock.Should().Contain("--rec-band-h",
+            ".rec-rail__head must use --rec-band-h token");
+
+        shelfHeadBlock.Should().NotBeNullOrWhiteSpace(".rec-shelf__head must be defined");
+        shelfHeadBlock.Should().Contain("--rec-band-h",
+            ".rec-shelf__head must use --rec-band-h token");
+
+        // rec-guia-header is in FotoGuiaPanel.razor.css (scoped)
+        var guiaHeaderBlock = ExtractBlocks(FotoGuiaPanelCssContent, new[] { ".rec-guia-header" });
+        guiaHeaderBlock.Should().NotBeNullOrWhiteSpace(".rec-guia-header must be defined");
+        guiaHeaderBlock.Should().Contain("--rec-band-h",
+            ".rec-guia-header must use --rec-band-h token");
+    }
+
+    [Fact]
+    public void Polish_ReducedMotion_DisablesScanLineAndCursor()
+    {
+        // R3.6a, R4.3b — prefers-reduced-motion disables scan-line and cursor animations
+        var mediaBody = ExtractMediaBlock(CanonicalCssContent, "prefers-reduced-motion: reduce");
+
+        mediaBody.Should().NotBeNullOrWhiteSpace(
+            "@media (prefers-reduced-motion: reduce) block must exist in canonical CSS");
+        mediaBody.Should().Contain(".rec-scan-line",
+            "reduced-motion must disable .rec-scan-line animation");
+        mediaBody.Should().Contain(".rec-scan-cursor",
+            "reduced-motion must disable .rec-scan-cursor animation");
+    }
+
+    [Fact]
+    public void Polish_ZoomLabel_NoOnePointZeroXFormat()
+    {
+        // R5.1a — Zoom label must not use "1.0x" format anywhere in the codebase
+        // Check both canonical CSS and FotoGuiaPanel scoped CSS
+        CanonicalCssContent.Should().NotContain("1.0x",
+            "zoom label format must not be '1.0x' in canonical CSS");
+
+        var panelPath = FotoGuiaPanelCssPath;
+        var panelCss = File.ReadAllText(panelPath);
+        panelCss.Should().NotContain("1.0x",
+            "zoom label format must not be '1.0x' in FotoGuiaPanel CSS");
     }
 }
