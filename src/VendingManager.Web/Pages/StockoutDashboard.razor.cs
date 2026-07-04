@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http.Json;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.WebUtilities;
@@ -283,6 +284,118 @@ namespace VendingManager.Web.Pages
                     v == 0 ? "rgba(220,53,69,0.08)" : "transparent",
                     labels[i].Day.ToString("D2"))).ToList();
             }
+        }
+
+        // ============================================================================
+        // Mapa de agotamiento — esquema físico de la máquina en foco, alimentado con
+        // datos reales (Datos). El panel compacto muestra el estado de hoy; el modal
+        // reproduce el vaciado en el tiempo usando FechasVentas (CalculateStockAtTime).
+        // ============================================================================
+
+        private bool mapOpen;
+
+        private record SlotVm(string Num, string Prod, int Stock, int Cap, string Color,
+            string BadgeTx, string Badge, bool Light, int FillPct, bool Selected);
+        private record FloorVm(string Label, List<SlotVm> Slots);
+
+        // Máquina en foco: filtro explícito > máquina del producto seleccionado > peor.
+        private int FocusMaqId
+        {
+            get
+            {
+                if (MaquinaFiltroTemplate > 0) return MaquinaFiltroTemplate;
+                if (Datos == null || Datos.Count == 0) return 0;
+                var sel = Datos.FirstOrDefault(d => d.ProductoNombre == SelName);
+                if (sel != null) return sel.MaquinaId;
+                return Datos.OrderByDescending(d => d.GananciaPerdidaEstimada).First().MaquinaId;
+            }
+        }
+
+        private string FocusMaqLabel =>
+            (Datos ?? new()).FirstOrDefault(d => d.MaquinaId == FocusMaqId)?.MaquinaNombre ?? "—";
+
+        private List<StockoutAnalysisDto> FocusSlots =>
+            (Datos ?? new()).Where(d => d.MaquinaId == FocusMaqId).ToList();
+
+        // StockInicial desconocido (0) => no podemos inferir capacidad; usamos lo que haya.
+        private static int SlotCap(StockoutAnalysisDto d) =>
+            d.StockInicial > 0 ? d.StockInicial : Math.Max(d.StockActual, 1);
+
+        private static string TrayOf(string? slot)
+        {
+            if (string.IsNullOrEmpty(slot)) return "#";
+            var m = Regex.Match(slot, "^[A-Za-z]+");
+            return m.Success ? m.Value.ToUpperInvariant() : "#";
+        }
+
+        private static int SlotNumSuffix(string? slot)
+        {
+            if (string.IsNullOrEmpty(slot)) return 0;
+            var m = Regex.Match(slot, @"\d+");
+            return m.Success && int.TryParse(m.Value, out var n) ? n : 0;
+        }
+
+        private SlotVm MakeSlot(StockoutAnalysisDto d, double ratio)
+        {
+            var cap = SlotCap(d);
+            ratio = Math.Clamp(ratio, 0, 1);
+            var stock = (int)Math.Round(ratio * cap);
+            string color, badgeTx, badge;
+            if (d.EsDeadSlot) { color = "var(--ink-500)"; badgeTx = "#fff"; badge = "D"; }
+            else if (ratio <= 0.001) { color = "var(--signal-danger)"; badgeTx = "#fff"; badge = "C"; }
+            else if (ratio <= 0.4) { color = "var(--signal-warning)"; badgeTx = "var(--ink-900)"; badge = "A"; }
+            else { color = "var(--signal-success)"; badgeTx = "#fff"; badge = ""; }
+            var light = ratio > 0.42;
+            var fillPct = d.EsDeadSlot ? 4 : Math.Max(5, (int)Math.Round(ratio * 100));
+            return new SlotVm(
+                string.IsNullOrEmpty(d.NumeroSlot) ? "—" : d.NumeroSlot,
+                d.ProductoNombre, stock, cap, color, badgeTx, badge, light, fillPct,
+                d.ProductoNombre == SelName);
+        }
+
+        // Agrupa los slots reales por bandeja (prefijo alfabético del número de slot).
+        private List<FloorVm> BuildFloors(Func<StockoutAnalysisDto, double> ratioFn) =>
+            FocusSlots
+                .GroupBy(d => TrayOf(d.NumeroSlot))
+                .OrderBy(g => g.Key)
+                .Select(g => new FloorVm(
+                    g.Key == "#" ? "Slots" : $"Bandeja {g.Key}",
+                    g.OrderBy(d => SlotNumSuffix(d.NumeroSlot))
+                     .Select(d => MakeSlot(d, ratioFn(d)))
+                     .ToList()))
+                .ToList();
+
+        private double RatioToday(StockoutAnalysisDto d) =>
+            d.EsDeadSlot ? 0 : (double)d.StockActual / SlotCap(d);
+
+        private double RatioAt(StockoutAnalysisDto d, DateTime time) =>
+            d.EsDeadSlot ? 0 : (double)CalculateStockAtTime(d, time) / SlotCap(d);
+
+        private List<FloorVm> SchematicFloors => BuildFloors(RatioToday);
+        private List<FloorVm> ModalFloors => BuildFloors(d => RatioAt(d, CurrentTime));
+
+        private int EnQuiebreN => FocusSlots.Count(d => d.EsDeadSlot || d.StockActual <= 0);
+        private int ModalQuiebreN => FocusSlots.Count(d => d.EsDeadSlot || CalculateStockAtTime(d, CurrentTime) <= 0);
+        private string SchematicMeta => $"{FocusSlots.Count} slots · {EnQuiebreN} en quiebre";
+
+        // Scrubber (recarga -> hoy), sobre el CurrentStepIndex / TotalSteps ya existentes.
+        private int TotalDays => Math.Max(1, (int)Math.Round((FechaFin - FechaInicio).TotalDays));
+        private int ScrubDay => Math.Clamp((int)Math.Round((CurrentTime - FechaInicio).TotalDays), 0, TotalDays);
+        private bool ScrubIsToday => CurrentStepIndex >= TotalSteps;
+        private string ScrubDateLabel => CurrentTime.ToString("dd/MM");
+        private string ScrubDayLabel => ScrubIsToday ? "HOY" : $"Día {ScrubDay} / {TotalDays}";
+
+        private void OpenMap() => mapOpen = true;
+        private void CloseMap()
+        {
+            if (IsPlaying) { IsPlaying = false; PlaybackTimer?.Dispose(); }
+            mapOpen = false;
+        }
+        private void OnScrubInput(ChangeEventArgs e)
+        {
+            if (IsPlaying) { IsPlaying = false; PlaybackTimer?.Dispose(); }
+            if (int.TryParse(e.Value?.ToString(), out var v))
+                CurrentStepIndex = Math.Clamp(v, 0, TotalSteps);
         }
 
         protected override async Task OnInitializedAsync()
@@ -637,26 +750,26 @@ namespace VendingManager.Web.Pages
         private void TogglePlayback()
         {
             IsPlaying = !IsPlaying;
-            if (IsPlaying)
-            {
-                PlaybackTimer = new System.Threading.Timer(async _ =>
-                {
-                    if (CurrentStepIndex >= TotalSteps)
-                    {
-                        IsPlaying = false;
-                        await InvokeAsync(StateHasChanged);
-                        PlaybackTimer?.Dispose();
-                        return;
-                    }
+            if (!IsPlaying) { PlaybackTimer?.Dispose(); return; }
 
-                    CurrentStepIndex++;
-                    await InvokeAsync(StateHasChanged);
-                }, null, 0, 500); // Update every 500ms
-            }
-            else
+            // Al llegar al final, reinicia desde la recarga.
+            if (CurrentStepIndex >= TotalSteps) CurrentStepIndex = 0;
+
+            // Recorre el período en ~28 cuadros, sin importar cuántos steps tenga.
+            var step = Math.Max(1, TotalSteps / 28);
+            PlaybackTimer = new System.Threading.Timer(async _ =>
             {
-                PlaybackTimer?.Dispose();
-            }
+                if (CurrentStepIndex >= TotalSteps)
+                {
+                    IsPlaying = false;
+                    PlaybackTimer?.Dispose();
+                    await InvokeAsync(StateHasChanged);
+                    return;
+                }
+
+                CurrentStepIndex = Math.Min(TotalSteps, CurrentStepIndex + step);
+                await InvokeAsync(StateHasChanged);
+            }, null, 0, 450);
         }
 
         // DTOs Locales
