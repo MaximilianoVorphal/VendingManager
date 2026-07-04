@@ -482,6 +482,44 @@ public class FotoRecargaModalTests : TestContext
     }
 
     /* ===================================================================
+     * R4.4e (W3) — Aplicar persists OCR photo via PUT to backend
+     * =================================================================== */
+
+    [Fact]
+    public void Aplicar_PersistsFotoOcrViaPut()
+    {
+        var cut = RenderComponent<FotoRecargaModal>(p => p
+            .Add(c => c.Visible, true)
+            .Add(c => c.MaquinaId, "1")
+            .Add(c => c.SlotsActuales, SampleSlots)
+            .Add(c => c.TemplateId, 1)
+            .Add(c => c.PeriodoId, 42)
+            .Add(c => c.OnClose, () => { })
+            .Add(c => c.OnAplicar, (Action<Dictionary<int, int>>)(_ => { })));
+
+        var imgBytes = new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A };
+        cut.FindComponent<InputFile>().UploadFiles(
+            InputFileContent.CreateFromBinary(imgBytes, "test.jpg", contentType: "image/jpeg"));
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("rec-review-list");
+        });
+
+        // Click Aplicar
+        var aplicarBtn = cut.FindAll("button").FirstOrDefault(b =>
+            b.TextContent.Trim().Contains("Aplicar", StringComparison.OrdinalIgnoreCase));
+        aplicarBtn.Should().NotBeNull();
+        aplicarBtn!.Click();
+
+        // PUT must have been called
+        cut.WaitForAssertion(() =>
+        {
+            _mockHandler.PutFotoOcrCallCount.Should().Be(1, "foto-ocr PUT must be called on Aplicar");
+        });
+    }
+
+    /* ===================================================================
      * R4.7b — Mid-review close → OnAplicar NOT invoked, OnClose invoked
      * =================================================================== */
 
@@ -585,6 +623,7 @@ public class FotoRecargaModalTests : TestContext
     public class FotoRecargaMockHttpHandler : HttpMessageHandler
     {
         public int FromPhotoCallCount { get; private set; }
+        public int PutFotoOcrCallCount { get; private set; }
         public OcrRecargaResultDto? LastResult { get; set; }
         public bool UseAsyncDelay { get; set; }
 
@@ -607,10 +646,23 @@ public class FotoRecargaModalTests : TestContext
                 };
 
                 var json = JsonSerializer.Serialize(result);
-                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+                var response = new HttpResponseMessage(HttpStatusCode.OK)
                 {
                     Content = new StringContent(json)
-                });
+                };
+
+                if (UseAsyncDelay)
+                {
+                    return Task.Delay(200).ContinueWith(_ => response);
+                }
+
+                return Task.FromResult(response);
+            }
+
+            if (url.Contains("api/TemplateRecarga/") && url.Contains("/foto-ocr") && request.Method == HttpMethod.Put)
+            {
+                PutFotoOcrCallCount++;
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK));
             }
 
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound));

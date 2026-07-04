@@ -33,11 +33,15 @@
     [Parameter] public IReadOnlyList<SlotActual> SlotsActuales { get; set; } = Array.Empty<SlotActual>();
     [Parameter] public EventCallback OnClose { get; set; }
     [Parameter] public EventCallback<Dictionary<int, int>> OnAplicar { get; set; }
+    [Parameter] public int TemplateId { get; set; }
+    [Parameter] public int PeriodoId { get; set; }
 
     private enum Paso { Capturar, Leyendo, Revisar }
     private Paso _paso = Paso.Capturar;
     private LecturaRecarga? _lectura;
     private string _previewUrl = "";
+    private byte[]? _fotoOcrBytes;
+    private string? _fotoOcrContentType;
 
     protected override void OnParametersSet()
     {
@@ -46,6 +50,8 @@
             _paso = Paso.Capturar;
             _lectura = null;
             _previewUrl = "";
+            _fotoOcrBytes = null;
+            _fotoOcrContentType = null;
         }
     }
 
@@ -72,6 +78,8 @@
         memoryStream.Position = 0;
 
         var bytes = memoryStream.ToArray();
+        _fotoOcrBytes = bytes;
+        _fotoOcrContentType = file.ContentType;
         _previewUrl = $"data:{file.ContentType};base64,{Convert.ToBase64String(bytes)}";
         _paso = Paso.Leyendo;
         StateHasChanged();
@@ -267,6 +275,27 @@
             if (slot.SlotIndex >= 0)
             {
                 map[slot.SlotIndex] = GetQty(slot.SlotIndex);
+            }
+        }
+
+        // Persist OCR photo to backend before applying (non-critical)
+        if (_fotoOcrBytes != null && TemplateId > 0 && PeriodoId > 0)
+        {
+            try
+            {
+                var content = new MultipartFormDataContent();
+                var byteContent = new ByteArrayContent(_fotoOcrBytes);
+                byteContent.Headers.ContentType =
+                    new System.Net.Http.Headers.MediaTypeHeaderValue(_fotoOcrContentType ?? "image/jpeg");
+                content.Add(byteContent, "file", "ocr-photo.jpg");
+
+                await Http.PutAsync(
+                    $"api/TemplateRecarga/{TemplateId}/periodo/{PeriodoId}/foto-ocr",
+                    content);
+            }
+            catch
+            {
+                // Non-critical — persist failure does not block apply
             }
         }
 

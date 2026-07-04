@@ -506,6 +506,8 @@
             <FotoRecargaModal Visible="@_recargaVisible"
                               MaquinaId="@(PeriodoEnEdicionVisual.MaquinaId.ToString())"
                               SlotsActuales="@ProjectedSlotsActual()"
+                              TemplateId="@_currentTemplateId"
+                              PeriodoId="@PeriodoEnEdicionVisual.Id"
                               OnClose="() => _recargaVisible = false"
                               OnAplicar="AplicarRecarga" />
         }
