@@ -10,19 +10,21 @@ namespace VendingManager.Tests.DesignV3;
 
 /// <summary>
 /// bUnit tests for FotoGuiaPanel component (Slice C).
-/// T-C1: rendering behavior (R3.1a-b, R3.2a-c).
-/// T-C3: JS interop (R3.3a, R3.4a-d) — see separate test methods below.
 ///
-/// Uses Loose JSRuntime mode for T-C1/T-C2 rendering tests.
-/// Strict mode with SetupModule is introduced in T-C3 for JS interop verification.
+/// T-C1: rendering behavior (R3.1a-b, R3.2a-c).
+/// T-C3: JS interop wiring (R3.3a, R3.4a-d).
+///
+/// Uses Loose JSRuntime mode — all JS calls auto-succeed with defaults.
+/// The component handles null module/controller references gracefully.
+/// Module import and function dispatch happen on first render; in Loose
+/// mode the import succeeds silently and subsequent module calls return
+/// defaults. The zoom label retains its default "100%" until the real
+/// foto-guia.js module provides a value.
 /// </summary>
 public class FotoGuiaPanelTests : TestContext
 {
     public FotoGuiaPanelTests()
     {
-        // Loose mode — all JS calls auto-succeed with defaults.
-        // The component handles null controller references gracefully
-        // by keeping the default zoom label "100%".
         JSInterop.Mode = JSRuntimeMode.Loose;
     }
 
@@ -109,21 +111,6 @@ public class FotoGuiaPanelTests : TestContext
     }
 
     /* ===================================================================
-     * R3.4a — Zoom label element present in markup
-     * =================================================================== */
-
-    [Fact]
-    public void ZoomLabelElement_PresentInFooter()
-    {
-        var cut = RenderComponent<FotoGuiaPanel>(p => p
-            .Add(c => c.MaquinaId, "1")
-            .Add(c => c.FotoGuiaUrl, "data:image/jpeg;base64,test")
-            .Add(c => c.OnClose, () => { }));
-
-        cut.FindAll("span.rec-zoom-label").Should().NotBeEmpty();
-    }
-
-    /* ===================================================================
      * R3.4d — Zoom controls present (− / + / restablecer)
      * =================================================================== */
 
@@ -143,6 +130,21 @@ public class FotoGuiaPanelTests : TestContext
     }
 
     /* ===================================================================
+     * R3.4a — Zoom label element present
+     * =================================================================== */
+
+    [Fact]
+    public void ZoomLabelElement_Present()
+    {
+        var cut = RenderComponent<FotoGuiaPanel>(p => p
+            .Add(c => c.MaquinaId, "1")
+            .Add(c => c.FotoGuiaUrl, "data:image/jpeg;base64,test")
+            .Add(c => c.OnClose, () => { }));
+
+        cut.FindAll("span.rec-zoom-label").Should().NotBeEmpty();
+    }
+
+    /* ===================================================================
      * R3.4b-c — Cámara and Subir buttons in footer
      * =================================================================== */
 
@@ -158,7 +160,7 @@ public class FotoGuiaPanelTests : TestContext
     }
 
     /* ===================================================================
-     * R3.3a — Component renders without JS crash (initPanZoom via Loose)
+     * R3.3a — Component renders without JS crash
      * =================================================================== */
 
     [Fact]
@@ -169,8 +171,8 @@ public class FotoGuiaPanelTests : TestContext
             .Add(c => c.FotoGuiaUrl, "data:image/jpeg;base64,test")
             .Add(c => c.OnClose, () => { }));
 
-        // In Loose mode, JS calls auto-succeed, so no crash.
-        // The image element should render under .rec-guia-body.
+        // In Loose mode, JS auto-succeeds — no crash.
+        // The image renders under .rec-guia-body.
         cut.FindAll(".rec-guia-body img").Should().NotBeEmpty();
     }
 }
