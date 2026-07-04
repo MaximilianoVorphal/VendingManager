@@ -195,11 +195,65 @@ public class FotoRecargaModalTests : TestContext
             cut.Markup.Should().Contain("rec-review-list");
         });
 
-        // A1: qty=3, capacity=5. Verify VmStepper components rendered
-        // by checking the stepper value labels contain "3", "5", "1".
-        cut.Markup.Should().Contain("3");
-        cut.Markup.Should().Contain("5");
-        cut.Markup.Should().Contain("1");
+        // A1: qty=3, capacity=5
+        // Click + → value becomes 4
+        cut.Find("[data-slot='0'] [data-step='plus']").Click();
+        cut.WaitForAssertion(() =>
+        {
+            var val = cut.Find("[data-slot='0'] .rec-stepper__val");
+            val.TextContent.Trim().Should().Be("4");
+        });
+
+        // Click + again → value becomes 5 (= capacity)
+        cut.Find("[data-slot='0'] [data-step='plus']").Click();
+        cut.WaitForAssertion(() =>
+        {
+            var val = cut.Find("[data-slot='0'] .rec-stepper__val");
+            val.TextContent.Trim().Should().Be("5");
+        });
+
+        // Click + again → clamped at 5 (cannot exceed capacity)
+        cut.Find("[data-slot='0'] [data-step='plus']").Click();
+        cut.WaitForAssertion(() =>
+        {
+            var val = cut.Find("[data-slot='0'] .rec-stepper__val");
+            val.TextContent.Trim().Should().Be("5");
+            // Plus button must be disabled at capacity
+            var plusBtn = cut.Find("[data-slot='0'] [data-step='plus']");
+            plusBtn.HasAttribute("disabled").Should().BeTrue();
+        });
+
+        // Click − repeatedly until 0, then clamped at 0
+        // Current qty = 5. Click − 5 times to reach 0.
+        for (int i = 0; i < 5; i++)
+        {
+            cut.Find("[data-slot='0'] [data-step='minus']").Click();
+        }
+        cut.WaitForAssertion(() =>
+        {
+            var val = cut.Find("[data-slot='0'] .rec-stepper__val");
+            val.TextContent.Trim().Should().Be("0");
+            // Minus button must be disabled at 0
+            var minusBtn = cut.Find("[data-slot='0'] [data-step='minus']");
+            minusBtn.HasAttribute("disabled").Should().BeTrue();
+        });
+
+        // Click − once more → stays at 0 (clamped min)
+        cut.Find("[data-slot='0'] [data-step='minus']").Click();
+        cut.WaitForAssertion(() =>
+        {
+            var val = cut.Find("[data-slot='0'] .rec-stepper__val");
+            val.TextContent.Trim().Should().Be("0");
+        });
+
+        // Also test min-clamp on a different slot: A2 (capacity 5, qty=5)
+        // Click − from 5 → 4, ensure not clamped at 5
+        cut.Find("[data-slot='1'] [data-step='minus']").Click();
+        cut.WaitForAssertion(() =>
+        {
+            var val = cut.Find("[data-slot='1'] .rec-stepper__val");
+            val.TextContent.Trim().Should().Be("4");
+        });
     }
 
     /* ===================================================================
