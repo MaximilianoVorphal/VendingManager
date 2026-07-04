@@ -3,8 +3,10 @@
 @using VendingManager.Shared.DTOs
 @using VendingManager.Shared.Mappers
 @using VendingManager.Shared.Enums
+@using Microsoft.AspNetCore.Components.Rendering
 
 @inject HttpClient Http
+@inject Microsoft.Extensions.Logging.ILogger<FotoRecargaModal> Logger
 
 @if (Visible)
 {
@@ -97,6 +99,7 @@
                 }
             }
 
+            InitRevisar();
             _paso = Paso.Revisar;
             StateHasChanged();
         }
@@ -203,13 +206,284 @@
     };
 
     // ===================================================================
-    // Revisar step (stub — will be completed in T-D4)
+    // Revisar step — user-adjustable slot quantities with badges
     // ===================================================================
+
+    /// <summary>
+    /// In-memory adjustments keyed by SlotDetectado SlotIndex.
+    /// Initialized from the OCR lectura on transition to Revisar.
+    /// </summary>
+    private Dictionary<int, int> _ajustes = new();
+    private int _totalSlots;
+    private int _totalUnidades;
+
+    private void InitRevisar()
+    {
+        _ajustes.Clear();
+        _totalSlots = 0;
+        _totalUnidades = 0;
+
+        if (_lectura == null) return;
+
+        foreach (var slot in _lectura.Slots)
+        {
+            _ajustes[slot.SlotIndex] = slot.CantidadDetectada;
+        }
+
+        _totalSlots = _lectura.Slots.Count(s => s.SlotIndex >= 0);
+        _totalUnidades = _lectura.Slots
+            .Where(s => s.SlotIndex >= 0)
+            .Sum(s => s.CantidadDetectada);
+    }
+
+    private int GetQty(int slotIndex) =>
+        _ajustes.TryGetValue(slotIndex, out var q) ? q : 0;
+
+    private void AjustarSlot(int slotIndex, int delta)
+    {
+        var slot = _lectura?.Slots.FirstOrDefault(s => s.SlotIndex == slotIndex);
+        if (slot == null) return;
+
+        var current = GetQty(slotIndex);
+        var nuevo = Math.Clamp(current + delta, 0, slot.Capacidad);
+        _ajustes[slotIndex] = nuevo;
+        StateHasChanged();
+    }
+
+    private async Task VolverACapturar()
+    {
+        _paso = Paso.Capturar;
+        _lectura = null;
+        StateHasChanged();
+    }
+
+    private async Task AplicarRecarga()
+    {
+        if (_lectura == null) return;
+
+        // Build map of only known (SlotIndex >= 0) slots
+        var map = new Dictionary<int, int>();
+        foreach (var slot in _lectura.Slots)
+        {
+            if (slot.SlotIndex >= 0)
+            {
+                map[slot.SlotIndex] = GetQty(slot.SlotIndex);
+            }
+        }
+
+        await OnAplicar.InvokeAsync(map);
+        await Cerrar();
+    }
+
+    private string GetBadgeClass(Confianza confianza) => confianza switch
+    {
+        Confianza.Alta => "rec-badge-alta",
+        Confianza.Media => "rec-badge-media",
+        Confianza.Baja => "rec-badge-baja",
+        _ => "rec-badge-baja"
+    };
+
+    private string GetBadgeLabel(Confianza confianza) => confianza switch
+    {
+        Confianza.Alta => "Alta",
+        Confianza.Media => "Media",
+        Confianza.Baja => "Baja",
+        _ => "Baja"
+    };
+
+    private string GetRowClass(SlotDetectado slot) => slot.Confianza switch
+    {
+        Confianza.Media => "rec-rrow rec-rrow-med",
+        Confianza.Baja => "rec-rrow rec-rrow-low",
+        _ => "rec-rrow"
+    };
+
+    private int GetCapacityPct(SlotDetectado slot) =>
+        slot.Capacidad > 0 ? Math.Min(100, GetQty(slot.SlotIndex) * 100 / slot.Capacidad) : 0;
 
     private RenderFragment RenderRevisar() => builder =>
     {
         builder.OpenElement(0, "div");
-        builder.AddContent(1, "Revisar pendiente");
+
+        // Header
+        builder.OpenElement(1, "div");
+        builder.AddAttribute(2, "class", "rec-review-head");
+        builder.OpenElement(3, "h3");
+        builder.AddContent(4, "Revisar lectura");
+        builder.CloseElement();
+
+        if (_lectura != null && _lectura.ARevisar > 0)
+        {
+            builder.OpenElement(5, "span");
+            builder.AddAttribute(6, "class", "rec-review-head-warn");
+            builder.AddContent(7, $"{_lectura.ARevisar} pendientes de revisión");
+            builder.CloseElement();
+        }
+        builder.CloseElement();
+
+        if (_lectura == null || _lectura.Slots.Count == 0)
+        {
+            // Empty state
+            builder.OpenElement(8, "div");
+            builder.AddAttribute(9, "class", "rec-review-empty");
+            builder.AddContent(10, "No se detectaron slots en la foto.");
+            builder.CloseElement();
+
+            // Footer with only Cancelar
+            builder.OpenElement(11, "div");
+            builder.AddAttribute(12, "class", "rec-review-foot");
+            builder.OpenElement(13, "span");
+            builder.AddAttribute(14, "class", "mono-num");
+            builder.AddContent(15, "0");
+            builder.CloseElement();
+            builder.OpenElement(16, "div");
+            builder.AddAttribute(17, "class", "rec-review-foot-actions");
+            RenderCancelarBtn(builder, 18);
+            builder.CloseElement();
+            builder.CloseElement();
+        }
+        else
+        {
+            // Slot list
+            builder.OpenElement(19, "div");
+            builder.AddAttribute(20, "class", "rec-review-list");
+            foreach (var slot in _lectura.Slots)
+            {
+                var isUnknown = slot.SlotIndex < 0;
+                builder.OpenElement(21, "div");
+                builder.AddAttribute(22, "class", GetRowClass(slot));
+
+                // Slot chip
+                builder.OpenElement(23, "span");
+                builder.AddAttribute(24, "class", "rec-slot-chip");
+                builder.AddContent(25, slot.Slot);
+                builder.CloseElement();
+
+                // Product name
+                if (!string.IsNullOrEmpty(slot.Producto))
+                {
+                    builder.OpenElement(26, "span");
+                    builder.AddAttribute(27, "class", "rec-rprod");
+                    builder.AddContent(28, slot.Producto);
+                    builder.CloseElement();
+                }
+
+                // Capacity bar (only for known slots)
+                if (!isUnknown && slot.Capacidad > 0)
+                {
+                    var pct = GetCapacityPct(slot);
+                    builder.OpenElement(29, "div");
+                    builder.AddAttribute(30, "class", "rec-rbar");
+                    builder.OpenElement(31, "span");
+                    builder.AddAttribute(32, "style", $"width:{pct}%");
+                    builder.CloseElement();
+                    builder.CloseElement();
+                }
+
+                // Stepper (only for known slots)
+                if (!isUnknown)
+                {
+                    var qty = GetQty(slot.SlotIndex);
+                    builder.OpenElement(33, "div");
+                    builder.AddAttribute(34, "class", "rec-stepper");
+
+                    // Minus button
+                    builder.OpenElement(35, "button");
+                    builder.AddAttribute(36, "type", "button");
+                    builder.AddAttribute(37, "class", "rec-stepper__btn");
+                    builder.AddAttribute(38, "disabled", qty <= 0);
+                    builder.AddAttribute(39, "onclick", EventCallback.Factory.Create<Microsoft.AspNetCore.Components.Web.MouseEventArgs>(this, () => AjustarSlot(slot.SlotIndex, -1)));
+                    builder.AddContent(40, "−");
+                    builder.CloseElement();
+
+                    // Value
+                    builder.OpenElement(41, "span");
+                    builder.AddAttribute(42, "class", "rec-stepper__val");
+                    builder.AddContent(43, qty);
+                    builder.CloseElement();
+
+                    // Plus button
+                    builder.OpenElement(44, "button");
+                    builder.AddAttribute(45, "type", "button");
+                    builder.AddAttribute(46, "class", "rec-stepper__btn");
+                    builder.AddAttribute(47, "disabled", qty >= slot.Capacidad);
+                    builder.AddAttribute(48, "onclick", EventCallback.Factory.Create<Microsoft.AspNetCore.Components.Web.MouseEventArgs>(this, () => AjustarSlot(slot.SlotIndex, 1)));
+                    builder.AddContent(49, "+");
+                    builder.CloseElement();
+
+                    builder.CloseElement();
+                }
+
+                // Confidence badge
+                builder.OpenElement(50, "span");
+                builder.AddAttribute(51, "class", GetBadgeClass(slot.Confianza));
+                builder.AddContent(52, GetBadgeLabel(slot.Confianza));
+                builder.CloseElement();
+
+                builder.CloseElement();
+            }
+            builder.CloseElement();
+
+            // Legend
+            builder.OpenElement(53, "div");
+            builder.AddAttribute(54, "class", "rec-legend");
+            RenderLegendBadge(builder, 55, "rec-badge-alta", "Alta");
+            RenderLegendBadge(builder, 58, "rec-badge-media", "Media");
+            RenderLegendBadge(builder, 61, "rec-badge-baja", "Baja");
+            builder.CloseElement();
+
+            // Footer
+            builder.OpenElement(64, "div");
+            builder.AddAttribute(65, "class", "rec-review-foot");
+            builder.OpenElement(66, "span");
+            builder.AddAttribute(67, "class", "mono-num");
+            // Total only counts known slots
+            var total = _lectura.Slots
+                .Where(s => s.SlotIndex >= 0)
+                .Sum(s => GetQty(s.SlotIndex));
+            builder.AddContent(68, total);
+            builder.AddContent(69, " u.");
+            builder.CloseElement();
+
+            builder.OpenElement(70, "div");
+            builder.AddAttribute(71, "class", "rec-review-foot-actions");
+            RenderCancelarBtn(builder, 72);
+            RenderAplicarBtn(builder, 75);
+            builder.CloseElement();
+            builder.CloseElement();
+        }
+
         builder.CloseElement();
     };
+
+    private void RenderLegendBadge(RenderTreeBuilder builder, int seq, string cssClass, string label)
+    {
+        builder.OpenElement(seq, "span");
+        builder.AddAttribute(seq + 1, "class", cssClass);
+        builder.AddContent(seq + 2, label);
+        builder.CloseElement();
+    }
+
+    private void RenderCancelarBtn(RenderTreeBuilder builder, int seq)
+    {
+        builder.OpenElement(seq, "button");
+        builder.AddAttribute(seq + 1, "type", "button");
+        builder.AddAttribute(seq + 2, "class", "rec-cap-cancel");
+        builder.AddAttribute(seq + 3, "onclick", EventCallback.Factory.Create<Microsoft.AspNetCore.Components.Web.MouseEventArgs>(this, VolverACapturar));
+        builder.AddContent(seq + 4, "Cancelar");
+        builder.CloseElement();
+    }
+
+    private void RenderAplicarBtn(RenderTreeBuilder builder, int seq)
+    {
+        var disabled = _lectura == null || _lectura.Slots.Count == 0;
+        builder.OpenElement(seq, "button");
+        builder.AddAttribute(seq + 1, "type", "button");
+        builder.AddAttribute(seq + 2, "class", "rec-cap-btn");
+        builder.AddAttribute(seq + 3, "disabled", disabled);
+        builder.AddAttribute(seq + 4, "style", disabled ? "opacity:0.5;cursor:not-allowed;" : "");
+        builder.AddAttribute(seq + 5, "onclick", EventCallback.Factory.Create<Microsoft.AspNetCore.Components.Web.MouseEventArgs>(this, AplicarRecarga));
+        builder.AddContent(seq + 6, "Aplicar a grilla");
+        builder.CloseElement();
+    }
 }
