@@ -1,0 +1,42 @@
+@namespace VendingManager.Web.Components
+
+<aside class="rec-guia">
+    <div class="rec-guia-header">
+        <div>
+            <div class="rec-guia-title">Foto guía</div>
+            <div class="rec-guia-subtitle">Máq @MaquinaId · ya cargada</div>
+        </div>
+        <button class="rec-guia-close" @onclick="OnClose">×</button>
+    </div>
+    <div class="rec-guia-body" @ref="_bodyRef">
+        @if (string.IsNullOrEmpty(FotoGuiaUrl))
+        {
+            <div class="rec-guia-empty">
+                <i class="bi bi-image"></i>
+                <p>Sin foto</p>
+            </div>
+        }
+        else
+        {
+            <img src="@FotoGuiaUrl" alt="Foto Guía" draggable="false" class="rec-guia-img" />
+        }
+    </div>
+    <div class="rec-guia-footer">
+        <div class="rec-zoom">
+            <button class="rec-zoom-btn" @onclick="ZoomOut">−</button>
+            <span class="rec-zoom-label">@_zoomLabel</span>
+            <button class="rec-zoom-btn" @onclick="ZoomIn">+</button>
+            <button class="rec-zoom-btn" @onclick="ResetZoom">Restablecer</button>
+        </div>
+        <div class="rec-guia-upload">
+            <label class="rec-guia-camara">
+                Cámara
+                <InputFile accept="image/*" capture="environment" OnChange="@(e => UploadFromCamera(e))" />
+            </label>
+            <label class="rec-guia-subir">
+                Subir
+                <InputFile accept="image/*" OnChange="@(e => UploadFromFile(e))" />
+            </label>
+        </div>
+    </div>
+</aside>

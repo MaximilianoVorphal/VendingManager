@@ -1,0 +1,170 @@
+/* FotoGuiaPanel.razor.css — scoped styles for the foto-guía aside panel */
+
+.rec-guia {
+    flex: 0 0 384px;
+    width: 384px;
+    border-left: 2px solid black;
+    background: var(--paper-50, #f8f9fa);
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.rec-guia-header {
+    flex-shrink: 0;
+    min-height: 62px;
+    box-sizing: border-box;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 10px 14px;
+    border-bottom: 2px solid black;
+    background: var(--paper-0, #fff);
+}
+
+.rec-guia-title {
+    font-family: var(--font-mono, monospace);
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 0.86rem;
+    letter-spacing: 0.5px;
+    line-height: 1.2;
+}
+
+.rec-guia-subtitle {
+    font-family: var(--font-mono, monospace);
+    font-size: 0.66rem;
+    color: var(--text-muted, #6c757d);
+    text-transform: uppercase;
+    margin-top: 1px;
+}
+
+.rec-guia-close {
+    background: none;
+    border: 2px solid black;
+    font-size: 1.2rem;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+    line-height: 1;
+    padding: 0;
+}
+
+.rec-guia-close:hover {
+    background: var(--paper-50, #f8f9fa);
+}
+
+.rec-guia-body {
+    flex: 1;
+    min-height: 0;
+    background: #1a1a1a;
+    overflow: hidden;
+    cursor: grab;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.rec-guia-body:active {
+    cursor: grabbing;
+}
+
+.rec-guia-empty {
+    color: #666;
+    text-align: center;
+    font-family: var(--font-mono, monospace);
+    font-size: 0.8rem;
+    text-transform: uppercase;
+}
+
+.rec-guia-empty i {
+    font-size: 2rem;
+    display: block;
+    margin-bottom: 8px;
+}
+
+.rec-guia-empty p {
+    margin: 0;
+}
+
+.rec-guia-img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    pointer-events: none;
+    display: block;
+}
+
+.rec-guia-footer {
+    flex-shrink: 0;
+    padding: 10px 14px;
+    border-top: 2px solid black;
+    background: var(--paper-0, #fff);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.rec-zoom {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.rec-zoom-btn {
+    width: 36px;
+    height: 32px;
+    border: 2px solid black;
+    background: var(--paper-0, #fff);
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    flex-shrink: 0;
+}
+
+.rec-zoom-label {
+    min-width: 48px;
+    text-align: center;
+    font-family: var(--font-mono, monospace);
+    font-weight: 700;
+    font-size: 0.9rem;
+}
+
+.rec-guia-upload {
+    display: flex;
+    gap: 8px;
+}
+
+.rec-guia-camara,
+.rec-guia-subir {
+    flex: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 36px;
+    border: 2px solid black;
+    font-family: var(--font-mono, monospace);
+    font-weight: 700;
+    font-size: 0.74rem;
+    text-transform: uppercase;
+    cursor: pointer;
+    background: var(--paper-0, #fff);
+}
+
+.rec-guia-camara:hover,
+.rec-guia-subir:hover {
+    background: var(--paper-50, #f8f9fa);
+}
+
+/* Hide the native InputFile inside the labels */
+.rec-guia-camara ::deep input,
+.rec-guia-subir ::deep input {
+    display: none;
+}
