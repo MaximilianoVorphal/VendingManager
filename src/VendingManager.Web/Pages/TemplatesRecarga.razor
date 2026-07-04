@@ -322,6 +322,10 @@
             </div>
         }
 
+        <!-- Hidden InputFile elements for JS-triggered uploads -->
+        <InputFile id="ocrRecargaFileInput" OnChange="HandleOcrPhotoUpload" accept="image/*" class="d-none" />
+        <InputFile id="fotoGuiaFileInput" OnChange="HandleFotoGuiaUpload" accept="image/*" class="d-none" />
+
         <div class="rec-split">
             <!-- Rail de maquinas -->
             <aside class="rec-rail">
