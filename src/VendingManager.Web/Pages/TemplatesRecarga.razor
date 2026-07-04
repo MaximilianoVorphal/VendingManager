@@ -1610,6 +1610,13 @@
             }).ToList()
             };
 
+            // [DEBUG] Log the exact payload being sent so we can confirm shape + counts.
+            var debugJson = System.Text.Json.JsonSerializer.Serialize(dto);
+            Logger.LogInformation("[GuardarTemplate] EsEdicion={EsEdicion} Id={Id} Periodos={Periodos} Slots={Slots}",
+                EsEdicion, TemplateIdEdicion, dto.Periodos.Count, dto.Periodos.Sum(p => p.SnapshotSlots.Count));
+            Logger.LogInformation("[GuardarTemplate] Payload: {Payload}", debugJson);
+            try { await JS.InvokeVoidAsync("console.log", "[GuardarTemplate] Payload:", debugJson); } catch { }
+
             HttpResponseMessage response;
             if (EsEdicion)
             {
@@ -1620,21 +1627,32 @@
                 response = await Http.PostAsJsonAsync("api/TemplateRecarga", dto);
             }
 
+            // [DEBUG] Always read the body and log the status so we know exactly what came back.
+            var body = await response.Content.ReadAsStringAsync();
+            Logger.LogInformation("[GuardarTemplate] Response {Status} ({Code}) — body: {Body}",
+                (int)response.StatusCode, response.StatusCode, body);
+            try { await JS.InvokeVoidAsync("console.log", $"[GuardarTemplate] Response {(int)response.StatusCode} {response.StatusCode}", body); } catch { }
+
             if (response.IsSuccessStatusCode)
             {
-                ShowToast(EsEdicion ? "Template actualizado correctamente" : "Template creado correctamente", "bi-check-circle-fill");
+                ShowToast($"Template guardado (HTTP {(int)response.StatusCode})", "bi-check-circle-fill");
                 await UnlockScroll();
                 MostrarModal = false;
                 await CargarTemplates();
+                // [DEBUG] Confirm the just-saved template is actually in the reloaded list.
+                Logger.LogInformation("[GuardarTemplate] Post-reload: {Count} templates en lista", Templates?.Count ?? -1);
+                try { await JS.InvokeVoidAsync("console.log", $"[GuardarTemplate] Post-reload: {Templates?.Count ?? -1} templates en lista"); } catch { }
             }
             else
             {
-                var error = await response.Content.ReadAsStringAsync();
-                ShowToast("Error: " + error, "bi-exclamation-triangle-fill");
+                ShowToast($"Error HTTP {(int)response.StatusCode}: {body}", "bi-exclamation-triangle-fill");
             }
         }
         catch (Exception ex)
         {
+            // [DEBUG] Surface the full exception — a throw here means the modal stays open.
+            Logger.LogError(ex, "[GuardarTemplate] Excepción al guardar");
+            try { await JS.InvokeVoidAsync("console.error", "[GuardarTemplate] Excepción:", ex.ToString()); } catch { }
             ShowToast("Error al guardar: " + ex.Message, "bi-exclamation-triangle-fill");
         }
         finally
