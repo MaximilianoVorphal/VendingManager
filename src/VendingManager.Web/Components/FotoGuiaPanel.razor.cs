@@ -9,6 +9,10 @@ namespace VendingManager.Web.Components;
 /// <summary>
 /// Inline aside panel for viewing and interacting with a foto guía image.
 /// Provides pan/zoom via JS interop (foto-guia.js) and upload buttons.
+///
+/// JS module functions (foto-guia.js): initPanZoom(el), zoomIn(), zoomOut(),
+/// reset(), label() — all exported as module-level functions. No controller
+/// object pattern (bUnit cannot mock IJSObjectReference return values).
 /// </summary>
 public partial class FotoGuiaPanel : ComponentBase, IAsyncDisposable
 {
@@ -28,7 +32,6 @@ public partial class FotoGuiaPanel : ComponentBase, IAsyncDisposable
 
     private ElementReference _bodyRef;
     private IJSObjectReference? _jsModule;
-    private IJSObjectReference? _panZoomCtrl;
     private string _zoomLabel = "100%";
     private bool _disposed;
 
@@ -44,13 +47,9 @@ public partial class FotoGuiaPanel : ComponentBase, IAsyncDisposable
 
                 if (_jsModule != null && !string.IsNullOrEmpty(FotoGuiaUrl))
                 {
-                    _panZoomCtrl = await _jsModule.InvokeAsync<IJSObjectReference>("initPanZoom", _bodyRef);
-
-                    if (_panZoomCtrl != null)
-                    {
-                        _zoomLabel = await _panZoomCtrl.InvokeAsync<string>("label");
-                        StateHasChanged();
-                    }
+                    await _jsModule.InvokeVoidAsync("initPanZoom", _bodyRef);
+                    _zoomLabel = await _jsModule.InvokeAsync<string>("label");
+                    StateHasChanged();
                 }
             }
             catch
@@ -62,30 +61,30 @@ public partial class FotoGuiaPanel : ComponentBase, IAsyncDisposable
 
     private async Task ZoomIn()
     {
-        if (_panZoomCtrl != null)
+        if (_jsModule != null)
         {
-            await _panZoomCtrl.InvokeVoidAsync("zoomIn");
-            _zoomLabel = await _panZoomCtrl.InvokeAsync<string>("label");
+            await _jsModule.InvokeVoidAsync("zoomIn");
+            _zoomLabel = await _jsModule.InvokeAsync<string>("label");
             StateHasChanged();
         }
     }
 
     private async Task ZoomOut()
     {
-        if (_panZoomCtrl != null)
+        if (_jsModule != null)
         {
-            await _panZoomCtrl.InvokeVoidAsync("zoomOut");
-            _zoomLabel = await _panZoomCtrl.InvokeAsync<string>("label");
+            await _jsModule.InvokeVoidAsync("zoomOut");
+            _zoomLabel = await _jsModule.InvokeAsync<string>("label");
             StateHasChanged();
         }
     }
 
     private async Task ResetZoom()
     {
-        if (_panZoomCtrl != null)
+        if (_jsModule != null)
         {
-            await _panZoomCtrl.InvokeVoidAsync("reset");
-            _zoomLabel = await _panZoomCtrl.InvokeAsync<string>("label");
+            await _jsModule.InvokeVoidAsync("reset");
+            _zoomLabel = await _jsModule.InvokeAsync<string>("label");
             StateHasChanged();
         }
     }
@@ -115,10 +114,6 @@ public partial class FotoGuiaPanel : ComponentBase, IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         _disposed = true;
-        if (_panZoomCtrl != null)
-        {
-            try { await _panZoomCtrl.DisposeAsync(); } catch { }
-        }
         if (_jsModule != null)
         {
             try { await _jsModule.DisposeAsync(); } catch { }
