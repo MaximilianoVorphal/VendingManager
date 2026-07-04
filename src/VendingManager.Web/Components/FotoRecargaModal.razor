@@ -257,11 +257,12 @@
         StateHasChanged();
     }
 
-    private async Task VolverACapturar()
+    private Task VolverACapturar()
     {
         _paso = Paso.Capturar;
         _lectura = null;
         StateHasChanged();
+        return Task.CompletedTask;
     }
 
     private async Task AplicarRecarga()
