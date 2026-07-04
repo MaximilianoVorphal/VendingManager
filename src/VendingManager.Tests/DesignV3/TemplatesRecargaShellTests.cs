@@ -10,6 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Bunit;
 using FluentAssertions;
+using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
@@ -315,6 +316,45 @@ public class TemplatesRecargaShellTests : TestContext
         cut.FindComponents<VmButton>().Should().Contain(b => b.Markup.Contains("Guardar carga"));
     }
 
+    [Fact]
+    public void HiddenInputFiles_RenderWithAcceptImage_AndUploadFiresHandler()
+    {
+        var cut = RenderComponent<TemplatesTestHost>();
+
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Template Activo"));
+
+        // Open the editor where the InputFiles are placed
+        cut.FindComponents<VmButton>().First(b => b.Markup.Contains("Abrir")).Find("button").Click();
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("rec-split"));
+
+        // R1.1a: both InputFiles exist with ids and accept="image/*"
+        var ocrInputEl = cut.Find("#ocrRecargaFileInput");
+        ocrInputEl.GetAttribute("accept").Should().Be("image/*");
+
+        var guiaInputEl = cut.Find("#fotoGuiaFileInput");
+        guiaInputEl.GetAttribute("accept").Should().Be("image/*");
+
+        // R1.1b: Upload to OCR InputFile → handler fires (side-effect: error from mock 404)
+        var inputs = cut.FindComponents<InputFile>();
+        inputs.Count.Should().Be(2);
+
+        var imgBytes = new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A }; // minimal PNG
+        inputs[0].UploadFiles(InputFileContent.CreateFromBinary(imgBytes, "test.jpg", contentType: "image/jpeg"));
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("Error OCR");
+        });
+
+        // R1.1c: Upload to FotoGuia InputFile → handler fires (side-effect: persist error shown)
+        inputs[1].UploadFiles(InputFileContent.CreateFromBinary(imgBytes, "test.jpg", contentType: "image/jpeg"));
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("No se pudo guardar la foto guía");
+        });
+    }
+
     private class TemplatesMockHttpMessageHandler : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
@@ -365,6 +405,12 @@ public class TemplatesRecargaShellTests : TestContext
                 {
                     Content = new StringContent(json)
                 });
+            }
+
+            // Return 404 for foto-guia PUT so HandleFotoGuiaUpload's persist fails visibly
+            if (url.Contains("/foto-guia") && request.Method == HttpMethod.Put)
+            {
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound));
             }
 
             if (url.Contains("api/TemplateRecarga"))
