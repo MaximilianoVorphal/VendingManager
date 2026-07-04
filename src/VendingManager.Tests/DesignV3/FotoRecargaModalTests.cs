@@ -290,8 +290,12 @@ public class FotoRecargaModalTests : TestContext
 
         // B1 is unknown (not in SampleSlots) → must have Baja badge
         cut.Markup.Should().Contain("B1");
-        // Total should be 3 (only A1's quantity), not 5 (A1+B1)
-        // The unknown B1 is excluded from the total
+
+        // Total must be 3 u. (only A1's qty=3), NOT 5 u. (A1+B1).
+        // The unknown B1 (SlotIndex=-1) is excluded from the total.
+        var totalEl = cut.Find(".rec-review-foot .mono-num");
+        totalEl.TextContent.Trim().Should().Be("3 u.");
+        totalEl.TextContent.Trim().Should().NotBe("5 u.");
     }
 
     /* ===================================================================
