@@ -116,8 +116,8 @@
 }
 
 .rec-zoom-btn {
-    width: 36px;
     height: 32px;
+    padding: 0 10px;
     border: 2px solid black;
     background: var(--paper-0, #fff);
     font-weight: 700;
