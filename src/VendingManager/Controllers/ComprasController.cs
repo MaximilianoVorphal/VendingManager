@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using VendingManager.Core.Entities;
 using VendingManager.Core.Interfaces;
+using VendingManager.Shared.Constants;
 using VendingManager.Shared.DTOs;
 
 namespace VendingManager.Controllers;
@@ -13,38 +14,10 @@ public class ComprasController(ICompraService compraService, IFacturaOcrService 
 {
     public async Task<ActionResult<IEnumerable<CompraDto>>> GetCompras([FromQuery] int? limit = null)
     {
-        try 
+        try
         {
-            var compras = await compraService.GetComprasAsync(limit);
-            
-            var dto = compras.Select(c => new CompraDto
-            {
-                Id = c.Id,
-                FechaCompra = c.FechaCompra,
-                Proveedor = c.Proveedor,
-                NumeroDocumento = c.NumeroDocumento,
-                MontoTotal = c.MontoTotal,
-                Estado = c.Estado,
-                TipoFactura = c.TipoFactura,
-                PagadaCaja = c.PagadaCaja,
-                FacturaImagenPath = c.FacturaImagenPath,
-                TransferenciaId = c.TransferenciaId,
-                Detalles = c.Detalles.Select(d => new DetalleCompraDto
-                {
-                    Id = d.Id,
-                    CompraId = d.CompraId,
-                    ProductoId = d.ProductoId,
-                    ProductoNombre = d.Producto?.Nombre,
-                    DescripcionItem = d.DescripcionItem,
-                    Cantidad = d.Cantidad,
-                    CostoUnitario = d.CostoUnitario,
-                    Subtotal = d.Subtotal,
-                    EsPendiente = d.EsPendiente,
-                    Ean = d.Ean,
-                    Sku = d.Sku
-                }).ToList()
-            }).ToList();
-
+            // Service projects to DTOs in the query (factura bytes not loaded).
+            var dto = await compraService.GetComprasAsync(limit);
             return Ok(dto);
         }
         catch (Exception ex)
@@ -221,7 +194,18 @@ public class ComprasController(ICompraService compraService, IFacturaOcrService 
         var compra = await compraService.GetCompraByIdAsync(id);
         if (compra == null) return NotFound();
 
-        if (string.IsNullOrEmpty(compra.FacturaImagenPath))
+        // Prefer the bytes stored in the database.
+        if (compra.FacturaImagen is { Length: > 0 })
+        {
+            var ct = string.IsNullOrEmpty(compra.FacturaImagenContentType)
+                ? "application/octet-stream"
+                : compra.FacturaImagenContentType;
+            return File(compra.FacturaImagen, ct);
+        }
+
+        // Fallback: legacy on-disk image (row not backfilled yet).
+        if (string.IsNullOrEmpty(compra.FacturaImagenPath) ||
+            !compra.FacturaImagenPath.StartsWith("/uploads/", StringComparison.OrdinalIgnoreCase))
             return NotFound("Esta compra no tiene imagen de factura.");
 
         var filePath = compraService.ResolveFacturaPhysicalPath(compra.FacturaImagenPath);
@@ -233,6 +217,19 @@ public class ComprasController(ICompraService compraService, IFacturaOcrService 
             : "image/" + Path.GetExtension(compra.FacturaImagenPath).TrimStart('.').ToLowerInvariant();
 
         return PhysicalFile(Path.GetFullPath(filePath), contentType);
+    }
+
+    /// <summary>
+    /// One-time migration endpoint: loads legacy on-disk factura images into the
+    /// database. Reads files only — originals are preserved. Must be run in the
+    /// environment where the upload files physically live.
+    /// </summary>
+    [Authorize(Roles = Roles.Admin)]
+    [HttpPost("backfill-facturas")]
+    public async Task<IActionResult> BackfillFacturaImagenes()
+    {
+        var result = await compraService.BackfillFacturaImagenesAsync();
+        return Ok(result);
     }
 
     [HttpDelete("{id}/transferencia")]

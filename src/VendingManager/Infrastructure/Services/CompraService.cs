@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using VendingManager.Core.Entities;
 using VendingManager.Core.Interfaces;
 using VendingManager.Infrastructure.Data;
+using VendingManager.Shared.DTOs;
 using Microsoft.AspNetCore.Http;
 
 namespace VendingManager.Infrastructure.Services;
@@ -25,15 +26,43 @@ public class CompraService : ICompraService
         _proveedorMatchingService = proveedorMatchingService;
     }
 
-    public async Task<IEnumerable<Compra>> GetComprasAsync(int? count = null)
+    public async Task<IEnumerable<CompraDto>> GetComprasAsync(int? count = null)
     {
+        // Project in the query: EF emits SQL that selects only these columns,
+        // so the FacturaImagen blob is never loaded for the list view.
         var query = _context.Compras
-            .Include(c => c.Detalles)
-            .ThenInclude(d => d.Producto)
-            .Include(c => c.ProveedorCatalog)
+            .AsNoTracking()
             .OrderByDescending(c => c.FechaCompra)
             .ThenByDescending(c => c.Id)
-            .AsQueryable();
+            .Select(c => new CompraDto
+            {
+                Id = c.Id,
+                FechaCompra = c.FechaCompra,
+                Proveedor = c.Proveedor,
+                NumeroDocumento = c.NumeroDocumento,
+                MontoTotal = c.MontoTotal,
+                Estado = c.Estado,
+                TipoFactura = c.TipoFactura,
+                PagadaCaja = c.PagadaCaja,
+                FacturaImagenPath = c.FacturaImagenPath,
+                TransferenciaId = c.TransferenciaId,
+                ProveedorCatalogId = c.ProveedorCatalogId,
+                ProveedorCanonical = c.ProveedorCatalog != null ? c.ProveedorCatalog.NombreCanonical : null,
+                Detalles = c.Detalles.Select(d => new DetalleCompraDto
+                {
+                    Id = d.Id,
+                    CompraId = d.CompraId,
+                    ProductoId = d.ProductoId,
+                    ProductoNombre = d.Producto != null ? d.Producto.Nombre : null,
+                    DescripcionItem = d.DescripcionItem,
+                    Cantidad = d.Cantidad,
+                    CostoUnitario = d.CostoUnitario,
+                    Subtotal = d.Subtotal,
+                    EsPendiente = d.EsPendiente,
+                    Ean = d.Ean,
+                    Sku = d.Sku
+                }).ToList()
+            });
 
         if (count.HasValue)
         {
@@ -423,32 +452,37 @@ public class CompraService : ICompraService
         if (compra == null)
             throw new KeyNotFoundException($"Compra {compraId} no encontrada.");
 
-        // Usar ruta de upload configurada si está seteada, sinon fallback a wwwroot
-        var basePath = _uploadPathProvider.GetUploadBasePath();
-
-        var uploadDir = Path.Combine(basePath, "uploads", "compras", "facturas");
-        Directory.CreateDirectory(uploadDir);
-
-        // Eliminar imagen anterior si existe
-        if (!string.IsNullOrEmpty(compra.FacturaImagenPath))
+        // Read the uploaded file into memory and store it in the database so
+        // the image travels with the DB (backups, dev environments). New
+        // uploads no longer touch the disk.
+        byte[] bytes;
+        await using (var ms = new MemoryStream())
         {
-            var oldPath = Path.Combine(basePath, compra.FacturaImagenPath.TrimStart('/'));
+            await file.CopyToAsync(ms);
+            bytes = ms.ToArray();
+        }
+
+        // If this compra still carries a legacy on-disk image, delete it so we
+        // don't leave an orphan file behind now that the bytes live in the DB.
+        var existingPath = compra.FacturaImagenPath;
+        if (!string.IsNullOrEmpty(existingPath) &&
+            existingPath.StartsWith("/uploads/", StringComparison.OrdinalIgnoreCase))
+        {
+            var basePath = _uploadPathProvider.GetUploadBasePath();
+            var oldPath = Path.Combine(basePath, existingPath.TrimStart('/'));
             if (System.IO.File.Exists(oldPath))
                 System.IO.File.Delete(oldPath);
         }
 
-        var fileName = $"{Guid.NewGuid()}{ext}";
-        var relativePath = $"/uploads/compras/facturas/{fileName}";
-        var physicalPath = Path.Combine(uploadDir, fileName);
-
-        await using var stream = new FileStream(physicalPath, FileMode.Create);
-        await file.CopyToAsync(stream);
-
-        compra.FacturaImagenPath = relativePath;
+        compra.FacturaImagen = bytes;
+        compra.FacturaImagenContentType = MapContentType(ext);
+        // Keep FacturaImagenPath populated as the "has image" flag consumed by
+        // the frontend; point it at the API endpoint that serves the bytes.
+        compra.FacturaImagenPath = $"/api/compras/{compra.Id}/factura";
         _context.Compras.Update(compra);
         await _context.SaveChangesAsync();
 
-        return relativePath;
+        return compra.FacturaImagenPath;
     }
 
     public string ResolveFacturaPhysicalPath(string relativePath)
@@ -457,9 +491,58 @@ public class CompraService : ICompraService
         return Path.Combine(basePath, relativePath.TrimStart('/'));
     }
 
-    public async Task<IEnumerable<Compra>> GetComprasNoVinculadasAsync(string? proveedor = null, string? numeroDocumento = null, DateTime? desde = null, DateTime? hasta = null)
+    /// <summary>
+    /// One-time migration: loads legacy on-disk factura images into the
+    /// database (FacturaImagen bytes). Reads files only — it never deletes the
+    /// originals, so the disk copy stays until the operator confirms the bytes
+    /// are stored and backed up. Must run in the environment where the files
+    /// physically exist.
+    /// </summary>
+    public async Task<FacturaBackfillResult> BackfillFacturaImagenesAsync()
+    {
+        var result = new FacturaBackfillResult();
+        var basePath = _uploadPathProvider.GetUploadBasePath();
+
+        var pending = await _context.Compras
+            .Where(c => c.FacturaImagen == null &&
+                        c.FacturaImagenPath != null &&
+                        c.FacturaImagenPath.StartsWith("/uploads/"))
+            .ToListAsync();
+
+        result.Total = pending.Count;
+
+        foreach (var compra in pending)
+        {
+            var physicalPath = Path.Combine(basePath, compra.FacturaImagenPath!.TrimStart('/'));
+            if (!System.IO.File.Exists(physicalPath))
+            {
+                result.MissingFiles.Add(compra.Id);
+                continue;
+            }
+
+            compra.FacturaImagen = await System.IO.File.ReadAllBytesAsync(physicalPath);
+            compra.FacturaImagenContentType =
+                MapContentType(Path.GetExtension(physicalPath).ToLowerInvariant());
+            result.Migrated++;
+        }
+
+        if (result.Migrated > 0)
+            await _context.SaveChangesAsync();
+
+        return result;
+    }
+
+    private static string MapContentType(string ext) => ext.ToLowerInvariant() switch
+    {
+        ".pdf" => "application/pdf",
+        ".png" => "image/png",
+        _ => "image/jpeg",
+    };
+
+    public async Task<IEnumerable<CompraDto>> GetComprasNoVinculadasAsync(string? proveedor = null, string? numeroDocumento = null, DateTime? desde = null, DateTime? hasta = null)
     {
         var query = _context.Compras
+            .AsNoTracking()
             .Where(c => c.TransferenciaId == null);
 
         if (!string.IsNullOrWhiteSpace(proveedor))
@@ -474,9 +557,22 @@ public class CompraService : ICompraService
         if (hasta.HasValue)
             query = query.Where(c => c.FechaCompra <= hasta.Value);
 
+        // Project in the query so the FacturaImagen blob is never loaded here.
         return await query
             .OrderByDescending(c => c.FechaCompra)
             .ThenByDescending(c => c.Id)
+            .Select(c => new CompraDto
+            {
+                Id = c.Id,
+                FechaCompra = c.FechaCompra,
+                Proveedor = c.Proveedor,
+                NumeroDocumento = c.NumeroDocumento,
+                MontoTotal = c.MontoTotal,
+                Estado = c.Estado,
+                TipoFactura = c.TipoFactura,
+                PagadaCaja = c.PagadaCaja,
+                TransferenciaId = c.TransferenciaId
+            })
             .ToListAsync();
     }
 

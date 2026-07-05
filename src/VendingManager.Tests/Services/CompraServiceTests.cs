@@ -134,7 +134,7 @@ public class CompraServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task GetComprasAsync_WithProveedorCatalog_IncludesNavigationProperty()
+    public async Task GetComprasAsync_WithProveedorCatalog_ExposesCanonicalName()
     {
         // Arrange
         var catalog = new ProveedorCatalog { NombreCanonical = "Supplier Nav" };
@@ -161,8 +161,7 @@ public class CompraServiceTests : IDisposable
         compras.Should().NotBeEmpty();
         var fetched = compras.First();
         fetched.ProveedorCatalogId.Should().Be(catalog.Id);
-        fetched.ProveedorCatalog.Should().NotBeNull();
-        fetched.ProveedorCatalog!.NombreCanonical.Should().Be("Supplier Nav");
+        fetched.ProveedorCanonical.Should().Be("Supplier Nav");
     }
 
     [Fact]
