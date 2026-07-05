@@ -689,6 +689,13 @@
     private AccountingPeriodFullDto? _periodo;
     private CancellationTokenSource? _loadCts;
 
+    // Cache-busting tokens per document key ("t{id}"/"c{id}"). Bumped after a successful
+    // image upload so the browser re-fetches the (otherwise unchanged) image URL instead
+    // of serving the previous version from cache.
+    private readonly Dictionary<string, int> _fotoVersion = new();
+    private string FotoUrl(string key, string baseUrl)
+        => _fotoVersion.TryGetValue(key, out var v) ? $"{baseUrl}?v={v}" : baseUrl;
+
     // ── View-models ───────────────────────────────────────────────────────────
     private record PeriodoOpcion(int Id, string Label);
     private record RowVm(int Id, string Titulo, string Sub, string TipoTag, string MontoFmt, bool MontoPos, string ThumbIcon, bool Verified, bool Selected, bool HasComprobante, string? ThumbUrl = null, bool SinProveedor = false);
@@ -764,7 +771,7 @@
                     IsV($"t{t.Id}"),
                     _selectedId == t.Id,
                     t.ComprobanteImagenPath is not null,
-                    t.ComprobanteImagenPath is not null ? $"/api/contabilidad/transferencia/{t.Id}/comprobante" : null
+                    t.ComprobanteImagenPath is not null ? FotoUrl($"t{t.Id}", $"/api/contabilidad/transferencia/{t.Id}/comprobante") : null
                 ))
                 .ToList();
             if (rows.Count > 0)
@@ -791,7 +798,7 @@
                 IsV($"c{c.Id}"),
                 _selectedId == c.Id,
                 c.FacturaImagenPath is not null,
-                c.FacturaImagenPath is not null ? $"/api/compras/{c.Id}/factura" : null,
+                c.FacturaImagenPath is not null ? FotoUrl($"c{c.Id}", $"/api/compras/{c.Id}/factura") : null,
                 c.ProveedorCatalogId is null
             )).ToList();
             if (rows.Count > 0)
@@ -844,7 +851,7 @@
                 "Transferencia", Fmt(t.Monto), true,
                 t.ComprobanteImagenPath ?? "No se eligió ningún archivo",
                 IsV($"t{t.Id}"), t.ComprobanteImagenPath is not null,
-                t.ComprobanteImagenPath is not null ? $"/api/contabilidad/transferencia/{t.Id}/comprobante" : null);
+                t.ComprobanteImagenPath is not null ? FotoUrl($"t{t.Id}", $"/api/contabilidad/transferencia/{t.Id}/comprobante") : null);
         }
 
         // Check compras (flattened)
@@ -856,7 +863,7 @@
                 c.TipoFactura, Fmt(-c.MontoTotal), false,
                 c.FacturaImagenPath ?? "No se eligió ningún archivo",
                 IsV($"c{c.Id}"), c.FacturaImagenPath is not null,
-                c.FacturaImagenPath is not null ? $"/api/compras/{c.Id}/factura" : null,
+                c.FacturaImagenPath is not null ? FotoUrl($"c{c.Id}", $"/api/compras/{c.Id}/factura") : null,
                 c.Id, c.ProveedorCanonical, c.ProveedorCatalogId, c.Proveedor);
         }
 
@@ -929,9 +936,14 @@
                     foreach (var c in t.Compras)
                         _verified[$"c{c.Id}"] = c.Verificada;
                 }
-                // Select first row
-                var firstT = _periodo.Transferencias.FirstOrDefault();
-                _selectedId = firstT?.Id ?? 0;
+                // Keep the current selection if it still exists after the reload (e.g. after
+                // uploading a photo to the selected document); otherwise select the first transferencia.
+                var stillExists = _selectedId != 0 && (
+                    _periodo.Transferencias.Any(t => t.Id == _selectedId)
+                    || _periodo.Transferencias.SelectMany(t => t.Compras).Any(c => c.Id == _selectedId)
+                    || _periodo.Gastos.Any(g => g.Id == _selectedId));
+                if (!stillExists)
+                    _selectedId = _periodo.Transferencias.FirstOrDefault()?.Id ?? 0;
             }
         }
         catch (OperationCanceledException) { }
@@ -1076,7 +1088,11 @@
             if (!resp.IsSuccessStatusCode)
                 _comprobanteError = $"Error al subir el comprobante ({(int)resp.StatusCode}).";
             else
+            {
+                var key = kind == "transferencia" ? $"t{id}" : $"c{id}";
+                _fotoVersion[key] = _fotoVersion.GetValueOrDefault(key) + 1;
                 await CargarPeriodos(CancellationToken.None, selectId: _periodo?.Id);
+            }
         }
         catch (Exception)
         {
