@@ -646,12 +646,15 @@ public class FotoRecargaModalTests : TestContext
     [Fact]
     public void LeyendoStep_Css_HasRecScanKeyframeAndScanLine()
     {
-        // CSS audit: the component's CSS file must define the rec-scan-line
-        // animation class and @keyframes recScan (R4.3a-b).
+        // CSS audit: the modal styles live in the global vm-recarga.css (not a
+        // scoped .razor.css) because the modal renders via RenderTreeBuilder,
+        // whose elements never receive Blazor's scoped-CSS attribute. The
+        // rec-scan-line animation class and @keyframes recScan must be defined
+        // there (R4.3a-b).
         var cssPath = Path.GetFullPath(
             Path.Combine(
                 AppContext.BaseDirectory, "..", "..", "..", "..", "..",
-                "src", "VendingManager.Web", "Components", "FotoRecargaModal.razor.css"));
+                "src", "VendingManager.Web", "wwwroot", "css", "vm-recarga.css"));
 
         var css = File.ReadAllText(cssPath);
         css.Should().Contain(".rec-scan-line", "scan line class must be defined in CSS");
