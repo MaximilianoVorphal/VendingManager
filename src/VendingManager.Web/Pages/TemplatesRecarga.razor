@@ -295,6 +295,22 @@
                 </div>
             </div>
             <div class="rec-bar__actions">
+                @if (_fotoOcrLoading)
+                {
+                    <span class="d-inline-flex align-items-center gap-1 small text-muted">
+                        <span class="spinner-border spinner-border-sm"></span> Foto OCR
+                    </span>
+                }
+                else if (!string.IsNullOrEmpty(_fotoOcrUrl))
+                {
+                    <button type="button"
+                            class="btn btn-outline-dark btn-sm rounded-0 d-inline-flex align-items-center gap-2 p-1"
+                            title="Ver foto OCR guardada"
+                            @onclick="() => _ocrPreviewVisible = true">
+                        <img src="@_fotoOcrUrl" alt="Foto OCR" style="height:32px;width:32px;object-fit:cover;" />
+                        <span class="small fw-bold pe-1">Foto OCR</span>
+                    </button>
+                }
                 <VmButton Variant="outline" Bar="true" Width="100px" Icon="bi-pencil" OnClick="AbrirModalEditarActual">Editar</VmButton>
                 <VmButton Variant="danger" Bar="true" Width="160px" Icon="bi-graph-up" OnClick="AnalizarTemplateActual">Analizar stockout</VmButton>
                 <VmButton Variant="outline" Bar="true" Width="150px" Icon="bi-arrow-repeat" OnClick="SincronizarTemplateActual">Sincronizar todo</VmButton>
@@ -517,6 +533,26 @@
                               OnAplicar="AplicarRecarga" />
         }
 
+        <!-- Foto OCR preview overlay (proof that the persisted photo loads back) -->
+        @if (_ocrPreviewVisible && !string.IsNullOrEmpty(_fotoOcrUrl))
+        {
+            <div class="modal fade show d-block" tabindex="-1"
+                 style="background-color: rgba(0,0,0,0.8); z-index: 1115;"
+                 @onclick="() => _ocrPreviewVisible = false">
+                <div class="modal-dialog modal-dialog-centered modal-lg" @onclick:stopPropagation="true">
+                    <div class="modal-content border-0 bg-transparent shadow-none">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="text-white small fw-bold">Foto OCR guardada</span>
+                            <button type="button" class="btn btn-light btn-sm rounded-circle"
+                                    @onclick="() => _ocrPreviewVisible = false">×</button>
+                        </div>
+                        <img src="@_fotoOcrUrl" alt="Foto OCR guardada"
+                             class="img-fluid" style="max-height:80vh;object-fit:contain;" />
+                    </div>
+                </div>
+            </div>
+        }
+
         <!-- PRODUCT SELECTOR MODAL (for slot product change) -->
         @if (SlotConProductoSelector != null && ListaProductos != null)
         {
@@ -664,6 +700,7 @@
 
     // OCR-related state
     private bool _recargaVisible = false; // FotoRecargaModal visibility (PR3)
+    private bool _ocrPreviewVisible = false; // Foto OCR full-size preview overlay
     private string MensajeErrorOcr = "";
     private string MensajeInfoOcr = "";
     private byte[]? FotoGuiaData; // Foto guía bytes; persisted via PUT .../foto-guia on upload
@@ -907,7 +944,8 @@
     // OCR upload + HTTP call + mapping + review are now handled by FotoRecargaModal.
     // The page's AplicarRecarga method writes confirmed quantities to the grid.
     // The old direct-apply path (L992-L1009) no longer exists.
-    // Persist photo via PUT .../foto-ocr is deferred (non-critical, not yet re-implemented).
+    // Foto OCR is persisted inside FotoRecargaModal.AplicarRecarga (PUT .../foto-ocr)
+    // and reloaded by LoadFotosForPeriodo; the top-bar thumbnail renders it as proof.
 
     private void RevokeFotoGuiaUrl()
     {
