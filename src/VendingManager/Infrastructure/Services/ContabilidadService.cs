@@ -109,7 +109,7 @@ public class ContabilidadService : IContabilidadService
             {
                 Name = $"Rendición {trabajador} {request.Fecha:dd/MM/yyyy}",
                 FechaInicio = request.Fecha,
-                FechaFin = request.Fecha.AddMonths(1).AddDays(-1),
+                FechaFin = request.Fecha,
                 Trabajador = trabajador,
                 Estado = AccountingPeriodEstado.Abierto
             };
