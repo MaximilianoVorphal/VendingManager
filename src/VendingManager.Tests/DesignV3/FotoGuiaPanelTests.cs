@@ -111,8 +111,20 @@ public class FotoGuiaPanelTests : TestContext
 
         cut.Markup.Should().Contain("Foto guía");
         cut.Markup.Should().Contain("Máq 1");
-        cut.Markup.Should().Contain("· ya cargada");
+        // Subtitle reflects real state: no photo loaded here
+        cut.Markup.Should().Contain("· sin foto");
         cut.FindAll("button.rec-guia-close").Should().NotBeEmpty();
+    }
+
+    [Fact]
+    public void Header_Subtitle_ShowsYaCargada_WhenPhotoPresent()
+    {
+        var cut = RenderComponent<FotoGuiaPanel>(p => p
+            .Add(c => c.MaquinaId, "1")
+            .Add(c => c.FotoGuiaUrl, "data:image/jpeg;base64,test")
+            .Add(c => c.OnClose, () => { }));
+
+        cut.Markup.Should().Contain("· ya cargada");
     }
 
     /* ===================================================================
