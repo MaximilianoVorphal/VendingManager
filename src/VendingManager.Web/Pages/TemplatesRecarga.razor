@@ -66,10 +66,6 @@
                     @foreach (var template in TemplatesFiltrados)
                     {
                         var pendiente = template.CantidadSlotsPendientes > 0;
-                        var slots = template.Periodos.SelectMany(p => p.SnapshotSlots).ToList();
-                        var totalSlots = slots.Count;
-                        var filledSlots = slots.Count(s => s.Estado != EstadoSlot.Vacio);
-                        var pct = totalSlots > 0 ? (filledSlots * 100 / totalSlots) : 0;
                         var firstPeriodo = template.Periodos.FirstOrDefault();
                         <tr class="rec-trow @(pendiente ? "is-pending" : "")">
                             <td>
@@ -108,13 +104,22 @@
                                 </div>
                             </td>
                             <td>
-                                <div class="rec-carga">
-                                    <div class="rec-progress">
-                                        <span class="fill-@(pct >= 80 ? "good" : pct >= 30 ? "warning" : "danger")" style="width:@pct%"></span>
-                                    </div>
-                                    <span class="rec-cell-mono">@pct%</span>
+                                <div class="rec-carga-list">
+                                    @foreach (var periodo in template.Periodos)
+                                    {
+                                        var cap = periodo.SnapshotSlots.Sum(s => s.CapacidadSlot);
+                                        var units = periodo.SnapshotSlots.Sum(s => s.CantidadInicial);
+                                        var mpct = cap > 0 ? (units * 100 / cap) : 0;
+                                        var mIdStr = periodo.MaquinaId.ToString();
+                                        <div class="rec-carga">
+                                            <span class="rec-carga-mid">@mIdStr.Substring(Math.Max(0, mIdStr.Length - 4))</span>
+                                            <div class="rec-progress">
+                                                <span class="fill-@(mpct >= 80 ? "good" : mpct >= 30 ? "warning" : "danger")" style="width:@mpct%"></span>
+                                            </div>
+                                            <span class="rec-cell-mono">@units/@cap u.</span>
+                                        </div>
+                                    }
                                 </div>
-                                <small class="rec-carga-label">@filledSlots / @totalSlots u.</small>
                             </td>
                             <td>
                                 <div class="rec-actions">
