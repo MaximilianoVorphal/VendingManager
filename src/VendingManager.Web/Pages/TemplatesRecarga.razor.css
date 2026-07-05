@@ -88,10 +88,26 @@
 
 /* ---- Loading bar wrapper (label + rec-progress + units text) ----
    .rec-progress itself is in vm-recarga.css; this styles the wrapper. ---- */
+.rec-carga-list {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
 .rec-carga {
     display: flex;
     align-items: center;
     gap: 9px;
+}
+
+/* Machine id label preceding each per-machine bar (last-4 of MaquinaId) */
+.rec-carga-mid {
+    font-family: var(--font-mono);
+    font-size: 0.62rem;
+    font-weight: var(--fw-bold);
+    color: var(--text-muted);
+    min-width: 32px;
+    white-space: nowrap;
 }
 
 .rec-carga > span {
