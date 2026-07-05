@@ -353,9 +353,23 @@
 
             <div style="flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;">
                 <!-- foto / imagen del comprobante -->
-                <div style="flex:1 1 120px;min-height:120px;margin:0.85rem;border:2px solid var(--ink-900);background-image:repeating-linear-gradient(45deg,#fafafa,#fafafa 9px,#eee 9px,#eee 18px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;">
-                    <i class="bi @sel.BigIcon" style="font-size:2rem;color:var(--text-muted);"></i>
-                    <span style="font-family:var(--font-mono);font-weight:700;font-size:0.7rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);">@sel.ImgCaption</span>
+                <div style="flex:1 1 120px;min-height:120px;margin:0.85rem;border:2px solid var(--ink-900);background-image:repeating-linear-gradient(45deg,#fafafa,#fafafa 9px,#eee 9px,#eee 18px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;overflow:hidden;">
+                    @if (sel.ImgUrl is not null)
+                    {
+                        <a href="@sel.ImgUrl" target="_blank" rel="noopener" style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;text-decoration:none;">
+                            <img src="@sel.ImgUrl" alt="@sel.ImgCaption" style="max-width:100%;max-height:100%;object-fit:contain;display:block;"
+                                 onerror="this.onerror=null;this.parentElement.style.display='none';this.parentElement.nextElementSibling.style.display='flex';" />
+                        </a>
+                        <a href="@sel.ImgUrl" target="_blank" rel="noopener" style="display:none;flex-direction:column;align-items:center;gap:8px;text-decoration:none;">
+                            <i class="bi bi-file-earmark-text" style="font-size:2rem;color:var(--text-muted);"></i>
+                            <span style="font-family:var(--font-mono);font-weight:700;font-size:0.7rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);">Abrir documento</span>
+                        </a>
+                    }
+                    else
+                    {
+                        <i class="bi @sel.BigIcon" style="font-size:2rem;color:var(--text-muted);"></i>
+                        <span style="font-family:var(--font-mono);font-weight:700;font-size:0.7rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);">@sel.ImgCaption</span>
+                    }
                 </div>
 
                 <!-- datos del documento -->
@@ -668,7 +682,7 @@
     private record PeriodoOpcion(int Id, string Label);
     private record RowVm(int Id, string Titulo, string Sub, string TipoTag, string MontoFmt, bool MontoPos, string ThumbIcon, bool Verified, bool Selected, bool HasComprobante, bool SinProveedor = false);
     private record SectionVm(string Title, string Icon, int Count, string TotalFmt, bool TotalPos, IReadOnlyList<RowVm> Rows);
-    private record SelVm(string KindLabel, string BigIcon, string ImgCaption, string Titulo, string F1Label, string F1, string F2Label, string F2, string TipoTag, string MontoFmt, bool MontoPos, string FileName, bool Verified, bool HasComprobante, int CompraId = 0, string? Canonical = null, int? CatalogId = null, string? RawProveedor = null);
+    private record SelVm(string KindLabel, string BigIcon, string ImgCaption, string Titulo, string F1Label, string F1, string F2Label, string F2, string TipoTag, string MontoFmt, bool MontoPos, string FileName, bool Verified, bool HasComprobante, string? ImgUrl = null, int CompraId = 0, string? Canonical = null, int? CatalogId = null, string? RawProveedor = null);
     private record FiltroVm(string Key, string Label);
 
     private static readonly FiltroVm[] Filtros =
@@ -805,7 +819,7 @@
     private SelVm BuildSel()
     {
         if (_periodo is null)
-            return new("—", "bi-image", "Sin datos", "—", "—", "—", "—", "—", "—", "$0", false, "—", false, false);
+            return new("—", "bi-image", "Sin datos", "—", "—", "—", "—", "—", "—", "$0", false, "—", false, false, null);
 
         // Check transferencias
         var t = _periodo.Transferencias.FirstOrDefault(x => x.Id == _selectedId);
@@ -815,7 +829,8 @@
                 t.Trabajador.ToUpperInvariant(), "Para", t.Trabajador, "Fecha", $"{t.Fecha:dd/MM/yyyy}",
                 "Transferencia", Fmt(t.Monto), true,
                 t.ComprobanteImagenPath ?? "No se eligió ningún archivo",
-                IsV($"t{t.Id}"), t.ComprobanteImagenPath is not null);
+                IsV($"t{t.Id}"), t.ComprobanteImagenPath is not null,
+                t.ComprobanteImagenPath is not null ? $"/api/contabilidad/transferencia/{t.Id}/comprobante" : null);
         }
 
         // Check compras (flattened)
@@ -827,6 +842,7 @@
                 c.TipoFactura, Fmt(-c.MontoTotal), false,
                 c.FacturaImagenPath ?? "No se eligió ningún archivo",
                 IsV($"c{c.Id}"), c.FacturaImagenPath is not null,
+                c.FacturaImagenPath is not null ? $"/api/compras/{c.Id}/factura" : null,
                 c.Id, c.ProveedorCanonical, c.ProveedorCatalogId, c.Proveedor);
         }
 
@@ -838,10 +854,10 @@
                 g.Descripcion.ToUpperInvariant(), "Tipo", g.Categoria, "Fecha", $"{g.Fecha:dd/MM/yyyy}",
                 g.Categoria, Fmt(-g.Monto), false,
                 g.ImagenPath ?? "No se eligió ningún archivo",
-                IsV($"g{g.Id}"), g.ImagenPath is not null);
+                IsV($"g{g.Id}"), g.ImagenPath is not null, null);
         }
 
-        return new("—", "bi-image", "Sin datos", "—", "—", "—", "—", "—", "—", "$0", false, "—", false, false);
+        return new("—", "bi-image", "Sin datos", "—", "—", "—", "—", "—", "—", "$0", false, "—", false, false, null);
     }
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
@@ -1575,12 +1591,18 @@
         if (_periodo is null) return;
 
         var (kind, id) = ResolveSelectedKind();
-        if (kind is null || kind != "transferencia") return;
+        var url = kind switch
+        {
+            "transferencia" => $"api/contabilidad/transferencia/{id}/comprobante",
+            "compra" => $"api/compras/{id}/factura",
+            _ => null
+        };
+        if (url is null) return;
 
         _comprobanteError = null;
         try
         {
-            var resp = await Http.GetAsync($"api/contabilidad/transferencia/{id}/comprobante");
+            var resp = await Http.GetAsync(url);
             if (resp.IsSuccessStatusCode)
             {
                 var bytes = await resp.Content.ReadAsByteArrayAsync();
@@ -1592,11 +1614,12 @@
                     "image/png" => ".png",
                     _ => ".bin"
                 };
-                await JS.InvokeVoidAsync("descargarArchivo", bytes, $"comprobante_{id}{ext}", contentType);
+                var prefix = kind == "compra" ? "boleta" : "comprobante";
+                await JS.InvokeVoidAsync("descargarArchivo", bytes, $"{prefix}_{id}{ext}", contentType);
             }
             else
             {
-                _comprobanteError = "No se encontró el comprobante para esta transferencia.";
+                _comprobanteError = "No se encontró el comprobante para este documento.";
             }
         }
         catch (Exception)
