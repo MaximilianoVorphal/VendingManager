@@ -203,6 +203,20 @@ public class TemplateRecargaService : ITemplateRecargaService
             await ValidateFechaRecargaChainAsync(p.MaquinaId, p.FechaRecarga, excludeIds);
         }
 
+        // Preserve foto guía / foto OCR across the periodo rebuild below.
+        // This update deletes and recreates the periods, so without carrying the
+        // photos over, every "Guardar carga" would silently wipe them (they are
+        // stored per-period). Match new periods to old ones by (MaquinaId,
+        // FechaRecarga), falling back to MaquinaId when the date changed.
+        var fotosByKey = new Dictionary<(int MaquinaId, DateTime FechaRecarga), (byte[]? Guia, byte[]? Ocr)>();
+        var fotosByMaquina = new Dictionary<int, (byte[]? Guia, byte[]? Ocr)>();
+        foreach (var periodo in template.Periodos)
+        {
+            if (periodo.FotoGuia == null && periodo.FotoOcr == null) continue;
+            fotosByKey[(periodo.MaquinaId, periodo.FechaRecarga)] = (periodo.FotoGuia, periodo.FotoOcr);
+            fotosByMaquina[periodo.MaquinaId] = (periodo.FotoGuia, periodo.FotoOcr);
+        }
+
         // Eliminar snapshots de períodos anteriores
         foreach (var periodo in template.Periodos)
         {
@@ -212,19 +226,31 @@ public class TemplateRecargaService : ITemplateRecargaService
         _context.PeriodosRecarga.RemoveRange(template.Periodos);
 
         // Agregar nuevos períodos con snapshots
-        template.Periodos = dto.Periodos.Select(p => new PeriodoRecarga
+        template.Periodos = dto.Periodos.Select(p =>
         {
-            TemplateRecargaId = template.Id,
-            MaquinaId = p.MaquinaId,
-            FechaRecarga = p.FechaRecarga,
-            SnapshotSlots = p.SnapshotSlots.Select(s => new SnapshotSlot
+            byte[]? fotoGuia = null;
+            byte[]? fotoOcr = null;
+            if (fotosByKey.TryGetValue((p.MaquinaId, p.FechaRecarga), out var f))
+                (fotoGuia, fotoOcr) = f;
+            else if (fotosByMaquina.TryGetValue(p.MaquinaId, out var fm))
+                (fotoGuia, fotoOcr) = fm;
+
+            return new PeriodoRecarga
             {
-                NumeroSlot = s.NumeroSlot,
-                ProductoId = s.ProductoId,
-                CantidadInicial = s.CantidadInicial,
-                CapacidadSlot = s.CapacidadSlot,
-                Estado = s.Estado
-            }).ToList()
+                TemplateRecargaId = template.Id,
+                MaquinaId = p.MaquinaId,
+                FechaRecarga = p.FechaRecarga,
+                FotoGuia = fotoGuia,
+                FotoOcr = fotoOcr,
+                SnapshotSlots = p.SnapshotSlots.Select(s => new SnapshotSlot
+                {
+                    NumeroSlot = s.NumeroSlot,
+                    ProductoId = s.ProductoId,
+                    CantidadInicial = s.CantidadInicial,
+                    CapacidadSlot = s.CapacidadSlot,
+                    Estado = s.Estado
+                }).ToList()
+            };
         }).ToList();
 
         await _context.SaveChangesAsync();
