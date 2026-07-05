@@ -264,15 +264,16 @@ public class TemplatesRecargaShellTests : TestContext
 
         cut.WaitForAssertion(() => cut.Markup.Should().Contain("rec-grid"));
 
-        cut.Markup.Should().NotContain("rec-grid is-compact");
+        // Compact density is the default, so the editor opens with is-compact.
+        cut.Markup.Should().Contain("rec-grid is-compact");
 
         // The VmSegmented renders the buttons as direct children of
-        // .rec-segment. Click the "Compacta" one.
-        var compactaButton = cut.FindAll(".rec-segment > button")
-            .First(b => b.TextContent.Contains("Compacta"));
-        compactaButton.Click();
+        // .rec-segment. Click the "Cómoda" one to leave compact mode.
+        var comodaButton = cut.FindAll(".rec-segment > button")
+            .First(b => b.TextContent.Contains("Cómoda"));
+        comodaButton.Click();
 
-        cut.WaitForAssertion(() => cut.Markup.Should().Contain("rec-grid is-compact"));
+        cut.WaitForAssertion(() => cut.Markup.Should().NotContain("rec-grid is-compact"));
     }
 
     [Fact]

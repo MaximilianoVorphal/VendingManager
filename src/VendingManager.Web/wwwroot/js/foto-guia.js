@@ -88,10 +88,13 @@ function applyTransform() {
   if (!_el) return;
   const img = _el.querySelector('img');
   if (!img) return;
-  // Clamp pan so the image doesn't stray too far
-  const maxPan = Math.max(0, (_zoom - 1) * 150);
-  const clampedX = Math.max(-maxPan, Math.min(maxPan, _panX));
-  const clampedY = Math.max(-maxPan, Math.min(maxPan, _panY));
+  // Clamp pan to the image's actual overflow beyond the container so every
+  // part stays reachable. The image is scaled from its center, so half of the
+  // overflow spills to each side; that half is the max pan distance per axis.
+  const maxPanX = Math.max(0, (img.offsetWidth * _zoom - _el.clientWidth) / 2);
+  const maxPanY = Math.max(0, (img.offsetHeight * _zoom - _el.clientHeight) / 2);
+  const clampedX = Math.max(-maxPanX, Math.min(maxPanX, _panX));
+  const clampedY = Math.max(-maxPanY, Math.min(maxPanY, _panY));
   _panX = clampedX;
   _panY = clampedY;
   img.style.transform = `translate(${clampedX}px, ${clampedY}px) scale(${_zoom})`;
