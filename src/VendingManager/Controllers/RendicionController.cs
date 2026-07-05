@@ -318,19 +318,8 @@ public class RendicionController(
         [FromQuery] DateTime? desde = null,
         [FromQuery] DateTime? hasta = null)
     {
-        var compras = await compraService.GetComprasNoVinculadasAsync(proveedor, numeroDocumento, desde, hasta);
-        var dto = compras.Select(c => new CompraDto
-        {
-            Id = c.Id,
-            FechaCompra = c.FechaCompra,
-            Proveedor = c.Proveedor,
-            NumeroDocumento = c.NumeroDocumento,
-            MontoTotal = c.MontoTotal,
-            Estado = c.Estado,
-            TipoFactura = c.TipoFactura,
-            PagadaCaja = c.PagadaCaja,
-            TransferenciaId = c.TransferenciaId
-        }).ToList();
+        // Service projects to DTOs in the query (factura bytes not loaded).
+        var dto = await compraService.GetComprasNoVinculadasAsync(proveedor, numeroDocumento, desde, hasta);
         return Ok(dto);
     }
 

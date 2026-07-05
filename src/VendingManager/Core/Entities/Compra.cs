@@ -28,8 +28,21 @@ public class Compra
     // Usuario que registró la compra (opcional, para auditoría)
     public string? UsuarioRegistra { get; set; }
 
-    // Ruta relativa a la imagen de la factura/boleta (ej: /uploads/compras/facturas/{guid}.jpg)
+    // Legacy: relative path to the factura/boleta image on disk
+    // (e.g. /uploads/compras/facturas/{guid}.jpg). Kept for backward-compatible
+    // reads and as the source for the DB backfill; new uploads store the image
+    // bytes in FacturaImagen instead. Also acts as the "has image" flag exposed
+    // to the frontend.
     public string? FacturaImagenPath { get; set; }
+
+    // Image bytes stored directly in the database. Preferred over the on-disk
+    // path so the image travels with the DB (backups, dev environments).
+    public byte[]? FacturaImagen { get; set; }
+
+    // MIME type of FacturaImagen (e.g. "image/jpeg", "application/pdf"), needed
+    // to serve the bytes since there is no file extension to infer from.
+    [MaxLength(100)]
+    public string? FacturaImagenContentType { get; set; }
 
     /// <summary>
     /// Indicates whether the compra comprobante has been verified by the owner.
