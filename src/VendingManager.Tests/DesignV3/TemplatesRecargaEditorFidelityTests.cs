@@ -456,40 +456,35 @@ public class TemplatesRecargaEditorFidelityTests : TestContext
     }
 
     [Fact]
-    public void Editor_SlotCard_PriceDisplays_WhenSlotHasProduct()
+    public void Editor_SlotCard_HidesPrice_WhenPricesDisabled()
     {
-        // REQ-11: price displayed as $N.NNN when slot has matching ProductoId
-        // Mock data: slot A2 has ProductoId=1 with PrecioVenta=1200
+        // Prices are hidden in the editor (MostrarPrecios = false) because sale
+        // prices are configured on the machine, not managed from the web yet.
+        // Mock data: slot A2 has ProductoId=1 with PrecioVenta=1200 — its price
+        // must NOT render while the feature is disabled.
         var cut = RenderComponent<EditorFidelityTestHost>();
         OpenEditor(cut);
 
         cut.WaitForAssertion(() => cut.Markup.Should().Contain("rec-slot"));
 
-        // The slot card with product should show the formatted price
-        cut.Markup.Should().Contain("$1.200");
+        // No price span nor formatted price should be present.
+        cut.Markup.Should().NotContain("rec-slot-price");
+        cut.Markup.Should().NotContain("$1.200");
     }
 
     [Fact]
-    public void Editor_SlotCard_ShowsDash_WhenSlotHasNoPrice()
+    public void Editor_SlotCard_OmitsPricePlaceholder_WhenPricesDisabled()
     {
-        // REQ-FID-2 dash scenario: empty/no-price slots must render $— in the
-        // price span (not omit it). Mock data: slot A1 has ProductoId=null,
-        // Estado=0 (Vacio) — marked with .rec-slot-empty class.
+        // With prices disabled (MostrarPrecios = false), empty/no-price slots
+        // must not render the price placeholder span either. Mock data: slot A1
+        // has ProductoId=null, Estado=0 (Vacio) — marked with .rec-slot-empty.
         var cut = RenderComponent<EditorFidelityTestHost>();
         OpenEditor(cut);
 
         cut.WaitForAssertion(() => cut.Markup.Should().Contain("rec-slot-empty"));
 
-        // The empty slot card must contain a price span with $— text.
-        // Use regex on the full markup to scope the assertion to the empty
-        // slot's HTML (Bunit.IElement.QuerySelector scoping is unreliable
-        // across bunit versions, so a markup-level regex is the safest
-        // approach to assert the price span lives INSIDE the empty slot).
-        // The regex uses [\s\S] instead of . to match across newlines because
-        // Blazor renders the slot HTML across multiple lines.
-        cut.Markup.Should().MatchRegex(
-            @"<div\s+class=""rec-slot\s+rec-slot-empty""[^>]*>[\s\S]*?<span\s+class=""rec-slot-price[^""]*""[^>]*>\s*\$\u2014\s*</span>[\s\S]*?</div>",
-            "empty slot must render a <span class='rec-slot-price'>$—</span> per REQ-FID-2");
+        // The empty slot card must not contain the price placeholder span.
+        cut.Markup.Should().NotContain("rec-slot-price");
     }
 
     // =====================================================================
