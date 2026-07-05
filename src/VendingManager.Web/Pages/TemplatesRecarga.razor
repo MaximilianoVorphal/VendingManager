@@ -666,7 +666,7 @@
     private bool _recargaVisible = false; // FotoRecargaModal visibility (PR3)
     private string MensajeErrorOcr = "";
     private string MensajeInfoOcr = "";
-    private byte[]? FotoGuiaData; // Photo 2 — never sent to server
+    private byte[]? FotoGuiaData; // Foto guía bytes; persisted via PUT .../foto-guia on upload
     private string? FotoGuiaUrl; // Blob URL for display
     private bool _guiaVisible = false; // Panel visibility (replaces old modal MostrarFotoGuia)
     // PR3: SlotsResaltados and UltimosSlotsNoCoincidentes removed — no longer used
@@ -929,16 +929,67 @@
         _guiaVisible = false;
     }
 
-    private Task HandlePanelFotoUpload(byte[] bytes)
+    private async Task HandlePanelFotoUpload(byte[] bytes)
     {
-        if (bytes == null || bytes.Length == 0) return Task.CompletedTask;
+        if (bytes == null || bytes.Length == 0) return;
 
+        // Show the photo immediately for a responsive feel, then persist.
         RevokeFotoGuiaUrl();
         FotoGuiaData = bytes;
         FotoGuiaUrl = $"data:image/jpeg;base64,{Convert.ToBase64String(bytes)}";
         _guiaVisible = true;
         StateHasChanged();
-        return Task.CompletedTask;
+
+        await PersistFotoGuia(bytes);
+    }
+
+    /// <summary>
+    /// Uploads the foto guía bytes to the server so they survive a reload.
+    /// Requires a persisted template and periodo; the visual editor is always
+    /// opened from an existing template, so both ids are valid there.
+    /// </summary>
+    private async Task PersistFotoGuia(byte[] bytes)
+    {
+        var periodoId = PeriodoEnEdicionVisual?.Id ?? 0;
+        if (_currentTemplateId <= 0 || periodoId <= 0)
+        {
+            ShowToast("Guardá el template antes de subir la foto guía.", "bi-exclamation-triangle-fill");
+            return;
+        }
+
+        try
+        {
+            using var content = new MultipartFormDataContent();
+            var byteContent = new ByteArrayContent(bytes);
+            byteContent.Headers.ContentType =
+                new System.Net.Http.Headers.MediaTypeHeaderValue("image/jpeg");
+            content.Add(byteContent, "file", "foto-guia.jpg");
+
+            var response = await Http.PutAsync(
+                $"api/TemplateRecarga/{_currentTemplateId}/periodo/{periodoId}/foto-guia",
+                content);
+
+            if (response.IsSuccessStatusCode)
+            {
+                // Keep periodo flag in sync so a later reopen fetches the photo.
+                var template = Templates?.FirstOrDefault(t => t.Id == _currentTemplateId);
+                var periodo = template?.Periodos.FirstOrDefault(p => p.Id == periodoId);
+                if (periodo != null) periodo.TieneFotoGuia = true;
+
+                ShowToast("Foto guía guardada", "bi-check-circle-fill");
+            }
+            else
+            {
+                var body = await response.Content.ReadAsStringAsync();
+                ShowToast($"Error al guardar la foto guía (HTTP {(int)response.StatusCode}): {body}",
+                    "bi-exclamation-triangle-fill");
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "[HandlePanelFotoUpload] Error al persistir la foto guía");
+            ShowToast("Error de red al guardar la foto guía: " + ex.Message, "bi-exclamation-triangle-fill");
+        }
     }
 
     private bool Cargando = false;
