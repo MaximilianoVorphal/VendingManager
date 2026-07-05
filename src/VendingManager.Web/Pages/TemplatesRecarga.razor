@@ -517,37 +517,36 @@
                               OnAplicar="AplicarRecarga" />
         }
 
-        <!-- PRODUCT SELECTOR OVERLAY (for slot product change) -->
+        <!-- PRODUCT SELECTOR MODAL (for slot product change) -->
         @if (SlotConProductoSelector != null && ListaProductos != null)
         {
-            <div class="product-selector-overlay" @onclick="CerrarProductoSelector" @onclick:stopPropagation="true">
-                <div class="product-selector-dropdown" @onclick:stopPropagation="true">
-                    <div class="product-selector-header">
-                        <span class="fw-bold text-uppercase small">
-                            <i class="bi bi-box-seam me-2"></i>CAMBIAR PRODUCTO — SLOT @SlotConProductoSelector.NumeroSlot
-                        </span>
-                        <button type="button" class="btn-close" @onclick="CerrarProductoSelector"></button>
-                    </div>
-                    <div class="product-selector-search">
-                        <input type="text" class="form-control form-control-sm border-dark rounded-0"
-                               placeholder="Buscar producto..."
-                               @bind="ProductoSearch"
-                               @bind:event="oninput" />
-                    </div>
-                    <div class="product-selector-list">
-                        @foreach (var prod in ListaProductos.Where(p =>
-                            string.IsNullOrEmpty(ProductoSearch) ||
-                            p.Nombre.Contains(ProductoSearch, StringComparison.OrdinalIgnoreCase)))
-                        {
-                            <button class="product-selector-item @(SlotConProductoSelector.ProductoId == prod.Id ? "active" : "")"
-                                    @onclick="() => SeleccionarProductoParaSlot(prod)">
-                                <span class="fw-bold">@prod.Nombre</span>
-                                @if (SlotConProductoSelector.ProductoId == prod.Id)
+            <div class="modal fade show d-block" tabindex="-1"
+                 style="background-color: rgba(0,0,0,0.5); z-index: 1110;"
+                 @onclick="CerrarProductoSelector">
+                <div class="modal-dialog modal-dialog-centered" @onclick:stopPropagation="true">
+                    <div class="modal-content border-0 bg-transparent shadow-none">
+                        <VmCard Header="@($"CAMBIAR PRODUCTO — SLOT {SlotConProductoSelector.NumeroSlot}")" HeaderVariant="dark">
+                            <input type="text" class="form-control form-control-sm border-dark rounded-0 mb-3"
+                                   placeholder="Buscar producto..."
+                                   @bind="ProductoSearch"
+                                   @bind:event="oninput" />
+                            <div style="max-height: 320px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.25rem;">
+                                @foreach (var prod in ListaProductos.Where(p =>
+                                    string.IsNullOrEmpty(ProductoSearch) ||
+                                    p.Nombre.Contains(ProductoSearch, StringComparison.OrdinalIgnoreCase)))
                                 {
-                                    <i class="bi bi-check-circle-fill text-success ms-2"></i>
+                                    var isActive = SlotConProductoSelector.ProductoId == prod.Id;
+                                    <button class="btn btn-sm text-start rounded-0 border-dark d-flex justify-content-between align-items-center @(isActive ? "btn-dark" : "btn-outline-dark")"
+                                            @onclick="() => SeleccionarProductoParaSlot(prod)">
+                                        <span class="fw-bold">@prod.Nombre</span>
+                                        @if (isActive)
+                                        {
+                                            <i class="bi bi-check-circle-fill ms-2"></i>
+                                        }
+                                    </button>
                                 }
-                            </button>
-                        }
+                            </div>
+                        </VmCard>
                     </div>
                 </div>
             </div>
