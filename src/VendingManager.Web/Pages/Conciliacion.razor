@@ -314,8 +314,17 @@
                             {
                                 <div style="position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--ink-900);"></div>
                             }
-                            <div style="flex-shrink:0;width:38px;height:46px;border:1px solid var(--ink-900);background-image:repeating-linear-gradient(45deg,#f0f0f0,#f0f0f0 5px,#e2e2e2 5px,#e2e2e2 10px);display:flex;align-items:center;justify-content:center;">
-                                <i class="bi @r.ThumbIcon" style="font-size:0.95rem;color:var(--ink-700);"></i>
+                            <div style="flex-shrink:0;width:38px;height:46px;border:1px solid var(--ink-900);background-image:repeating-linear-gradient(45deg,#f0f0f0,#f0f0f0 5px,#e2e2e2 5px,#e2e2e2 10px);display:flex;align-items:center;justify-content:center;overflow:hidden;">
+                                @if (r.ThumbUrl is not null)
+                                {
+                                    <img src="@r.ThumbUrl" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block;"
+                                         onerror="this.onerror=null;this.style.display='none';this.nextElementSibling.style.display='block';" />
+                                    <i class="bi @r.ThumbIcon" style="display:none;font-size:0.95rem;color:var(--ink-700);"></i>
+                                }
+                                else
+                                {
+                                    <i class="bi @r.ThumbIcon" style="font-size:0.95rem;color:var(--ink-700);"></i>
+                                }
                             </div>
                             <div style="flex:1;min-width:0;">
                                 <div style="font-family:var(--font-sans);font-weight:600;font-size:0.82rem;text-transform:uppercase;letter-spacing:-0.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">@r.Titulo</div>
@@ -353,14 +362,16 @@
 
             <div style="flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;">
                 <!-- foto / imagen del comprobante -->
-                <div style="flex:1 1 120px;min-height:120px;margin:0.85rem;border:2px solid var(--ink-900);background-image:repeating-linear-gradient(45deg,#fafafa,#fafafa 9px,#eee 9px,#eee 18px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;overflow:hidden;">
+                <div style="position:relative;flex:1 1 120px;min-height:120px;margin:0.85rem;border:2px solid var(--ink-900);background-image:repeating-linear-gradient(45deg,#fafafa,#fafafa 9px,#eee 9px,#eee 18px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;overflow:hidden;">
                     @if (sel.ImgUrl is not null)
                     {
-                        <a href="@sel.ImgUrl" target="_blank" rel="noopener" style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;text-decoration:none;">
-                            <img src="@sel.ImgUrl" alt="@sel.ImgCaption" style="max-width:100%;max-height:100%;object-fit:contain;display:block;"
+                        <img src="@sel.ImgUrl" alt="" aria-hidden="true" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:blur(16px) brightness(0.92);transform:scale(1.18);opacity:0.55;"
+                             onerror="this.style.display='none';" />
+                        <a href="@sel.ImgUrl" target="_blank" rel="noopener" style="position:relative;display:flex;align-items:center;justify-content:center;width:100%;height:100%;text-decoration:none;">
+                            <img src="@sel.ImgUrl" alt="@sel.ImgCaption" style="max-width:100%;max-height:100%;object-fit:contain;display:block;box-shadow:0 2px 14px rgba(0,0,0,0.28);"
                                  onerror="this.onerror=null;this.parentElement.style.display='none';this.parentElement.nextElementSibling.style.display='flex';" />
                         </a>
-                        <a href="@sel.ImgUrl" target="_blank" rel="noopener" style="display:none;flex-direction:column;align-items:center;gap:8px;text-decoration:none;">
+                        <a href="@sel.ImgUrl" target="_blank" rel="noopener" style="position:relative;display:none;flex-direction:column;align-items:center;gap:8px;text-decoration:none;">
                             <i class="bi bi-file-earmark-text" style="font-size:2rem;color:var(--text-muted);"></i>
                             <span style="font-family:var(--font-mono);font-weight:700;font-size:0.7rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);">Abrir documento</span>
                         </a>
@@ -680,7 +691,7 @@
 
     // ── View-models ───────────────────────────────────────────────────────────
     private record PeriodoOpcion(int Id, string Label);
-    private record RowVm(int Id, string Titulo, string Sub, string TipoTag, string MontoFmt, bool MontoPos, string ThumbIcon, bool Verified, bool Selected, bool HasComprobante, bool SinProveedor = false);
+    private record RowVm(int Id, string Titulo, string Sub, string TipoTag, string MontoFmt, bool MontoPos, string ThumbIcon, bool Verified, bool Selected, bool HasComprobante, string? ThumbUrl = null, bool SinProveedor = false);
     private record SectionVm(string Title, string Icon, int Count, string TotalFmt, bool TotalPos, IReadOnlyList<RowVm> Rows);
     private record SelVm(string KindLabel, string BigIcon, string ImgCaption, string Titulo, string F1Label, string F1, string F2Label, string F2, string TipoTag, string MontoFmt, bool MontoPos, string FileName, bool Verified, bool HasComprobante, string? ImgUrl = null, int CompraId = 0, string? Canonical = null, int? CatalogId = null, string? RawProveedor = null);
     private record FiltroVm(string Key, string Label);
@@ -752,7 +763,8 @@
                     "bi-bank",
                     IsV($"t{t.Id}"),
                     _selectedId == t.Id,
-                    t.ComprobanteImagenPath is not null
+                    t.ComprobanteImagenPath is not null,
+                    t.ComprobanteImagenPath is not null ? $"/api/contabilidad/transferencia/{t.Id}/comprobante" : null
                 ))
                 .ToList();
             if (rows.Count > 0)
@@ -779,6 +791,7 @@
                 IsV($"c{c.Id}"),
                 _selectedId == c.Id,
                 c.FacturaImagenPath is not null,
+                c.FacturaImagenPath is not null ? $"/api/compras/{c.Id}/factura" : null,
                 c.ProveedorCatalogId is null
             )).ToList();
             if (rows.Count > 0)
@@ -803,7 +816,8 @@
                 "bi-receipt",
                 IsV($"g{g.Id}"),
                 _selectedId == g.Id,
-                g.ImagenPath is not null
+                g.ImagenPath is not null,
+                null
             )).ToList();
             if (rows.Count > 0)
             {
