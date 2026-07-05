@@ -320,6 +320,10 @@
                             <div style="flex:1;min-width:0;">
                                 <div style="font-family:var(--font-sans);font-weight:600;font-size:0.82rem;text-transform:uppercase;letter-spacing:-0.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">@r.Titulo</div>
                                 <div style="font-family:var(--font-mono);font-size:0.66rem;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">@r.Sub</div>
+                                @if (r.SinProveedor)
+                                {
+                                    <span style="display:inline-block;margin-top:3px;font-family:var(--font-mono);font-weight:700;font-size:0.54rem;text-transform:uppercase;letter-spacing:0.4px;background:var(--signal-warning);color:var(--ink-900);padding:1px 6px;">Sin proveedor</span>
+                                }
                             </div>
                             <span style="flex-shrink:0;font-family:var(--font-mono);font-weight:700;font-size:0.56rem;text-transform:uppercase;letter-spacing:0.4px;border:1px solid var(--ink-900);padding:2px 6px;">@r.TipoTag</span>
                             <span style="flex-shrink:0;width:96px;text-align:right;font-family:var(--font-mono);font-weight:700;font-size:0.84rem;color:@(r.MontoPos ? "var(--signal-success)" : "var(--signal-danger)");">@r.MontoFmt</span>
@@ -662,7 +666,7 @@
 
     // ── View-models ───────────────────────────────────────────────────────────
     private record PeriodoOpcion(int Id, string Label);
-    private record RowVm(int Id, string Titulo, string Sub, string TipoTag, string MontoFmt, bool MontoPos, string ThumbIcon, bool Verified, bool Selected, bool HasComprobante);
+    private record RowVm(int Id, string Titulo, string Sub, string TipoTag, string MontoFmt, bool MontoPos, string ThumbIcon, bool Verified, bool Selected, bool HasComprobante, bool SinProveedor = false);
     private record SectionVm(string Title, string Icon, int Count, string TotalFmt, bool TotalPos, IReadOnlyList<RowVm> Rows);
     private record SelVm(string KindLabel, string BigIcon, string ImgCaption, string Titulo, string F1Label, string F1, string F2Label, string F2, string TipoTag, string MontoFmt, bool MontoPos, string FileName, bool Verified, bool HasComprobante, int CompraId = 0, string? Canonical = null, int? CatalogId = null, string? RawProveedor = null);
     private record FiltroVm(string Key, string Label);
@@ -760,7 +764,8 @@
                 "bi-receipt",
                 IsV($"c{c.Id}"),
                 _selectedId == c.Id,
-                c.FacturaImagenPath is not null
+                c.FacturaImagenPath is not null,
+                c.ProveedorCatalogId is null
             )).ToList();
             if (rows.Count > 0)
             {
