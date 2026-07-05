@@ -4,7 +4,7 @@
     <div class="rec-guia-header">
         <div>
             <div class="rec-guia-title">Foto guía</div>
-            <div class="rec-guia-subtitle">Máq @MaquinaId · ya cargada</div>
+            <div class="rec-guia-subtitle">Máq @MaquinaId · @(string.IsNullOrEmpty(FotoGuiaUrl) ? "sin foto" : "ya cargada")</div>
         </div>
         <button class="rec-guia-close" @onclick="OnClose">×</button>
     </div>

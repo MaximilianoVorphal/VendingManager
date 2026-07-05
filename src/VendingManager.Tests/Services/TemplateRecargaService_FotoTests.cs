@@ -6,6 +6,8 @@ using FluentAssertions;
 using VendingManager.Core.Entities;
 using VendingManager.Core.Interfaces;
 using VendingManager.Infrastructure.Services;
+using VendingManager.Shared.DTOs;
+using VendingManager.Shared.Enums;
 using VendingManager.Tests.TestData;
 
 public class TemplateRecargaService_FotoTests : IDisposable
@@ -226,5 +228,51 @@ public class TemplateRecargaService_FotoTests : IDisposable
         // Act & Assert
         await Assert.ThrowsAsync<KeyNotFoundException>(
             () => _service.GetFotoOcrAsync(9999));
+    }
+
+    // ─── UpdateAsync photo preservation (regression) ─────────────────────────
+
+    [Fact]
+    public async Task UpdateAsync_PreservesFotoGuiaAndOcr_AcrossPeriodoRebuild()
+    {
+        // Arrange — a periodo that already has both photos stored.
+        // UpdateAsync deletes and recreates periods on every "Guardar carga",
+        // so the photos must be carried over or they would be silently wiped.
+        var guiaBytes = new byte[] { 0xFF, 0xD8, 0xFF, 0xE0 }; // JPEG magic
+        var ocrBytes = new byte[] { 0x89, 0x50, 0x4E, 0x47 };  // PNG magic
+        var periodo = await SeedPeriodoWithFoto(1, "Test Periodo", guiaBytes, ocrBytes);
+
+        var dto = new UpdateTemplateRecargaDto
+        {
+            Nombre = "Test Template",
+            Descripcion = null,
+            Periodos = new List<CreatePeriodoDto>
+            {
+                new CreatePeriodoDto
+                {
+                    MaquinaId = periodo.MaquinaId,
+                    FechaRecarga = periodo.FechaRecarga,
+                    SnapshotSlots = new List<CreateSnapshotSlotDto>
+                    {
+                        new CreateSnapshotSlotDto
+                        {
+                            NumeroSlot = "A1",
+                            CantidadInicial = 3,
+                            CapacidadSlot = 5,
+                            Estado = EstadoSlot.Lleno
+                        }
+                    }
+                }
+            }
+        };
+
+        // Act — full-template update, as triggered by the "Guardar carga" button
+        await _service.UpdateAsync(periodo.TemplateRecargaId, dto);
+
+        // Assert — both photos survived the periodo rebuild
+        var rebuilt = await _context.PeriodosRecarga.AsNoTracking()
+            .FirstAsync(p => p.MaquinaId == 1);
+        rebuilt.FotoGuia.Should().BeEquivalentTo(guiaBytes);
+        rebuilt.FotoOcr.Should().BeEquivalentTo(ocrBytes);
     }
 }
