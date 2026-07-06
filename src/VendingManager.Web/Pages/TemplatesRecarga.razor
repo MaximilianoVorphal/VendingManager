@@ -559,6 +559,7 @@
                         <VmCard Header="@($"CAMBIAR PRODUCTO — SLOT {SlotConProductoSelector.NumeroSlot}")" HeaderVariant="dark">
                             <input type="text" class="form-control form-control-sm border-dark rounded-0 mb-3"
                                    placeholder="Buscar producto..."
+                                   @ref="_productoSearchInput"
                                    @bind="ProductoSearch"
                                    @bind:event="oninput" />
                             <div style="max-height: 320px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.25rem;">
@@ -1351,6 +1352,15 @@
         BuildPreciosByProductoId();
     }
 
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_focusProductoSearch)
+        {
+            _focusProductoSearch = false;
+            try { await _productoSearchInput.FocusAsync(); } catch { }
+        }
+    }
+
     private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
     {
         // If user navigates away via browser back/forward while in slot editor,
@@ -1683,10 +1693,14 @@
         slot.CantidadInicial = quantity;
     }
 
+    private ElementReference _productoSearchInput;
+    private bool _focusProductoSearch = false;
+
     private void OnChangeProductForSlot(SnapshotSlotFormModel slot)
     {
         SlotConProductoSelector = slot;
         ProductoSearch = "";
+        _focusProductoSearch = true;
     }
 
     private void SeleccionarProductoParaSlot(ProductoSimpleDto producto)
