@@ -62,7 +62,7 @@ namespace VendingManager.Infrastructure.Services
             context.OrdenesCarga.Add(orden);
             await context.SaveChangesAsync();
 
-            return MapToDto(orden, maquina?.Nombre ?? "RUTA GLOBAL");
+            return MapToDto(orden, maquina?.Nombre ?? "RUTA GLOBAL", maquina?.IdInternoMaquina ?? "");
         }
 
         public async Task<bool> FinalizarOrdenAsync(FinalizarOrdenDto dto)
@@ -158,9 +158,15 @@ namespace VendingManager.Infrastructure.Services
 
             var ordenes = await query.OrderByDescending(o => o.FechaCreacion).ToListAsync();
 
-            var maquinas = await context.Maquinas.ToDictionaryAsync(m => m.Id, m => m.Nombre);
+            var maquinas = await context.Maquinas.ToDictionaryAsync(m => m.Id, m => new { m.Nombre, m.IdInternoMaquina });
 
-            return ordenes.Select(o => MapToDto(o, (o.MaquinaId.HasValue && maquinas.ContainsKey(o.MaquinaId.Value)) ? maquinas[o.MaquinaId.Value] : "RUTA GLOBAL")).ToList();
+            return ordenes.Select(o =>
+            {
+                var info = (o.MaquinaId.HasValue && maquinas.ContainsKey(o.MaquinaId.Value))
+                    ? maquinas[o.MaquinaId.Value]
+                    : new { Nombre = "RUTA GLOBAL", IdInternoMaquina = "" };
+                return MapToDto(o, info.Nombre, info.IdInternoMaquina);
+            }).ToList();
         }
 
         public async Task<OrdenCargaDto?> GetOrdenByIdAsync(int id)
@@ -172,15 +178,18 @@ namespace VendingManager.Infrastructure.Services
             if (orden == null) return null;
 
             string maquinaName = "RUTA GLOBAL";
+            string idInternoMaquina = "";
             if (orden.MaquinaId.HasValue)
             {
-                maquinaName = await context.Maquinas
+                var maquina = await context.Maquinas
                     .Where(m => m.Id == orden.MaquinaId.Value)
-                    .Select(m => m.Nombre)
-                    .FirstOrDefaultAsync() ?? "Desconocida";
+                    .Select(m => new { m.Nombre, m.IdInternoMaquina })
+                    .FirstOrDefaultAsync();
+                maquinaName = maquina?.Nombre ?? "Desconocida";
+                idInternoMaquina = maquina?.IdInternoMaquina ?? "";
             }
 
-            return MapToDto(orden, maquinaName);
+            return MapToDto(orden, maquinaName, idInternoMaquina);
         }
 
         public async Task<List<StockCriticoDto>> GetSugerenciaCargaAsync(int maquinaId)
@@ -196,6 +205,7 @@ namespace VendingManager.Infrastructure.Services
             {
                 SlotId = s.Id,
                 Maquina = s.Maquina.Nombre,
+                IdInternoMaquina = s.Maquina.IdInternoMaquina,
                 NumeroSlot = s.NumeroSlot,
                 Producto = s.Producto?.Nombre ?? "Sin Producto",
                 ProductoId = s.ProductoId ?? 0,
@@ -219,6 +229,7 @@ namespace VendingManager.Infrastructure.Services
             {
                 SlotId = s.Id,
                 Maquina = s.Maquina.Nombre,
+                IdInternoMaquina = s.Maquina.IdInternoMaquina,
                 NumeroSlot = s.NumeroSlot,
                 Producto = s.Producto?.Nombre ?? "Sin Producto",
                 ProductoId = s.ProductoId ?? 0,
@@ -280,7 +291,7 @@ namespace VendingManager.Infrastructure.Services
             return true;
         }
 
-        private OrdenCargaDto MapToDto(OrdenCarga orden, string maquinaNombre)
+        private OrdenCargaDto MapToDto(OrdenCarga orden, string maquinaNombre, string idInternoMaquina)
         {
             var detalles = orden.Detalles.Select(d => new DetalleOrdenDisplayDto
             {
@@ -290,7 +301,8 @@ namespace VendingManager.Infrastructure.Services
                 CantidadSolicitada = d.CantidadSolicitada,
                 CantidadRetornada = d.CantidadRetornada,
                 CostoUnitario = d.CostoUnitario,
-                MaquinaId = d.MaquinaId
+                MaquinaId = d.MaquinaId,
+                IdInternoMaquina = idInternoMaquina
             }).ToList();
 
             return new OrdenCargaDto
@@ -301,6 +313,7 @@ namespace VendingManager.Infrastructure.Services
                 Estado = orden.Estado,
                 MaquinaId = orden.MaquinaId,
                 MaquinaNombre = maquinaNombre,
+                IdInternoMaquina = idInternoMaquina,
                 CostoTotal = detalles.Sum(d => (d.CantidadSolicitada - d.CantidadRetornada) * d.CostoUnitario),
                 Detalles = detalles
             };

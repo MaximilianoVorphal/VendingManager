@@ -12,6 +12,12 @@ namespace VendingManager.Shared.DTOs
         public int CapacidadMaxima { get; set; }
 
         /// <summary>
+        /// Código interno de la máquina (ej: "2410280022").
+        /// Fuente primaria para mostrar el identificador de máquina en la UI.
+        /// </summary>
+        public string IdInternoMaquina { get; set; } = string.Empty;
+
+        /// <summary>
         /// Fuente de los datos: "template" cuando viene del template Activo,
         /// "configuracion" cuando viene de ConfiguracionSlots (fallback).
         /// </summary>

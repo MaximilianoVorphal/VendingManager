@@ -394,7 +394,7 @@
         {
             var all = (_reporte?.Detalle ?? new()).Select(d => new OpRow(
                 d.FechaRaw.ToString("dd/MM/yyyy HH:mm"),
-                MachineHelpers.ExtractShortCode(d.Maquina),
+                MachineHelpers.ExtractShortCode(d.Maquina, d.IdInternoMaquina),
                 d.Slot,
                 d.Producto,
                 d.Monto,
@@ -415,11 +415,11 @@
         {
             var maxTotal = (_reporte?.Detalle ?? new()).Any()
                 ? _reporte!.Detalle
-                    .GroupBy(d => MachineHelpers.ExtractShortCode(d.Maquina))
+                    .GroupBy(d => MachineHelpers.ExtractShortCode(d.Maquina, d.IdInternoMaquina))
                     .Max(g => g.Sum(d => d.Monto))
                 : 1m;
             return (_reporte?.Detalle ?? new())
-                .GroupBy(d => MachineHelpers.ExtractShortCode(d.Maquina))
+                .GroupBy(d => MachineHelpers.ExtractShortCode(d.Maquina, d.IdInternoMaquina))
                 .Select(g => new MaquinaRailRow(
                     g.Key,
                     g.Count(),

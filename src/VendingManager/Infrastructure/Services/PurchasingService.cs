@@ -71,10 +71,18 @@ namespace VendingManager.Infrastructure.Services
                 .Distinct()
                 .ToList();
 
-            // If filtering by maquinaId, get that maquina's name; otherwise use "TODAS"
-            string maquinaNombre = maquinaId > 0
-                ? await _context.Maquinas.Where(m => m.Id == maquinaId).Select(m => m.Nombre).FirstOrDefaultAsync() ?? "Máquina"
-                : "TODAS LAS MÁQUINAS";
+            // If filtering by maquinaId, get that maquina's name and internal id; otherwise use "TODAS"
+            string maquinaNombre = "TODAS LAS MÁQUINAS";
+            string idInternoMaquina = "";
+            if (maquinaId > 0)
+            {
+                var maquina = await _context.Maquinas
+                    .Where(m => m.Id == maquinaId)
+                    .Select(m => new { m.Nombre, m.IdInternoMaquina })
+                    .FirstOrDefaultAsync();
+                maquinaNombre = maquina?.Nombre ?? "Máquina";
+                idInternoMaquina = maquina?.IdInternoMaquina ?? "";
+            }
 
             return templateSlots
                 .Where(s => s.ProductoId != null && s.CantidadInicial <= 2)
@@ -82,6 +90,7 @@ namespace VendingManager.Infrastructure.Services
                 {
                     SlotId = s.Id,
                     Maquina = maquinaNombre,
+                    IdInternoMaquina = idInternoMaquina,
                     NumeroSlot = s.NumeroSlot,
                     Producto = s.ProductoNombre,
                     ProductoId = s.ProductoId ?? 0,
@@ -111,6 +120,7 @@ namespace VendingManager.Infrastructure.Services
                 {
                     SlotId = s.Id,
                     Maquina = s.Maquina.Nombre,
+                    IdInternoMaquina = s.Maquina.IdInternoMaquina,
                     NumeroSlot = s.NumeroSlot,
                     Producto = s.Producto != null ? s.Producto.Nombre : "Sin producto",
                     ProductoId = s.ProductoId ?? 0,

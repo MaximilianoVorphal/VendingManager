@@ -434,6 +434,7 @@ namespace VendingManager.Web.Pages
         {
             public int SlotId { get; set; }
             public string Maquina { get; set; } = "";
+            public string IdInternoMaquina { get; set; } = "";
             public string NumeroSlot { get; set; } = "";
             public string Producto { get; set; } = "";
             public int ProductoId { get; set; } 
