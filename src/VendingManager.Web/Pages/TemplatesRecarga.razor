@@ -129,6 +129,7 @@
                                     {
                                         <VmButton Variant="dark" Size="sm" Icon="bi-box-arrow-in-right" OnClick="() => AbrirEdicionVisual(template, firstPeriodo)">Abrir</VmButton>
                                     }
+                                    <VmButton Variant="danger" Size="sm" Icon="bi-trash" OnClick="() => ConfirmarEliminarTemplate(template)"></VmButton>
                                 </div>
                             </td>
                         </tr>
@@ -679,6 +680,29 @@
     </div>
 }
 
+<!-- MODAL ELIMINAR TEMPLATE -->
+@if (MostrarModalEliminar && TemplateAEliminar != null)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5); z-index: 1110;">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 bg-transparent shadow-none">
+                <VmCard Header="ELIMINAR TEMPLATE" HeaderVariant="dark">
+                    <p class="fw-bold">¿Seguro que querés eliminar "@TemplateAEliminar.Nombre"?</p>
+                    <p class="small text-muted mb-4">
+                        Se borrarán el template y sus @TemplateAEliminar.Periodos.Count período(s) por máquina con toda su carga. Esta acción no se puede deshacer.
+                    </p>
+                    <div style="display:flex;justify-content:flex-end;gap:0.5rem;margin-top:1rem;">
+                        <VmButton Variant="outline" Size="sm" OnClick="CerrarModalEliminar" Disabled="@Eliminando">CANCELAR</VmButton>
+                        <VmButton Variant="danger" Size="sm" OnClick="EliminarTemplate" Disabled="@Eliminando">
+                            @(Eliminando ? "ELIMINANDO..." : "SÍ, ELIMINAR")
+                        </VmButton>
+                    </div>
+                </VmCard>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     [CascadingParameter] public MainLayout? Layout { get; set; }
 
@@ -1095,6 +1119,56 @@
         catch (Exception ex)
         {
             ShowToast("Error de red: " + ex.Message, "bi-exclamation-triangle-fill");
+        }
+    }
+
+    // Eliminar template completo
+    private bool MostrarModalEliminar = false;
+    private bool Eliminando = false;
+    private TemplateRecargaDto? TemplateAEliminar;
+
+    private void ConfirmarEliminarTemplate(TemplateRecargaDto template)
+    {
+        TemplateAEliminar = template;
+        MostrarModalEliminar = true;
+    }
+
+    private void CerrarModalEliminar()
+    {
+        MostrarModalEliminar = false;
+        TemplateAEliminar = null;
+    }
+
+    private async Task EliminarTemplate()
+    {
+        if (TemplateAEliminar == null) return;
+
+        Eliminando = true;
+        StateHasChanged();
+
+        try
+        {
+            var response = await Http.DeleteAsync($"api/TemplateRecarga/{TemplateAEliminar.Id}");
+            if (response.IsSuccessStatusCode)
+            {
+                ShowToast("Template eliminado correctamente.", "bi-check-circle-fill");
+                CerrarModalEliminar();
+                await CargarTemplates();
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                ShowToast("Error al eliminar template: " + error, "bi-exclamation-triangle-fill");
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "[EliminarTemplate] Excepción al eliminar el template");
+            ShowToast("Error de red: " + ex.Message, "bi-exclamation-triangle-fill");
+        }
+        finally
+        {
+            Eliminando = false;
         }
     }
 
