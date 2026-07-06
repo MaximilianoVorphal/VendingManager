@@ -232,12 +232,6 @@
                                                     @periodo.SnapshotSlots.Count(s => s.ProductoId.HasValue && s.ProductoId > 0) productos configurados
                                                     <span class="text-muted ms-1">(de @periodo.SnapshotSlots.Count slots)</span>
                                                 </h6>
-                                                <div class="slot-grid mb-3">
-                                                    @foreach (var slot in periodo.SnapshotSlots)
-                                                    {
-                                                        <SlotCard Slot="slot" IsReadOnly="true" />
-                                                    }
-                                                </div>
                                                 <div class="mb-2">
                                                     <VmButton Variant="dark" Size="sm" Icon="bi-grid-3x3-gap-fill" OnClick="() => AbrirEdicionVisual(periodo)">
                                                         EDITAR SLOTS (GRILLA)
