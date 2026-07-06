@@ -152,6 +152,7 @@
    surface in an otherwise brutalist palette. Do NOT "normalize" it.
    ========================================================================= */
 .rec-slot {
+    position: relative;
     background: var(--paper-0);
     border: 1px solid #d1d5db;
     border-radius: 6px;
@@ -161,6 +162,11 @@
     flex-direction: column;
     gap: 9px;
     transition: box-shadow var(--dur-fast), border-color var(--dur-fast);
+}
+
+/* Raise the card whose kebab menu is open above the click-away backdrop. */
+.rec-slot--menu-open {
+    z-index: 60;
 }
 
 .rec-slot:hover {
@@ -175,6 +181,23 @@
 .rec-slot-empty {
     background: var(--tint-empty);
     border-color: var(--signal-warning);
+}
+
+/* Pendiente: product unknown, sales are held until it is assigned later. */
+.rec-slot-pending {
+    background: var(--tint-pending);
+    border-color: var(--signal-warning);
+}
+
+.rec-slot-pendiente-tag {
+    background: var(--signal-warning);
+    color: var(--ink-900);
+    font-family: var(--font-mono);
+    font-size: 0.56rem;
+    font-weight: var(--fw-bold);
+    text-transform: uppercase;
+    padding: 2px 6px;
+    border-radius: 3px;
 }
 
 .rec-slot-id {
@@ -220,6 +243,77 @@
     font-weight: var(--fw-bold);
     font-size: 0.88rem;
     color: var(--text-primary);
+}
+
+/* =========================================================================
+   Per-slot kebab menu (⋮) — mark a single slot Pendiente or empty it.
+   ========================================================================= */
+.rec-slot-menu {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.rec-slot-menu__btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    color: var(--ink-500, var(--text-muted));
+    cursor: pointer;
+    transition: background var(--dur-fast), border-color var(--dur-fast);
+}
+
+.rec-slot-menu__btn:hover {
+    background: var(--bg-surface-inset);
+    border-color: var(--slot-pick-border);
+}
+
+.rec-slot-menu__list {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 4px);
+    z-index: 61;
+    min-width: 172px;
+    display: flex;
+    flex-direction: column;
+    background: var(--paper-0);
+    border: 1px solid var(--ink-900);
+    border-radius: 6px;
+    box-shadow: var(--shadow-soft);
+    overflow: hidden;
+}
+
+.rec-slot-menu__item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    text-align: left;
+    padding: 9px 12px;
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+    font-family: var(--font-sans);
+    font-weight: var(--fw-bold);
+    font-size: 0.8rem;
+    color: var(--text-primary);
+}
+
+.rec-slot-menu__item:hover {
+    background: var(--bg-surface-inset);
+}
+
+.rec-slot-menu__backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    background: transparent;
 }
 
 /* =========================================================================

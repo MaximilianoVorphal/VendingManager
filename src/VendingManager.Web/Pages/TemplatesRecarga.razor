@@ -439,8 +439,10 @@
                                     @foreach (var slot in floor.OrderBy(s => int.TryParse(s.NumeroSlot, out var n) ? n : 999))
                                     {
                                         var empty = slot.Estado == EstadoSlot.Vacio;
+                                        var pendiente = slot.Estado == EstadoSlot.Pendiente;
+                                        var tieneProducto = slot.ProductoId.HasValue && slot.ProductoId > 0;
                                         var pct = slot.CapacidadSlot > 0 ? Math.Min(100, slot.CantidadInicial * 100 / slot.CapacidadSlot) : 0;
-                                        <div class="rec-slot @(empty ? "rec-slot-empty" : "")">
+                                        <div class="rec-slot @(empty ? "rec-slot-empty" : "") @(pendiente ? "rec-slot-pending" : "") @(_slotMenuAbierto == slot ? "rec-slot--menu-open" : "")">
                                             <div class="d-flex justify-content-between align-items-center">
                                                 <div class="d-flex align-items-center gap-2">
                                                     <span class="rec-slot-id">Slot @slot.NumeroSlot</span>
@@ -448,21 +450,44 @@
                                                     {
                                                         <span class="rec-slot-vacio-tag">Vacío</span>
                                                     }
+                                                    else if (pendiente)
+                                                    {
+                                                        <span class="rec-slot-pendiente-tag">Pendiente</span>
+                                                    }
                                                 </div>
-                                                @if (MostrarPrecios)
-                                                {
-                                                    @if (slot.ProductoId.HasValue && _preciosByProductoId.TryGetValue(slot.ProductoId.Value, out var slotPrice) && slotPrice > 0)
+                                                <div class="d-flex align-items-center gap-2">
+                                                    @if (MostrarPrecios)
                                                     {
-                                                        <span class="rec-slot-price">@slotPrice.ToString("C0", new CultureInfo("es-CL"))</span>
+                                                        @if (tieneProducto && _preciosByProductoId.TryGetValue(slot.ProductoId!.Value, out var slotPrice) && slotPrice > 0)
+                                                        {
+                                                            <span class="rec-slot-price">@slotPrice.ToString("C0", new CultureInfo("es-CL"))</span>
+                                                        }
+                                                        else
+                                                        {
+                                                            <span class="rec-slot-price rec-slot-price--dash">$—</span>
+                                                        }
                                                     }
-                                                    else
-                                                    {
-                                                        <span class="rec-slot-price rec-slot-price--dash">$—</span>
-                                                    }
-                                                }
+                                                    <div class="rec-slot-menu">
+                                                        <button type="button" class="rec-slot-menu__btn" title="Acciones del slot"
+                                                                @onclick="() => ToggleSlotMenu(slot)">
+                                                            <i class="bi bi-three-dots-vertical"></i>
+                                                        </button>
+                                                        @if (_slotMenuAbierto == slot)
+                                                        {
+                                                            <div class="rec-slot-menu__list">
+                                                                <button type="button" class="rec-slot-menu__item" @onclick="() => MarcarSlotPendiente(slot)">
+                                                                    <i class="bi bi-hourglass-split"></i> Marcar pendiente
+                                                                </button>
+                                                                <button type="button" class="rec-slot-menu__item" @onclick="() => VaciarSlotDesdeMenu(slot)">
+                                                                    <i class="bi bi-x-circle"></i> Vaciar
+                                                                </button>
+                                                            </div>
+                                                        }
+                                                    </div>
+                                                </div>
                                             </div>
                                             <button class="rec-slot-pick" @onclick="() => OnChangeProductForSlot(slot)">
-                                                <span>@(empty ? "— Elegir producto —" : slot.ProductoNombre)</span>
+                                                <span>@(tieneProducto ? slot.ProductoNombre : "— Elegir producto —")</span>
                                                 <i class="bi bi-search"></i>
                                             </button>
                                             <div class="rec-carga">
@@ -482,6 +507,11 @@
                         }
                     }
                 </div>
+
+                @if (_slotMenuAbierto != null)
+                {
+                    <div class="rec-slot-menu__backdrop" @onclick="CerrarSlotMenu"></div>
+                }
 
                 <div class="rec-shelf__foot">
                     @{
@@ -1703,10 +1733,37 @@
 
     private void OnChangeProductForSlot(SnapshotSlotFormModel slot)
     {
+        _slotMenuAbierto = null;
         SlotConProductoSelector = slot;
         ProductoSearch = "";
         _highlightedProductoIndex = 0;
         _focusProductoSearch = true;
+    }
+
+    // Per-slot kebab menu: lets an individual slot be marked Pendiente
+    // (product unknown, sales held for later back-fill) or emptied, without
+    // touching the whole machine. Tracked by reference since the form model
+    // is a class.
+    private SnapshotSlotFormModel? _slotMenuAbierto;
+
+    private void ToggleSlotMenu(SnapshotSlotFormModel slot)
+        => _slotMenuAbierto = _slotMenuAbierto == slot ? null : slot;
+
+    private void CerrarSlotMenu() => _slotMenuAbierto = null;
+
+    private void MarcarSlotPendiente(SnapshotSlotFormModel slot)
+    {
+        slot.Estado = EstadoSlot.Pendiente;
+        slot.ProductoId = null;
+        slot.ProductoNombre = "";
+        slot.CantidadInicial = 0;
+        _slotMenuAbierto = null;
+    }
+
+    private void VaciarSlotDesdeMenu(SnapshotSlotFormModel slot)
+    {
+        OnEmptySlot(slot);
+        _slotMenuAbierto = null;
     }
 
     private List<ProductoSimpleDto> FilteredProductos()
