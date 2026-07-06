@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Text.Json;
@@ -71,6 +72,27 @@ public class StockoutDashboardPageTests : TestContext
             // DineroPerdidoEstimado = 12000 -> "$12.000"
             cut.Markup.Should().Contain("$12.000");
         });
+    }
+
+    [Fact]
+    public void ProductWithRemainingStock_ShowsNoLoss_NotFlaggedAsStockout()
+    {
+        // Un producto en dos slots: uno se vació solo, el otro todavía tiene stock.
+        // Vendido total (13) < stock total (20) => el producto NO está agotado, así que
+        // no debe contarse el quiebre ni arrastrar la pérdida por slot del slot vacío.
+        _mockHandler.AnalyzePayload = ProductAcrossTwoSlotsWithLeftoverJson();
+        NavigateTo("stockout-dashboard?templateId=1");
+
+        var cut = RenderComponent<StockoutDashboard>();
+
+        cut.WaitForAssertion(() =>
+        {
+            // Sin productos en quiebre (filtro por defecto) => estado "todo en orden".
+            cut.Markup.Should().Contain("Todo en orden");
+        });
+
+        // La pérdida fantasma del slot vacío NO debe aparecer en ningún KPI/fila.
+        cut.Markup.Should().NotContain("$8.000");
     }
 
     [Fact]
@@ -151,6 +173,77 @@ public class StockoutDashboardPageTests : TestContext
                 GananciaPromedio = 400m,
                 DineroPerdidoEstimado = 12000m,
                 GananciaPerdidaEstimada = 5000m
+            }
+        };
+        return JsonSerializer.Serialize(payload);
+    }
+
+    // Mismo producto (id 42) en dos slots de la misma máquina. El slot A2 se agotó
+    // (10 de 10 vendidas, el backend lo marca en quiebre por slot y estima pérdida),
+    // el slot A3 conserva stock (3 de 10). A nivel producto quedan 7 unidades: NO
+    // está agotado. Las FechasVentas están completas (Count == vendidas) para que el
+    // dashboard reconozca el flujo template y recalcule por producto.
+    private static string ProductAcrossTwoSlotsWithLeftoverJson()
+    {
+        var baseFecha = new DateTime(2026, 6, 20, 8, 0, 0);
+        DateTime[] Fechas(int n) =>
+            Enumerable.Range(0, n).Select(i => baseFecha.AddHours(i * 3)).ToArray();
+
+        var payload = new object[]
+        {
+            new
+            {
+                MaquinaId = 7,
+                MaquinaNombre = "MAQUINA ENDPOINT",
+                ProductoId = 42,
+                ProductoNombre = "PRODUCTO ENDPOINT TEST",
+                NumeroSlot = "A2",
+                PrimeraVenta = baseFecha,
+                UltimaVenta = baseFecha.AddHours(27),
+                UltimaActividadMaquina = new DateTime(2026, 7, 3, 8, 0, 0),
+                FinReporte = new DateTime(2026, 7, 3, 8, 0, 0),
+                FechasVentas = Fechas(10),
+                PosibleQuiebre = true,
+                HorasSinStock = 200.0,
+                StockInicial = 10,
+                StockActual = 0,
+                CantidadVendida = 10,
+                FillPct = 0,
+                DiasHastaStockout = (decimal?)0m,
+                EsDeadSlot = false,
+                HorasActivas = 27.0,
+                VelocidadPorHora = 0.37m,
+                PrecioPromedioVenta = 1200m,
+                GananciaPromedio = 400m,
+                DineroPerdidoEstimado = 8000m,
+                GananciaPerdidaEstimada = 3000m
+            },
+            new
+            {
+                MaquinaId = 7,
+                MaquinaNombre = "MAQUINA ENDPOINT",
+                ProductoId = 42,
+                ProductoNombre = "PRODUCTO ENDPOINT TEST",
+                NumeroSlot = "A3",
+                PrimeraVenta = baseFecha,
+                UltimaVenta = baseFecha.AddHours(6),
+                UltimaActividadMaquina = new DateTime(2026, 7, 3, 8, 0, 0),
+                FinReporte = new DateTime(2026, 7, 3, 8, 0, 0),
+                FechasVentas = Fechas(3),
+                PosibleQuiebre = false,
+                HorasSinStock = 0.0,
+                StockInicial = 10,
+                StockActual = 7,
+                CantidadVendida = 3,
+                FillPct = 70,
+                DiasHastaStockout = (decimal?)9m,
+                EsDeadSlot = false,
+                HorasActivas = 6.0,
+                VelocidadPorHora = 0.5m,
+                PrecioPromedioVenta = 1200m,
+                GananciaPromedio = 400m,
+                DineroPerdidoEstimado = 0m,
+                GananciaPerdidaEstimada = 0m
             }
         };
         return JsonSerializer.Serialize(payload);

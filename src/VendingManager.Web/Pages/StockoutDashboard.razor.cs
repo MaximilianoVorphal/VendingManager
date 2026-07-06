@@ -94,11 +94,16 @@ namespace VendingManager.Web.Pages
                         // quiebre mientras otros slots del mismo producto sigan con stock.
                         var posibleQuiebre = stockTotal > 0 && vendidoTotal >= stockTotal;
 
-                        // ¿Tenemos la línea de tiempo de ventas para ubicar el agotamiento real?
-                        // Sí en el flujo por template (un DTO por slot, con FechasVentas). No en el
-                        // flujo manual (stockout-analysis), donde el backend ya agrega por
-                        // máquina+producto y no llena FechasVentas: ahí respetamos sus números.
-                        bool tieneTimeline = stockTotal > 0 && todasFechasVentas.Count >= stockTotal;
+                        // ¿Tenemos la línea de tiempo de ventas COMPLETA del producto? Sí en el
+                        // flujo por template (un DTO por slot con FechasVentas, cuyo total coincide
+                        // con lo vendido). No en el flujo manual (stockout-analysis), donde el
+                        // backend ya agrega por máquina+producto y no llena FechasVentas.
+                        //
+                        // Lo detectamos por esa completitud, NO por si el producto se agotó: así un
+                        // producto que todavía tiene stock en algún slot entra igual al cálculo por
+                        // producto y, al no estar agotado, su pérdida queda en 0 (no arrastramos la
+                        // pérdida por slot que ya no aplica).
+                        bool tieneTimeline = vendidoTotal > 0 && todasFechasVentas.Count == vendidoTotal;
 
                         double horasSinStock;
                         decimal dineroPerdido, gananciaPerdida, velocidadDiaria;
