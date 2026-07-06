@@ -93,41 +93,66 @@ namespace VendingManager.Web.Pages
                         // última venta registrada. Un slot que se vació antes no cuenta como
                         // quiebre mientras otros slots del mismo producto sigan con stock.
                         var posibleQuiebre = stockTotal > 0 && vendidoTotal >= stockTotal;
-                        DateTime? fechaAgotamiento = null;
-                        double horasSinStock = 0;
-                        if (posibleQuiebre && stockTotal <= todasFechasVentas.Count)
+
+                        // ¿Tenemos la línea de tiempo de ventas para ubicar el agotamiento real?
+                        // Sí en el flujo por template (un DTO por slot, con FechasVentas). No en el
+                        // flujo manual (stockout-analysis), donde el backend ya agrega por
+                        // máquina+producto y no llena FechasVentas: ahí respetamos sus números.
+                        bool tieneTimeline = stockTotal > 0 && todasFechasVentas.Count >= stockTotal;
+
+                        double horasSinStock;
+                        decimal dineroPerdido, gananciaPerdida, velocidadDiaria;
+
+                        if (tieneTimeline)
                         {
-                            fechaAgotamiento = todasFechasVentas[stockTotal - 1];
-                            horasSinStock = Math.Max(0, (finPeriodo - fechaAgotamiento.Value).TotalHours);
+                            // Agotamiento en la venta que cruza el stock total combinado.
+                            var fechaAgotamiento = posibleQuiebre
+                                ? todasFechasVentas[stockTotal - 1]
+                                : (DateTime?)null;
+                            horasSinStock = fechaAgotamiento.HasValue
+                                ? Math.Max(0, (finPeriodo - fechaAgotamiento.Value).TotalHours)
+                                : 0;
+
+                            // Precio y ganancia promedio del producto, ponderados por unidades
+                            // vendidas en cada slot (no un promedio simple entre slots).
+                            var conVenta = g.Where(d => d.CantidadVendida > 0).ToList();
+                            var unidades = conVenta.Sum(d => d.CantidadVendida);
+                            decimal precioPromedio = unidades > 0
+                                ? conVenta.Sum(d => d.PrecioPromedioVenta * d.CantidadVendida) / unidades
+                                : 0;
+                            decimal gananciaPromedio = unidades > 0
+                                ? conVenta.Sum(d => d.GananciaPromedio * d.CantidadVendida) / unidades
+                                : 0;
+
+                            // Velocidad real del producto: unidades por hora durante la ventana en
+                            // que tuvo stock (primera venta → agotamiento, o última venta si no se agotó).
+                            var finVentana = fechaAgotamiento ?? ultimaVenta;
+                            double horasActivas = (primeraVenta.HasValue && finVentana.HasValue)
+                                ? Math.Max(1, (finVentana.Value - primeraVenta.Value).TotalHours)
+                                : 1;
+                            decimal velocidadPorHora = vendidoTotal / (decimal)horasActivas;
+                            velocidadDiaria = Math.Round(velocidadPorHora * 24, 1);
+
+                            // Costo de oportunidad recalculado con las horas sin stock del PRODUCTO,
+                            // no como suma de los huecos por slot.
+                            if (posibleQuiebre && horasSinStock > 0 && precioPromedio > 0)
+                            {
+                                dineroPerdido = Math.Round(velocidadPorHora * (decimal)horasSinStock * precioPromedio, 0);
+                                gananciaPerdida = Math.Round(velocidadPorHora * (decimal)horasSinStock * gananciaPromedio, 0);
+                            }
+                            else
+                            {
+                                dineroPerdido = 0;
+                                gananciaPerdida = 0;
+                            }
                         }
-
-                        // Precio y ganancia promedio del producto, ponderados por unidades
-                        // vendidas en cada slot (no un promedio simple entre slots).
-                        var conVenta = g.Where(d => d.CantidadVendida > 0).ToList();
-                        var unidades = conVenta.Sum(d => d.CantidadVendida);
-                        decimal precioPromedio = unidades > 0
-                            ? conVenta.Sum(d => d.PrecioPromedioVenta * d.CantidadVendida) / unidades
-                            : 0;
-                        decimal gananciaPromedio = unidades > 0
-                            ? conVenta.Sum(d => d.GananciaPromedio * d.CantidadVendida) / unidades
-                            : 0;
-
-                        // Velocidad real del producto: unidades vendidas por hora durante la
-                        // ventana en que efectivamente tuvo stock (primera venta → agotamiento,
-                        // o última venta si nunca se agotó).
-                        var finVentana = fechaAgotamiento ?? ultimaVenta;
-                        double horasActivas = (primeraVenta.HasValue && finVentana.HasValue)
-                            ? Math.Max(1, (finVentana.Value - primeraVenta.Value).TotalHours)
-                            : 1;
-                        decimal velocidadPorHora = vendidoTotal / (decimal)horasActivas;
-
-                        // Costo de oportunidad recalculado con las horas sin stock del PRODUCTO,
-                        // no como suma de los huecos por slot.
-                        decimal dineroPerdido = 0, gananciaPerdida = 0;
-                        if (posibleQuiebre && horasSinStock > 0 && precioPromedio > 0)
+                        else
                         {
-                            dineroPerdido = velocidadPorHora * (decimal)horasSinStock * precioPromedio;
-                            gananciaPerdida = velocidadPorHora * (decimal)horasSinStock * gananciaPromedio;
+                            // El backend ya calculó por producto (o slot único); respetamos sus valores.
+                            horasSinStock = posibleQuiebre ? g.Max(d => d.HorasSinStock) : 0;
+                            dineroPerdido = g.Sum(d => d.DineroPerdidoEstimado);
+                            gananciaPerdida = g.Sum(d => d.GananciaPerdidaEstimada);
+                            velocidadDiaria = Math.Round(g.Average(d => d.VelocidadDiaria), 1);
                         }
 
                         return new StockoutProductoDto
@@ -140,9 +165,9 @@ namespace VendingManager.Web.Pages
                             PrimeraVenta = primeraVenta,
                             UltimaVenta = ultimaVenta,
                             HorasSinStock = horasSinStock,
-                            DineroPerdidoEstimado = Math.Round(dineroPerdido, 0),
-                            GananciaPerdidaEstimada = Math.Round(gananciaPerdida, 0),
-                            VelocidadDiaria = Math.Round(velocidadPorHora * 24, 1),
+                            DineroPerdidoEstimado = dineroPerdido,
+                            GananciaPerdidaEstimada = gananciaPerdida,
+                            VelocidadDiaria = velocidadDiaria,
                             PosibleQuiebre = posibleQuiebre,
                             Maquinas = g.Select(d => d.MaquinaNombre).Distinct().ToList()
                         };
