@@ -901,7 +901,7 @@
             {
                 _periodos = data.Select(p => new PeriodoOpcion(
                     p.Id,
-                    $"{p.Trabajador} · {p.FechaInicio:dd/MM} – {p.FechaFin:dd/MM}"
+                    $"{p.Trabajador} · {p.FechaInicio:dd/MM/yyyy}"
                 )).ToList();
                 _selectedPeriodoId = selectId is not null && data.Any(p => p.Id == selectId)
                     ? selectId.Value
