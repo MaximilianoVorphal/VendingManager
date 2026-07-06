@@ -560,15 +560,19 @@
                             <input type="text" class="form-control form-control-sm border-dark rounded-0 mb-3"
                                    placeholder="Buscar producto..."
                                    @ref="_productoSearchInput"
-                                   @bind="ProductoSearch"
-                                   @bind:event="oninput" />
+                                   value="@ProductoSearch"
+                                   @oninput="OnProductoSearchInput"
+                                   @onkeydown="OnProductoSearchKeyDown" />
                             <div style="max-height: 320px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.25rem;">
-                                @foreach (var prod in ListaProductos.Where(p =>
-                                    string.IsNullOrEmpty(ProductoSearch) ||
-                                    p.Nombre.Contains(ProductoSearch, StringComparison.OrdinalIgnoreCase)))
+                                @{ var productosFiltrados = FilteredProductos(); }
+                                @for (int i = 0; i < productosFiltrados.Count; i++)
                                 {
+                                    var prod = productosFiltrados[i];
                                     var isActive = SlotConProductoSelector.ProductoId == prod.Id;
-                                    <button class="btn btn-sm text-start rounded-0 border-dark d-flex justify-content-between align-items-center @(isActive ? "btn-dark" : "btn-outline-dark")"
+                                    var isHighlighted = i == _highlightedProductoIndex;
+                                    <button id="@($"producto-opt-{i}")"
+                                            class="btn btn-sm text-start rounded-0 border-dark d-flex justify-content-between align-items-center @(isActive ? "btn-dark" : "btn-outline-dark")"
+                                            style="@(isHighlighted ? "box-shadow: 0 0 0 2px #000;" : "")"
                                             @onclick="() => SeleccionarProductoParaSlot(prod)">
                                         <span class="fw-bold">@prod.Nombre</span>
                                         @if (isActive)
@@ -1695,12 +1699,61 @@
 
     private ElementReference _productoSearchInput;
     private bool _focusProductoSearch = false;
+    private int _highlightedProductoIndex = 0;
 
     private void OnChangeProductForSlot(SnapshotSlotFormModel slot)
     {
         SlotConProductoSelector = slot;
         ProductoSearch = "";
+        _highlightedProductoIndex = 0;
         _focusProductoSearch = true;
+    }
+
+    private List<ProductoSimpleDto> FilteredProductos()
+    {
+        if (ListaProductos == null) return new();
+        return ListaProductos.Where(p =>
+            string.IsNullOrEmpty(ProductoSearch) ||
+            p.Nombre.Contains(ProductoSearch, StringComparison.OrdinalIgnoreCase)).ToList();
+    }
+
+    private void OnProductoSearchInput(ChangeEventArgs e)
+    {
+        ProductoSearch = e.Value?.ToString() ?? "";
+        // A new filter resets the cursor to the first match.
+        _highlightedProductoIndex = 0;
+    }
+
+    private async Task OnProductoSearchKeyDown(KeyboardEventArgs e)
+    {
+        var filtered = FilteredProductos();
+        if (filtered.Count == 0) return;
+
+        switch (e.Key)
+        {
+            case "ArrowDown":
+                _highlightedProductoIndex = Math.Min(_highlightedProductoIndex + 1, filtered.Count - 1);
+                await ScrollHighlightedProductoIntoView();
+                break;
+            case "ArrowUp":
+                _highlightedProductoIndex = Math.Max(_highlightedProductoIndex - 1, 0);
+                await ScrollHighlightedProductoIntoView();
+                break;
+            case "Enter":
+                if (_highlightedProductoIndex >= 0 && _highlightedProductoIndex < filtered.Count)
+                    SeleccionarProductoParaSlot(filtered[_highlightedProductoIndex]);
+                break;
+        }
+    }
+
+    private async Task ScrollHighlightedProductoIntoView()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("eval",
+                $"document.getElementById('producto-opt-{_highlightedProductoIndex}')?.scrollIntoView({{block:'nearest'}})");
+        }
+        catch { }
     }
 
     private void SeleccionarProductoParaSlot(ProductoSimpleDto producto)
