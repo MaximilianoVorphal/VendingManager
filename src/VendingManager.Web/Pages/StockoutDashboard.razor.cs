@@ -227,11 +227,37 @@ namespace VendingManager.Web.Pages
                     new VmSelect.VmSelectOption(t.Id.ToString(), $"{t.Nombre} ({t.CantidadMaquinas} máq.)")))
                 .ToList();
 
-        private List<VmSelect.VmSelectOption> MaquinaOptions =>
-            new List<VmSelect.VmSelectOption> { new("0", ":: Todas las máquinas ::") }
-                .Concat((ListaMaquinas ?? new()).Select(m =>
-                    new VmSelect.VmSelectOption(m.Id.ToString(), m.Nombre)))
-                .ToList();
+        /// <summary>
+        /// Machine filter dropdown options. When a template is selected, only shows
+        /// machines that belong to that template's periods; otherwise shows all machines.
+        /// </summary>
+        private List<VmSelect.VmSelectOption> MaquinaOptions
+        {
+            get
+            {
+                var baseList = new List<VmSelect.VmSelectOption> { new("0", ":: Todas las máquinas ::") };
+
+                if (TemplateSeleccionado > 0 && TemplateActual != null && TemplateActual.Periodos.Any())
+                {
+                    // Filter to only machines present in the selected template
+                    var templateMachineIds = TemplateActual.Periodos
+                        .Select(p => p.MaquinaId)
+                        .ToHashSet();
+
+                    var filtered = (ListaMaquinas ?? new())
+                        .Where(m => templateMachineIds.Contains(m.Id))
+                        .Select(m => new VmSelect.VmSelectOption(m.Id.ToString(), m.Nombre));
+
+                    return baseList.Concat(filtered).ToList();
+                }
+
+                // No template selected — show all machines
+                return baseList
+                    .Concat((ListaMaquinas ?? new()).Select(m =>
+                        new VmSelect.VmSelectOption(m.Id.ToString(), m.Nombre)))
+                    .ToList();
+            }
+        }
 
         // Header counters
         private int AnalizadosN => Datos?.Count ?? 0;
@@ -511,6 +537,9 @@ namespace VendingManager.Web.Pages
         private async Task OnTemplateChanged()
         {
             TemplateActual = null;
+            // Reset machine filter when template changes — the previously selected
+            // machine might not belong to the new template.
+            MaquinaFiltroTemplate = 0;
             if (TemplateSeleccionado > 0 && ListaTemplates != null)
             {
                 TemplateActual = ListaTemplates.FirstOrDefault(t => t.Id == TemplateSeleccionado);
