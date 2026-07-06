@@ -1271,12 +1271,28 @@
         if (_currentTemplateId > 0) await TerminarTemplate(_currentTemplateId);
     }
 
-    private void SeleccionarMaquinaEnRail(int index)
+    private async Task SeleccionarMaquinaEnRail(int index)
     {
         if (index >= 0 && index < PeriodosActuales.Count)
         {
             ActiveMachineIndex = index;
             PeriodoEnEdicionVisual = PeriodosActuales[index];
+
+            // Clear stale photo state from the previous machine before loading
+            // the new machine's photos. Without this, switching machines leaves
+            // the old machine's photo displayed, causing confusion and making it
+            // appear as though the upload didn't work.
+            CerrarGuiaPanel();
+            RevokeFotoGuiaUrl();
+            FotoGuiaData = null;
+            _fotoOcrUrl = null;
+            _fotoOcrData = null;
+            MensajeErrorOcr = "";
+            MensajeInfoOcr = "";
+
+            // Load photos for the newly selected machine
+            await LoadFotosForPeriodo(PeriodoEnEdicionVisual.Id);
+
             StateHasChanged();
         }
     }
