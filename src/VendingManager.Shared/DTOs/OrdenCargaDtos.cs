@@ -39,6 +39,8 @@ namespace VendingManager.Shared.DTOs
         public string Estado { get; set; } = "";
         public int? MaquinaId { get; set; }
         public string MaquinaNombre { get; set; } = "";
+        /// <summary>Código interno de la máquina (ej: "2410280022").</summary>
+        public string IdInternoMaquina { get; set; } = "";
         public decimal CostoTotal { get; set; } // Valorized cost of loaded merchandise
         public List<DetalleOrdenDisplayDto> Detalles { get; set; } = new();
     }
@@ -53,6 +55,8 @@ namespace VendingManager.Shared.DTOs
         public decimal CostoUnitario { get; set; }
         public int? MaquinaId { get; set; }
         public string MaquinaNombre { get; set; } = "";
+        /// <summary>Código interno de la máquina (ej: "2410280022").</summary>
+        public string IdInternoMaquina { get; set; } = "";
     }
 
     public class ActualizarOrdenRequestDto

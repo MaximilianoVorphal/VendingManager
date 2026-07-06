@@ -407,6 +407,7 @@
     {
         public int SlotId { get; set; }
         public string Maquina { get; set; } = "";
+        public string IdInternoMaquina { get; set; } = "";
         public string NumeroSlot { get; set; } = "";
         public string Producto { get; set; } = "";
         public int StockActual { get; set; }
@@ -468,7 +469,7 @@
                                     @foreach (var item in ListaCriticos)
                                     {
                                         <tr class="@(item.StockActual == 0 ? "table-danger" : "")">
-                                            <td class="fw-bold px-2 font-monospace" style="font-size: 0.7rem;">@MachineHelpers.ExtractShortCode(item.Maquina)</td>
+                                            <td class="fw-bold px-2 font-monospace" style="font-size: 0.7rem;">@MachineHelpers.ExtractShortCode(item.Maquina, item.IdInternoMaquina)</td>
                                             <td class="text-center font-monospace">@item.NumeroSlot</td>
                                             <td class="text-uppercase" style="font-size: 0.7rem;">
                                                 <div class="text-truncate" style="max-width: 120px;" title="@item.Producto">@item.Producto</div>

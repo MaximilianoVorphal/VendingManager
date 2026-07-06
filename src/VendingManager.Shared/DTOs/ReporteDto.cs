@@ -18,6 +18,8 @@ namespace VendingManager.Shared.DTOs
 
         public DateTime FechaRaw { get; set; }
         public string Maquina { get; set; } = "";
+        /// <summary>Código interno de la máquina (ej: "2410280022").</summary>
+        public string IdInternoMaquina { get; set; } = "";
         public string Slot { get; set; } = "";
         public string Producto { get; set; } = "";
         public decimal Monto { get; set; }

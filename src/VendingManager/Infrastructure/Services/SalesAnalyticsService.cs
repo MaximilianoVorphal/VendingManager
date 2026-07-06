@@ -211,6 +211,7 @@ public class SalesAnalyticsService : ISalesAnalyticsService
                 {
                     FechaRaw = v.FechaLocal,
                     Maquina = v.Maquina?.Nombre ?? "Desconocida",
+                    IdInternoMaquina = v.Maquina?.IdInternoMaquina ?? "",
                     Slot = v.NumeroSlot,
                     Producto = v.Producto?.Nombre ?? "---",
                     Monto = v.PrecioVenta,
