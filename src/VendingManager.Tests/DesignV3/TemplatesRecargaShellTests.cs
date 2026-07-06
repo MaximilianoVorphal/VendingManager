@@ -152,7 +152,7 @@ public class TemplatesRecargaShellTests : TestContext
     }
 
     [Fact]
-    public void EditarModal_SlotEditor_UsesSlotCard_NotVmSlotCard()
+    public void EditarModal_ShowsEditSlotsButton_NotSlotGrid()
     {
         var cut = RenderComponent<TemplatesTestHost>();
 
@@ -168,11 +168,14 @@ public class TemplatesRecargaShellTests : TestContext
             cut.Markup.Should().Contain("PERÍODOS POR MÁQUINA");
         });
 
-        var slotCards = cut.FindComponents<SlotCard>();
-        slotCards.Should().NotBeEmpty();
+        // The modal exposes the option to open the visual slot editor
+        // instead of listing how each slot is loaded.
+        cut.Markup.Should().Contain("EDITAR SLOTS (GRILLA)");
 
-        var vmSlotCards = cut.FindComponents<VmSlotCard>();
-        vmSlotCards.Should().BeEmpty();
+        // The read-only slot grid was removed from the modal — neither
+        // SlotCard nor VmSlotCard should render here.
+        cut.FindComponents<SlotCard>().Should().BeEmpty();
+        cut.FindComponents<VmSlotCard>().Should().BeEmpty();
     }
 
     [Fact]
