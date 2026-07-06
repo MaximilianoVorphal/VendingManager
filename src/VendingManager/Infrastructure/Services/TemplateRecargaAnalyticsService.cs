@@ -136,6 +136,26 @@ public class TemplateRecargaAnalyticsService : ITemplateRecargaAnalyticsService
                     }
                 }
             }
+
+            // Sincronizar slots Vacíos/Pendientes: limpiar ProductoId en ventas del período.
+            // Si un slot quedó sin producto (Pendiente o Vacío), las ventas que tenía
+            // asignadas deben perder el ProductoId y CostoVenta.
+            var slotsSinProducto = periodo.SnapshotSlots
+                .Where(s => s.Estado is EstadoSlot.Vacio or EstadoSlot.Pendiente)
+                .ToList();
+
+            foreach (var slot in slotsSinProducto)
+            {
+                foreach (var venta in ventasDelPeriodo.Where(v => v.NumeroSlot == slot.NumeroSlot))
+                {
+                    if (venta.ProductoId.HasValue)
+                    {
+                        venta.ProductoId = null;
+                        venta.CostoVenta = 0;
+                        ventasActualizadas++;
+                    }
+                }
+            }
         }
 
         if (ventasActualizadas > 0)
