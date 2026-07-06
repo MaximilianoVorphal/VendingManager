@@ -66,31 +66,69 @@ namespace VendingManager.Web.Pages
         {
             get
             {
-                var filtrados = DatosFiltrados;
-                if (filtrados == null || filtrados.Count == 0) return new();
+                // Fuente SIN el filtro de quiebre por slot: agrupamos primero por producto y
+                // recién después decidimos el quiebre a nivel producto. Filtrar por
+                // d.PosibleQuiebre acá dejaría afuera los slots que aún tienen stock y
+                // falsearía los totales del producto (justo lo que queremos evitar).
+                var baseDatos = (Datos ?? new())
+                    .Where(d => !soloDeadSlots || d.EsDeadSlot)
+                    .ToList();
+                if (baseDatos.Count == 0) return new();
 
-                return filtrados
+                return baseDatos
                     .GroupBy(d => new { d.ProductoId, d.ProductoNombre })
                     .Select(g =>
                     {
                         var todasFechasVentas = g.SelectMany(d => d.FechasVentas).OrderBy(f => f).ToList();
-                        var ultimaVenta = todasFechasVentas.LastOrDefault();
                         var stockTotal = g.Sum(d => d.StockInicial);
                         var vendidoTotal = g.Sum(d => d.CantidadVendida);
                         var finPeriodo = g.Max(d => d.FinReporte);
-                        double horasSinStock;
-                        if (ultimaVenta == default || stockTotal == 0)
+                        var primeraVenta = g.Min(d => d.PrimeraVenta);
+                        var ultimaVenta = g.Max(d => d.UltimaVenta);
+
+                        // Quiebre a nivel PRODUCTO, no por slot: el producto está agotado
+                        // cuando la suma de ventas de todos sus slots iguala o supera el stock
+                        // total cargado. El agotamiento ocurre en la venta que cruza ese total
+                        // (el instante en que el inventario combinado llegó a cero), no en la
+                        // última venta registrada. Un slot que se vació antes no cuenta como
+                        // quiebre mientras otros slots del mismo producto sigan con stock.
+                        var posibleQuiebre = stockTotal > 0 && vendidoTotal >= stockTotal;
+                        DateTime? fechaAgotamiento = null;
+                        double horasSinStock = 0;
+                        if (posibleQuiebre && stockTotal <= todasFechasVentas.Count)
                         {
-                            horasSinStock = 0;
+                            fechaAgotamiento = todasFechasVentas[stockTotal - 1];
+                            horasSinStock = Math.Max(0, (finPeriodo - fechaAgotamiento.Value).TotalHours);
                         }
-                        else
+
+                        // Precio y ganancia promedio del producto, ponderados por unidades
+                        // vendidas en cada slot (no un promedio simple entre slots).
+                        var conVenta = g.Where(d => d.CantidadVendida > 0).ToList();
+                        var unidades = conVenta.Sum(d => d.CantidadVendida);
+                        decimal precioPromedio = unidades > 0
+                            ? conVenta.Sum(d => d.PrecioPromedioVenta * d.CantidadVendida) / unidades
+                            : 0;
+                        decimal gananciaPromedio = unidades > 0
+                            ? conVenta.Sum(d => d.GananciaPromedio * d.CantidadVendida) / unidades
+                            : 0;
+
+                        // Velocidad real del producto: unidades vendidas por hora durante la
+                        // ventana en que efectivamente tuvo stock (primera venta → agotamiento,
+                        // o última venta si nunca se agotó).
+                        var finVentana = fechaAgotamiento ?? ultimaVenta;
+                        double horasActivas = (primeraVenta.HasValue && finVentana.HasValue)
+                            ? Math.Max(1, (finVentana.Value - primeraVenta.Value).TotalHours)
+                            : 1;
+                        decimal velocidadPorHora = vendidoTotal / (decimal)horasActivas;
+
+                        // Costo de oportunidad recalculado con las horas sin stock del PRODUCTO,
+                        // no como suma de los huecos por slot.
+                        decimal dineroPerdido = 0, gananciaPerdida = 0;
+                        if (posibleQuiebre && horasSinStock > 0 && precioPromedio > 0)
                         {
-                            horasSinStock = vendidoTotal >= stockTotal && stockTotal > 0
-                                ? (finPeriodo - ultimaVenta).TotalHours
-                                : 0.0;
+                            dineroPerdido = velocidadPorHora * (decimal)horasSinStock * precioPromedio;
+                            gananciaPerdida = velocidadPorHora * (decimal)horasSinStock * gananciaPromedio;
                         }
-                        // Si ningún slot vendió nada, no hay quiebre real
-                        var posibleQuiebre = vendidoTotal >= 0.8 * stockTotal && stockTotal > 0;
 
                         return new StockoutProductoDto
                         {
@@ -99,16 +137,19 @@ namespace VendingManager.Web.Pages
                             CantidadTotalSlots = g.Count(),
                             StockInicialTotal = stockTotal,
                             CantidadVendidaTotal = vendidoTotal,
-                            PrimeraVenta = g.Min(d => d.PrimeraVenta),
-                            UltimaVenta = g.Max(d => d.UltimaVenta),
-                            HorasSinStock = Math.Max(0, horasSinStock),
-                            DineroPerdidoEstimado = g.Sum(d => d.DineroPerdidoEstimado),
-                            GananciaPerdidaEstimada = g.Sum(d => d.GananciaPerdidaEstimada),
-                            VelocidadDiaria = g.Average(d => d.VelocidadDiaria),
+                            PrimeraVenta = primeraVenta,
+                            UltimaVenta = ultimaVenta,
+                            HorasSinStock = horasSinStock,
+                            DineroPerdidoEstimado = Math.Round(dineroPerdido, 0),
+                            GananciaPerdidaEstimada = Math.Round(gananciaPerdida, 0),
+                            VelocidadDiaria = Math.Round(velocidadPorHora * 24, 1),
                             PosibleQuiebre = posibleQuiebre,
                             Maquinas = g.Select(d => d.MaquinaNombre).Distinct().ToList()
                         };
                     })
+                    // En modo dead-slots la fuente ya viene acotada; no volvemos a filtrar
+                    // por quiebre-producto (los dead slots no tienen stock ni ventas).
+                    .Where(p => !SoloConQuiebre || soloDeadSlots || p.PosibleQuiebre)
                     .OrderByDescending(p => p.GananciaPerdidaEstimada)
                     .ToList();
             }
