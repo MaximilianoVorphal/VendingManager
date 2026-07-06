@@ -7,7 +7,7 @@ on:
     branches: [master, main, develop]
 
 jobs:
-  build:
+  build-and-test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -15,20 +15,12 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
-      - name: Restore dependencies
-        run: dotnet restore src/VendingManager.slnx
-      - name: Build
-        run: dotnet build src/VendingManager.slnx --no-restore --configuration Release
-
-  test:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
         with:
-          dotnet-version: '10.0.x'
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+          restore-keys: ${{ runner.os }}-nuget-
       - name: Restore dependencies
         run: dotnet restore src/VendingManager.slnx
       - name: Build
@@ -36,8 +28,37 @@ jobs:
       - name: Test
         run: dotnet test src/VendingManager.Tests/VendingManager.Tests.csproj --no-build --verbosity normal --configuration Release
 
+  build-image:
+    needs: build-and-test
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Build and push webapp image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./src
+          file: ./src/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/maximilianovorphal/vendingmanager-webapp:latest
+            ghcr.io/maximilianovorphal/vendingmanager-webapp:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
   deploy:
-    needs: test
+    needs: build-image
     if: github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     steps:
@@ -52,8 +73,12 @@ jobs:
           host: ${{ secrets.SERVER_IP }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+          envs: GHCR_PAT
           script: |
             cd ~/proyecto/VendingManager
             git pull origin master
-            docker compose -f docker-compose.dev.yml down --remove-orphans
-            docker compose -f docker-compose.dev.yml up -d --build
+            echo "$GHCR_PAT" | docker login ghcr.io -u MaximilianoVorphal --password-stdin
+            docker compose -f docker-compose.prod.yml pull webapp-dev
+            docker compose -f docker-compose.prod.yml up -d --build --remove-orphans
+        env:
+          GHCR_PAT: ${{ secrets.GHCR_PAT }}
