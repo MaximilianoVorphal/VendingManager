@@ -334,4 +334,75 @@ public class ConciliacionControllerTests
         // Assert
         result.Result.Should().BeOfType<NotFoundObjectResult>();
     }
+
+    // ── GetConciliacionGlobal ──────────────────────────────────────────────
+
+    [Fact]
+    public async Task GetConciliacionGlobal_ValidWorker_Returns200WithDto()
+    {
+        // Arrange
+        var expectedDto = new ConciliacionGlobalDto
+        {
+            Semanas = { new SemanaColumnaDto { Id = 1, Numero = 1 } },
+            Resumen = new ResumenConciliacionDto { SemanasTotales = 1 }
+        };
+        _mockService
+            .Setup(s => s.GetConciliacionGlobalAsync("JUAN", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(expectedDto);
+
+        // Act
+        var result = await _controller.GetConciliacionGlobal("JUAN");
+
+        // Assert — ActionResult<T> wraps result in .Result
+        var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        var dto = okResult.Value.Should().BeOfType<ConciliacionGlobalDto>().Subject;
+        dto.Semanas.Should().HaveCount(1);
+        dto.Resumen.SemanasTotales.Should().Be(1);
+        _mockService.Verify(s => s.GetConciliacionGlobalAsync("JUAN", It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task GetConciliacionGlobal_EmptyWorker_Returns400()
+    {
+        // Act
+        var result = await _controller.GetConciliacionGlobal("");
+
+        // Assert — ActionResult<T> wraps result in .Result
+        result.Result.Should().BeOfType<BadRequestObjectResult>();
+        _mockService.Verify(
+            s => s.GetConciliacionGlobalAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task GetConciliacionGlobal_WhitespaceWorker_Returns400()
+    {
+        // Act
+        var result = await _controller.GetConciliacionGlobal("   ");
+
+        // Assert — ActionResult<T> wraps result in .Result
+        result.Result.Should().BeOfType<BadRequestObjectResult>();
+        _mockService.Verify(
+            s => s.GetConciliacionGlobalAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task GetConciliacionGlobal_NoData_Returns200WithEmptyDto()
+    {
+        // Arrange
+        var emptyDto = new ConciliacionGlobalDto();
+        _mockService
+            .Setup(s => s.GetConciliacionGlobalAsync("NODATA", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(emptyDto);
+
+        // Act
+        var result = await _controller.GetConciliacionGlobal("NODATA");
+
+        // Assert — 200 with empty DTO, not 404
+        var okResult = result.Result.Should().BeOfType<OkObjectResult>().Subject;
+        var dto = okResult.Value.Should().BeOfType<ConciliacionGlobalDto>().Subject;
+        dto.Semanas.Should().BeEmpty();
+        dto.Proveedores.Should().BeEmpty();
+    }
 }

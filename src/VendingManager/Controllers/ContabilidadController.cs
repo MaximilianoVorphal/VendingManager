@@ -541,6 +541,24 @@ public class ContabilidadController(
         }
     }
 
+    // ========== Conciliación Global ==========
+
+    /// <summary>
+    /// Returns the global multi-period reconciliation matrix for a given worker.
+    /// Groups compras by provider slug across all periods for the worker.
+    /// </summary>
+    [HttpGet("periodos/conciliacion-global")]
+    public async Task<ActionResult<ConciliacionGlobalDto>> GetConciliacionGlobal(
+        [FromQuery] string? trabajador,
+        CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(trabajador))
+            return BadRequest("El parámetro 'trabajador' es obligatorio.");
+
+        var dto = await _service.GetConciliacionGlobalAsync(trabajador, ct);
+        return Ok(dto);
+    }
+
     // ========== Data Integrity Checks ==========
 
     /// <summary>

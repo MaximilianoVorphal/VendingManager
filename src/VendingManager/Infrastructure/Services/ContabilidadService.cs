@@ -1,4 +1,6 @@
 using System.Data;
+using System.Globalization;
+using System.Text;
 using Microsoft.EntityFrameworkCore;
 using VendingManager.Core.Entities;
 using VendingManager.Core.Interfaces;
@@ -1045,6 +1047,185 @@ public class ContabilidadService : IContabilidadService
             await transaction.RollbackAsync();
             throw;
         }
+    }
+
+    // ========== GetConciliacionGlobalAsync ==========
+
+    public async Task<ConciliacionGlobalDto> GetConciliacionGlobalAsync(
+        string trabajador, CancellationToken ct = default)
+    {
+        // Load all periods for the worker with their transferencias, compras, and gastos
+        var periods = await _context.AccountingPeriods
+            .Where(p => p.Trabajador == trabajador)
+            .Include(p => p.Transferencias)
+                .ThenInclude(t => t.Compras)
+            .Include(p => p.Transferencias)
+                .ThenInclude(t => t.Rendicion)
+                    .ThenInclude(r => r!.Gastos)
+            .OrderBy(p => p.FechaInicio)
+            .ToListAsync(ct);
+
+        if (periods.Count == 0)
+        {
+            return new ConciliacionGlobalDto();
+        }
+
+        // Build semana columns
+        var semanas = periods.Select((p, i) => new SemanaColumnaDto
+        {
+            Id = p.Id,
+            Numero = i + 1,
+            FechaInicio = p.FechaInicio,
+            FechaFin = p.FechaFin,
+            EstaCerrada = p.Estado == AccountingPeriodEstado.Cerrado,
+            TotalTransferido = p.Transferencias
+                .Where(t => t.PeriodoId != null)
+                .Sum(t => t.Monto),
+            TotalCompras = p.Transferencias
+                .Where(t => t.PeriodoId != null)
+                .SelectMany(t => t.Compras)
+                .Sum(c => c.MontoTotal),
+            TotalGastos = p.Transferencias
+                .Where(t => t.PeriodoId != null && t.Rendicion != null)
+                .SelectMany(t => t.Rendicion!.Gastos)
+                .Where(EsGastoReal)
+                .Sum(g => Math.Abs(g.Monto))
+        }).ToList();
+
+        // Collect all compras with their period context for provider grouping
+        var comprasConPeriodo = periods
+            .SelectMany(p => p.Transferencias
+                .Where(t => t.PeriodoId != null)
+                .SelectMany(t => t.Compras.Select(c => new
+                {
+                    Compra = c,
+                    PeriodoId = p.Id,
+                    PeriodoName = p.Name
+                })))
+            .ToList();
+
+        // Group compras by normalized provider slug
+        var proveedorGroups = comprasConPeriodo
+            .GroupBy(x => NormalizeProveedorSlug(x.Compra.Proveedor))
+            .ToList();
+
+        var proveedores = proveedorGroups.Select(g =>
+        {
+            var firstCompra = g.First().Compra;
+            var celdas = semanas.Select(s =>
+        {
+            var comprasEnCelda = g.Where(x => x.PeriodoId == s.Id).ToList();
+            return new CeldaSemanaDto
+            {
+                SemanaId = s.Id,
+                Monto = comprasEnCelda.Sum(x => x.Compra.MontoTotal),
+                Estado = ResolveCeldaEstado(comprasEnCelda.Select(x => x.Compra).ToList()),
+                Comprobantes = comprasEnCelda
+                    .Select(x => new ComprobanteItemDto
+                    {
+                        Id = x.Compra.Id,
+                        Tipo = "Compra",
+                        NumeroDocumento = x.Compra.NumeroDocumento ?? string.Empty,
+                        Fecha = x.Compra.FechaCompra,
+                        Monto = x.Compra.MontoTotal,
+                        Verificada = x.Compra.Verificada,
+                        Proveedor = x.Compra.Proveedor
+                    })
+                    .ToList()
+            };
+        }).ToList();
+
+            return new FilaProveedorDto
+            {
+                ProveedorSlug = g.Key,
+                ProveedorNombre = firstCompra.Proveedor,
+                Celdas = celdas,
+                TotalProveedor = g.Sum(x => x.Compra.MontoTotal)
+            };
+        }).ToList();
+
+        // Compute totals for resumen
+        var totalTransferencias = periods
+            .SelectMany(p => p.Transferencias.Where(t => t.PeriodoId != null))
+            .Sum(t => t.Monto);
+        var totalCompras = comprasConPeriodo.Sum(x => x.Compra.MontoTotal);
+        var totalGastos = periods
+            .SelectMany(p => p.Transferencias
+                .Where(t => t.PeriodoId != null && t.Rendicion != null))
+            .SelectMany(t => t.Rendicion!.Gastos)
+            .Where(EsGastoReal)
+            .Sum(g => Math.Abs(g.Monto));
+
+        // Saldo inicial: balance from periods before the first loaded period.
+        // Since we load ALL periods for the worker, this is 0 by default.
+        var saldoInicial = 0m;
+
+        // Semanas verificadas: count periods where all transfers + compras are verified
+        var semanasVerificadas = periods.Count(p =>
+            p.Transferencias.Where(t => t.PeriodoId != null).All(t => t.Verificada) &&
+            p.Transferencias.Where(t => t.PeriodoId != null)
+                .SelectMany(t => t.Compras)
+                .All(c => c.Verificada));
+
+        return new ConciliacionGlobalDto
+        {
+            Semanas = semanas,
+            Proveedores = proveedores,
+            Resumen = new ResumenConciliacionDto
+            {
+                TotalTransferencias = totalTransferencias,
+                TotalCompras = totalCompras,
+                TotalGastos = totalGastos,
+                SaldoTotal = totalTransferencias - totalCompras - totalGastos,
+                SemanasTotales = periods.Count,
+                SemanasVerificadas = semanasVerificadas
+            },
+            SaldoInicial = saldoInicial
+        };
+    }
+
+    /// <summary>
+    /// Normalizes a provider name to a slug for grouping.
+    /// Lowercase, removes diacritics/accents, non-alphanumeric chars removed.
+    /// </summary>
+    private static string NormalizeProveedorSlug(string proveedor)
+    {
+        if (string.IsNullOrWhiteSpace(proveedor))
+            return string.Empty;
+
+        // Remove diacritics (accents)
+        var formD = proveedor.Normalize(NormalizationForm.FormD);
+        var sb = new StringBuilder(proveedor.Length);
+        foreach (var c in formD)
+        {
+            var uc = CharUnicodeInfo.GetUnicodeCategory(c);
+            if (uc != UnicodeCategory.NonSpacingMark)
+                sb.Append(c);
+        }
+        var withoutDiacritics = sb.ToString().Normalize(NormalizationForm.FormC);
+
+        // Lowercase, keep only alphanumeric
+        return string.Concat(withoutDiacritics.ToLowerInvariant()
+            .Where(char.IsLetterOrDigit));
+    }
+
+    /// <summary>
+    /// Resolves the cell estado based on comprobantes in the cell.
+    /// </summary>
+    private static string ResolveCeldaEstado(List<Compra> comprasEnCelda)
+    {
+        if (comprasEnCelda.Count == 0)
+            return "Vacio";
+
+        var allVerified = comprasEnCelda.All(c => c.Verificada);
+        if (allVerified)
+            return "Justificado";
+
+        var anyVerified = comprasEnCelda.Any(c => c.Verificada);
+        if (anyVerified)
+            return "Observado";
+
+        return "Pendiente";
     }
 
     // ========== Mapping Helpers ==========
