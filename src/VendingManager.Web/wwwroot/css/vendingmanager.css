@@ -10,6 +10,7 @@
 @import url('tokens/spacing.css');
 @import url('tokens/effects.css');
 @import url('vm-recarga.css');
+@import url('vm-recarga-movil.css');
 
 /* Reset mínimo — compatible con Bootstrap 5 que ya usa Blazor */
 *, *::before, *::after { box-sizing: border-box; }
