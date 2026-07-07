@@ -207,43 +207,100 @@ namespace VendingManager.Infrastructure.Services
             {
                 using (var reader = ExcelReaderFactory.CreateReader(fileStream))
                 {
-                    var conf = new ExcelDataSetConfiguration { ConfigureDataTable = _ => new ExcelDataTableConfiguration { UseHeaderRow = true } };
+                    // Leer sin header row porque la cartola Transbank Chile tiene
+                    // filas de metadata antes de los encabezados reales
+                    var conf = new ExcelDataSetConfiguration { ConfigureDataTable = _ => new ExcelDataTableConfiguration { UseHeaderRow = false } };
                     var tabla = reader.AsDataSet(conf).Tables[0];
-                    Console.WriteLine($"💳 TRANSBANK: Analizando {tabla.Rows.Count} filas...");
+                    Console.WriteLine($"💳 TRANSBANK: Analizando {tabla.Rows.Count} filas (sin headers)...");
 
-                    int colFecha = -1, colHora = -1, colMonto = -1, colTipo = -1, colPos = -1;
-                    for (int i = 0; i < tabla.Columns.Count; i++)
+                    // Buscar la fila de encabezados reales (contiene "Fecha" y "Monto")
+                    int headerRow = -1;
+                    for (int r = 0; r < Math.Min(40, tabla.Rows.Count); r++)
                     {
-                        string h = tabla.Columns[i].ColumnName.ToUpper();
-                        if (h == "FECHA") colFecha = i;
-                        else if (h == "HORA") colHora = i;
-                        else if (h == "MONTO") colMonto = i;
-                        else if (h.Contains("TIPO MOVIMIENTO") || h.Contains("TIPO VENTA")) colTipo = i;
-                        else if (h.Contains("TERMINAL") || h.Contains("POS") || h.Contains("CODIGO COMERCIO")) colPos = i;
+                        var joined = new System.Text.StringBuilder();
+                        for (int c = 0; c < tabla.Columns.Count; c++)
+                            joined.Append((tabla.Rows[r][c]?.ToString() ?? "") + " ");
+                        var text = joined.ToString().ToUpper();
+                        if (text.Contains("FECHA") && text.Contains("MONTO"))
+                        {
+                            headerRow = r;
+                            break;
+                        }
                     }
 
-                    if (colFecha == -1 || colMonto == -1) { Console.WriteLine("🔥 ERROR TB: Faltan columnas."); return; }
+                    if (headerRow == -1) { Console.WriteLine("🔥 ERROR TB: No se encontró fila de encabezados."); return; }
+                    Console.WriteLine($"   📋 Fila de encabezados: {headerRow}");
 
-                    string[] formatos = { "dd/MM/yyyy HH:mm", "dd/MM/yyyy HH:mm:ss", "dd-MM-yyyy HH:mm", "dd-MM-yyyy HH:mm:ss" };
-                    foreach (DataRow row in tabla.Rows)
+                    // Mapear columnas usando la fila de encabezados
+                    var header = tabla.Rows[headerRow];
+                    int colFecha = -1, colMonto = -1, colTipo = -1, colPos = -1;
+                    int colMontoAlternativo = -1;
+                    for (int i = 0; i < tabla.Columns.Count; i++)
                     {
+                        string h = (header[i]?.ToString() ?? "").ToUpper().Trim();
+                        if (h.Contains("FECHA") && (h.Contains("MOVIMIENTO") || h.Contains("VENTA"))) colFecha = i;
+                        else if (h == "MONTO" || (h.Contains("MONTO") && h.Contains("VALIDO") && h.Contains("ABONO"))) colMonto = i;
+                        else if (h.Contains("MONTO") && h.Contains("ORIGINAL")) colMontoAlternativo = i;
+                        else if (h.Contains("TIPO") && (h.Contains("MOVIMIENTO") || h.Contains("VENTA"))) colTipo = i;
+                        else if (h.Contains("TERMINAL")) colPos = i;
+                    }
+
+                    // Fallback: si el formato es el viejo (headers simples), buscar en nombres de columna
+                    if (colFecha == -1 || colMonto == -1)
+                    {
+                        for (int i = 0; i < tabla.Columns.Count; i++)
+                        {
+                            string h = tabla.Columns[i].ColumnName.ToUpper();
+                            if (h == "FECHA") colFecha = i;
+                            else if (h == "MONTO") colMonto = i;
+                            else if (h.Contains("TIPO MOVIMIENTO") || h.Contains("TIPO VENTA")) colTipo = i;
+                            else if (h.Contains("TERMINAL") || h.Contains("POS")) colPos = i;
+                        }
+                    }
+
+                    // Si no encontró el monto preferido, usar el alternativo
+                    if (colMonto == -1 && colMontoAlternativo != -1)
+                    {
+                        colMonto = colMontoAlternativo;
+                        Console.WriteLine("   ⚠️ Usando 'Monto original de la venta' como fallback");
+                    }
+
+                    if (colFecha == -1 || colMonto == -1)
+                    {
+                        Console.WriteLine($"🔥 ERROR TB: Faltan columnas. Fecha={colFecha}, Monto={colMonto}");
+                        return;
+                    }
+
+                    Console.WriteLine($"   ✅ Columnas: Fecha={colFecha}, Monto={colMonto}, Tipo={colTipo}, Terminal={colPos}");
+
+                    // Culture para parsear fechas en español chileno ("06 julio 2026 04:42 PM")
+                    var culturaChile = new System.Globalization.CultureInfo("es-CL");
+
+                    for (int r = headerRow + 1; r < tabla.Rows.Count; r++)
+                    {
+                        var row = tabla.Rows[r];
+
                         string tipo = colTipo != -1 ? row[colTipo]?.ToString()?.ToUpper() ?? "" : "VENTA";
-                        if (!tipo.Contains("VENTA")) continue;
+                        if (!string.IsNullOrEmpty(tipo) && !tipo.Contains("VENTA")) continue;
 
-                        string sMonto = row[colMonto]?.ToString()?.Replace("$", "")?.Replace(".", "")?.Replace(",", "") ?? "0";
-                        if (!decimal.TryParse(sMonto, out decimal montoTB) || montoTB <= 0) continue;
+                        string sMonto = row[colMonto]?.ToString()?.Replace("$", "").Replace(".", "").Replace(",", "") ?? "0";
+                        if (sMonto == "-" || !decimal.TryParse(sMonto, out decimal montoTB) || montoTB <= 0) continue;
 
-                        string sFecha = row[colFecha]?.ToString() ?? "";
-                        string sHora = colHora != -1 ? row[colHora]?.ToString() ?? "00:00:00" : "00:00:00";
+                        string sFechaRaw = row[colFecha]?.ToString()?.Trim() ?? "";
+                        if (string.IsNullOrEmpty(sFechaRaw)) continue;
 
-                        if (DateTime.TryParseExact($"{sFecha} {sHora}".Trim(), formatos,
-                            System.Globalization.CultureInfo.InvariantCulture,
-                            System.Globalization.DateTimeStyles.None, out DateTime fechaTB))
+                        // Formato Transbank Chile: "06 julio 2026 04:42 PM" o "06 julio 2026 04:42 p.m."
+                        if (DateTime.TryParse(sFechaRaw, culturaChile,
+                            System.Globalization.DateTimeStyles.AssumeLocal, out DateTime fechaTB))
                         {
                             if (fechaLimite.HasValue && fechaTB.Date > fechaLimite.Value.Date) continue;
 
                             string posCode = colPos != -1 ? row[colPos]?.ToString()?.Trim() ?? "" : "";
                             tbRecords.Add(new TransbankRecord { Fecha = fechaTB, Monto = montoTB, PosCode = posCode });
+                        }
+                        else
+                        {
+                            Console.WriteLine($"   ⚠️ No se pudo parsear fecha: '{sFechaRaw}'");
                         }
                     }
                 }
