@@ -198,6 +198,7 @@
                             <th style="text-align:left;padding:7px 12px;font-weight:700;">Unidad</th>
                             <th style="text-align:center;padding:7px 12px;font-weight:700;">Slot</th>
                             <th style="text-align:left;padding:7px 12px;font-weight:700;">Producto</th>
+                            <th style="text-align:right;padding:7px 12px;font-weight:700;">Costo</th>
                             <th style="text-align:right;padding:7px 12px;font-weight:700;">Monto</th>
                             <th style="text-align:right;padding:7px 12px;font-weight:700;">Ganancia</th>
                             <th style="text-align:center;padding:7px 12px;font-weight:700;">Estado</th>
@@ -211,6 +212,7 @@
                                 <td style="font-family:var(--font-mono);font-weight:700;font-size:0.76rem;">@o.Unidad</td>
                                 <td style="text-align:center;font-family:var(--font-mono);font-size:0.74rem;color:var(--text-muted);">@o.Slot</td>
                                 <td style="font-family:var(--font-sans);font-weight:600;font-size:0.8rem;text-transform:uppercase;">@o.Prod</td>
+                                <td style="text-align:right;font-family:var(--font-mono);font-weight:700;font-size:0.78rem;color:var(--text-muted);">@Fmt(o.Costo)</td>
                                 <td style="text-align:right;font-family:var(--font-mono);font-weight:700;font-size:0.78rem;">@Fmt(o.Monto)</td>
                                 <td style="text-align:right;font-family:var(--font-mono);font-weight:700;font-size:0.78rem;">
                                     <span style="color:@(o.Gan >= 0 ? "var(--signal-success)" : "var(--signal-danger)");">@FmtGan(o.Gan)</span>
@@ -325,6 +327,7 @@
                     <span style="color:var(--text-muted);font-weight:700;text-transform:uppercase;font-size:0.64rem;">Fecha local</span><span style="font-weight:600;">@d.Fecha</span>
                     <span style="color:var(--text-muted);font-weight:700;text-transform:uppercase;font-size:0.64rem;">Unidad</span><span style="font-weight:600;">@d.Unidad</span>
                     <span style="color:var(--text-muted);font-weight:700;text-transform:uppercase;font-size:0.64rem;">Slot</span><span style="font-weight:600;">@d.Slot</span>
+                    <span style="color:var(--text-muted);font-weight:700;text-transform:uppercase;font-size:0.64rem;">Costo unit.</span><span style="font-weight:600;">@Fmt(d.Costo)</span>
                     <span style="color:var(--text-muted);font-weight:700;text-transform:uppercase;font-size:0.64rem;">Ganancia</span><span style="font-weight:700;">@FmtGan(d.Gan)</span>
                     <span style="color:var(--text-muted);font-weight:700;text-transform:uppercase;font-size:0.64rem;">Estado</span><span style="font-weight:700;text-transform:uppercase;">@EstadoLabel(d.Estado)</span>
                 </div>
@@ -378,7 +381,7 @@
     private List<MaquinaSimpleDto> _maquinas = new();
 
     // ── View-models ───────────────────────────────────────────────────────────
-    private record OpRow(string Fecha, string Unidad, string Slot, string Prod, decimal Monto, decimal Gan, string Estado);
+    private record OpRow(string Fecha, string Unidad, string Slot, string Prod, decimal Monto, decimal Costo, decimal Gan, string Estado);
     private record MaquinaRailRow(string Codigo, int Vtas, decimal Total, decimal Gan);
     private record ProductoRow(string Prod, int Cant, decimal Total);
 
@@ -398,6 +401,7 @@
                 d.Slot,
                 d.Producto,
                 d.Monto,
+                d.CostoUnitario,
                 d.Ganancia,
                 d.Estado
             ));
