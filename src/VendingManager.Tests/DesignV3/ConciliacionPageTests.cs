@@ -879,6 +879,221 @@ public class ConciliacionPageTests : TestContext
         }, TimeSpan.FromSeconds(10));
     }
 
+    // ── Matriz Global Modal (PR 2 — Frontend) ──────────────────────────────────
+
+    [Fact]
+    public void MatrizGlobal_Boton_DisparaEndpointYModalOpen()
+    {
+        var cut = RenderComponent<Conciliacion>();
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("<select");
+        }, TimeSpan.FromSeconds(10));
+
+        cut.Find("button:contains('Conciliación global')").Click();
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("Todas las transferencias");
+            _mockHandler.Requests.Should().Contain(r => r.Contains("conciliacion-global"));
+        }, TimeSpan.FromSeconds(10));
+    }
+
+    [Fact]
+    public void MatrizGlobal_KPI_ValuesMatchMockData()
+    {
+        var cut = RenderComponent<Conciliacion>();
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("<select");
+        }, TimeSpan.FromSeconds(10));
+
+        cut.Find("button:contains('Conciliación global')").Click();
+
+        cut.WaitForAssertion(() =>
+        {
+            // KPI labels
+            cut.Markup.Should().Contain("Transferido");
+            cut.Markup.Should().Contain("Compras + Gastos");
+            cut.Markup.Should().Contain("Saldo acumulado");
+            // Values from mock (273000 transferido, 72380+30000 compras+gastos)
+            cut.Markup.Should().Contain("$273.000");
+        }, TimeSpan.FromSeconds(10));
+    }
+
+    [Fact]
+    public void MatrizGlobal_Tabla_RenderizaFilasProveedores()
+    {
+        var cut = RenderComponent<Conciliacion>();
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("<select");
+        }, TimeSpan.FromSeconds(10));
+
+        cut.Find("button:contains('Conciliación global')").Click();
+
+        cut.WaitForAssertion(() =>
+        {
+            // Provider rows from mock data
+            cut.Markup.Should().Contain("ALVI");
+            cut.Markup.Should().Contain("VICTOR ROJAS");
+            // Table header
+            cut.Markup.Should().Contain("Concepto");
+        }, TimeSpan.FromSeconds(10));
+    }
+
+    [Fact]
+    public void MatrizGlobal_CeldaClick_AbrePanelComprobante()
+    {
+        var cut = RenderComponent<Conciliacion>();
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("<select");
+        }, TimeSpan.FromSeconds(10));
+
+        cut.Find("button:contains('Conciliación global')").Click();
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("ALVI");
+        }, TimeSpan.FromSeconds(10));
+
+        // Click on a cell (data-matriz-cell attribute marks clickable cells)
+        var cells = cut.FindAll("[data-matriz-cell]");
+        cells.Should().NotBeEmpty();
+        cells[0].Click();
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("Comprobante");
+            cut.Markup.Should().Contain("748943");
+        }, TimeSpan.FromSeconds(10));
+    }
+
+    [Fact]
+    public void MatrizGlobal_Cerrar_RefrescaCuadre()
+    {
+        var cut = RenderComponent<Conciliacion>();
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("<select");
+        }, TimeSpan.FromSeconds(10));
+
+        cut.Find("button:contains('Conciliación global')").Click();
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("Todas las transferencias");
+        }, TimeSpan.FromSeconds(10));
+
+        // Click the "Cerrar" button in the modal footer
+        cut.Find("button:contains('Cerrar')").Click();
+
+        // Assert modal closed
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().NotContain("Todas las transferencias");
+        }, TimeSpan.FromSeconds(10));
+    }
+
+    // ── Triangulation: edge cases for Matriz Global ───────────────────────────
+
+    [Fact]
+    public void MatrizGlobal_CeldaVacia_NoAbrePanel()
+    {
+        var cut = RenderComponent<Conciliacion>();
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("<select");
+        }, TimeSpan.FromSeconds(10));
+
+        cut.Find("button:contains('Conciliación global')").Click();
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("ALVI");
+        }, TimeSpan.FromSeconds(10));
+
+        // "Total celda" only appears inside the panel comprobante, not the legend
+        cut.Markup.Should().NotContain("Total celda");
+        // And no "Marcar justificada" button
+        cut.Markup.Should().NotContain("Marcar justificada");
+    }
+
+    [Fact]
+    public void MatrizGlobal_ClickToggleCelda_CierraPanel()
+    {
+        var cut = RenderComponent<Conciliacion>();
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("<select");
+        }, TimeSpan.FromSeconds(10));
+
+        cut.Find("button:contains('Conciliación global')").Click();
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("ALVI");
+        }, TimeSpan.FromSeconds(10));
+
+        var cells = cut.FindAll("[data-matriz-cell]");
+        cells.Should().NotBeEmpty();
+        cells[0].Click();
+
+        // Panel should open — "Total celda" is unique to panel comprobante
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("Total celda");
+            cut.Markup.Should().Contain("748943"); // comprobante number in panel
+        }, TimeSpan.FromSeconds(10));
+
+        // Click same cell again to toggle off
+        cells = cut.FindAll("[data-matriz-cell]");
+        cells[0].Click();
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().NotContain("Total celda");
+        }, TimeSpan.FromSeconds(10));
+    }
+
+    [Fact]
+    public void MatrizGlobal_PanelJustificado_MuestraJustificadaBadge()
+    {
+        var cut = RenderComponent<Conciliacion>();
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("<select");
+        }, TimeSpan.FromSeconds(10));
+
+        cut.Find("button:contains('Conciliación global')").Click();
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("ALVI");
+        }, TimeSpan.FromSeconds(10));
+
+        // Click on ALVI cell (week 1) — it's Justificado in mock data
+        var cells = cut.FindAll("[data-matriz-cell]");
+        cells.Should().NotBeEmpty();
+        cells[0].Click();
+
+        // ALVI's comprobante is already Justificado (Verificada=true)
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("Justificada");
+            cut.Markup.Should().NotContain("Marcar justificada");
+        }, TimeSpan.FromSeconds(10));
+    }
+
     // ── Mock handler ───────────────────────────────────────────────────────────
 
     private class ConciliacionMockHandler : HttpMessageHandler
@@ -958,7 +1173,72 @@ public class ConciliacionPageTests : TestContext
 
             string json;
 
-            if (url.Contains("periodos/") && request.Method == HttpMethod.Get)
+            if (url.Contains("conciliacion-global") && request.Method == HttpMethod.Get)
+            {
+                object[] empty = Array.Empty<object>();
+                json = JsonSerializer.Serialize(new
+                {
+                    Semanas = new[]
+                    {
+                        new { Id = 1, Numero = 1, FechaInicio = DateTime.Parse("2026-06-01"), FechaFin = DateTime.Parse("2026-06-07"), EstaCerrada = false, TotalTransferido = 273000m, TotalCompras = 72380m, TotalGastos = 30000m },
+                        new { Id = 2, Numero = 2, FechaInicio = DateTime.Parse("2026-06-08"), FechaFin = DateTime.Parse("2026-06-14"), EstaCerrada = false, TotalTransferido = 0m, TotalCompras = 0m, TotalGastos = 0m },
+                    },
+                    Proveedores = new[]
+                    {
+                        new
+                        {
+                            ProveedorSlug = "alvi",
+                            ProveedorNombre = "ALVI",
+                            Celdas = new object[]
+                            {
+                                new {
+                                    SemanaId = 1, Monto = 72380m, Estado = "Justificado",
+                                    Comprobantes = new object[]
+                                    {
+                                        new { Id = 1, Tipo = "Compra", NumeroDocumento = "748943", Fecha = DateTime.Parse("2026-06-05"), Monto = 72380m, Verificada = true, Proveedor = "" }
+                                    }
+                                },
+                                new {
+                                    SemanaId = 2, Monto = 0m, Estado = "Vacio",
+                                    Comprobantes = empty
+                                }
+                            },
+                            TotalProveedor = 72380m
+                        },
+                        new
+                        {
+                            ProveedorSlug = "victor-rojas",
+                            ProveedorNombre = "Victor Rojas",
+                            Celdas = new object[]
+                            {
+                                new {
+                                    SemanaId = 1, Monto = 21680m, Estado = "Pendiente",
+                                    Comprobantes = new object[]
+                                    {
+                                        new { Id = 2, Tipo = "Compra", NumeroDocumento = "121713", Fecha = DateTime.Parse("2026-06-06"), Monto = 21680m, Verificada = false, Proveedor = "" }
+                                    }
+                                },
+                                new {
+                                    SemanaId = 2, Monto = 0m, Estado = "Vacio",
+                                    Comprobantes = empty
+                                }
+                            },
+                            TotalProveedor = 21680m
+                        },
+                    },
+                    Resumen = new
+                    {
+                        TotalTransferencias = 273000m,
+                        TotalCompras = 72380m,
+                        TotalGastos = 30000m,
+                        SaldoTotal = 170620m,
+                        SemanasTotales = 2,
+                        SemanasVerificadas = 1
+                    },
+                    SaldoInicial = 0m
+                });
+            }
+            else if (url.Contains("periodos/") && request.Method == HttpMethod.Get)
             {
                 // GET periodos/{id} — full detail
                 // Determine which period is being requested

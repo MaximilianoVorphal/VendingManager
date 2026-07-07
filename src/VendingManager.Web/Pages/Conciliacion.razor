@@ -100,6 +100,7 @@
                     Eliminar Transferencia
                 </VmButton>
             }
+            <VmButton Variant="dark" Bar="true" Icon="bi-grid-3x3-gap-fill" OnClick="AbrirMatrizGlobal">Conciliación global</VmButton>
             <VmButton Variant="dark" Bar="true" Icon="bi-box-arrow-up-right">Ir a caja</VmButton>
         </div>
     </div>
@@ -626,7 +627,345 @@
     </div>
 }
 
+<!-- ===== MODAL: Matriz Conciliación Global (multi-período) ===== -->
+@if (_showMatrizGlobal)
+{
+    <div style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:2100;display:flex;align-items:center;justify-content:center;padding:20px;" @onclick="CerrarMatrizGlobal">
+        <div class="con-modal" style="width:100%;max-width:1440px;height:92vh;max-height:920px;background:var(--paper-0);border:2px solid var(--ink-900);box-shadow:6px 6px 0 #000;display:flex;flex-direction:column;overflow:hidden;" @onclick:stopPropagation="true">
+
+            <!-- header -->
+            <div style="flex-shrink:0;background:var(--ink-900);color:#fff;display:flex;justify-content:space-between;align-items:center;gap:14px;padding:0.6rem 1rem;">
+                <span style="display:flex;align-items:center;gap:10px;font-family:var(--font-mono);font-weight:700;text-transform:uppercase;letter-spacing:1px;font-size:0.92rem;"><i class="bi bi-grid-3x3-gap-fill"></i> Todas las transferencias y conciliaciones<span class="con-cursor">_</span></span>
+                <div style="display:flex;align-items:center;gap:14px;">
+                    @if (_matrizData is not null)
+                    {
+                        <span style="font-family:var(--font-mono);font-size:0.66rem;color:rgba(255,255,255,0.65);text-transform:uppercase;letter-spacing:0.5px;">@(_periodo?.Trabajador ?? "") · @_matrizData.Semanas.Count semanas</span>
+                    }
+                    <span style="cursor:pointer;font-size:1.45rem;line-height:1;" @onclick="CerrarMatrizGlobal">×</span>
+                </div>
+            </div>
+
+            @if (_matrizLoading)
+            {
+                <div style="flex:1;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:0.82rem;color:var(--text-muted);">Cargando matriz global…</div>
+            }
+            else if (_matrizError is not null)
+            {
+                <div style="padding:1rem;">
+                    <IndustrialAlert Message="@_matrizError" Variant="IndustrialAlert.AlertVariant.Danger" />
+                </div>
+            }
+            else if (_matrizData is not null)
+            {
+                var mz = _matrizData;
+                var mzTransTotal = mz.Semanas.Sum(s => s.TotalTransferido);
+                var mzGastoTotal = mz.Semanas.Sum(s => s.TotalCompras + s.TotalGastos);
+                var mzNumTransf = mz.Semanas.Count(s => s.TotalTransferido > 0);
+                var mzFinal = mz.Resumen.SaldoTotal;
+                var mzFinalPos = mzFinal >= 0;
+                <!-- KPI strip -->
+                <div style="flex-shrink:0;display:grid;grid-template-columns:repeat(4,1fr);border-bottom:2px solid var(--ink-900);background:var(--paper-0);">
+                    <div style="padding:0.6rem 0.95rem;border-right:1px solid var(--line-200);display:flex;flex-direction:column;gap:3px;">
+                        <span style="font-family:var(--font-mono);font-weight:700;font-size:0.58rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);">Transferido</span>
+                        <span style="font-family:var(--font-sans);font-weight:700;font-size:1.3rem;letter-spacing:-1px;line-height:1;color:var(--signal-success);">+@Fmt(mzTransTotal)</span>
+                    </div>
+                    <div style="padding:0.6rem 0.95rem;border-right:1px solid var(--line-200);display:flex;flex-direction:column;gap:3px;">
+                        <span style="font-family:var(--font-mono);font-weight:700;font-size:0.58rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);">Compras + Gastos</span>
+                        <span style="font-family:var(--font-sans);font-weight:700;font-size:1.3rem;letter-spacing:-1px;line-height:1;color:var(--signal-danger);">-@Fmt(mzGastoTotal)</span>
+                    </div>
+                    <div style="padding:0.6rem 0.95rem;border-right:1px solid var(--line-200);display:flex;flex-direction:column;gap:3px;">
+                        <span style="font-family:var(--font-mono);font-weight:700;font-size:0.58rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);">Transferencias</span>
+                        <span style="font-family:var(--font-sans);font-weight:700;font-size:1.3rem;letter-spacing:-1px;line-height:1;color:var(--ink-900);">@mzNumTransf</span>
+                    </div>
+                    <div style="padding:0.6rem 0.95rem;display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--paper-50);">
+                        <div style="display:flex;flex-direction:column;gap:2px;">
+                            <span style="font-family:var(--font-mono);font-weight:700;font-size:0.58rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);">Saldo acumulado</span>
+                            <span style="font-family:var(--font-sans);font-weight:700;font-size:1.5rem;letter-spacing:-1px;line-height:1;color:@(mzFinalPos ? "var(--signal-success)" : "var(--signal-danger)");">@(mzFinalPos ? "" : "-")@Fmt(Math.Abs(mzFinal))</span>
+                        </div>
+                        <span style="font-family:var(--font-mono);font-weight:700;font-size:0.56rem;text-transform:uppercase;letter-spacing:0.5px;background:@(mzFinalPos ? "var(--signal-success)" : "var(--signal-danger)");color:#fff;padding:3px 7px;">@(mzFinalPos ? "A favor" : "En contra")</span>
+                    </div>
+                </div>
+
+                <!-- leyenda -->
+                <div style="flex-shrink:0;display:flex;justify-content:space-between;align-items:center;gap:10px;padding:5px 12px;border-bottom:1px solid var(--line-200);background:var(--bg-surface-inset);">
+                    <span style="font-family:var(--font-mono);font-size:0.64rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;"><i class="bi bi-hand-index"></i> Clic en una celda para ver su comprobante</span>
+                    <div style="display:flex;align-items:center;gap:14px;">
+                        <span style="display:flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:0.62rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-secondary);"><span style="width:9px;height:9px;background:var(--signal-warning);"></span> Pendiente</span>
+                        <span style="display:flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:0.62rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-secondary);"><i class="bi bi-check-circle-fill" style="color:var(--signal-success);"></i> Justificada</span>
+                    </div>
+                </div>
+
+                <!-- cuerpo: tabla + panel comprobante -->
+                <div style="flex:1;min-height:0;display:flex;">
+                    <!-- tabla scrolleable -->
+                    <div style="flex:1;min-width:0;overflow:auto;background:var(--paper-0);">
+                        @{
+                            var nCols = mz.Semanas.Count;
+                            var colW = 104;
+                            var labelW = 232;
+                            // Per-week computed totals for saldo rows
+                            var saldoSemana = mz.Semanas.Select(s => s.TotalTransferido - s.TotalCompras - s.TotalGastos).ToList();
+                            var saldoAcum = new List<decimal>();
+                            var run = mz.SaldoInicial;
+                            foreach (var ss in saldoSemana) { run += ss; saldoAcum.Add(run); }
+                        }
+
+                        <!-- sticky header -->
+                        <div style="position:sticky;top:0;z-index:5;display:flex;width:max-content;">
+                            <div style="position:sticky;left:0;z-index:6;flex:0 0 @(labelW)px;height:40px;display:flex;align-items:center;padding:0 12px;background:var(--ink-900);color:#fff;border-right:2px solid var(--ink-900);font-family:var(--font-mono);font-weight:700;font-size:0.66rem;text-transform:uppercase;letter-spacing:1px;">Concepto</div>
+                            @foreach (var s in mz.Semanas)
+                            {
+                                <div style="flex:0 0 @(colW)px;height:40px;display:flex;align-items:center;justify-content:flex-end;padding:0 12px;background:var(--ink-900);color:#fff;border-right:1px solid rgba(255,255,255,0.15);font-family:var(--font-mono);font-weight:700;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.5px;">@s.FechaInicio.ToString("dd-MMM")</div>
+                            }
+                        </div>
+
+                        <!-- transferencia row -->
+                        <div style="display:flex;width:max-content;">
+                            <div style="position:sticky;left:0;z-index:2;flex:0 0 @(labelW)px;height:38px;display:flex;align-items:center;gap:8px;padding:0 12px;background:var(--paper-0);border-right:2px solid var(--ink-900);border-bottom:1px solid var(--line-200);box-shadow:inset 3px 0 0 var(--signal-success);">
+                                <span style="flex-shrink:0;font-family:var(--font-mono);font-weight:700;font-size:0.52rem;text-transform:uppercase;letter-spacing:0.5px;background:var(--signal-success);color:#fff;padding:2px 5px;">IN</span>
+                                <span style="font-family:var(--font-sans);font-weight:700;font-size:0.78rem;text-transform:uppercase;letter-spacing:-0.2px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">@((_periodo?.Trabajador ?? "").ToUpperInvariant())</span>
+                            </div>
+                            @foreach (var s in mz.Semanas)
+                            {
+                                var v = s.TotalTransferido;
+                                if (v > 0)
+                                {
+                                    <div style="flex:0 0 @(colW)px;height:38px;display:flex;align-items:center;justify-content:flex-end;padding:0 12px;background:var(--paper-0);border-right:1px solid var(--line-200);border-bottom:1px solid var(--line-200);font-family:var(--font-mono);font-weight:700;font-size:0.78rem;color:var(--signal-success);">+@Fmt(v)</div>
+                                }
+                                else
+                                {
+                                    <div style="flex:0 0 @(colW)px;height:38px;background:var(--bg-surface-inset);border-right:1px solid var(--line-200);border-bottom:1px solid var(--line-200);"></div>
+                                }
+                            }
+                        </div>
+
+                        <!-- provider rows -->
+                        @foreach (var prov in mz.Proveedores)
+                        {
+                            <div style="display:flex;width:max-content;">
+                                <div style="position:sticky;left:0;z-index:2;flex:0 0 @(labelW)px;height:38px;display:flex;align-items:center;gap:8px;padding:0 12px;background:var(--paper-0);border-right:2px solid var(--ink-900);border-bottom:1px solid var(--line-200);min-width:0;overflow:hidden;">
+                                    <span style="flex-shrink:0;font-family:var(--font-mono);font-weight:700;font-size:0.5rem;text-transform:uppercase;letter-spacing:0.5px;border:1px solid var(--ink-900);color:var(--ink-900);padding:1px 4px;">COMPRA</span>
+                                    <span style="font-family:var(--font-sans);font-weight:600;font-size:0.78rem;text-transform:uppercase;letter-spacing:-0.2px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">@(prov.ProveedorNombre.ToUpperInvariant())</span>
+                                </div>
+                                @foreach (var celda in prov.Celdas)
+                                {
+                                    var isVacio = celda.Estado == "Vacio" || celda.Monto == 0;
+                                    var isPendiente = celda.Estado == "Pendiente";
+                                    var isJustificado = celda.Estado == "Justificado";
+                                    var isMulti = celda.Comprobantes.Count > 1;
+                                    var isSelected = _matrizSelCelda is not null && _matrizSelCelda.Value.SemanaId == celda.SemanaId && _matrizSelCelda.Value.ProveedorSlug == prov.ProveedorSlug;
+
+                                    if (isVacio)
+                                    {
+                                        <div style="flex:0 0 @(colW)px;height:38px;background:var(--bg-surface-inset);border-right:1px solid var(--line-200);border-bottom:1px solid var(--line-200);"></div>
+                                    }
+                                    else
+                                    {
+                                        <div data-matriz-cell="@(prov.ProveedorSlug)-@celda.SemanaId"
+                                             @onclick="() => SeleccionarCeldaMatriz(celda.SemanaId, prov.ProveedorSlug, celda.Comprobantes)"
+                                             style="position:relative;flex:0 0 @(colW)px;height:38px;display:flex;align-items:center;justify-content:flex-end;padding:0 12px;background:@(isPendiente ? "var(--tint-pending)" : "var(--paper-0)");border-right:1px solid var(--line-200);border-bottom:1px solid var(--line-200);cursor:pointer;font-family:var(--font-mono);font-weight:700;font-size:0.78rem;color:var(--ink-900);">
+                                            @if (isMulti)
+                                            {
+                                                <span style="position:absolute;left:5px;top:50%;transform:translateY(-50%);font-family:var(--font-mono);font-weight:700;font-size:0.52rem;background:var(--ink-900);color:#fff;padding:1px 3px;line-height:1;">×@celda.Comprobantes.Count</span>
+                                            }
+                                            @Fmt(celda.Monto)
+                                            @if (isPendiente)
+                                            {
+                                                <span style="position:absolute;top:4px;right:4px;width:6px;height:6px;background:var(--signal-warning);"></span>
+                                            }
+                                            @if (isSelected)
+                                            {
+                                                <span style="position:absolute;inset:0;border:2px solid var(--ink-900);pointer-events:none;"></span>
+                                            }
+                                        </div>
+                                    }
+                                }
+                            </div>
+                        }
+
+                        <!-- saldo semana row (sticky bottom) -->
+                        <div style="display:flex;width:max-content;border-top:2px solid var(--ink-900);position:sticky;bottom:46px;z-index:4;">
+                            <div style="position:sticky;left:0;z-index:2;flex:0 0 @(labelW)px;height:38px;display:flex;align-items:center;padding:0 12px;background:var(--paper-50);border-right:2px solid var(--ink-900);border-bottom:1px solid var(--line-200);font-family:var(--font-mono);font-weight:700;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.5px;">Saldo semana</div>
+                            @for (int i = 0; i < nCols; i++)
+                            {
+                                var ss = saldoSemana[i];
+                                <div style="flex:0 0 @(colW)px;height:38px;display:flex;align-items:center;justify-content:flex-end;padding:0 12px;background:@(ss < 0 ? "var(--tint-danger)" : "var(--paper-50)");border-right:1px solid var(--line-200);border-bottom:1px solid var(--line-200);font-family:var(--font-mono);font-weight:700;font-size:0.78rem;color:@(ss >= 0 ? "var(--signal-success)" : "var(--signal-danger)");">@(ss >= 0 ? "" : "-")@Fmt(Math.Abs(ss))</div>
+                            }
+                        </div>
+
+                        <!-- saldo acumulado row (sticky bottom, inverted) -->
+                        <div style="display:flex;width:max-content;background:var(--ink-900);position:sticky;bottom:0;z-index:4;">
+                            <div style="position:sticky;left:0;z-index:3;flex:0 0 @(labelW)px;height:46px;display:flex;align-items:center;gap:8px;padding:0 12px;background:var(--ink-900);color:#fff;border-right:2px solid var(--ink-900);font-family:var(--font-mono);font-weight:700;font-size:0.74rem;text-transform:uppercase;letter-spacing:0.5px;"><i class="bi bi-graph-up-arrow"></i> Saldo acumulado</div>
+                            @for (int i = 0; i < nCols; i++)
+                            {
+                                var sa = saldoAcum[i];
+                                <div style="flex:0 0 @(colW)px;height:46px;display:flex;align-items:center;justify-content:flex-end;padding:0 12px;background:var(--ink-900);border-right:1px solid rgba(255,255,255,0.15);font-family:var(--font-mono);font-weight:700;font-size:0.82rem;color:@(sa >= 0 ? "#7ee2a8" : "#ff9aa3");">@(sa >= 0 ? "" : "-")@Fmt(Math.Abs(sa))</div>
+                            }
+                        </div>
+                    </div>
+
+                    <!-- panel comprobante lateral -->
+                    @if (_matrizSelCelda is not null && _matrizPanelComprobantes is not null && _matrizPanelComprobantes.Count > 0)
+                    {
+                        var selProv = mz.Proveedores.FirstOrDefault(p => p.ProveedorSlug == _matrizSelCelda.Value.ProveedorSlug);
+                        var selSem = mz.Semanas.FirstOrDefault(s => s.Id == _matrizSelCelda.Value.SemanaId);
+                        var selCelda = selProv?.Celdas.FirstOrDefault(c => c.SemanaId == _matrizSelCelda.Value.SemanaId);
+                        var selTotal = selCelda?.Monto ?? 0;
+
+                        <div style="flex:0 0 340px;border-left:2px solid var(--ink-900);display:flex;flex-direction:column;background:var(--paper-0);">
+                            <div style="flex-shrink:0;background:var(--ink-900);color:#fff;display:flex;justify-content:space-between;align-items:center;padding:0.5rem 0.85rem;">
+                                <span style="font-family:var(--font-mono);font-weight:700;text-transform:uppercase;letter-spacing:1px;font-size:0.82rem;"><i class="bi bi-card-image"></i> Comprobante</span>
+                                <span style="cursor:pointer;font-size:1.2rem;line-height:1;" @onclick="() => { _matrizSelCelda = null; _matrizPanelComprobantes = null; }">×</span>
+                            </div>
+                            <!-- resumen de la celda -->
+                            <div style="flex-shrink:0;padding:0.85rem 0.95rem 0.7rem;border-bottom:1px solid var(--line-200);">
+                                <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:8px;">
+                                    <div style="font-family:var(--font-sans);font-weight:700;font-size:1rem;text-transform:uppercase;letter-spacing:-0.3px;line-height:1.15;min-width:0;">@(selProv?.ProveedorNombre.ToUpperInvariant() ?? "")</div>
+                                    <span style="flex-shrink:0;font-family:var(--font-mono);font-weight:700;font-size:0.56rem;text-transform:uppercase;letter-spacing:0.5px;border:1px solid var(--ink-900);padding:2px 5px;">COMPRA</span>
+                                </div>
+                                <div style="display:grid;grid-template-columns:auto 1fr;gap:5px 14px;font-family:var(--font-mono);font-size:0.72rem;align-items:baseline;">
+                                    <span style="color:var(--text-muted);font-weight:700;text-transform:uppercase;font-size:0.6rem;">Semana</span><span style="font-weight:700;text-align:right;">@(selSem?.FechaInicio.ToString("dd/MM/yyyy") ?? "")</span>
+                                    <span style="color:var(--text-muted);font-weight:700;text-transform:uppercase;font-size:0.6rem;">Boletas</span><span style="font-weight:700;text-align:right;">@_matrizPanelComprobantes.Count @(_matrizPanelComprobantes.Count == 1 ? "comprobante" : "comprobantes")</span>
+                                    <span style="color:var(--text-muted);font-weight:700;text-transform:uppercase;font-size:0.6rem;">Total celda</span>
+                                    <span style="font-weight:700;text-align:right;font-size:1rem;color:var(--signal-danger);">-@Fmt(selTotal)</span>
+                                </div>
+                            </div>
+                            <!-- lista de boletas -->
+                            <div style="flex:1;min-height:0;overflow:auto;padding:0.7rem 0.85rem;display:flex;flex-direction:column;gap:10px;background:var(--bg-surface-inset);">
+                                @foreach (var doc in _matrizPanelComprobantes)
+                                {
+                                    <div style="border:2px solid var(--ink-900);background:var(--paper-0);">
+                                        <div style="display:flex;">
+                                            <div style="flex:0 0 68px;align-self:stretch;border-right:2px solid var(--ink-900);background-image:repeating-linear-gradient(45deg,#fafafa,#fafafa 7px,#eee 7px,#eee 14px);display:flex;align-items:center;justify-content:center;"><i class="bi bi-receipt" style="font-size:1.3rem;color:var(--text-muted);"></i></div>
+                                            <div style="flex:1;min-width:0;padding:8px 10px;display:flex;flex-direction:column;gap:3px;">
+                                                <span style="font-family:var(--font-mono);font-weight:700;font-size:0.58rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);">Doc @doc.NumeroDocumento</span>
+                                                <span style="font-family:var(--font-sans);font-weight:700;font-size:1.05rem;letter-spacing:-0.5px;color:@(doc.Verificada ? "var(--ink-900)" : "var(--signal-danger)");">-@Fmt(doc.Monto)</span>
+                                                <span style="font-family:var(--font-mono);font-size:0.6rem;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><i class="bi bi-paperclip"></i> @doc.Fecha.ToString("dd/MM/yyyy")</span>
+                                            </div>
+                                        </div>
+                                        <div style="border-top:1px solid var(--line-200);padding:7px 8px;">
+                                            @if (doc.Verificada)
+                                            {
+                                                <div style="display:flex;align-items:center;gap:8px;">
+                                                    <div style="flex:1;display:flex;align-items:center;justify-content:center;gap:7px;background:var(--signal-success);color:#fff;font-family:var(--font-mono);font-weight:700;font-size:0.68rem;text-transform:uppercase;letter-spacing:0.5px;padding:7px;"><i class="bi bi-check-circle-fill"></i> Justificada</div>
+                                                    @if (selSem is null || !selSem.EstaCerrada)
+                                                    {
+                                                        <button @onclick="() => QuitarJustificadaMatriz(doc.Id)" style="flex-shrink:0;font-family:var(--font-mono);font-weight:700;font-size:0.6rem;text-transform:uppercase;letter-spacing:0.5px;background:transparent;color:var(--text-muted);border:1px solid var(--line-200);border-radius:0;cursor:pointer;padding:7px 9px;">Quitar</button>
+                                                    }
+                                                </div>
+                                            }
+                                            else
+                                            {
+                                                <button @onclick="() => MarcarJustificadaMatriz(doc.Id)" style="width:100%;display:flex;align-items:center;justify-content:center;gap:7px;font-family:var(--font-mono);font-weight:700;font-size:0.68rem;text-transform:uppercase;letter-spacing:0.5px;background:var(--ink-900);color:#fff;border:2px solid var(--ink-900);border-radius:0;cursor:pointer;padding:7px;"><i class="bi bi-check2-all"></i> Marcar justificada</button>
+                                            }
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+
+                <!-- footer -->
+                <div style="flex-shrink:0;border-top:2px solid var(--ink-900);display:flex;justify-content:space-between;align-items:center;gap:12px;padding:0.55rem 1rem;background:var(--paper-0);">
+                    <span style="font-family:var(--font-mono);font-size:0.66rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">@mz.Semanas.Count semanas · @mzNumTransf transferencias · @mz.Proveedores.Count conceptos</span>
+                    <div style="display:flex;gap:9px;">
+                        <VmButton Variant="outline" Bar="true" Icon="bi-file-earmark-excel">Exportar</VmButton>
+                        <VmButton Variant="dark" Bar="true" Icon="bi-check2" OnClick="CerrarMatrizGlobal">Cerrar</VmButton>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+}
+
 @code {
+    // ── Matriz Global state ────────────────────────────────────────────────────
+    private bool _showMatrizGlobal;
+    private ConciliacionGlobalDto? _matrizData;
+    private (int SemanaId, string ProveedorSlug)? _matrizSelCelda;
+    private List<ComprobanteItemDto>? _matrizPanelComprobantes;
+    private bool _matrizLoading;
+    private string? _matrizError;
+
+    private async Task CargarMatrizGlobal()
+    {
+        if (_periodo is null) return;
+
+        _matrizLoading = true;
+        _matrizError = null;
+        _matrizData = null;
+        await InvokeAsync(StateHasChanged);
+
+        try
+        {
+            var trabajador = Uri.EscapeDataString(_periodo.Trabajador ?? "");
+            _matrizData = await Http.GetFromJsonAsync<ConciliacionGlobalDto>($"api/contabilidad/periodos/conciliacion-global?trabajador={trabajador}");
+        }
+        catch (Exception)
+        {
+            _matrizError = "Error al cargar la matriz de conciliación global.";
+        }
+        finally
+        {
+            _matrizLoading = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task CerrarMatrizGlobal()
+    {
+        _showMatrizGlobal = false;
+        _matrizSelCelda = null;
+        _matrizData = null;
+        _matrizPanelComprobantes = null;
+        if (_selectedPeriodoId > 0)
+            await CargarPeriodoDetalle(_selectedPeriodoId, CancellationToken.None);
+    }
+
+    private void SeleccionarCeldaMatriz(int semanaId, string proveedorSlug, List<ComprobanteItemDto> comprobantes)
+    {
+        if (comprobantes.Count == 0) return;
+        if (_matrizSelCelda is not null && _matrizSelCelda.Value.SemanaId == semanaId && _matrizSelCelda.Value.ProveedorSlug == proveedorSlug)
+        {
+            _matrizSelCelda = null;
+            _matrizPanelComprobantes = null;
+        }
+        else
+        {
+            _matrizSelCelda = (semanaId, proveedorSlug);
+            _matrizPanelComprobantes = comprobantes;
+        }
+    }
+
+    private async Task MarcarJustificadaMatriz(int comprobanteId)
+    {
+        try
+        {
+            await Http.PostAsync($"api/contabilidad/compra/{comprobanteId}/verificar", null);
+            await CargarMatrizGlobal();
+        }
+        catch
+        {
+            _matrizError = "Error al justificar el comprobante.";
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task QuitarJustificadaMatriz(int comprobanteId)
+    {
+        try
+        {
+            await Http.PostAsync($"api/contabilidad/compra/{comprobanteId}/desverificar", null);
+            await CargarMatrizGlobal();
+        }
+        catch
+        {
+            _matrizError = "Error al quitar la justificación.";
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
     // ── Estado de UI ──────────────────────────────────────────────────────────
     private int _selectedId;
     private string _filter = "TODOS";
@@ -720,6 +1059,15 @@
     private int TransfDone => _periodo?.Transferencias.Count(t => IsV($"t{t.Id}")) ?? 0;
     private int TransfTotal => _periodo?.Transferencias.Count ?? 0;
     private bool AllDone => DocsRemaining == 0 && TransfTotal > 0 && TransfDone == TransfTotal;
+
+    // ── Abrir matriz global ────────────────────────────────────────────────────
+    private async Task AbrirMatrizGlobal()
+    {
+        _showMatrizGlobal = true;
+        _matrizSelCelda = null;
+        _matrizPanelComprobantes = null;
+        await CargarMatrizGlobal();
+    }
 
     // ── Formato de moneda (es-CL: punto como separador de miles) ──────────────
     private static readonly NumberFormatInfo Nfi = new() { NumberGroupSeparator = ".", NumberDecimalDigits = 0 };
