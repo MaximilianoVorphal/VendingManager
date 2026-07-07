@@ -25,8 +25,16 @@ namespace VendingManager.Infrastructure.Services
 
                 if (fechaLimite.HasValue)
                 {
-                    startDate = new DateTime(fechaLimite.Value.Year, fechaLimite.Value.Month, 1);
-                    endDate = fechaLimite.Value;
+                    // Si es una fecha sin hora (medianoche), extender a fin de día
+                    // para que el scraper incluya el día completo y el filtro no descarte ventas
+                    var fl = fechaLimite.Value;
+                    if (fl.TimeOfDay == TimeSpan.Zero)
+                    {
+                        fl = fl.Date.AddDays(1).AddTicks(-1);
+                        fechaLimite = fl;
+                    }
+                    startDate = new DateTime(fl.Year, fl.Month, 1);
+                    endDate = fl;
                 }
 
                 // Limitar a 32 días

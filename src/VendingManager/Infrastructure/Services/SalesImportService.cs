@@ -150,7 +150,7 @@ namespace VendingManager.Infrastructure.Services
 
                         DateTime fechaLocal = fecha.AddHours(offset);
 
-                        if (fechaLimite.HasValue && fechaLocal > fechaLimite.Value)
+                        if (fechaLimite.HasValue && fechaLocal.Date > fechaLimite.Value.Date)
                         {
                             ignoradosPorFecha++;
                             continue;
@@ -240,7 +240,7 @@ namespace VendingManager.Infrastructure.Services
                             System.Globalization.CultureInfo.InvariantCulture,
                             System.Globalization.DateTimeStyles.None, out DateTime fechaTB))
                         {
-                            if (fechaLimite.HasValue && fechaTB > fechaLimite.Value) continue;
+                            if (fechaLimite.HasValue && fechaTB.Date > fechaLimite.Value.Date) continue;
 
                             string posCode = colPos != -1 ? row[colPos]?.ToString()?.Trim() ?? "" : "";
                             tbRecords.Add(new TransbankRecord { Fecha = fechaTB, Monto = montoTB, PosCode = posCode });
