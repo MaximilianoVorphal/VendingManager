@@ -172,6 +172,18 @@ public class HomePageTests : TestContext
                     new { Id = 2, Nombre = "Máquina 002" }
                 });
             }
+            else if (url.Contains("machine-status"))
+            {
+                json = JsonSerializer.Serialize(new
+                {
+                    machines = new[]
+                    {
+                        new { machine_id = "2410280012", name = "Máquina 001", status = "online" },
+                        new { machine_id = "2410280047", name = "Máquina 002", status = "online" },
+                        new { machine_id = "2410280089", name = "Máquina 003", status = "online" }
+                    }
+                });
+            }
             else if (url.Contains("dashboard-stats"))
             {
                 json = JsonSerializer.Serialize(new

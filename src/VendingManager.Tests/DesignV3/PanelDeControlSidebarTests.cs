@@ -25,25 +25,17 @@ public class PdcUnitCatalogTests
 
         units.Should().HaveCount(4);
 
-        // Item 0: Todas
         units[0].Id.Should().Be(0);
         units[0].Label.Should().Be("Todas");
-        units[0].OurVendId.Should().BeNull();
 
-        // Item 1: Máquina 001
         units[1].Id.Should().Be(1);
         units[1].Label.Should().Be("Máquina 001");
-        units[1].OurVendId.Should().Be("2410280012");
 
-        // Item 2: Máquina 002
         units[2].Id.Should().Be(2);
         units[2].Label.Should().Be("Máquina 002");
-        units[2].OurVendId.Should().Be("2410280047");
 
-        // Item 3: Máquina 003
         units[3].Id.Should().Be(3);
         units[3].Label.Should().Be("Máquina 003");
-        units[3].OurVendId.Should().Be("2410280089");
     }
 }
 
@@ -96,24 +88,33 @@ public class PanelDeControlSidebarTests : TestContext
         => RenderComponent<PanelDeControlSidebar>(p => p.Add(x => x.RefreshInterval, TimeSpan.Zero));
 
     [Fact]
-    public void PanelDeControlSidebar_RendersAllFourItems()
+    public void PanelDeControlSidebar_RendersTodasPlusApiMachines()
     {
+        SetStatusResponse(
+            new MachineStatusDto { MachineId = "2410280012", Name = "MAQUINA 2410280012 CAFE + SNACK", Status = "online" },
+            new MachineStatusDto { MachineId = "2410280022", Name = "MAQUINA 2410280022 SNACK",      Status = "online" },
+            new MachineStatusDto { MachineId = "2410280023", Name = "MAQUINA 2410280023 SNACK",      Status = "online" });
+
         var cut = RenderWithNoRefresh();
+        cut.WaitForState(() => cut.FindAll(".pdc-unit-item").Count == 4);
+
         var items = cut.FindAll(".pdc-unit-item");
-        items.Should().HaveCount(4);
         items[0].TextContent.Trim().Should().Contain("Todas");
-        items[1].TextContent.Trim().Should().Contain("Máquina 001");
-        items[2].TextContent.Trim().Should().Contain("Máquina 002");
-        items[3].TextContent.Trim().Should().Contain("Máquina 003");
+        items[1].TextContent.Trim().Should().Contain("MAQUINA 2410280012");
+        items[2].TextContent.Trim().Should().Contain("MAQUINA 2410280022");
+        items[3].TextContent.Trim().Should().Contain("MAQUINA 2410280023");
     }
 
     [Fact]
     public void PanelDeControlSidebar_TodasItemIsActiveAndHasGlyph()
     {
-        var cut = RenderWithNoRefresh();
-        var items = cut.FindAll(".pdc-unit-item");
-        items.Should().HaveCount(4);
+        SetStatusResponse(
+            new MachineStatusDto { MachineId = "2410280012", Name = "MAQUINA 001", Status = "online" });
 
+        var cut = RenderWithNoRefresh();
+        cut.WaitForState(() => cut.FindAll(".pdc-unit-item").Count == 2);
+
+        var items = cut.FindAll(".pdc-unit-item");
         var todasItem = items[0];
         todasItem.ClassName.Should().Contain("pdc-unit-item--active");
         todasItem.InnerHtml.Should().Contain("◈");
@@ -127,9 +128,9 @@ public class PanelDeControlSidebarTests : TestContext
     public async Task PanelDeControlSidebar_OnlineMachinesHaveGreenDot()
     {
         SetStatusResponse(
-            new MachineStatusDto { MachineId = "2410280012", Status = "online" },
-            new MachineStatusDto { MachineId = "2410280047", Status = "online" },
-            new MachineStatusDto { MachineId = "2410280089", Status = "online" });
+            new MachineStatusDto { MachineId = "2410280012", Name = "MAQUINA 001", Status = "online" },
+            new MachineStatusDto { MachineId = "2410280047", Name = "MAQUINA 002", Status = "online" },
+            new MachineStatusDto { MachineId = "2410280089", Name = "MAQUINA 003", Status = "online" });
 
         var cut = RenderWithNoRefresh();
         cut.WaitForState(() => cut.FindAll(".pdc-dot--ok").Count == 3);
@@ -144,9 +145,9 @@ public class PanelDeControlSidebarTests : TestContext
     public async Task PanelDeControlSidebar_StockLowMachineHasOrangeDot()
     {
         SetStatusResponse(
-            new MachineStatusDto { MachineId = "2410280012", Status = "online" },
-            new MachineStatusDto { MachineId = "2410280047", Status = "online" },
-            new MachineStatusDto { MachineId = "2410280089", Status = "warning" });
+            new MachineStatusDto { MachineId = "2410280012", Name = "MAQUINA 001", Status = "online" },
+            new MachineStatusDto { MachineId = "2410280047", Name = "MAQUINA 002", Status = "online" },
+            new MachineStatusDto { MachineId = "2410280089", Name = "MAQUINA 003", Status = "warning" });
 
         var cut = RenderWithNoRefresh();
         cut.WaitForState(() => cut.FindAll(".pdc-dot--warn").Count == 1);
@@ -162,7 +163,7 @@ public class PanelDeControlSidebarTests : TestContext
     public async Task PanelDeControlSidebar_OfflineMachineHasRedDot()
     {
         SetStatusResponse(
-            new MachineStatusDto { MachineId = "2410280012", Status = "offline" });
+            new MachineStatusDto { MachineId = "2410280012", Name = "MAQUINA 001", Status = "offline" });
 
         var cut = RenderWithNoRefresh();
         cut.WaitForState(() => cut.FindAll(".pdc-dot--err").Count == 1);
@@ -178,9 +179,9 @@ public class PanelDeControlSidebarTests : TestContext
     public async Task PanelDeControlSidebar_RendersSecondaryText()
     {
         SetStatusResponse(
-            new MachineStatusDto { MachineId = "2410280012", Status = "online" },
-            new MachineStatusDto { MachineId = "2410280047", Status = "online" },
-            new MachineStatusDto { MachineId = "2410280089", Status = "warning" });
+            new MachineStatusDto { MachineId = "2410280012", Name = "MAQUINA 001", Status = "online" },
+            new MachineStatusDto { MachineId = "2410280047", Name = "MAQUINA 002", Status = "online" },
+            new MachineStatusDto { MachineId = "2410280089", Name = "MAQUINA 003", Status = "warning" });
 
         var cut = RenderWithNoRefresh();
         cut.WaitForState(() => cut.FindAll(".pdc-unit-item__secondary").Count == 3);
@@ -195,21 +196,33 @@ public class PanelDeControlSidebarTests : TestContext
     }
 
     [Fact]
-    public void PanelDeControlSidebar_RendersFooterWithCount()
+    public async Task PanelDeControlSidebar_FooterCountsOnlyApiMachines()
     {
+        SetStatusResponse(
+            new MachineStatusDto { MachineId = "2410280012", Status = "online" },
+            new MachineStatusDto { MachineId = "2410280022", Status = "online" },
+            new MachineStatusDto { MachineId = "2410280023", Status = "online" },
+            new MachineStatusDto { MachineId = "2410280046", Status = "online" });
+
         var cut = RenderWithNoRefresh();
-        cut.Markup.Should().Contain("3 unidades activas");
+        cut.WaitForState(() => cut.FindAll(".pdc-unit-item").Count == 5);
+
+        cut.Markup.Should().Contain("4 unidades activas");
     }
 
     [Fact]
     public async Task PanelDeControlSidebar_ClickInvokesCallback()
     {
+        SetStatusResponse(
+            new MachineStatusDto { MachineId = "2410280012", Name = "MAQUINA 001", Status = "online" });
+
         var invokedId = -1;
         var cut = RenderComponent<PanelDeControlSidebar>(p => p
             .Add(x => x.OnUnitSelected, EventCallback.Factory.Create<int>(this, id => invokedId = id))
             .Add(x => x.RefreshInterval, TimeSpan.Zero));
+        cut.WaitForState(() => cut.FindAll(".pdc-unit-item").Count == 2);
 
-        cut.FindAll(".pdc-unit-item button").Should().HaveCount(4);
+        cut.FindAll(".pdc-unit-item button").Should().HaveCount(2);
 
         await cut.InvokeAsync(() => cut.FindAll(".pdc-unit-item button")[1].Click());
         invokedId.Should().Be(1);
@@ -222,15 +235,18 @@ public class PanelDeControlSidebarTests : TestContext
     public void PanelDeControlSidebar_RendersWhenApiUnavailable()
     {
         // No response set — fake handler returns 404. The sidebar should still render
-        // and fall back to the default Online status (green dot) for all real machines.
+        // an empty list (just "Todas") without throwing.
         var cut = RenderWithNoRefresh();
+        cut.WaitForState(() => cut.FindAll(".pdc-unit-item").Count == 1);
+
         cut.FindAll(".pdc-sidebar").Should().HaveCount(1);
-        cut.FindAll(".pdc-unit-item").Should().HaveCount(4);
+        cut.FindAll(".pdc-unit-item").Should().HaveCount(1);
     }
 
     [Fact]
     public void PanelDeControlSidebar_HeaderRendersUnidades()
     {
+        SetStatusResponse();
         var cut = RenderWithNoRefresh();
         cut.Markup.Should().Contain("UNIDADES");
     }
@@ -238,7 +254,7 @@ public class PanelDeControlSidebarTests : TestContext
     [Fact]
     public void PanelDeControlSidebar_HitsMachineStatusEndpointOnInit()
     {
-        SetStatusResponse(); // empty list
+        SetStatusResponse();
         RenderWithNoRefresh();
 
         _handler.Requests.Should().ContainSingle(r =>
