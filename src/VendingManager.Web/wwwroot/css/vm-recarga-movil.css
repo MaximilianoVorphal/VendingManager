@@ -35,6 +35,7 @@
   --rm-sheet-handle-h:    4px;      /* Source: .dc.html line 322, sheet handle height */
   --rm-iconbtn-w:         44px;     /* Source: .dc.html line 88, back button / calendar */
   --rm-iconbtn-w-scan:    48px;     /* Source: .dc.html line 190, scan icon button */
+  --rm-iconbtn-h-scan:    46px;     /* Source: design .dc.html — scan button is 48×46 (slightly shorter than wide to fit the search row) */
   --rm-stepper-w:         64px;     /* Source: .dc.html line 305, stepper −/+ width */
   --rm-stepper-h:         56px;     /* Source: .dc.html line 305, stepper −/+ height */
   --rm-max-btn-w:         60px;     /* Source: .dc.html line 311, "Máx" button width */
@@ -545,7 +546,7 @@
 
 .rm-scan-btn {
   width: var(--rm-iconbtn-w-scan);
-  height: 46px;
+  height: var(--rm-iconbtn-h-scan);
   flex-shrink: 0;
   border: 2px solid var(--ink-900);
   background: var(--ink-900);
