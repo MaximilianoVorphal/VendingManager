@@ -58,10 +58,11 @@
 
     /// <summary>
     /// How often the sidebar refreshes machine online status from the backend.
-    /// Defaults to 5 minutes. Set to <see cref="TimeSpan.Zero"/> to disable the timer
-    /// (the initial fetch on <see cref="OnInitializedAsync"/> still runs).
+    /// Defaults to 6 hours to match the scraper's own polling cadence. Set to
+    /// <see cref="TimeSpan.Zero"/> to disable the timer (the initial fetch on
+    /// <see cref="OnInitializedAsync"/> still runs).
     /// </summary>
-    [Parameter] public TimeSpan RefreshInterval { get; set; } = TimeSpan.FromMinutes(5);
+    [Parameter] public TimeSpan RefreshInterval { get; set; } = TimeSpan.FromHours(6);
 
     [Inject] private HttpClient? Http { get; set; }
     [Inject] private ILogger<PanelDeControlSidebar>? Logger { get; set; }
