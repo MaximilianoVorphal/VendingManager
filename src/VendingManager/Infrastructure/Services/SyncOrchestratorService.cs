@@ -45,6 +45,7 @@ namespace VendingManager.Infrastructure.Services
                 }
 
                 Console.WriteLine($"[Sync] Solicitando reporte (ALT) para fechas: {startDate:yyyy-MM-dd} a {endDate:yyyy-MM-dd}");
+                Console.WriteLine($"[Sync] >>> SCRAPER REQUEST: machineId='{targetMachineId}', start='{startDate:yyyy-MM-dd}', end='{endDate:yyyy-MM-dd}'");
 
                 // 2. Llamar al Scraper ALT
                 var result = await scraperClient.DownloadReportAsync(targetMachineId, startDate, endDate);
@@ -56,6 +57,7 @@ namespace VendingManager.Infrastructure.Services
                 {
                     await result.FileStream.CopyToAsync(ms);
                     ms.Position = 0;
+                    Console.WriteLine($"[Sync] >>> SCRAPER RESPONSE: file='{result.FileName}', streamSize={ms.Length} bytes");
                     string stats = await salesImportService.ImportarVentasMaquina(ms, result.FileName, fechaLimite, "");
                     return $"Sincronización ALT Exitosa. {stats}";
                 }
