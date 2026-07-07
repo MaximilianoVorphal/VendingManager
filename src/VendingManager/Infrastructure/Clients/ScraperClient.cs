@@ -1,6 +1,8 @@
 using System.Net.Http.Json;
+using System.Text.Json;
 using Microsoft.Extensions.Configuration;
 using VendingManager.Core.Interfaces;
+using VendingManager.Shared.DTOs;
 
 namespace VendingManager.Infrastructure.Clients
 {
@@ -8,6 +10,12 @@ namespace VendingManager.Infrastructure.Clients
     {
         private readonly HttpClient _httpClient;
         private readonly IConfiguration _configuration;
+
+        private static readonly JsonSerializerOptions _jsonOptions = new()
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
+            PropertyNameCaseInsensitive = true,
+        };
 
         public ScraperClient(HttpClient httpClient, IConfiguration configuration)
         {
@@ -40,6 +48,39 @@ namespace VendingManager.Infrastructure.Clients
                            ?? $"Report_ALT_{machineId}_{DateTime.Now:yyyyMMdd}.xls";
 
             return (stream, fileName);
+        }
+
+        public async Task<MachineStatusResponse> GetMachineStatusAsync()
+        {
+            var scraperUrl = _configuration["ScraperServiceUrl"] ?? "http://scraper:8000";
+            _httpClient.Timeout = TimeSpan.FromSeconds(30);
+
+            var response = await _httpClient.GetAsync($"{scraperUrl}/api/machines/status");
+
+            if (!response.IsSuccessStatusCode)
+            {
+                throw new HttpRequestException($"Error obteniendo estado de máquinas: {response.StatusCode}");
+            }
+
+            var result = await response.Content.ReadFromJsonAsync<MachineStatusResponse>(_jsonOptions);
+            return result ?? new MachineStatusResponse();
+        }
+
+        public async Task<SalesReportResponse> GetSalesReportAsync(DateTime startDate, DateTime endDate, string machineId = "")
+        {
+            var scraperUrl = _configuration["ScraperServiceUrl"] ?? "http://scraper:8000";
+            _httpClient.Timeout = TimeSpan.FromSeconds(60);
+
+            var url = $"{scraperUrl}/api/sales/report?start={startDate:yyyy-MM-dd}&end={endDate:yyyy-MM-dd}";
+            if (!string.IsNullOrEmpty(machineId))
+                url += $"&machine_id={machineId}";
+
+            var response = await _httpClient.GetAsync(url);
+            if (!response.IsSuccessStatusCode)
+                throw new HttpRequestException($"Error obteniendo reporte de ventas: {response.StatusCode}");
+
+            var result = await response.Content.ReadFromJsonAsync<SalesReportResponse>(_jsonOptions);
+            return result ?? new SalesReportResponse();
         }
     }
 }
