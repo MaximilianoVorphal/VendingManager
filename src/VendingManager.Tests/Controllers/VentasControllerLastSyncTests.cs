@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Moq;
 using VendingManager.Controllers;
 using VendingManager.Core.Interfaces;
+using VendingManager.Infrastructure.Clients;
 using VendingManager.Infrastructure.Data;
 using VendingManager.Infrastructure.Services;
 using Xunit;
@@ -20,6 +21,7 @@ public class VentasControllerLastSyncTests
     private readonly Mock<IPurchasingService> _mockPurchasing = new();
     private readonly Mock<ISalesImportService> _mockSalesImport = new();
     private readonly Mock<IAuditService> _mockAudit = new();
+    private readonly Mock<IScraperClient> _mockScraper = new();
     private readonly LastSyncTracker _tracker = CreateTracker();
 
     private static LastSyncTracker CreateTracker()
@@ -47,7 +49,8 @@ public class VentasControllerLastSyncTests
             _mockPurchasing.Object,
             _mockSalesImport.Object,
             _mockAudit.Object,
-            _tracker);
+            _tracker,
+            _mockScraper.Object);
     }
 
     [Fact]
