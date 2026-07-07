@@ -44,8 +44,8 @@
   --rm-scan-line-top:     4px;      /* Source: .dc.html line 181, scan line start top */
   --rm-scan-line-end:     132px;    /* Source: .dc.html line 20, scan line end top */
   --rm-toast-bottom:      84px;     /* Source: .dc.html line 430, toast offset from bottom */
-  --rm-pill-pad:          3px 8px;  /* Source: .dc.html line 55, estado badge padding */
-  --rm-pill-font:         0.56rem;  /* Source: .dc.html line 55, estado badge font size */
+  --rm-tag-pad:          3px 8px;  /* Source: .dc.html line 55, estado badge padding */
+  --rm-tag-font:         0.56rem;  /* Source: .dc.html line 55, estado badge font size */
   --rm-vacios-badge-pad:  2px 7px;  /* Source: .dc.html line 282, vacíos count badge padding */
   --rm-vacios-badge-font: 0.58rem;  /* Source: .dc.html line 282, vacíos count badge font size */
   --rm-empty-pad:         48px 20px; /* Source: .dc.html line 73, empty state padding */
@@ -373,41 +373,41 @@
 }
 
 /* =========================================================================
-   8.  PILL — estado badge (Finalizado / Pendiente / Cargada / Sin cargar)
+   8.  TAG — estado badge (Finalizado / Pendiente / Cargada / Sin cargar)
        Source: .dc.html lines 55-56, 128-129
    ========================================================================= */
-.rm-pill {
+.rm-tag {
   display: inline-block;
   font-family: var(--font-mono);
-  font-size: var(--rm-pill-font);
+  font-size: var(--rm-tag-font);
   font-weight: var(--fw-bold);
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  padding: var(--rm-pill-pad);
+  padding: var(--rm-tag-pad);
   border: 1px solid var(--ink-900);
   white-space: nowrap;
   flex-shrink: 0;
 }
 
-.rm-pill--success {
+.rm-tag--success {
   background: var(--signal-success);
   color: var(--paper-0);
 }
-.rm-pill--warning {
+.rm-tag--warning {
   background: var(--signal-warning);
   color: var(--ink-900);
 }
-.rm-pill--outline {
+.rm-tag--outline {
   background: transparent;
   color: var(--ink-900);
 }
-.rm-pill--danger {
+.rm-tag--danger {
   background: var(--signal-danger);
   color: var(--paper-0);
 }
 
 /* Obligatoria / required badge (signal-danger bg) */
-.rm-pill--required {
+.rm-tag--required {
   background: var(--signal-danger);
   color: var(--paper-0);
   font-size: 0.5rem;
@@ -415,7 +415,7 @@
 }
 
 /* Vacíos count (warning) */
-.rm-pill--vacios {
+.rm-tag--vacios {
   background: var(--signal-warning);
   color: var(--ink-900);
   font-family: var(--font-mono);
