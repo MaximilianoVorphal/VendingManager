@@ -61,4 +61,11 @@ public interface IContabilidadService
     /// Throws InvalidOperationException if Estado == Conciliado.
     /// </summary>
     Task<EliminarTransferenciaResultDto> EliminarTransferenciaCuadreAsync(int transferenciaId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Returns the global multi-period reconciliation matrix for a given worker.
+    /// Loads all AccountingPeriods with their Transferencias, Compras, and Gastos,
+    /// groups providers by normalized slug, and computes the flat DTO structure.
+    /// </summary>
+    Task<ConciliacionGlobalDto> GetConciliacionGlobalAsync(string trabajador, CancellationToken ct = default);
 }
