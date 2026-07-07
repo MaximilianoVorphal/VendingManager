@@ -131,6 +131,11 @@
             Logger?.LogWarning(ex, "Failed to fetch machine status for sidebar");
         }
 
+        ApplyMachines(machines);
+    }
+
+    private void ApplyMachines(List<MachineStatusDto> machines)
+    {
         // "Todas" is always shown — even if the API failed, the operator still needs a way to clear the unit filter.
         var list = new List<Row>(capacity: machines.Count + 1)
         {
