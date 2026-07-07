@@ -4,8 +4,11 @@
 @inject IJSRuntime JS
 @using System.Linq
 @using System.Net.Http.Headers
+@using System.Text.Json
+@using System.Threading
 @using VendingManager.Web.Services
 @using VendingManager.Web.Components.Shared
+@implements IDisposable
 
 <PageTitle>CENTRO DE COMANDO</PageTitle>
 
@@ -120,47 +123,143 @@
         </div>
 
         <div class="row" style="margin-top: 20px;">
-            <div class="col-12 mb-3">
+            <!-- LEFT: Machine Status Panel -->
+            <div class="col-md-5">
+                @if (MachineStatus?.Machines is { Count: > 0 })
+                {
+                    var onlineCount = MachineStatus.Machines.Count(m => m.Status == "online");
+                    var offlineCount = MachineStatus.Machines.Count(m => m.Status == "offline");
+                    var warningCount = MachineStatus.Machines.Count(m => m.Status == "warning");
+
+                    <div class="d-flex align-items-center border-bottom border-3 border-dark pb-2 mb-2 gap-2">
+                        <h5 class="fw-bold text-uppercase m-0" style="letter-spacing: 1px;">
+                            <span class="bg-dark text-white px-2 py-1">LIVE</span>
+                            <span>ESTADO DE MÁQUINAS_</span>
+                        </h5>
+                        <button class="btn btn-sm btn-outline-dark rounded-0 ms-auto fw-bold"
+                                @onclick="RefrescarMachineStatus"
+                                title="Actualizar ahora (auto: cada 6 h)">
+                            <i class="bi bi-arrow-clockwise"></i>
+                        </button>
+                    </div>
+
+                    <div class="d-flex justify-content-between small font-monospace text-uppercase mb-2 px-1"
+                         style="font-size: 0.65rem;">
+                        <span><span class="text-success fw-bold">🟢</span> @onlineCount</span>
+                        <span><span class="text-warning fw-bold">🟡</span> @warningCount</span>
+                        <span><span class="text-danger fw-bold">🔴</span> @offlineCount</span>
+                        @if (MachineStatus.Summary != null)
+                        {
+                            var parts = MachineStatus.Summary.OnlineOffline.Split('|');
+                            <span class="text-muted">🟢 @(parts.ElementAtOrDefault(0) ?? "?") 🔴 @(parts.ElementAtOrDefault(1) ?? "?")</span>
+                        }
+                    </div>
+
+                    <div class="table-responsive" style="max-height: 420px; overflow-y: auto;">
+                        <table class="table table-sm table-borderless align-middle mb-0" style="font-size: 0.68rem;">
+                            <thead class="text-uppercase text-muted border-bottom" style="font-size: 0.6rem;">
+                                <tr>
+                                    <th class="ps-1">ID</th>
+                                    <th>Estado</th>
+                                    <th class="text-center">Temp</th>
+                                    <th class="text-center">Puerta</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var m in MachineStatus.Machines)
+                                {
+                                    var rowBg = m.Status switch
+                                    {
+                                        "warning" => "#fff8e1",
+                                        "offline" => "#ffebee",
+                                        _ => "transparent"
+                                    };
+                                    var statusColor = m.Status switch
+                                    {
+                                        "online" => "var(--signal-success, #198754)",
+                                        "warning" => "var(--signal-warning, #fd7e14)",
+                                        _ => "var(--signal-danger, #dc3545)"
+                                    };
+
+                                    <tr style="background: @rowBg; border-bottom: 1px solid #dee2e6;">
+                                        <td class="ps-1 fw-bold font-monospace text-nowrap" style="font-size: 0.7rem;">
+                                            @m.MachineId
+                                        </td>
+                                        <td>
+                                            <span class="badge fw-bold text-uppercase"
+                                                  style="background:transparent;color:@statusColor;font-size:0.58rem;letter-spacing:0.5px;">
+                                                @m.Status
+                                            </span>
+                                        </td>
+                                        <td class="text-center font-monospace text-nowrap small">@m.Temperature</td>
+                                        <td class="text-center font-monospace text-nowrap small">
+                                            <span class="@(m.Door == "open" ? "text-danger fw-bold" : "")">@m.Door</span>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="text-end mt-1">
+                        <small class="text-muted font-monospace" style="font-size: 0.55rem;">
+                            Auto: cada 6 h &nbsp;|&nbsp; Último: @_lastRefreshTime.ToString("HH:mm:ss")
+                        </small>
+                    </div>
+                }
+                else
+                {
+                    <h5 class="fw-bold text-uppercase border-bottom border-3 border-dark pb-2" style="letter-spacing: 1px;">
+                        <span class="bg-dark text-white px-2 py-1">LIVE</span>
+                        <span>ESTADO DE MÁQUINAS_</span>
+                    </h5>
+                    <div class="text-center py-5 text-muted">
+                        <div class="spinner-border spinner-border-sm text-secondary mb-2" role="status"></div>
+                        <p class="small fw-bold text-uppercase">Conectando con OurVend...</p>
+                    </div>
+                }
+            </div>
+
+            <!-- RIGHT: Data Input -->
+            <div class="col-md-7">
                 <h5 class="fw-bold text-uppercase border-bottom border-3 border-dark pb-2 d-flex align-items-center flex-wrap gap-2"
-                style="letter-spacing: 1px;">
+                    style="letter-spacing: 1px;">
                     <span class="bg-dark text-white px-2 py-1">INPUT</span>
                     <span>INGRESO DE DATOS_</span>
                 </h5>
-            </div>
 
-            <div class="col-md-6 mb-3">
-                <VmCard BodyStyle="background:var(--bg-surface-inset);">
-                    <div class="d-flex align-items-center mb-3">
-                        <div class="bg-dark text-white fw-bold px-2 py-1 me-2">01</div>
-                        <label class="fw-bold text-uppercase text-dark mb-0">REPORTE OURVEND (.XLS)</label>
-                    </div>
-                    <p class="small text-muted mb-2 font-monospace">Archivo fuente: "Give-out record"</p>
+                <div class="mb-3">
+                    <VmCard BodyStyle="background:var(--bg-surface-inset);">
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="bg-dark text-white fw-bold px-2 py-1 me-2">01</div>
+                            <label class="fw-bold text-uppercase text-dark mb-0">REPORTE OURVEND (.XLS)</label>
+                        </div>
+                        <p class="small text-muted mb-2 font-monospace">Archivo fuente: "Give-out record"</p>
 
-                    <div class="input-group">
-                        <InputFile @key="InputKey" OnChange="SubirArchivoMaquina"
-                                   class="form-control form-control-sm border-dark rounded-0" accept=".xls,.xlsx" />
-                    </div>
-                </VmCard>
-            </div>
+                        <div class="input-group">
+                            <InputFile @key="InputKey" OnChange="SubirArchivoMaquina"
+                                       class="form-control form-control-sm border-dark rounded-0" accept=".xls,.xlsx" />
+                        </div>
+                    </VmCard>
+                </div>
 
-            <div class="col-md-6 mb-3">
-                <VmCard BodyStyle="background:var(--bg-surface-inset);">
-                    <div class="d-flex align-items-center mb-3">
-                        <div class="bg-dark text-white fw-bold px-2 py-1 me-2">02</div>
-                        <label class="fw-bold text-uppercase text-dark mb-0">CARTOLA TRANSBANK (.XLS/.CSV)</label>
-                    </div>
-                    <p class="small text-muted mb-2 font-monospace">Archivo fuente: "Transbank/Banco"</p>
+                <div class="mb-3">
+                    <VmCard BodyStyle="background:var(--bg-surface-inset);">
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="bg-dark text-white fw-bold px-2 py-1 me-2">02</div>
+                            <label class="fw-bold text-uppercase text-dark mb-0">CARTOLA TRANSBANK (.XLS/.CSV)</label>
+                        </div>
+                        <p class="small text-muted mb-2 font-monospace">Archivo fuente: "Transbank/Banco"</p>
 
-                    <div class="input-group">
-                        <InputFile @key="InputKey" OnChange="SubirArchivoTransbank"
-                                   class="form-control form-control-sm border-dark rounded-0" accept=".xls,.xlsx,.csv" />
-                    </div>
-                </VmCard>
-            </div>
+                        <div class="input-group">
+                            <InputFile @key="InputKey" OnChange="SubirArchivoTransbank"
+                                       class="form-control form-control-sm border-dark rounded-0" accept=".xls,.xlsx,.csv" />
+                        </div>
+                    </VmCard>
+                </div>
 
-            @if (!string.IsNullOrEmpty(Mensaje))
-            {
-                <div class="col-12 mt-2">
+                @if (!string.IsNullOrEmpty(Mensaje))
+                {
                     <div class="alert alert-dark rounded-0 border-2 border-dark shadow-sm bg-white text-dark">
                         @if (Cargando)
                         {
@@ -173,9 +272,10 @@
                             @Mensaje
                         }
                     </div>
-                </div>
-            }
+                }
+            </div>
         </div>
+
     }
 </div>
 
@@ -213,11 +313,18 @@
 
 @code {
     private DashboardStats? Stats;
+    private MachineStatusResponse? MachineStatus;
     private List<MaquinaSimpleDto>? ListaMaquinas;
     private int MaquinaActualId = 0;
 
     private string Mensaje = "";
     private bool Cargando = false;
+
+    // ── Machine Status Auto-Refresh ──
+    private static readonly TimeSpan RefreshInterval = TimeSpan.FromHours(6);
+    private DateTime _lastRefreshTime = DateTime.Now;
+    private Timer? _machineStatusTimer;
+    private CancellationTokenSource? _timerCts;
 
     // Manual Upload Logic
     private bool MostrarModalFecha = false;
@@ -257,7 +364,46 @@
     protected override async Task OnInitializedAsync()
     {
         await CargarMaquinas();
-        await CargarDatos();
+        await Task.WhenAll(CargarDatos(), CargarMachineStatus());
+        _lastRefreshTime = DateTime.Now;
+        StartMachineStatusTimer();
+    }
+
+    private void StartMachineStatusTimer()
+    {
+        _timerCts?.Cancel();
+        _timerCts = new CancellationTokenSource();
+        var token = _timerCts.Token;
+
+        _machineStatusTimer = new Timer(async _ =>
+        {
+            if (token.IsCancellationRequested) return;
+            try
+            {
+                await InvokeAsync(async () =>
+                {
+                    await CargarMachineStatus();
+                    _lastRefreshTime = DateTime.Now;
+                    StateHasChanged();
+                });
+            }
+            catch { /* swallow timer exceptions */ }
+        }, null, RefreshInterval, RefreshInterval);
+    }
+
+    private async Task RefrescarMachineStatus()
+    {
+        await CargarMachineStatus();
+        _lastRefreshTime = DateTime.Now;
+        // Reset the timer so it starts a fresh interval from now
+        StartMachineStatusTimer();
+    }
+
+    public void Dispose()
+    {
+        _timerCts?.Cancel();
+        _machineStatusTimer?.Dispose();
+        _timerCts?.Dispose();
     }
 
     private async Task CargarMaquinas()
@@ -288,6 +434,25 @@
         {
             Mensaje = "ERROR DE CONEXIÓN: " + ex.Message;
         }
+    }
+
+    private static readonly JsonSerializerOptions _machineStatusJsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
+        PropertyNameCaseInsensitive = true,
+    };
+
+    private async Task CargarMachineStatus()
+    {
+        try
+        {
+            var response = await Http.GetAsync("api/Ventas/machine-status");
+            if (response.IsSuccessStatusCode)
+            {
+                MachineStatus = await response.Content.ReadFromJsonAsync<MachineStatusResponse>(_machineStatusJsonOptions);
+            }
+        }
+        catch { MachineStatus = null; }
     }
 
     private void IrAReporte(string periodo)
@@ -413,6 +578,34 @@
         public int StockActual { get; set; }
         public int CapacidadMaxima { get; set; }
         public string Fuente { get; set; } = "configuracion";
+    }
+
+    public class MachineStatusResponse
+    {
+        public List<MachineStatusItem> Machines { get; set; } = new();
+        public MachineStatusSummary? Summary { get; set; }
+    }
+
+    public class MachineStatusItem
+    {
+        public string MachineId { get; set; } = "";
+        public string Name { get; set; } = "";
+        public string Status { get; set; } = "";
+        public int Noline { get; set; }
+        public string Temperature { get; set; } = "";
+        public string Door { get; set; } = "";
+        public string CoinAcceptor { get; set; } = "";
+        public string Selection { get; set; } = "";
+        public string Version { get; set; } = "";
+        public string Group { get; set; } = "";
+    }
+
+    public class MachineStatusSummary
+    {
+        public string OnlineOffline { get; set; } = "";
+        public string DaySales { get; set; } = "";
+        public string Fault { get; set; } = "";
+        public string OutOfStock { get; set; } = "";
     }
 }
 
