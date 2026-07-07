@@ -48,6 +48,9 @@
   --rm-vacios-badge-pad:  2px 7px;  /* Source: .dc.html line 282, vacíos count badge padding */
   --rm-vacios-badge-font: 0.58rem;  /* Source: .dc.html line 282, vacíos count badge font size */
   --rm-empty-pad:         48px 20px; /* Source: .dc.html line 73, empty state padding */
+  --rm-z-dock:            2400;      /* Source: stacking order invariant — dock < sheet < toast */
+  --rm-z-sheet:           2600;
+  --rm-z-toast:           3000;
 }
 
 /* =========================================================================
@@ -243,7 +246,7 @@
   position: absolute;
   inset: 0;
   background: rgba(0, 0, 0, 0.55);
-  z-index: 2600;
+  z-index: var(--rm-z-sheet);
   display: flex;
   align-items: flex-end;
 }
@@ -618,7 +621,7 @@
   bottom: calc(var(--rm-toast-bottom) + env(safe-area-inset-bottom));
   left: 16px;
   right: 16px;
-  z-index: 3000;
+  z-index: var(--rm-z-toast);
   background: var(--ink-900);
   color: var(--paper-0);
   border: 2px solid var(--ink-900);
@@ -742,7 +745,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 2400;
+  z-index: var(--rm-z-dock);
   background: var(--paper-0);
   border-top: 3px solid var(--ink-900);
   padding: 8px 12px calc(10px + env(safe-area-inset-bottom));
