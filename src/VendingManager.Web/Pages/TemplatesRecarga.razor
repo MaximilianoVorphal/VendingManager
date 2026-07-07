@@ -1278,11 +1278,12 @@
             ActiveMachineIndex = index;
             PeriodoEnEdicionVisual = PeriodosActuales[index];
 
+            // Remember panel state before clearing — so the foto guía panel
+            // stays open across machine switches if it was already open.
+            var wasGuiaVisible = _guiaVisible;
+
             // Clear stale photo state from the previous machine before loading
-            // the new machine's photos. Without this, switching machines leaves
-            // the old machine's photo displayed, causing confusion and making it
-            // appear as though the upload didn't work.
-            CerrarGuiaPanel();
+            // the new machine's photos.
             RevokeFotoGuiaUrl();
             FotoGuiaData = null;
             _fotoOcrUrl = null;
@@ -1292,6 +1293,10 @@
 
             // Load photos for the newly selected machine
             await LoadFotosForPeriodo(PeriodoEnEdicionVisual.Id);
+
+            // Restore the foto guía panel if it was open — the new machine's
+            // photo (or empty state) will render inside it.
+            _guiaVisible = wasGuiaVisible;
 
             StateHasChanged();
         }
