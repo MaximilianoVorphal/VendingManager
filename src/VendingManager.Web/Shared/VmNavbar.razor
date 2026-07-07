@@ -181,13 +181,13 @@
                                            background:@(IsItemActive(item)?"var(--line-200)":"var(--paper-0)");
                                            color:@(disabled ? "var(--ink-500)" : (item.IsPending && !IsItemActive(item) ? "var(--signal-danger)" : "var(--ink-900)"));
                                            cursor:@(disabled?"not-allowed":"pointer");
-                                            opacity:@(disabled?"0.55":"1");">
-                                 @item.Label@(disabled?" ·":"")@if (item.BadgeText != null) { <span class="rm-badge-mobile">@item.BadgeText</span> }
-                             </button>
-                         }
-                     </div>
-                 }
-             </div>
+                                           opacity:@(disabled?"0.55":"1");">
+                                @item.Label@(disabled?" ·":"")@if (item.BadgeText != null) { <span class="rm-badge-mobile">@item.BadgeText</span> }
+                            </button>
+                        }
+                    </div>
+                }
+            </div>
 
             <!-- Operaciones dropdown (mismo patrón) -->
             <div style="position:relative;">
@@ -340,13 +340,13 @@
                                        background:@(IsItemActive(item)?"var(--line-200)":"var(--paper-0)");
                                        color:@(disabled?"var(--ink-500)":"var(--ink-900)");
                                        cursor:@(disabled?"not-allowed":"pointer");
-                                        opacity:@(disabled?"0.55":"1");">
-                             @item.Label@(disabled?" ·":"")@if (item.BadgeText != null) { <span class="rm-badge-mobile">@item.BadgeText</span> }
-                         </button>
-                     }
-                 </div>
-             }
-         </div>
+                                       opacity:@(disabled?"0.55":"1");">
+                            @item.Label@(disabled?" ·":"")@if (item.BadgeText != null) { <span class="rm-badge-mobile">@item.BadgeText</span> }
+                        </button>
+                    }
+                </div>
+            }
+        </div>
 
         <!-- Operaciones dropdown -->
         <div style="position:relative;">
