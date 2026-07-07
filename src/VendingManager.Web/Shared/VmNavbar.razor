@@ -33,13 +33,14 @@
     // Items de navegación. Key se usa para el resaltado activo; Href para navegar.
     // IsPending: true → label en rojo (signal-danger). Indica que la página aún
     //            no fue migrada al diseño industrial v3 (ver docs/design-v3/ARCHIVE.md).
-    record NavItem(string Label, string? Key = null, string? Href = null, bool IsPending = false);
+    record NavItem(string Label, string? Key = null, string? Href = null, bool IsPending = false, string? BadgeText = null);
 
     private static readonly NavItem[] Gestion = [
         new("Informe Ventas", "informe-ventas", "/informe-ventas"),
         new("Análisis Productos", "analisis-productos", "/analisis-productos"),
         new("Quiebres de Stock", "stockout", "/stockout-dashboard"),
         new("Templates Recarga", "recarga", "/templates-recarga"),
+        new("Recarga (Móvil)", "recarga-movil", "/recarga-movil", BadgeText: "MÓVIL"),
         new("Informe Compras", "informe-compras", "/informe-compras"),
         new("Caja", "caja", "/caja"),
         new("Conciliación", "contabilidad", "/contabilidad"),
@@ -180,13 +181,13 @@
                                            background:@(IsItemActive(item)?"var(--line-200)":"var(--paper-0)");
                                            color:@(disabled ? "var(--ink-500)" : (item.IsPending && !IsItemActive(item) ? "var(--signal-danger)" : "var(--ink-900)"));
                                            cursor:@(disabled?"not-allowed":"pointer");
-                                           opacity:@(disabled?"0.55":"1");">
-                                @item.Label@(disabled?" ·":"")
-                            </button>
-                        }
-                    </div>
-                }
-            </div>
+                                            opacity:@(disabled?"0.55":"1");">
+                                 @item.Label@(disabled?" ·":"")@if (item.BadgeText != null) { <span class="rm-badge-mobile">@item.BadgeText</span> }
+                             </button>
+                         }
+                     </div>
+                 }
+             </div>
 
             <!-- Operaciones dropdown (mismo patrón) -->
             <div style="position:relative;">
@@ -339,13 +340,13 @@
                                        background:@(IsItemActive(item)?"var(--line-200)":"var(--paper-0)");
                                        color:@(disabled?"var(--ink-500)":"var(--ink-900)");
                                        cursor:@(disabled?"not-allowed":"pointer");
-                                       opacity:@(disabled?"0.55":"1");">
-                            @item.Label@(disabled?" ·":"")
-                        </button>
-                    }
-                </div>
-            }
-        </div>
+                                        opacity:@(disabled?"0.55":"1");">
+                             @item.Label@(disabled?" ·":"")@if (item.BadgeText != null) { <span class="rm-badge-mobile">@item.BadgeText</span> }
+                         </button>
+                     }
+                 </div>
+             }
+         </div>
 
         <!-- Operaciones dropdown -->
         <div style="position:relative;">
