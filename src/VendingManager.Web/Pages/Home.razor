@@ -268,7 +268,7 @@
     private IEnumerable<VmSelect.VmSelectOption> MaquinaOptions =>
         new[] { new VmSelect.VmSelectOption("0", ":: TODAS LAS UNIDADES ::") }
         .Concat(PdcUnitCatalog.HardcodedUnits
-            .Where(u => u.Status != PdcUnitStatus.All)
+            .Where(u => u.Id != 0)
             .Select(u => new VmSelect.VmSelectOption(u.Id.ToString(), u.Label.ToUpper())));
 
     private async Task CambiarMaquina(string? value)

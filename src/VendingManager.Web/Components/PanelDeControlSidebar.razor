@@ -1,28 +1,47 @@
 @using System.Linq
+@using System.Net.Http.Json
+@using System.Text.Json
+@using VendingManager.Shared.DTOs
 @using VendingManager.Web.Services
+@implements IDisposable
 
 <aside class="pdc-sidebar" aria-label="Unidades">
     <div class="pdc-sidebar__head">UNIDADES</div>
     <ul class="pdc-sidebar__list" role="list">
         @foreach (var item in Units)
         {
+            var status = ResolveStatus(item);
             var active = item.Id == ActiveUnitId;
+            var secondaryText = ResolveSecondaryText(item, status);
             <li class="pdc-unit-item @(active ? "pdc-unit-item--active" : "")">
                 <button type="button" @onclick="() => OnUnitSelected.InvokeAsync(item.Id)">
-                    @if (item.Status == PdcUnitStatus.All) {
+                    @if (status == PdcUnitStatus.All)
+                    {
                         <span class="pdc-unit-item__glyph" aria-hidden="true">◈</span>
                     }
-                    else if (item.Status == PdcUnitStatus.Online) {
+                    else if (status == PdcUnitStatus.Online)
+                    {
                         <span class="pdc-dot pdc-dot--ok" aria-hidden="true"></span>
                     }
-                    else if (item.Status == PdcUnitStatus.StockLow) {
+                    else if (status == PdcUnitStatus.StockLow)
+                    {
                         <span class="pdc-dot pdc-dot--warn" aria-hidden="true"></span>
+                    }
+                    else if (status == PdcUnitStatus.Offline)
+                    {
+                        <span class="pdc-dot pdc-dot--err" aria-hidden="true"></span>
                     }
                     <span class="pdc-unit-item__text">
                         <span class="pdc-unit-item__label">@item.Label</span>
-                        @if (item.Secondary != null)
+                        @if (secondaryText != null)
                         {
-                            <span class="pdc-unit-item__secondary @(item.Status == PdcUnitStatus.StockLow ? "pdc-unit-item__secondary--warn" : "")">@item.Secondary</span>
+                            var secClass = status switch
+                            {
+                                PdcUnitStatus.StockLow => "pdc-unit-item__secondary--warn",
+                                PdcUnitStatus.Offline => "pdc-unit-item__secondary--err",
+                                _ => ""
+                            };
+                            <span class="pdc-unit-item__secondary @secClass">@secondaryText</span>
                         }
                     </span>
                 </button>
@@ -37,5 +56,114 @@
     [Parameter] public int ActiveUnitId { get; set; } = 0;
     [Parameter] public EventCallback<int> OnUnitSelected { get; set; }
 
-    private int activeCount => Units.Count(u => u.Status != PdcUnitStatus.All);
+    /// <summary>
+    /// How often the sidebar refreshes machine online status from the backend.
+    /// Defaults to 5 minutes. Set to <see cref="TimeSpan.Zero"/> to disable the timer
+    /// (the initial fetch on <see cref="OnInitializedAsync"/> still runs).
+    /// </summary>
+    [Parameter] public TimeSpan RefreshInterval { get; set; } = TimeSpan.FromMinutes(5);
+
+    [Inject] private HttpClient? Http { get; set; }
+    [Inject] private ILogger<PanelDeControlSidebar>? Logger { get; set; }
+
+    private IReadOnlyDictionary<string, MachineStatusDto>? _statusByOurVendId;
+    private Timer? _refreshTimer;
+    private CancellationTokenSource? _cts;
+
+    private static readonly JsonSerializerOptions _jsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
+        PropertyNameCaseInsensitive = true,
+    };
+
+    private int activeCount => Units.Count(u => u.Id != 0);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await FetchStatusAsync();
+
+        if (RefreshInterval > TimeSpan.Zero)
+        {
+            _cts = new CancellationTokenSource();
+            var token = _cts.Token;
+            _refreshTimer = new Timer(async _ =>
+            {
+                if (token.IsCancellationRequested) return;
+                try
+                {
+                    await InvokeAsync(async () =>
+                    {
+                        await FetchStatusAsync();
+                        StateHasChanged();
+                    });
+                }
+                catch (Exception ex)
+                {
+                    Logger?.LogWarning(ex, "Sidebar status refresh failed");
+                }
+            }, null, RefreshInterval, RefreshInterval);
+        }
+    }
+
+    private async Task FetchStatusAsync()
+    {
+        if (Http == null) return;
+        try
+        {
+            var response = await Http.GetAsync("api/Ventas/machine-status");
+            if (!response.IsSuccessStatusCode)
+            {
+                Logger?.LogWarning("machine-status returned {Status}", response.StatusCode);
+                _statusByOurVendId = null;
+                return;
+            }
+            var payload = await response.Content.ReadFromJsonAsync<MachineStatusResponse>(_jsonOptions);
+            _statusByOurVendId = payload?.Machines?
+                .Where(m => !string.IsNullOrEmpty(m.MachineId))
+                .ToDictionary(m => m.MachineId, StringComparer.Ordinal)
+                ?? new Dictionary<string, MachineStatusDto>();
+        }
+        catch (Exception ex)
+        {
+            Logger?.LogWarning(ex, "Failed to fetch machine status for sidebar");
+            _statusByOurVendId = null;
+        }
+    }
+
+    private PdcUnitStatus ResolveStatus(PdcUnitItem item)
+    {
+        if (item.Id == 0) return PdcUnitStatus.All;
+        if (string.IsNullOrEmpty(item.OurVendId) || _statusByOurVendId == null)
+            return PdcUnitStatus.Online; // default while data is loading or for unmatched units
+        if (!_statusByOurVendId.TryGetValue(item.OurVendId, out var status))
+            return PdcUnitStatus.Online;
+        return status.Status switch
+        {
+            "online" => PdcUnitStatus.Online,
+            "warning" => PdcUnitStatus.StockLow,
+            "offline" => PdcUnitStatus.Offline,
+            _ => PdcUnitStatus.Online,
+        };
+    }
+
+    private string? ResolveSecondaryText(PdcUnitItem item, PdcUnitStatus status)
+    {
+        if (item.Id == 0) return null;
+        if (string.IsNullOrEmpty(item.OurVendId)) return null;
+        var statusText = status switch
+        {
+            PdcUnitStatus.Online => "Online",
+            PdcUnitStatus.StockLow => "Stock bajo",
+            PdcUnitStatus.Offline => "Sin conexión",
+            _ => "—",
+        };
+        return $"{item.OurVendId} · {statusText}";
+    }
+
+    public void Dispose()
+    {
+        _cts?.Cancel();
+        _refreshTimer?.Dispose();
+        _cts?.Dispose();
+    }
 }

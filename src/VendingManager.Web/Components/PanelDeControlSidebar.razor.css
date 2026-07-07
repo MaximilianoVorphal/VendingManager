@@ -109,6 +109,10 @@
     color: var(--signal-warning);
 }
 
+.pdc-unit-item__secondary--err {
+    color: var(--signal-danger);
+}
+
 .pdc-dot {
     width: 8px;
     height: 8px;
@@ -123,6 +127,10 @@
 
 .pdc-dot--warn {
     background: var(--signal-warning);
+}
+
+.pdc-dot--err {
+    background: var(--signal-danger);
 }
 
 .pdc-sidebar__foot {
