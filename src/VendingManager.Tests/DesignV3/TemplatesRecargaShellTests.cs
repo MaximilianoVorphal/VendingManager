@@ -425,6 +425,7 @@ public class TemplatesRecargaShellTests : TestContext
                                 TemplateRecargaId = 1,
                                 MaquinaId = 1,
                                 MaquinaNombre = "Máquina 001",
+                                IdInternoMaquina = "2410280022",
                                 FechaRecarga = DateTime.Now,
                                 FechaFin = DateTime.Now.AddDays(7),
                                 TieneFotoGuia = false,
@@ -461,6 +462,7 @@ public class TemplatesRecargaShellTests : TestContext
                                 TemplateRecargaId = 2,
                                 MaquinaId = 2,
                                 MaquinaNombre = "Máquina 002",
+                                IdInternoMaquina = "2410280023",
                                 FechaRecarga = DateTime.Now.AddDays(-7),
                                 FechaFin = DateTime.Now,
                                 TieneFotoGuia = false,
@@ -569,18 +571,11 @@ public class TemplatesRecargaShellTests : TestContext
 
         cut.WaitForAssertion(() => cut.Markup.Should().Contain("Template Activo"));
 
-        // The maquina chips in the table must show only the last 4 digits of MaquinaId
-        // Mock data uses MaquinaId=1 and MaquinaId=2 — last 4 of "1" is "1", last 4 of "2" is "2"
-        // We verify the chip content is a 4-digit padded string (or shorter for small IDs)
+        // Machine chips now use ExtractShortCode(machineName, idInternoMaquina).
+        // Mock data: IdInternoMaquina "2410280022" → "0022", "2410280023" → "0023"
         var chips = cut.FindAll(".rec-chips span");
         chips.Should().NotBeEmpty();
-
-        // Each chip must be the last 4 chars of the string representation of MaquinaId
-        foreach (var chip in chips)
-        {
-            var content = chip.TextContent.Trim();
-            content.Should().MatchRegex("^[0-9]{1,4}$");
-        }
+        chips.Select(c => c.TextContent.Trim()).Should().Contain(new[] { "0022", "0023" });
     }
 
     [Fact]
