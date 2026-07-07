@@ -8,34 +8,33 @@
 <aside class="pdc-sidebar" aria-label="Unidades">
     <div class="pdc-sidebar__head">UNIDADES</div>
     <ul class="pdc-sidebar__list" role="list">
-        @foreach (var item in Units)
+        @foreach (var row in _rows)
         {
-            var status = ResolveStatus(item);
-            var active = item.Id == ActiveUnitId;
-            var secondaryText = ResolveSecondaryText(item, status);
+            var active = row.Id == ActiveUnitId;
+            var secondaryText = ResolveSecondaryText(row);
             <li class="pdc-unit-item @(active ? "pdc-unit-item--active" : "")">
-                <button type="button" @onclick="() => OnUnitSelected.InvokeAsync(item.Id)">
-                    @if (status == PdcUnitStatus.All)
+                <button type="button" @onclick="() => OnUnitSelected.InvokeAsync(row.Id)">
+                    @if (row.Status == PdcUnitStatus.All)
                     {
                         <span class="pdc-unit-item__glyph" aria-hidden="true">◈</span>
                     }
-                    else if (status == PdcUnitStatus.Online)
+                    else if (row.Status == PdcUnitStatus.Online)
                     {
                         <span class="pdc-dot pdc-dot--ok" aria-hidden="true"></span>
                     }
-                    else if (status == PdcUnitStatus.StockLow)
+                    else if (row.Status == PdcUnitStatus.StockLow)
                     {
                         <span class="pdc-dot pdc-dot--warn" aria-hidden="true"></span>
                     }
-                    else if (status == PdcUnitStatus.Offline)
+                    else if (row.Status == PdcUnitStatus.Offline)
                     {
                         <span class="pdc-dot pdc-dot--err" aria-hidden="true"></span>
                     }
                     <span class="pdc-unit-item__text">
-                        <span class="pdc-unit-item__label">@item.Label</span>
+                        <span class="pdc-unit-item__label">@row.Label</span>
                         @if (secondaryText != null)
                         {
-                            var secClass = status switch
+                            var secClass = row.Status switch
                             {
                                 PdcUnitStatus.StockLow => "pdc-unit-item__secondary--warn",
                                 PdcUnitStatus.Offline => "pdc-unit-item__secondary--err",
@@ -52,8 +51,10 @@
 </aside>
 
 @code {
-    [Parameter] public IReadOnlyList<PdcUnitItem> Units { get; set; } = PdcUnitCatalog.HardcodedUnits;
+    /// <summary>Currently selected unit id (matches the id emitted in <see cref="OnUnitSelected"/>).</summary>
     [Parameter] public int ActiveUnitId { get; set; } = 0;
+
+    /// <summary>Fired when the user clicks a unit row. The int is the row's id (0 for "Todas", 1..N for machines).</summary>
     [Parameter] public EventCallback<int> OnUnitSelected { get; set; }
 
     /// <summary>
@@ -67,21 +68,23 @@
     [Inject] private HttpClient? Http { get; set; }
     [Inject] private ILogger<PanelDeControlSidebar>? Logger { get; set; }
 
-    private IReadOnlyDictionary<string, MachineStatusDto>? _statusByOurVendId;
+    private IReadOnlyList<Row> _rows = Array.Empty<Row>();
     private Timer? _refreshTimer;
     private CancellationTokenSource? _cts;
 
     private static readonly JsonSerializerOptions _jsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
-        PropertyNameCaseInsensitive = true,
     };
 
-    private int activeCount => Units.Count(u => u.Id != 0);
+    /// <summary>Internal row model: an id, a display label, the OURVEND machine id (for the secondary text), and the resolved status.</summary>
+    private record Row(int Id, string Label, string? MachineId, PdcUnitStatus Status);
+
+    private int activeCount => _rows.Count(r => r.Id != 0);
 
     protected override async Task OnInitializedAsync()
     {
-        await FetchStatusAsync();
+        await FetchAsync();
 
         if (RefreshInterval > TimeSpan.Zero)
         {
@@ -94,7 +97,7 @@
                 {
                     await InvokeAsync(async () =>
                     {
-                        await FetchStatusAsync();
+                        await FetchAsync();
                         StateHasChanged();
                     });
                 }
@@ -106,59 +109,65 @@
         }
     }
 
-    private async Task FetchStatusAsync()
+    private async Task FetchAsync()
     {
         if (Http == null) return;
+        var machines = new List<MachineStatusDto>();
         try
         {
             var response = await Http.GetAsync("api/Ventas/machine-status");
-            if (!response.IsSuccessStatusCode)
+            if (response.IsSuccessStatusCode)
+            {
+                var payload = await response.Content.ReadFromJsonAsync<MachineStatusResponse>(_jsonOptions);
+                if (payload?.Machines != null) machines = payload.Machines;
+            }
+            else
             {
                 Logger?.LogWarning("machine-status returned {Status}", response.StatusCode);
-                _statusByOurVendId = null;
-                return;
             }
-            var payload = await response.Content.ReadFromJsonAsync<MachineStatusResponse>(_jsonOptions);
-            _statusByOurVendId = payload?.Machines?
-                .Where(m => !string.IsNullOrEmpty(m.MachineId))
-                .ToDictionary(m => m.MachineId, StringComparer.Ordinal)
-                ?? new Dictionary<string, MachineStatusDto>();
         }
         catch (Exception ex)
         {
             Logger?.LogWarning(ex, "Failed to fetch machine status for sidebar");
-            _statusByOurVendId = null;
         }
-    }
 
-    private PdcUnitStatus ResolveStatus(PdcUnitItem item)
-    {
-        if (item.Id == 0) return PdcUnitStatus.All;
-        if (string.IsNullOrEmpty(item.OurVendId) || _statusByOurVendId == null)
-            return PdcUnitStatus.Online; // default while data is loading or for unmatched units
-        if (!_statusByOurVendId.TryGetValue(item.OurVendId, out var status))
-            return PdcUnitStatus.Online;
-        return status.Status switch
+        // "Todas" is always shown — even if the API failed, the operator still needs a way to clear the unit filter.
+        var list = new List<Row>(capacity: machines.Count + 1)
         {
-            "online" => PdcUnitStatus.Online,
-            "warning" => PdcUnitStatus.StockLow,
-            "offline" => PdcUnitStatus.Offline,
-            _ => PdcUnitStatus.Online,
+            new(0, "Todas", null, PdcUnitStatus.All),
         };
+        int id = 1;
+        foreach (var m in machines)
+        {
+            list.Add(new Row(
+                Id: id++,
+                Label: string.IsNullOrWhiteSpace(m.Name) ? m.MachineId : m.Name,
+                MachineId: string.IsNullOrWhiteSpace(m.MachineId) ? null : m.MachineId,
+                Status: MapStatus(m.Status)));
+        }
+        _rows = list;
     }
 
-    private string? ResolveSecondaryText(PdcUnitItem item, PdcUnitStatus status)
+    private static PdcUnitStatus MapStatus(string? status) => status switch
     {
-        if (item.Id == 0) return null;
-        if (string.IsNullOrEmpty(item.OurVendId)) return null;
-        var statusText = status switch
+        "online" => PdcUnitStatus.Online,
+        "warning" => PdcUnitStatus.StockLow,
+        "offline" => PdcUnitStatus.Offline,
+        _ => PdcUnitStatus.Online, // default for unknown / loading
+    };
+
+    private static string? ResolveSecondaryText(Row row)
+    {
+        if (row.Status == PdcUnitStatus.All) return null;
+        if (string.IsNullOrEmpty(row.MachineId)) return null;
+        var statusText = row.Status switch
         {
             PdcUnitStatus.Online => "Online",
             PdcUnitStatus.StockLow => "Stock bajo",
             PdcUnitStatus.Offline => "Sin conexión",
             _ => "—",
         };
-        return $"{item.OurVendId} · {statusText}";
+        return $"{row.MachineId} · {statusText}";
     }
 
     public void Dispose()
