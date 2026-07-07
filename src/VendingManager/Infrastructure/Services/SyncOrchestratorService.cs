@@ -45,10 +45,13 @@ namespace VendingManager.Infrastructure.Services
                 }
 
                 Console.WriteLine($"[Sync] Solicitando reporte (ALT) para fechas: {startDate:yyyy-MM-dd} a {endDate:yyyy-MM-dd}");
-                Console.WriteLine($"[Sync] >>> SCRAPER REQUEST: machineId='{targetMachineId}', start='{startDate:yyyy-MM-dd}', end='{endDate:yyyy-MM-dd}'");
+                Console.WriteLine($"[Sync] >>> SCRAPER REQUEST: machineId='{targetMachineId}', start='{startDate:yyyy-MM-dd}', end='{endDate.AddDays(1):yyyy-MM-dd}' (fechaLimite usuario + 1 día por desfase 12h TZ máquina↔Chile)");
 
                 // 2. Llamar al Scraper ALT
-                var result = await scraperClient.DownloadReportAsync(targetMachineId, startDate, endDate);
+                // Se le suma 1 día al endDate porque la hora de la máquina está 12h adelantada
+                // respecto a la hora servidor/Chile: ventas del día X (hora máquina) caen como día X+1
+                // en la Ourvend, por lo que el scraper debe consultar hasta fechaLimite+1 para incluirlas.
+                var result = await scraperClient.DownloadReportAsync(targetMachineId, startDate, endDate.AddDays(1));
 
                 // 3. Procesar el Stream
                 Console.WriteLine($"[Sync] Respuesta recibida. Procesando stream...");

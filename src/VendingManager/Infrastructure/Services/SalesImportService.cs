@@ -150,7 +150,7 @@ namespace VendingManager.Infrastructure.Services
 
                         DateTime fechaLocal = fecha.AddHours(offset);
 
-                        if (fechaLimite.HasValue && fechaLocal.Date > fechaLimite.Value.Date.AddDays(1))
+                        if (fechaLimite.HasValue && fechaLocal.Date > fechaLimite.Value.Date)
                         {
                             ignoradosPorFecha++;
                             continue;
