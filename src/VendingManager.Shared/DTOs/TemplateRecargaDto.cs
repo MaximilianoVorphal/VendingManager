@@ -41,6 +41,7 @@ public class PeriodoRecargaDto
     public int Id { get; set; }
     public int MaquinaId { get; set; }
     public string MaquinaNombre { get; set; } = string.Empty;
+    public string IdInternoMaquina { get; set; } = string.Empty;
     public DateTime FechaRecarga { get; set; }
     public DateTime FechaFin { get; set; }
 
