@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Threading.Tasks;
 using VendingManager.Core.Interfaces;
+using VendingManager.Shared.DTOs;
 
 namespace VendingManager.Infrastructure.Services
 {
@@ -69,6 +70,52 @@ namespace VendingManager.Infrastructure.Services
             {
                 Console.WriteLine($"[Sync] Error Crítico: {ex.Message}");
                 return $"Error ALT: {ex.Message}";
+            }
+        }
+
+        public async Task<string> SincronizarDesdePortalApi(int maquinaId, DateTime? fechaLimite = null)
+        {
+            try
+            {
+                var today = DateTime.Now;
+                var startDate = new DateTime(today.Year, today.Month, 1);
+                var endDate = today;
+
+                if (fechaLimite.HasValue)
+                {
+                    var fl = fechaLimite.Value;
+                    if (fl.TimeOfDay == TimeSpan.Zero)
+                    {
+                        fl = fl.Date.AddDays(1).AddTicks(-1);
+                        fechaLimite = fl;
+                    }
+                    startDate = new DateTime(fl.Year, fl.Month, 1);
+                    endDate = fl;
+                }
+
+                if ((endDate - startDate).TotalDays > 32)
+                {
+                    startDate = endDate.AddDays(-32);
+                }
+
+                // Add 1 day to endDate to account for TZ offset (same as existing code)
+                var apiEndDate = endDate.AddDays(1);
+
+                Console.WriteLine($"[SyncAPI] Solicitando reporte via API: {startDate:yyyy-MM-dd} a {apiEndDate:yyyy-MM-dd}");
+
+                var report = await scraperClient.GetSalesReportAsync(startDate, apiEndDate, "");
+
+                Console.WriteLine($"[SyncAPI] Recibidas {report.Total} filas. Procesando...");
+
+                string stats = await salesImportService.ImportarVentasDesdeJson(report.Rows, fechaLimite, "");
+
+                Console.WriteLine($"[SyncAPI] {stats}");
+                return $"Sincronización API Exitosa. {stats}";
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[SyncAPI] Error: {ex.Message}");
+                return $"Error API: {ex.Message}";
             }
         }
     }

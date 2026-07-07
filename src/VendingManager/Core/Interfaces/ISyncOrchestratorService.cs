@@ -10,5 +10,10 @@ namespace VendingManager.Core.Interfaces
         /// (inglés, todas las máquinas, orden corregido).
         /// </summary>
         Task<string> SincronizarDesdePortal(int maquinaId, DateTime? fechaLimite = null);
+
+        /// <summary>
+        /// Sincroniza ventas desde Ourvend via API pura (JSON, sin Playwright).
+        /// </summary>
+        Task<string> SincronizarDesdePortalApi(int maquinaId, DateTime? fechaLimite = null);
     }
 }

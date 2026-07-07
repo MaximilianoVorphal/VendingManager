@@ -11,6 +11,7 @@ using VendingManager.Core.Configuration;
 using VendingManager.Infrastructure.Data;
 using VendingManager.Core.Interfaces;
 using VendingManager.Core.Entities;
+using VendingManager.Shared.DTOs;
 
 namespace VendingManager.Infrastructure.Services
 {
@@ -70,120 +71,21 @@ namespace VendingManager.Infrastructure.Services
                             continue;
                         }
 
-                        if (!string.IsNullOrEmpty(maquinaIdEsperado) && machineId.Trim() != maquinaIdEsperado.Trim())
-                        {
-                            filtradosPorID++;
-                            continue;
-                        }
-
-                        var maquina = await _context.Maquinas
-                            .Include(m => m.Slots)
-                            .ThenInclude(s => s.Producto)
-                            .FirstOrDefaultAsync(m => m.IdInternoMaquina == machineId);
-
-                        if (maquina == null)
-                        {
-                            maquinaNoEncontrada++;
-                            if (maquinaNoEncontrada <= 5)
-                            {
-                                Console.WriteLine($"   ⚠️ Máquina NO encontrada en BD: '{machineId}'");
-                            }
-                            continue;
-                        }
-
                         decimal.TryParse(row[colPrecio]?.ToString(), out decimal precio);
                         string slot = row[colSlot]?.ToString()?.Trim() ?? "";
-                        DateTime.TryParse(row[colTiempo]?.ToString(), out DateTime fecha);
-
-                        bool usandingServerTime = false;
-                        if (fecha.Year < 2024 && colServerTime != -1)
-                        {
-                            if (DateTime.TryParse(row[colServerTime]?.ToString(), out DateTime fechaServer))
-                            {
-                                fecha = fechaServer;
-                                usandingServerTime = true;
-                            }
-                        }
-
+                        string fechaStr = row[colTiempo]?.ToString() ?? "";
+                        string serverTimeStr = colServerTime != -1 ? row[colServerTime]?.ToString() ?? "" : "";
                         string orderNumber = colOrden != -1 ? row[colOrden]?.ToString() ?? "" : "";
 
-                        if (orderNumber.Contains("E+") && double.TryParse(orderNumber, out double dOrder))
-                        {
-                            orderNumber = dOrder.ToString("F0");
-                        }
+                        var (guardado, duplicado, fueraRango, noEncontrada, filtrado) = await ProcesarFilaVenta(
+                            machineId, slot, precio, fechaStr, serverTimeStr,
+                            orderNumber, fechaLimite, maquinaIdEsperado);
 
-                        bool esDuplicado = false;
-
-                        if (!string.IsNullOrEmpty(orderNumber) && orderNumber != "0")
-                        {
-                            esDuplicado = await _context.Ventas.AnyAsync(v =>
-                                v.IdOrdenMaquina == orderNumber &&
-                                v.MaquinaId == maquina.Id &&
-                                v.FechaHora >= fecha.AddHours(-24) && 
-                                v.FechaHora <= fecha.AddHours(24)
-                            );
-                        }
-                        else
-                        {
-                            esDuplicado = await _context.Ventas.AnyAsync(v =>
-                                v.MaquinaId == maquina.Id &&
-                                v.FechaHora == fecha &&
-                                v.NumeroSlot == slot &&
-                                v.PrecioVenta == precio);
-                        }
-
-                        if (esDuplicado)
-                        {
-                            duplicados++;
-                            continue;
-                        }
-
-                        int offset;
-                        if (usandingServerTime) 
-                        {
-                            offset = -14; 
-                        }
-                        else 
-                        {
-                            offset = machineId.Trim() == "2410280012" ? 1 : -11;
-                        }
-
-                        DateTime fechaLocal = fecha.AddHours(offset);
-
-                        if (fechaLimite.HasValue && fechaLocal.Date > fechaLimite.Value.Date)
-                        {
-                            ignoradosPorFecha++;
-                            continue;
-                        }
-
-                        var configSlot = maquina.Slots.FirstOrDefault(s => s.NumeroSlot == slot);
-
-                        if (fechaLocal.Date < _config.Value.CajaStartDate)
-                        {
-                            configSlot = null;
-                        }
-
-                        int? prodId = configSlot?.ProductoId;
-                        decimal cost = configSlot?.Producto?.CostoPromedio ?? 0;
-
-                        if (configSlot != null)
-                        {
-                            configSlot.StockActual--;
-                        }
-
-                        _context.Ventas.Add(new Venta
-                        {
-                            FechaHora = fecha,
-                            FechaLocal = fechaLocal,
-                            PrecioVenta = precio,
-                            NumeroSlot = slot,
-                            IdOrdenMaquina = orderNumber,
-                            MaquinaId = maquina.Id,
-                            ProductoId = prodId,
-                            CostoVenta = cost,
-                            Pagado = false
-                        });
-                        guardados++;
+                        if (guardado) guardados++;
+                        if (duplicado) duplicados++;
+                        if (fueraRango) ignoradosPorFecha++;
+                        if (noEncontrada) maquinaNoEncontrada++;
+                        if (filtrado) filtradosPorID++;
                     }
 
                     await _context.SaveChangesAsync();
@@ -197,6 +99,151 @@ namespace VendingManager.Infrastructure.Services
                 Console.WriteLine($"❌ ERROR MÁQUINA: {ex.Message}");
                 return $"Error: {ex.Message}";
             }
+        }
+
+        public async Task<string> ImportarVentasDesdeJson(List<SalesReportRowDto> rows, DateTime? fechaLimite = null, string? maquinaIdEsperado = null)
+        {
+            int guardados = 0, duplicados = 0, maquinaNoEncontrada = 0, ignoradosPorFecha = 0, filtradosPorID = 0;
+
+            foreach (var row in rows)
+            {
+                var (guardado, duplicado, fueraRango, noEncontrada, filtrado) = await ProcesarFilaVenta(
+                    row.MachineId, row.Slot, row.Price, row.MachineTime, row.ServerTime,
+                    row.TrSerialNumber, fechaLimite, maquinaIdEsperado);
+
+                if (guardado) guardados++;
+                if (duplicado) duplicados++;
+                if (fueraRango) ignoradosPorFecha++;
+                if (noEncontrada) maquinaNoEncontrada++;
+                if (filtrado) filtradosPorID++;
+            }
+
+            await _context.SaveChangesAsync();
+            string stats = $"PROCESADO_API: {guardados} nuevas | {duplicados} dupl | {ignoradosPorFecha} fuera_rango | {filtradosPorID} FILTRADOS_ID | {maquinaNoEncontrada} sin_maq";
+            Console.WriteLine($"✅ API: {stats}");
+            return stats;
+        }
+
+        /// <summary>
+        /// Procesa una fila individual de venta (aplica offsets horarios, deduplicación,
+        /// actualización de stock, etc.). Llamado tanto desde ImportarVentasMaquina (Excel)
+        /// como desde ImportarVentasDesdeJson (API).
+        /// </summary>
+        private async Task<(bool guardado, bool duplicado, bool fueraRango, bool maquinaNoEncontrada, bool filtrado)> ProcesarFilaVenta(
+            string machineId, string slot, decimal precio, string fechaStr, string serverTimeStr,
+            string orderNumber, DateTime? fechaLimite, string? maquinaIdEsperado)
+        {
+            // 1. Validate machineId not empty
+            if (string.IsNullOrEmpty(machineId))
+                return (false, false, false, true, false);
+
+            // 2. Check maquinaIdEsperado filter
+            if (!string.IsNullOrEmpty(maquinaIdEsperado) && machineId.Trim() != maquinaIdEsperado.Trim())
+                return (false, false, false, false, true);
+
+            // 3. Look up maquina in DB with Slots/Producto
+            var maquina = await _context.Maquinas
+                .Include(m => m.Slots)
+                .ThenInclude(s => s.Producto)
+                .FirstOrDefaultAsync(m => m.IdInternoMaquina == machineId);
+
+            if (maquina == null)
+            {
+                Console.WriteLine($"   ⚠️ Máquina NO encontrada en BD: '{machineId}'");
+                return (false, false, false, true, false);
+            }
+
+            // 4. Parse fecha (machine time), fallback to server time if year < 2024
+            DateTime.TryParse(fechaStr, out DateTime fecha);
+            bool usandingServerTime = false;
+
+            if (fecha.Year < 2024 && !string.IsNullOrEmpty(serverTimeStr))
+            {
+                if (DateTime.TryParse(serverTimeStr, out DateTime fechaServer))
+                {
+                    fecha = fechaServer;
+                    usandingServerTime = true;
+                }
+            }
+
+            // Handle scientific notation in orderNumber
+            string orderNum = orderNumber;
+            if (orderNum.Contains("E+") && double.TryParse(orderNum, out double dOrder))
+            {
+                orderNum = dOrder.ToString("F0");
+            }
+
+            // 5. Check duplicates by orderNumber or fecha+slot+precio
+            bool esDuplicado = false;
+
+            if (!string.IsNullOrEmpty(orderNum) && orderNum != "0")
+            {
+                esDuplicado = await _context.Ventas.AnyAsync(v =>
+                    v.IdOrdenMaquina == orderNum &&
+                    v.MaquinaId == maquina.Id &&
+                    v.FechaHora >= fecha.AddHours(-24) &&
+                    v.FechaHora <= fecha.AddHours(24)
+                );
+            }
+            else
+            {
+                esDuplicado = await _context.Ventas.AnyAsync(v =>
+                    v.MaquinaId == maquina.Id &&
+                    v.FechaHora == fecha &&
+                    v.NumeroSlot == slot &&
+                    v.PrecioVenta == precio);
+            }
+
+            if (esDuplicado)
+                return (false, true, false, false, false);
+
+            // 6. Apply timezone offset
+            int offset;
+            if (usandingServerTime)
+            {
+                offset = -14;
+            }
+            else
+            {
+                offset = machineId.Trim() == "2410280012" ? 1 : -11;
+            }
+
+            DateTime fechaLocal = fecha.AddHours(offset);
+
+            // 7. Check fechaLimite
+            if (fechaLimite.HasValue && fechaLocal.Date > fechaLimite.Value.Date)
+                return (false, false, true, false, false);
+
+            // 8. Find config slot and create Venta entity
+            var configSlot = maquina.Slots.FirstOrDefault(s => s.NumeroSlot == slot);
+
+            if (fechaLocal.Date < _config.Value.CajaStartDate)
+            {
+                configSlot = null;
+            }
+
+            int? prodId = configSlot?.ProductoId;
+            decimal cost = configSlot?.Producto?.CostoPromedio ?? 0;
+
+            if (configSlot != null)
+            {
+                configSlot.StockActual--;
+            }
+
+            _context.Ventas.Add(new Venta
+            {
+                FechaHora = fecha,
+                FechaLocal = fechaLocal,
+                PrecioVenta = precio,
+                NumeroSlot = slot,
+                IdOrdenMaquina = orderNum,
+                MaquinaId = maquina.Id,
+                ProductoId = prodId,
+                CostoVenta = cost,
+                Pagado = false
+            });
+
+            return (true, false, false, false, false);
         }
 
         public async Task ImportarTransbank(Stream fileStream, string nombreArchivo, DateTime? fechaLimite = null)

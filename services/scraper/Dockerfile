@@ -5,13 +5,16 @@ WORKDIR /app
 
 # Layer 1: Dependencias base — cambia solo cuando actualizás pip packages
 # Esto mantiene cacheados Chromium y las libs aunque cambie el código
+# Capa de dependencias — cambiada para incluir requests + cryptography
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir playwright fastapi uvicorn google-genai python-multipart pillow && \
+    pip install --no-cache-dir playwright fastapi uvicorn google-genai python-multipart pillow requests cryptography && \
     playwright install chromium
 
 # Layer 2: Código — se invalida solo cuando tocás los scripts
 COPY download_ourvend_report_alt.py .
 COPY scraper_api.py .
+COPY machine_status.py .
+COPY report_sales_api.py .
 COPY gemini_ocr.py .
 
 # Crear directorio de descargas

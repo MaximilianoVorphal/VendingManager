@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using System.Net.Http;
 using VendingManager.Core.Entities;
 using VendingManager.Core.Interfaces;
 using VendingManager.Infrastructure.Services;
@@ -16,7 +17,8 @@ namespace VendingManager.Controllers
         IPurchasingService purchasingService,
         ISalesImportService salesImportService,
         IAuditService auditService,
-        LastSyncTracker lastSyncTracker) : ControllerBase
+        LastSyncTracker lastSyncTracker,
+        IScraperClient scraperClient) : ControllerBase
     {
         [HttpGet("last-sync")]
         public IActionResult GetLastSync()
@@ -117,6 +119,24 @@ namespace VendingManager.Controllers
             return await salesAnalyticsService.GetDashboardStatsAsync(maquinaId);
         }
 
+        [HttpGet("machine-status")]
+        public async Task<ActionResult<MachineStatusResponse>> GetMachineStatus()
+        {
+            try
+            {
+                var status = await scraperClient.GetMachineStatusAsync();
+                return Ok(status);
+            }
+            catch (HttpRequestException ex)
+            {
+                return StatusCode(502, $"Scraper no disponible: {ex.Message}");
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Error interno: {ex.Message}");
+            }
+        }
+
         [HttpGet("stock-critico")]
         public async Task<ActionResult<List<StockCriticoDto>>> GetStockCritico(int maquinaId = 0)
         {
@@ -159,6 +179,16 @@ namespace VendingManager.Controllers
             var resultado = await syncService.SincronizarDesdePortal(maquinaId, fechaLimite);
             if (resultado.StartsWith("Error")) return BadRequest(resultado);
             await auditService.RegistrarAccionAsync(User.Identity?.Name ?? "Desconocido", "Sincronizar Portal", $"Sincronización manual máquina {maquinaId}. Fecha límite: {(fechaLimite?.ToString("dd/MM/yyyy HH:mm") ?? "Sin límite")}. Resultado: {resultado}");
+            lastSyncTracker.SetLastSync(DateTime.Now);
+            return Ok(resultado);
+        }
+
+        [HttpPost("sync-portal-api")]
+        public async Task<IActionResult> SincronizarPortalApi([FromQuery] int maquinaId, [FromQuery] DateTime? fechaLimite = null)
+        {
+            var resultado = await syncService.SincronizarDesdePortalApi(maquinaId, fechaLimite);
+            if (resultado.StartsWith("Error")) return BadRequest(resultado);
+            await auditService.RegistrarAccionAsync(User.Identity?.Name ?? "Desconocido", "Sincronizar Portal (API)", $"Sincronización API máquina {maquinaId}. Resultado: {resultado}");
             lastSyncTracker.SetLastSync(DateTime.Now);
             return Ok(resultado);
         }
