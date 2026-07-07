@@ -1,0 +1,1029 @@
+/* =========================================================================
+   vm-recarga-movil.css — Capa de CLASES para la pantalla "Recarga Móvil"
+   -------------------------------------------------------------------------
+   POR QUÉ EXISTE ESTE ARCHIVO
+   La pantalla /recarga-movil es un layout mobile-first (375-520px viewport)
+   con 4 vistas (Lista, Resumen, Elegir máquina, Editar slots) que comparten
+   cards, bottom sheets, dock, scan animación, toast — NINGUNO tiene
+   componente Vm* reutilizable. Si esos se re-tipean "a ojo" en cada vista
+   → DRIFT (espaciados incorrectos, animaciones fuera de sync).
+
+   Esta hoja es la ÚNICA fuente de verdad de esa geometría. Aplicás la clase
+   rm-* y obtenés el valor exacto del diseño. No vuelvas a escribir estos
+   valores inline.
+
+   CONVENCIÓN DE VALORES
+   - Colores/tipos/bordes siempre vía tokens del sistema (--ink-900,
+     --font-mono, --border-2, --signal-success, --fill-good…), definidos en
+     tokens/colors.css, tokens/typography.css, tokens/spacing.css.
+   - Valores fuera de la escala de tokens (52px, 44px, 200px, 132px…)
+     declarados como --rm-* variables abajo: son intencionales, no mágicos.
+   - Cada --rm-* variable lleva un comentario de fuente del diseño.
+   ========================================================================= */
+
+:root {
+  /* ---- rm-* layout constants (non-token values from .dc.html) ---- */
+  --rm-view-max:          520px;    /* Source: .dc.html line 34, max-width del contenedor */
+  --rm-bottombar-h:       52px;     /* Source: .dc.html line 78, sticky bottom CTA height */
+  --rm-hit-min:           44px;     /* Source: iOS HIG, min tap target */
+  --rm-header-pad:        12px 16px 14px;  /* Source: .dc.html line 42, Lista dark header */
+  --rm-bar-pad:           10px 12px;       /* Source: .dc.html line 87, overview/editor bar */
+  --rm-scroll-pad:        12px 16px 96px;  /* Source: .dc.html line 47, scroll area padding bottom */
+  --rm-card-pad:          14px;     /* Source: .dc.html line 49, card inner padding */
+  --rm-card-gap:          10px;     /* Source: .dc.html line 49, card flex gap */
+  --rm-sheet-handle-w:    42px;     /* Source: .dc.html line 322, sheet handle width */
+  --rm-sheet-handle-h:    4px;      /* Source: .dc.html line 322, sheet handle height */
+  --rm-iconbtn-w:         44px;     /* Source: .dc.html line 88, back button / calendar */
+  --rm-iconbtn-w-scan:    48px;     /* Source: .dc.html line 190, scan icon button */
+  --rm-iconbtn-h-scan:    46px;     /* Source: design .dc.html — scan button is 48×46 (slightly shorter than wide to fit the search row) */
+  --rm-stepper-w:         64px;     /* Source: .dc.html line 305, stepper −/+ width */
+  --rm-stepper-h:         56px;     /* Source: .dc.html line 305, stepper −/+ height */
+  --rm-max-btn-w:         60px;     /* Source: .dc.html line 311, "Máx" button width */
+  --rm-scan-box-w:        200px;    /* Source: .dc.html line 179, scan box width */
+  --rm-scan-box-h:        140px;    /* Source: .dc.html line 179, scan box height */
+  --rm-scan-line-top:     4px;      /* Source: .dc.html line 181, scan line start top */
+  --rm-scan-line-end:     132px;    /* Source: .dc.html line 20, scan line end top */
+  --rm-toast-bottom:      84px;     /* Source: .dc.html line 430, toast offset from bottom */
+  --rm-tag-pad:          3px 8px;  /* Source: .dc.html line 55, estado badge padding */
+  --rm-tag-font:         0.56rem;  /* Source: .dc.html line 55, estado badge font size */
+  --rm-vacios-badge-pad:  2px 7px;  /* Source: .dc.html line 282, vacíos count badge padding */
+  --rm-vacios-badge-font: 0.58rem;  /* Source: .dc.html line 282, vacíos count badge font size */
+  --rm-empty-pad:         48px 20px; /* Source: .dc.html line 73, empty state padding */
+  --rm-z-dock:            2400;      /* Source: stacking order invariant — dock < sheet < toast */
+  --rm-z-sheet:           2600;
+  --rm-z-toast:           3000;
+}
+
+/* =========================================================================
+   1.  ANIMATION KEYFRAMES
+       Source: .dc.html lines 19-22 (verbatim from design)
+   ========================================================================= */
+@keyframes rmBlink {
+  50% { opacity: 0; }
+}
+@keyframes rmScan {
+  0%   { top: var(--rm-scan-line-top); }
+  100% { top: var(--rm-scan-line-end); }
+}
+@keyframes rmSheet {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+@keyframes rmToast {
+  from { transform: translateY(10px); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+
+/* =========================================================================
+   2.  VIEW SCAFFOLD — contenedores de página mobile (max-width: 520px)
+       Source: .dc.html line 34
+   ========================================================================= */
+
+/* Raíz: viewport-height, centrado, max-width 520px, side borders */
+.rm-view {
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-canvas);
+  font-family: var(--font-sans);
+  overflow: hidden;
+  max-width: var(--rm-view-max);
+  margin: 0 auto;
+  position: relative;
+  border-left: 1px solid var(--line-200);
+  border-right: 1px solid var(--line-200);
+}
+
+/* Área scrolleable interior (rellena el espacio entre header y bottom bar) */
+.rm-view__scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: var(--rm-scroll-pad);
+  display: flex;
+  flex-direction: column;
+  gap: var(--rm-card-gap);
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Bottom bar fija (sticky) — "Nueva carga", "Finalizar carga", dock */
+.rm-view__bottombar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--paper-0);
+  border-top: 3px solid var(--ink-900);
+  padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+}
+
+/* =========================================================================
+   3.  HEADERS
+       Source: .dc.html lines 42-44 (dark), lines 87-93 (bar)
+   ========================================================================= */
+
+/* Dark header (Lista): fondo negro, título blanco + cursor */
+.rm-head--dark {
+  flex-shrink: 0;
+  background: var(--ink-900);
+  color: var(--paper-0);
+  padding: var(--rm-header-pad);
+}
+
+/* Light header bar (Overview, Pick, Editor): back + title + actions */
+.rm-head--bar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: var(--rm-bar-pad);
+  border-bottom: 3px solid var(--ink-900);
+  background: var(--paper-0);
+}
+
+/* Eyebrow label inside headers (mono, uppercase, muted) */
+.rm-eyebrow {
+  display: block;
+  font-family: var(--font-mono);
+  font-weight: var(--fw-bold);
+  font-size: 0.6rem;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  opacity: 0.75;
+}
+
+.rm-eyebrow--muted {
+  color: var(--text-muted);
+  opacity: 1;
+}
+
+/* Title inside headers (mono, uppercase, bold) */
+.rm-title {
+  margin: 6px 0 0;
+  font-family: var(--font-mono);
+  font-weight: var(--fw-bold);
+  text-transform: uppercase;
+  letter-spacing: -0.5px;
+  font-size: 1.2rem;
+  line-height: 1.1;
+}
+
+.rm-title--bar {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-weight: var(--fw-bold);
+  text-transform: uppercase;
+  font-size: 0.98rem;
+  letter-spacing: -0.3px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* =========================================================================
+   4.  CARD — template/machine card en lista y resumen
+       Source: .dc.html lines 49-70
+   ========================================================================= */
+.rm-card {
+  text-align: left;
+  width: 100%;
+  border: 2px solid var(--ink-900);
+  background: var(--paper-0);
+  padding: var(--rm-card-pad);
+  display: flex;
+  flex-direction: column;
+  gap: var(--rm-card-gap);
+  cursor: pointer;
+  border-radius: 0;
+  transition: transform .1s;
+}
+.rm-card:active {
+  transform: scale(.985);
+}
+
+/* Card header row: name + status badge */
+.rm-card__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--rm-card-gap);
+}
+
+/* Card name (mono, bold, uppercase) */
+.rm-card__name {
+  font-family: var(--font-mono);
+  font-weight: var(--fw-bold);
+  text-transform: uppercase;
+  font-size: 0.92rem;
+  display: block;
+  line-height: 1.2;
+  min-width: 0;
+}
+
+/* Card subtitle (sans, muted) */
+.rm-card__sub {
+  font-family: var(--font-sans);
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+/* Card footer: date + machine chips */
+.rm-card__foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* =========================================================================
+   5.  SHEET — bottom sheet overlay + panel
+       Source: .dc.html lines 319-366
+   ========================================================================= */
+
+/* Full-screen backdrop (dark translucent) */
+.rm-sheet__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: var(--rm-z-sheet);
+  display: flex;
+  align-items: flex-end;
+}
+
+/* Slide-up panel */
+.rm-sheet__panel {
+  width: 100%;
+  background: var(--paper-0);
+  border-top: 3px solid var(--ink-900);
+  animation: rmSheet .22s ease-out;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Drag handle bar at top of sheet */
+.rm-sheet__handle {
+  display: flex;
+  justify-content: center;
+  padding: 9px 0 4px;
+}
+.rm-sheet__handle::after {
+  content: '';
+  display: block;
+  width: var(--rm-sheet-handle-w);
+  height: var(--rm-sheet-handle-h);
+  background: var(--line-200);
+  border-radius: 2px;
+}
+
+/* Sheet header */
+.rm-sheet__head {
+  padding: 2px 16px 10px;
+  font-family: var(--font-mono);
+  font-weight: var(--fw-bold);
+  text-transform: uppercase;
+  font-size: 0.8rem;
+  letter-spacing: 0.5px;
+}
+
+/* =========================================================================
+   6.  LIST ROW — single row with icon box + chevron
+       Source: .dc.html lines 194-198
+   ========================================================================= */
+.rm-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  border: 2px solid var(--ink-900);
+  background: var(--paper-0);
+  padding: var(--rm-card-pad);
+  cursor: pointer;
+  border-radius: 0;
+  min-height: var(--rm-hit-min);
+}
+
+/* Icon box (square, mono icon) */
+.rm-row__iconbox {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border: 2px solid var(--ink-900);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+}
+
+/* Row label (mono, bold) */
+.rm-row__label {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-weight: var(--fw-bold);
+  font-size: 0.92rem;
+  letter-spacing: 0.5px;
+}
+
+/* Chevron right indicator */
+.rm-row__chev {
+  color: var(--ink-500);
+  flex-shrink: 0;
+}
+
+/* =========================================================================
+   7.  STAT ROW — 50/50 split stats (Resumen)
+       Source: .dc.html lines 113-122
+   ========================================================================= */
+.rm-stats {
+  display: flex;
+  border: 2px solid var(--ink-900);
+  background: var(--paper-50);
+}
+
+.rm-stats__cell {
+  flex: 1;
+  padding: 11px 12px;
+}
+.rm-stats__cell + .rm-stats__cell {
+  border-left: 2px solid var(--ink-900);
+}
+
+.rm-stats__label {
+  font-family: var(--font-mono);
+  font-weight: var(--fw-bold);
+  font-size: 0.52rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+}
+
+.rm-stats__value {
+  font-family: var(--font-sans);
+  font-weight: var(--fw-bold);
+  font-size: 1.15rem;
+  line-height: 1.1;
+}
+
+.rm-stats__value-muted {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 400;
+}
+
+/* =========================================================================
+   8.  TAG — estado badge (Finalizado / Pendiente / Cargada / Sin cargar)
+       Source: .dc.html lines 55-56, 128-129
+   ========================================================================= */
+.rm-tag {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: var(--rm-tag-font);
+  font-weight: var(--fw-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: var(--rm-tag-pad);
+  border: 1px solid var(--ink-900);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.rm-tag--success {
+  background: var(--signal-success);
+  color: var(--paper-0);
+}
+.rm-tag--warning {
+  background: var(--signal-warning);
+  color: var(--ink-900);
+}
+.rm-tag--outline {
+  background: transparent;
+  color: var(--ink-900);
+}
+.rm-tag--danger {
+  background: var(--signal-danger);
+  color: var(--paper-0);
+}
+
+/* Obligatoria / required badge (signal-danger bg) */
+.rm-tag--required {
+  background: var(--signal-danger);
+  color: var(--paper-0);
+  font-size: 0.5rem;
+  padding: 2px 6px;
+}
+
+/* Vacíos count (warning) */
+.rm-tag--vacios {
+  background: var(--signal-warning);
+  color: var(--ink-900);
+  font-family: var(--font-mono);
+  font-weight: var(--fw-bold);
+  font-size: var(--rm-vacios-badge-font);
+  text-transform: uppercase;
+  padding: var(--rm-vacios-badge-pad);
+  border: 1px solid var(--ink-900);
+  white-space: nowrap;
+}
+
+/* =========================================================================
+   9.  UTILITY CLASSES
+       Source: .dc.html lines 23-29
+   ========================================================================= */
+
+/* Blink cursor (underscore that blinks) */
+.rm-cursor {
+  animation: rmBlink 1s steps(1) infinite;
+}
+
+/* Scan line animada (roja, bajando) */
+.rm-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: var(--rm-scan-line-top);
+  height: 2px;
+  background: var(--signal-danger);
+  box-shadow: 0 0 8px var(--signal-danger);
+  animation: rmScan 1.1s linear infinite;
+}
+
+/* Press feedback (opacity reduction) */
+.rm-press:active {
+  opacity: .75;
+}
+
+/* Horizontal scroll container (no scrollbar) */
+.rm-hscroll {
+  scrollbar-width: none;
+}
+.rm-hscroll::-webkit-scrollbar {
+  display: none;
+}
+
+/* Empty slot card (dashed style + tint) */
+.rm-slot-empty {
+  background: var(--tint-empty) !important;
+  border-style: dashed !important;
+}
+
+/* Selected slot card (focus ring) */
+.rm-slot-sel {
+  box-shadow: 0 0 0 3px var(--ink-900) !important;
+  z-index: 1;
+}
+
+/* =========================================================================
+   10. NAV BADGE — "MÓVIL" indicator in navbar
+   ========================================================================= */
+.rm-badge-mobile {
+  display: inline-block;
+  background: var(--signal-success);
+  color: var(--paper-0);
+  font-family: var(--font-mono);
+  font-size: 0.48rem;
+  font-weight: var(--fw-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 1px 5px;
+  border: 1px solid var(--ink-900);
+  line-height: 1.3;
+  vertical-align: middle;
+  margin-left: 4px;
+}
+
+/* =========================================================================
+   11. PROGRESS BAR (reused from vm-recarga.css pattern)
+       Source: .dc.html lines 58-60
+   ========================================================================= */
+.rm-progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.rm-progress__bar {
+  flex: 1;
+  min-width: 40px;
+  height: 6px;
+  background: var(--line-200);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.rm-progress__fill {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+}
+
+.rm-progress__fill--good    { background: var(--fill-good); }
+.rm-progress__fill--warning { background: var(--fill-warning); }
+.rm-progress__fill--danger  { background: var(--fill-danger); }
+
+.rm-progress__pct {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: var(--fw-bold);
+  white-space: nowrap;
+}
+
+/* =========================================================================
+   12. SEARCH INPUT + SCAN BUTTON
+       Source: .dc.html lines 188-190
+   ========================================================================= */
+.rm-search {
+  flex: 1;
+  min-width: 0;
+  border: 2px solid var(--ink-900);
+  padding: 11px 12px;
+  font-family: var(--font-mono);
+  font-size: max(16px, 0.84rem);
+  border-radius: 0;
+  outline: none;
+}
+
+.rm-scan-btn {
+  width: var(--rm-iconbtn-w-scan);
+  height: var(--rm-iconbtn-h-scan);
+  flex-shrink: 0;
+  border: 2px solid var(--ink-900);
+  background: var(--ink-900);
+  color: var(--paper-0);
+  font-size: 1.2rem;
+  cursor: pointer;
+  border-radius: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* =========================================================================
+   13. BOTTOM CTA (full-width primary button)
+       Source: .dc.html lines 78, 106, 154-158
+   ========================================================================= */
+.rm-cta {
+  width: 100%;
+  height: var(--rm-bottombar-h);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  border: 2px solid var(--ink-900);
+  font-family: var(--font-mono);
+  font-weight: var(--fw-bold);
+  text-transform: uppercase;
+  font-size: 0.82rem;
+  letter-spacing: 1px;
+  cursor: pointer;
+  border-radius: 0;
+}
+
+.rm-cta--primary {
+  background: var(--ink-900);
+  color: var(--paper-0);
+}
+
+.rm-cta--dashed {
+  border-style: dashed;
+  background: transparent;
+  font-size: 0.76rem;
+  letter-spacing: 0.5px;
+}
+
+.rm-cta--disabled {
+  border-color: var(--line-200);
+  background: var(--paper-50);
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+/* =========================================================================
+   14. EMPTY STATE — centered placeholder text
+       Source: .dc.html lines 72-74
+   ========================================================================= */
+.rm-empty {
+  padding: var(--rm-empty-pad);
+  text-align: center;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  font-size: 0.78rem;
+  line-height: 1.6;
+}
+
+/* =========================================================================
+   15. TOAST — transient notification
+       Source: .dc.html lines 429-432
+   ========================================================================= */
+.rm-toast {
+  position: absolute;
+  bottom: calc(var(--rm-toast-bottom) + env(safe-area-inset-bottom));
+  left: 16px;
+  right: 16px;
+  z-index: var(--rm-z-toast);
+  background: var(--ink-900);
+  color: var(--paper-0);
+  border: 2px solid var(--ink-900);
+  box-shadow: 5px 5px 0 rgba(0, 0, 0, 0.2);
+  padding: 13px 15px;
+  font-family: var(--font-mono);
+  font-weight: var(--fw-bold);
+  font-size: 0.78rem;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  animation: rmToast .2s ease-out;
+}
+
+.rm-toast__icon {
+  color: var(--signal-success);
+  font-size: 1.05rem;
+}
+
+/* =========================================================================
+   16. SCANNING OVERLAY
+       Source: .dc.html lines 178-184
+   ========================================================================= */
+.rm-scan-box {
+  position: relative;
+  width: var(--rm-scan-box-w);
+  height: var(--rm-scan-box-h);
+  margin: 0 auto;
+  border: 2px solid var(--ink-900);
+  background: #0a0a0a;
+  overflow: hidden;
+}
+
+.rm-scan-box__icon {
+  color: var(--paper-0);
+  font-size: 3rem;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  opacity: 0.45;
+}
+
+.rm-scan-label {
+  font-family: var(--font-mono);
+  font-weight: var(--fw-bold);
+  text-transform: uppercase;
+  font-size: 0.85rem;
+  letter-spacing: 1px;
+}
+
+/* =========================================================================
+   17. INLINE STEPPER (dock: − / qty / + / Máx)
+       Source: .dc.html lines 304-312
+   ========================================================================= */
+.rm-stepper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rm-stepper__btn {
+  width: var(--rm-stepper-w);
+  height: var(--rm-stepper-h);
+  flex-shrink: 0;
+  border: 2px solid var(--ink-900);
+  background: var(--paper-0);
+  font-size: 1.7rem;
+  font-weight: var(--fw-bold);
+  cursor: pointer;
+  border-radius: 0;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rm-stepper__max {
+  width: var(--rm-max-btn-w);
+  height: var(--rm-stepper-h);
+  flex-shrink: 0;
+  border: 2px solid var(--ink-900);
+  background: var(--paper-0);
+  font-family: var(--font-mono);
+  font-weight: var(--fw-bold);
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  border-radius: 0;
+}
+
+.rm-stepper__val {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.rm-stepper__qty {
+  font-family: var(--font-sans);
+  font-weight: var(--fw-bold);
+  font-size: 1.55rem;
+  line-height: 1;
+}
+
+.rm-stepper__cap {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 400;
+}
+
+/* =========================================================================
+   18. DOCK — slot editor fixed bottom bar
+       Source: .dc.html lines 276-313
+   ========================================================================= */
+.rm-dock {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: var(--rm-z-dock);
+  background: var(--paper-0);
+  border-top: 3px solid var(--ink-900);
+  padding: 8px 12px calc(10px + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rm-dock__nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rm-dock__product {
+  display: flex;
+  gap: 8px;
+}
+
+.rm-dock__edit {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Product picker row inside dock */
+.rm-dock__picker {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+  border: 2px solid var(--ink-900);
+  background: var(--paper-50);
+  padding: 6px 12px;
+  min-height: 50px;
+  cursor: pointer;
+  border-radius: 0;
+}
+
+/* Clear slot trash button */
+.rm-dock__clear {
+  width: 50px;
+  min-height: 50px;
+  flex-shrink: 0;
+  border: 2px solid var(--signal-danger);
+  color: var(--signal-danger);
+  background: var(--paper-0);
+  cursor: pointer;
+  border-radius: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+}
+
+/* =========================================================================
+   19. SLOT GRID (planograma)
+       Source: .dc.html lines 238-253
+   ========================================================================= */
+.rm-slot-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 5px;
+}
+
+.rm-slot {
+  position: relative;
+  overflow: hidden;
+  min-height: 74px;
+  border: 1.5px solid var(--ink-900);
+  background: var(--paper-0);
+  cursor: pointer;
+  border-radius: 0;
+  padding: 5px 5px 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+  text-align: left;
+}
+
+.rm-slot__id {
+  font-family: var(--font-mono);
+  font-size: 0.52rem;
+  font-weight: var(--fw-bold);
+  color: var(--ink-500);
+  line-height: 1;
+}
+
+.rm-slot__product {
+  flex: 1;
+  overflow: hidden;
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 0.58rem;
+  line-height: 1.2;
+  max-height: 2.5em;
+}
+
+.rm-slot__qty {
+  font-family: var(--font-mono);
+  font-weight: var(--fw-bold);
+  font-size: 0.64rem;
+  line-height: 1;
+}
+
+/* =========================================================================
+   20. FLOOR / SECTION
+       Source: .dc.html lines 231-253
+   ========================================================================= */
+.rm-floor {
+  margin-bottom: 14px;
+}
+
+.rm-floor__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.rm-floor__tag {
+  flex-shrink: 0;
+  background: var(--ink-900);
+  color: var(--paper-0);
+  font-family: var(--font-mono);
+  font-weight: var(--fw-bold);
+  font-size: 0.6rem;
+  letter-spacing: 0.5px;
+  padding: 4px 8px;
+}
+
+.rm-floor__summary {
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: 0.56rem;
+  font-weight: var(--fw-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rm-floor__fill-btn {
+  margin-left: auto;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  height: 32px;
+  padding: 0 10px;
+  border: 1.5px solid var(--ink-900);
+  background: var(--paper-0);
+  font-family: var(--font-mono);
+  font-weight: var(--fw-bold);
+  font-size: 0.56rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  border-radius: 0;
+}
+
+.rm-floor__rule {
+  height: 6px;
+  margin-top: 5px;
+  background: var(--ink-900);
+}
+
+/* =========================================================================
+   21. ICON BUTTON (square, 44px, for back/calendar/trash/chev)
+       Source: .dc.html lines 88-93
+   ========================================================================= */
+.rm-iconbtn {
+  width: var(--rm-iconbtn-w);
+  height: var(--rm-iconbtn-w);
+  flex-shrink: 0;
+  border: 2px solid var(--ink-900);
+  background: var(--paper-0);
+  cursor: pointer;
+  border-radius: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+}
+
+.rm-iconbtn--dark {
+  background: var(--ink-900);
+  color: var(--paper-0);
+}
+
+.rm-iconbtn--danger {
+  background: var(--paper-0);
+  color: var(--signal-danger);
+  border-color: var(--signal-danger);
+}
+
+/* =========================================================================
+   22. GLOBAL MOBILE OVERRIDES
+       Source: .dc.html lines 15-18, 34
+   ========================================================================= */
+
+/* iOS: prevent tap highlight */
+.rm-view, .rm-view * {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* iOS: prevent zoom on input focus */
+.rm-view input,
+.rm-view select,
+.rm-view button {
+  font-size: max(16px, 1em);
+}
+
+/* =========================================================================
+   23. MACHINE ID CHIP (bold mono, small)
+       Source: .dc.html lines 65-66
+   ========================================================================= */
+.rm-chip {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  font-weight: var(--fw-bold);
+  border: 1px solid var(--ink-900);
+  padding: 2px 6px;
+  white-space: nowrap;
+}
+
+/* =========================================================================
+   24. DISABLED OVERLAY for save sheet action
+       Source: .dc.html line 362
+   ========================================================================= */
+.rm-disabled-overlay {
+  width: 100%;
+  height: 54px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: 2px solid var(--line-200);
+  background: var(--paper-50);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-weight: var(--fw-bold);
+  text-transform: uppercase;
+  font-size: 0.76rem;
+  letter-spacing: 0.5px;
+  border-radius: 0;
+  cursor: not-allowed;
+}
+
+/* =========================================================================
+   25. REDUCED MOTION
+       Source: .dc.html line 30
+   ========================================================================= */
+@media (prefers-reduced-motion: reduce) {
+  .rm-cursor {
+    animation: none !important;
+  }
+  .rm-line {
+    animation: none !important;
+  }
+  .rm-card {
+    transition: none;
+  }
+  .rm-card:active {
+    transform: none;
+  }
+  .rm-sheet__panel {
+    animation: none !important;
+  }
+  .rm-toast {
+    animation: none !important;
+  }
+}
