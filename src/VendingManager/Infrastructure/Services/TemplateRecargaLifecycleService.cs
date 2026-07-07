@@ -205,6 +205,7 @@ public class TemplateRecargaLifecycleService : ITemplateRecargaLifecycleService
                 Id = p.Id,
                 MaquinaId = p.MaquinaId,
                 MaquinaNombre = p.Maquina?.Nombre ?? "Desconocida",
+                IdInternoMaquina = p.Maquina?.IdInternoMaquina ?? "",
                 FechaRecarga = p.FechaRecarga,
                 FechaFin = p.FechaRecarga.AddYears(2), // placeholder — not used in lifecycle context
                 SnapshotSlots = p.SnapshotSlots.Select(s => new SnapshotSlotDto

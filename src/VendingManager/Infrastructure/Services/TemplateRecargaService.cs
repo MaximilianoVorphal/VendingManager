@@ -776,6 +776,7 @@ public class TemplateRecargaService : ITemplateRecargaService
                 Id = p.Id,
                 MaquinaId = p.MaquinaId,
                 MaquinaNombre = p.Maquina?.Nombre ?? "Desconocida",
+                IdInternoMaquina = p.Maquina?.IdInternoMaquina ?? "",
                 FechaRecarga = p.FechaRecarga,
                 // Use cross-template chain when available (GetAllAsync path);
                 // fall back to intra-template lookup for other callers
