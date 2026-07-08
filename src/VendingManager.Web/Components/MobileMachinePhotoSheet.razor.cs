@@ -39,20 +39,22 @@ public partial class MobileMachinePhotoSheet : ComponentBase, IDisposable
     private string? _previewUrl;
     private bool _uploading;
     private string? _error;
+    private bool _wasVisible;
     private bool _disposed;
 
     // ─── Lifecycle ──────────────────────────────────────────────────────
 
     protected override void OnParametersSet()
     {
-        // Reset state when the sheet opens (Visible transitions true)
-        if (Visible)
+        // Only reset state when the sheet OPENS (false → true transition)
+        if (Visible && !_wasVisible)
         {
             _capturedFile = null;
             _previewUrl = null;
             _uploading = false;
             _error = null;
         }
+        _wasVisible = Visible;
     }
 
     // ─── File Selection ─────────────────────────────────────────────────
