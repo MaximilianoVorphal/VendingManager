@@ -87,7 +87,9 @@ public class RecargaMovilViewportTests : ViewportTestBase
         }
 
         // 7. Verify bottom-bar hit targets (min 44px)
-        var bottomBars = Page.Locator(".rm-view__bottombar, .rm-cta--primary, .rm-cta--disabled");
+        // Note: .rm-cta--disabled is intentionally excluded — disabled CTAs are not interactive
+        // so they do not need to meet the 44px hit-target accessibility guideline.
+        var bottomBars = Page.Locator(".rm-view__bottombar, .rm-cta--primary");
         var barCount = await bottomBars.CountAsync();
         for (int i = 0; i < barCount; i++)
         {
@@ -200,6 +202,89 @@ public class RecargaMovilViewportTests : ViewportTestBase
             Assert.That(box.Height, Is.GreaterThanOrEqualTo(44),
                 $"Element {i} has height {box.Height}px < 44px minimum");
         }
+    }
+
+    /// <summary>
+    /// Navigate to /recarga-movil at iPhone 14 portrait, tap a template card,
+    /// tap "Finalizar carga", verify photo sheet opens, verify "Subir y finalizar"
+    /// is disabled (no file selected), tap Cancelar, verify sheet closes.
+    ///
+    /// Requires seed data: a template where ALL machines are loaded (every machine
+    /// has at least one slot with CantidadInicial &gt; 0). If the "Finalizar carga"
+    /// button is not enabled, the test is skipped.
+    /// </summary>
+    [Test]
+    public async Task IPhone14_PhotoSheet_Opens_OnFinalizarCarga()
+    {
+        var available = await IsAppAvailableAsync();
+        if (!available) Assert.Ignore("App not available at " + BaseUrl);
+
+        await SetupViewport(ViewportConfig.IPhonePortrait, "/recarga-movil");
+        await Page.WaitForTimeoutAsync(1000);
+
+        // Tap first template card → Resumen view
+        var firstCard = Page.Locator(".rm-card").First;
+        if (await firstCard.CountAsync() == 0)
+        {
+            Assert.Ignore("No template cards found — seed data required");
+            return;
+        }
+        await firstCard.ClickAsync();
+        await Page.WaitForTimeoutAsync(1000);
+
+        // Assert Resumen view loaded
+        var resumenText = Page.Locator("text=Resumen de carga");
+        Assert.That(await resumenText.CountAsync(), Is.GreaterThan(0),
+            "Did not navigate to Resumen view");
+
+        // Find the "Finalizar carga" CTA. In the Resumen view:
+        //   - enabled:  &lt;button class="rm-cta rm-cta--primary"&gt;
+        //   - disabled: &lt;div class="rm-cta rm-cta--disabled"&gt;
+        var enabledFinalizar = Page.Locator(".rm-cta--primary").And(
+            Page.Locator("text=Finalizar carga"));
+        if (await enabledFinalizar.CountAsync() == 0)
+        {
+            Assert.Ignore(
+                "'Finalizar carga' is disabled or not found — " +
+                "requires a template with all machines loaded");
+            return;
+        }
+
+        // Tap "Finalizar carga"
+        await enabledFinalizar.ClickAsync();
+        await Page.WaitForTimeoutAsync(500);
+
+        // Assert photo sheet backdrop is visible
+        var sheet = Page.Locator(".rm-sheet__backdrop");
+        Assert.That(await sheet.CountAsync(), Is.GreaterThan(0),
+            "Photo sheet did not open after tapping 'Finalizar carga'");
+
+        // Assert photo sheet title is visible
+        var sheetTitle = Page.Locator("text=Foto de la máquina");
+        Assert.That(await sheetTitle.CountAsync(), Is.GreaterThan(0),
+            "Photo sheet title 'Foto de la máquina' not found");
+
+        // Assert "Subir y finalizar" button is disabled (no photo selected)
+        var submitBtn = Page.Locator("button").And(
+            Page.Locator("text=Subir y finalizar"));
+        Assert.That(await submitBtn.CountAsync(), Is.GreaterThan(0),
+            "Submit button 'Subir y finalizar' not found");
+        Assert.That(await submitBtn.IsDisabledAsync(), Is.True,
+            "Submit button should be disabled when no photo is selected");
+
+        // Tap "Cancelar"
+        var cancelBtn = Page.Locator("button").And(
+            Page.Locator("text=Cancelar"));
+        await cancelBtn.ClickAsync();
+        await Page.WaitForTimeoutAsync(500);
+
+        // Assert sheet is hidden (backdrop removed)
+        var sheetAfterClose = await Page.Locator(".rm-sheet__backdrop").CountAsync();
+        Assert.That(sheetAfterClose, Is.EqualTo(0),
+            "Photo sheet did not close after tapping Cancelar");
+
+        // Final overflow check
+        await AssertNoHorizontalOverflow();
     }
 
     private record BoundingBoxResult(double Width, double Height, double Top, double Left);
