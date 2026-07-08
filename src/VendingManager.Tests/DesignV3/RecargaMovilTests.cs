@@ -572,6 +572,34 @@ public class RecargaMovilTests : TestContext
         submitBtn.HasAttribute("disabled").Should().BeTrue();
     }
 
+    // ── Test 19: Rejects tiny files (< 12 bytes) ───────────────────────
+
+    [Fact]
+    public void MobileMachinePhotoSheet_Rejects_TooSmall_File()
+    {
+        var cut = RenderComponent<MobileMachinePhotoSheet>(parameters => parameters
+            .Add(p => p.Visible, true)
+            .Add(p => p.OnClose, () => { })
+            .Add(p => p.OnPhotoAccepted, (IBrowserFile _) => { })
+        );
+
+        // 4 bytes — too small for any valid image header
+        var tinyBytes = new byte[] { 0x00, 0x00, 0x00, 0x00 };
+        var tinyFile = new MockBrowserFile(tinyBytes, "image/jpeg", "tiny.jpg");
+
+        var inputFile = cut.FindComponent<InputFile>();
+        var args = new InputFileChangeEventArgs(new[] { tinyFile });
+        cut.InvokeAsync(() => inputFile.Instance.OnChange.InvokeAsync(args));
+
+        // Assert "demasiado pequeño" error is shown
+        var errorEl = cut.Find("[data-testid='photo-error']");
+        errorEl.TextContent.Should().Contain("demasiado pequeño");
+
+        // CTA should remain disabled
+        var submitBtn = cut.Find("button[aria-label='Subir y finalizar']");
+        submitBtn.HasAttribute("disabled").Should().BeTrue();
+    }
+
     // ═══════════════════════════════════════════════════════════════════
     //  MOCK BROWSER FILE
     // ═══════════════════════════════════════════════════════════════════
