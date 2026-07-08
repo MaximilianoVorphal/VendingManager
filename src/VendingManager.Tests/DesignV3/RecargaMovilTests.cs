@@ -593,7 +593,11 @@ public class RecargaMovilTests : TestContext
         public string ContentType { get; }
 
         public Stream OpenReadStream(long maxAllowedSize = 512000, CancellationToken cancellationToken = default)
-            => new MemoryStream(_content);
+        {
+            if (_content.Length > maxAllowedSize)
+                throw new IOException($"File exceeds maximum allowed size of {maxAllowedSize} bytes");
+            return new MemoryStream(_content);
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════════
