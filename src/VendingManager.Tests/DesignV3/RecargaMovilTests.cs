@@ -135,8 +135,39 @@ public class RecargaMovilTests : TestContext
         cut.FindAll(".rm-chip").Should().NotBeEmpty();
     }
 
-    // ── Test 4: Resumen Renders Stats ─────────────────────────────────
+    // ── Test 4: Lista Progress Bar No Negative With Pending Slots ────
+    
+    [Fact]
+    public void RecargaMovil_Lista_Progress_Bar_No_Negative_With_Pending_Slots()
+    {
+        var cut = RenderComponent<RecargaMovilTestHost>();
 
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("Cargas");
+        });
+
+        // Template 1 (Carga Semanal) has 2 periodos, 1 loaded + 1 with pending slots
+        // After per-periodo fix: loadedCount=1, periodoCount=2, pct=50%
+        
+        // The sub text should show non-negative machine count
+        cut.Markup.Should().Contain("2 máq. · 1/2 cargadas");
+
+        // Progress bar should show 50%, not negative
+        var progressFills = cut.FindAll(".rm-progress__fill");
+        progressFills.Should().HaveCount(3);
+
+        // First template's fill width should be 50%
+        var firstFill = progressFills[0];
+        var style = firstFill.GetAttribute("style");
+        style.Should().Be("width:50%");
+
+        // The percentage text should be non-negative
+        cut.Markup.Should().Contain("50%");
+    }
+
+    // ── Test 5: Resumen Renders Stats ─────────────────────────────────
+    
     [Fact]
     public void RecargaMovil_Resumen_Renders_Stats()
     {
