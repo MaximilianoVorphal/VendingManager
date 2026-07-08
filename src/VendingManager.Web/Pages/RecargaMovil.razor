@@ -3,6 +3,7 @@
 @using VendingManager.Shared.Constants
 @using VendingManager.Shared.DTOs
 @using VendingManager.Shared.Enums
+@using VendingManager.Web.Components
 @attribute [Authorize(Roles = Roles.Admin)]
 
 @* =========================================================================
@@ -186,6 +187,14 @@
             @_toastMessage
         </div>
     }
+
+    @* ── BOTTOM SHEET: MobileMachinePhotoSheet (PR 3) ────────────── *@
+    <MobileMachinePhotoSheet Visible="@_photoSheetVisible"
+                             Title="Foto de la máquina"
+                             Subtitle="Sacale una foto a la máquina ya cargada"
+                             MachineLabel="@(_photoSheetMachine != null ? $"Máquina …{MachineShortCode(_photoSheetMachine)}" : null)"
+                             OnPhotoAccepted="HandlePhotoAccepted"
+                             OnClose="HandlePhotoSheetClose" />
 </div>
 
 @code {
