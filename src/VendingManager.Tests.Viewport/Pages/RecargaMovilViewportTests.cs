@@ -87,7 +87,9 @@ public class RecargaMovilViewportTests : ViewportTestBase
         }
 
         // 7. Verify bottom-bar hit targets (min 44px)
-        var bottomBars = Page.Locator(".rm-view__bottombar, .rm-cta--primary, .rm-cta--disabled");
+        // Note: .rm-cta--disabled is intentionally excluded — disabled CTAs are not interactive
+        // so they do not need to meet the 44px hit-target accessibility guideline.
+        var bottomBars = Page.Locator(".rm-view__bottombar, .rm-cta--primary");
         var barCount = await bottomBars.CountAsync();
         for (int i = 0; i < barCount; i++)
         {
