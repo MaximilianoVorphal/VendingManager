@@ -678,7 +678,7 @@ public partial class RecargaMovil : ComponentBase, IDisposable
 
         try
         {
-            await Task.Delay(1500); // Simulate scan animation
+            await Task.Delay(1500, _cts.Token); // Simulate scan animation
 
             // Pick the first available machine
             var availableMachines = GetAvailableMachines();
@@ -687,6 +687,10 @@ public partial class RecargaMovil : ComponentBase, IDisposable
                 var first = availableMachines.First();
                 await OnAddMachineClick(first.Id);
             }
+        }
+        catch (OperationCanceledException)
+        {
+            // Navigation cancelled during scan — state already reset
         }
         finally
         {
