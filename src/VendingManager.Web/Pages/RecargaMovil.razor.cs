@@ -415,7 +415,7 @@ public partial class RecargaMovil : ComponentBase, IDisposable
         _machines = new();
         _editingMachine = null;
         _slots = new();
-        _error = null;
+        // Do NOT clear _error — caller may have set it (e.g. post-upload LoadTemplatesAsync failure)
         _productSheetVisible = false;
         _slotDockVisible = false;
         StateHasChanged();
@@ -663,8 +663,16 @@ public partial class RecargaMovil : ComponentBase, IDisposable
 
                 ShowToast("Carga finalizada", "bi-check2-circle");
 
-                // Navigate to Lista
-                await LoadTemplatesAsync();
+                // Navigate to Lista — keep any error from LoadTemplatesAsync if it fails
+                try
+                {
+                    await LoadTemplatesAsync();
+                }
+                catch
+                {
+                    // _error is already set by LoadTemplatesAsync — let it stay
+                    Logger.LogWarning("Post-upload LoadTemplatesAsync failed, showing Lista with error");
+                }
                 GoToList();
             }
             else
