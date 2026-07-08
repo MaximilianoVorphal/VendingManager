@@ -142,25 +142,36 @@ public partial class MobileMachinePhotoSheet : ComponentBase, IDisposable
         if (_capturedFile == null) return;
 
         _uploading = true;
-        _error = null;
         StateHasChanged();
 
         try
         {
             await OnPhotoAccepted.InvokeAsync(_capturedFile);
+            // On success, the parent closes the sheet and resets state
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            _error = $"Error al enviar la foto: {ex.Message}";
-            _uploading = false;
+            throw; // let the renderer handle unhandled errors
+        }
+        finally
+        {
+            _uploading = false; // ALWAYS reset, so the user can retry on error
             StateHasChanged();
         }
-        // On success, the parent (RecargaMovil) closes the sheet and resets state
     }
 
     private async Task HandleCancel()
     {
         await OnClose.InvokeAsync();
+    }
+
+    /// <summary>
+    /// Called by the parent page to set an error message inline in the sheet.
+    /// </summary>
+    public async Task SetErrorAsync(string? error)
+    {
+        _error = error;
+        await InvokeAsync(StateHasChanged);
     }
 
     // ─── IDisposable ────────────────────────────────────────────────────
