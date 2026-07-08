@@ -397,7 +397,7 @@
                        placeholder="Buscar máquina..."
                        value="@_pickSearch"
                        @oninput="OnPickSearchChanged" />
-                <button class="rm-scan-btn" aria-label="Escanear"
+                <button class="rm-scan-btn" aria-label="Escanear máquina"
                         @onclick="() => OnScanClick()">
                     <i class="bi bi-upc-scan"></i>
                 </button>
@@ -508,11 +508,11 @@
                             </span>
                             <button class="rm-floor__fill-btn"
                                     aria-label="Llenar piso"
-                                    @onclick="() => { foreach(var s in floorSlots) { s.CantidadInicial = s.CapacidadSlot; } StateHasChanged(); }">
+                                    @onclick="() => { _hasChanges = true; foreach(var s in floorSlots) { s.CantidadInicial = s.CapacidadSlot; } StateHasChanged(); }">
                                 <i class="bi bi-arrow-bar-up"></i> Llenar
                             </button>
                         </div>
-                        <div class="rm-slot-grid">
+                        <div class="rm-slot-grid" style="grid-template-columns: repeat(@(_compactDensity ? 4 : 5), 1fr);">
                             @foreach (var slot in floorSlots)
                             {
                                 var isEmpty = slot.ProductoId == null || slot.ProductoId == 0;
@@ -556,9 +556,9 @@
                         <i class="bi bi-arrow-counterclockwise"></i>
                     </button>
                 </div>
-                <button class="rm-cta rm-cta--primary" @onclick="() => SaveSlotsAsync()">
-                    <i class="bi bi-save"></i> Guardar
-                </button>
+                    <button class="rm-cta rm-cta--primary" disabled="@(!_hasChanges)" @onclick="() => SaveSlotsAsync()">
+                        <i class="bi bi-save"></i> Guardar
+                    </button>
             </div>
         }
     </text>;

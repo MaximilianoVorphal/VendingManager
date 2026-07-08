@@ -71,6 +71,7 @@ public partial class RecargaMovil : ComponentBase, IDisposable
     private SnapshotSlotDto? _editingSlot;
     private int _editingSlotIndex;
     private bool _compactDensity = true; // PR 4 — wire to slot grid density toggle
+    private bool _hasChanges; // PR 4 — Guardar disabled when no changes
     private string DensityKey
     {
         get => _compactDensity ? "compacta" : "comoda";
@@ -238,7 +239,7 @@ public partial class RecargaMovil : ComponentBase, IDisposable
             updateDto.Periodos.Add(new CreatePeriodoDto
             {
                 MaquinaId = machineId,
-                FechaRecarga = DateTime.Now,
+                FechaRecarga = DateTime.UtcNow,
                 SnapshotSlots = slotConfig.Select(s => new CreateSnapshotSlotDto
                 {
                     NumeroSlot = s.NumeroSlot,
@@ -353,6 +354,7 @@ public partial class RecargaMovil : ComponentBase, IDisposable
                 slot.CantidadInicial = 0;
             }
         }
+        _hasChanges = false;
         StateHasChanged();
     }
 
@@ -363,6 +365,7 @@ public partial class RecargaMovil : ComponentBase, IDisposable
         // Reload slot configuration from API
         var freshSlots = await LoadMachineSlotsAsync(machineId);
         _slots = freshSlots;
+        _hasChanges = false;
         StateHasChanged();
         ShowToast("Slots restablecidos", "bi-arrow-counterclockwise");
     }
@@ -373,6 +376,7 @@ public partial class RecargaMovil : ComponentBase, IDisposable
     /// </summary>
     private Task SaveSlotsAsync()
     {
+        _hasChanges = false;
         // Wired in PR 3 with the photo sheet
         ShowToast("Guardar carga se habilita en PR 3", "bi-info-circle");
         return Task.CompletedTask;
@@ -454,6 +458,7 @@ public partial class RecargaMovil : ComponentBase, IDisposable
     {
         _editingMachine = machine;
         _slots = machine.SnapshotSlots.ToList();
+        _hasChanges = false;
         _slotDockVisible = false;
         _productSheetVisible = false;
         _view = View.EditSlots;
@@ -475,14 +480,14 @@ public partial class RecargaMovil : ComponentBase, IDisposable
         {
             var dto = new CreateTemplateRecargaDto
             {
-                Nombre = $"Carga {DateTime.Now:dd/MM}",
+                Nombre = $"Carga {DateTime.UtcNow:dd/MM}",
                 Descripcion = null,
                 Periodos = new List<CreatePeriodoDto>
                 {
                     new CreatePeriodoDto
                     {
                         MaquinaId = 0,
-                        FechaRecarga = DateTime.Now,
+                        FechaRecarga = DateTime.UtcNow,
                         SnapshotSlots = new List<CreateSnapshotSlotDto>()
                     }
                 }
@@ -549,6 +554,7 @@ public partial class RecargaMovil : ComponentBase, IDisposable
 
     private void OnSlotChanged(SnapshotSlotDto slot, int newQty)
     {
+        _hasChanges = true;
         slot.CantidadInicial = Math.Min(newQty, slot.CapacidadSlot);
         if (_editingSlot == slot && _slotDockVisible)
         {
@@ -561,6 +567,7 @@ public partial class RecargaMovil : ComponentBase, IDisposable
     {
         if (_editingSlot == null) return;
 
+        _hasChanges = true;
         _editingSlot.ProductoId = product.Id;
         _editingSlot.ProductoNombre = product.Nombre;
         if (_editingSlot.CantidadInicial <= 0)
@@ -788,6 +795,7 @@ public partial class RecargaMovil : ComponentBase, IDisposable
     private void ClearEditingSlot()
     {
         if (_editingSlot == null) return;
+        _hasChanges = true;
         _editingSlot.ProductoId = null;
         _editingSlot.ProductoNombre = "";
         _editingSlot.CantidadInicial = 0;
@@ -954,10 +962,12 @@ public partial class RecargaMovil : ComponentBase, IDisposable
              : "rm-progress__fill--danger";
     }
 
-    private string GetEstadoTag(TemplateRecargaDto t)
+    private string GetEstadoTag(TemplateRecargaDto t) => t.Estado switch
     {
-        return t.Estado == EstadoTemplate.Terminado ? "Finalizado" : "Pendiente";
-    }
+        EstadoTemplate.Terminado => "Finalizado",
+        EstadoTemplate.Pendiente => "Pendiente",
+        _ => "Desconocido"
+    };
 
     private string GetEstadoTagVariant(TemplateRecargaDto t)
     {
