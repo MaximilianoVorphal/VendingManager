@@ -487,7 +487,15 @@ public partial class RecargaMovil : ComponentBase, IDisposable
             {
                 Nombre = $"Carga {DateTime.Now:dd/MM}",
                 Descripcion = null,
-                Periodos = new List<CreatePeriodoDto>()
+                Periodos = new List<CreatePeriodoDto>
+                {
+                    new CreatePeriodoDto
+                    {
+                        MaquinaId = 0,
+                        FechaRecarga = DateTime.Now,
+                        SnapshotSlots = new List<CreateSnapshotSlotDto>()
+                    }
+                }
             };
 
             var json = JsonSerializer.Serialize(dto);
