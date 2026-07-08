@@ -225,19 +225,7 @@ public partial class RecargaMovil : ComponentBase, IDisposable
             {
                 Nombre = template.Nombre,
                 Descripcion = template.Descripcion,
-                Periodos = template.Periodos.Select(p => new CreatePeriodoDto
-                {
-                    MaquinaId = p.MaquinaId,
-                    FechaRecarga = p.FechaRecarga,
-                    SnapshotSlots = p.SnapshotSlots.Select(s => new CreateSnapshotSlotDto
-                    {
-                        NumeroSlot = s.NumeroSlot,
-                        ProductoId = s.ProductoId,
-                        CantidadInicial = s.CantidadInicial,
-                        CapacidadSlot = s.CapacidadSlot,
-                        Estado = s.Estado
-                    }).ToList()
-                }).ToList()
+                Periodos = template.Periodos.Select(ClonePeriodo).ToList()
             };
 
             // Add new machine as a periodo
@@ -304,19 +292,7 @@ public partial class RecargaMovil : ComponentBase, IDisposable
                 Descripcion = template.Descripcion,
                 Periodos = template.Periodos
                     .Where(p => p.Id != periodoId)
-                    .Select(p => new CreatePeriodoDto
-                    {
-                        MaquinaId = p.MaquinaId,
-                        FechaRecarga = p.FechaRecarga,
-                        SnapshotSlots = p.SnapshotSlots.Select(s => new CreateSnapshotSlotDto
-                        {
-                            NumeroSlot = s.NumeroSlot,
-                            ProductoId = s.ProductoId,
-                            CantidadInicial = s.CantidadInicial,
-                            CapacidadSlot = s.CapacidadSlot,
-                            Estado = s.Estado
-                        }).ToList()
-                    }).ToList()
+                    .Select(ClonePeriodo).ToList()
             };
 
             var json = JsonSerializer.Serialize(updateDto);
@@ -757,6 +733,23 @@ public partial class RecargaMovil : ComponentBase, IDisposable
     }
 
     // ─── Helpers ─────────────────────────────────────────────────────────
+
+    private static CreatePeriodoDto ClonePeriodo(PeriodoRecargaDto p)
+    {
+        return new CreatePeriodoDto
+        {
+            MaquinaId = p.MaquinaId,
+            FechaRecarga = p.FechaRecarga,
+            SnapshotSlots = p.SnapshotSlots.Select(s => new CreateSnapshotSlotDto
+            {
+                NumeroSlot = s.NumeroSlot,
+                ProductoId = s.ProductoId,
+                CantidadInicial = s.CantidadInicial,
+                CapacidadSlot = s.CapacidadSlot,
+                Estado = s.Estado
+            }).ToList()
+        };
+    }
 
     private static string MachineShortCode(PeriodoRecargaDto machine)
     {
