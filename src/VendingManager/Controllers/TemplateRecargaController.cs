@@ -114,9 +114,6 @@ public class TemplateRecargaController(
         if (string.IsNullOrWhiteSpace(dto.Nombre))
             return BadRequest("El nombre del template es requerido");
 
-        if (!dto.Periodos.Any())
-            return BadRequest("Debe incluir al menos un período");
-
         try
         {
             var result = await service.CreateAsync(dto);

@@ -46,7 +46,7 @@
                     <span class="rm-tag rm-tag--required">OBLIGATORIA</span>
                 </div>
 
-                @if (_capturedFile != null && _previewUrl != null)
+                @if (_capturedBytes != null && _previewUrl != null)
                 {
                     @* Photo preview ────────────────────────────────── *@
                     <div class="rm-save-sheet__preview">
@@ -98,7 +98,7 @@
             <div class="rm-save-sheet__actions">
                 <button class="rm-cta rm-cta--primary rm-save-sheet__btn"
                         type="button"
-                        disabled="@(_capturedFile == null || _uploading)"
+                        disabled="@(_capturedBytes == null || _uploading)"
                         aria-label="Guardar carga"
                         @onclick="HandleSaveAndOverview">
                     @if (_uploading)
@@ -113,7 +113,7 @@
                 </button>
                 <button class="rm-cta rm-cta--outline rm-save-sheet__btn"
                         type="button"
-                        disabled="@(_capturedFile == null || _uploading)"
+                        disabled="@(_capturedBytes == null || _uploading)"
                         aria-label="Guardar y cargar otra máquina"
                         @onclick="HandleSaveAndPickAnother">
                     <i class="bi bi-arrow-right-circle"></i>

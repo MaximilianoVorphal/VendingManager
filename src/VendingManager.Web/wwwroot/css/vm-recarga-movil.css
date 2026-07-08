@@ -89,10 +89,19 @@
   font-family: var(--font-sans);
   overflow: hidden;
   max-width: var(--rm-view-max);
+  width: 100%;
   margin: 0 auto;
   position: relative;
   border-left: 1px solid var(--line-200);
   border-right: 1px solid var(--line-200);
+}
+
+/* Cuando el rm-view está presente, el <main> no debe tener padding lateral
+   porque el rm-view ya maneja su propio margen/centrado/bordes.
+   Análogo al main:has(.rec-editor) en vm-recarga.css. */
+.industrial-wrapper > main:has(.rm-view) {
+  overflow: hidden;
+  padding: 0 !important;
 }
 
 /* Área scrolleable interior (rellena el espacio entre header y bottom bar) */

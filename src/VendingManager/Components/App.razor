@@ -52,6 +52,22 @@
                 setTimeout(() => loader.remove(), 500); // Wait for transition
             }
         };
+
+        // Create a blob URL from base64 + contentType for photo previews
+        window.vmCreateBlobUrl = (base64, contentType) => {
+            const byteCharacters = atob(base64);
+            const byteNumbers = new Uint8Array(byteCharacters.length);
+            for (let i = 0; i < byteCharacters.length; i++) {
+                byteNumbers[i] = byteCharacters.charCodeAt(i);
+            }
+            const blob = new Blob([byteNumbers], { type: contentType });
+            return URL.createObjectURL(blob);
+        };
+
+        // Revoke a blob URL created by vmCreateBlobUrl to free memory
+        window.vmRevokeBlobUrl = (url) => {
+            URL.revokeObjectURL(url);
+        };
     </script>
 </body>
 
