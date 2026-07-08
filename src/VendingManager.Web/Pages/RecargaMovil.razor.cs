@@ -962,10 +962,12 @@ public partial class RecargaMovil : ComponentBase, IDisposable
              : "rm-progress__fill--danger";
     }
 
-    private string GetEstadoTag(TemplateRecargaDto t)
+    private string GetEstadoTag(TemplateRecargaDto t) => t.Estado switch
     {
-        return t.Estado == EstadoTemplate.Terminado ? "Finalizado" : "Pendiente";
-    }
+        EstadoTemplate.Terminado => "Finalizado",
+        EstadoTemplate.Pendiente => "Pendiente",
+        _ => "Desconocido"
+    };
 
     private string GetEstadoTagVariant(TemplateRecargaDto t)
     {
