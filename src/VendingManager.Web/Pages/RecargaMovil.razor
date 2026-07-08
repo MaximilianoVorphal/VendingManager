@@ -53,9 +53,11 @@
             {
                 @foreach (var template in _templates)
                 {
-                    var pct = template.CantidadMaquinas > 0
-                        ? (template.CantidadMaquinas - template.CantidadSlotsPendientes) * 100 / template.CantidadMaquinas
+                    var periodoCount = template.Periodos.Count;
+                    var loadedCount = periodoCount > 0
+                        ? template.Periodos.Count(p => p.SnapshotSlots.Any(s => s.CantidadInicial > 0))
                         : 0;
+                    var pct = periodoCount > 0 ? loadedCount * 100 / periodoCount : 0;
                     <div class="rm-card" @onclick="() => OnTemplateCardClick(template)">
                         <div class="rm-card__head">
                             <div>
@@ -68,7 +70,7 @@
                             <span class="rm-tag rm-tag--@GetEstadoTagVariant(template)">@GetEstadoTag(template)</span>
                         </div>
                         <div class="rm-card__sub">
-                            @template.CantidadMaquinas máq. · @(template.CantidadMaquinas - template.CantidadSlotsPendientes) cargadas
+                            @periodoCount máq. · @loadedCount/@periodoCount cargadas
                         </div>
                         <div class="rm-progress">
                             <span class="rm-progress__bar">
