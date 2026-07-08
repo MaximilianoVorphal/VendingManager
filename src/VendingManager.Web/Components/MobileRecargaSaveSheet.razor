@@ -1,0 +1,135 @@
+@* =========================================================================
+   MobileRecargaSaveSheet.razor — Bottom sheet for per-machine save
+   Opens from EditSlots when "Guardar" is tapped.
+   Presentation-only: the parent (RecargaMovil) handles slot-batch and
+   foto-guia sequence after receiving the captured file via callbacks.
+   ========================================================================= *@
+
+@namespace VendingManager.Web.Components
+@using Microsoft.AspNetCore.Components.Forms
+@using System.Net.Http.Headers
+
+@if (Visible)
+{
+    <div class="rm-sheet__backdrop" @onclick="HandleCancel">
+        <div class="rm-sheet__panel" @onclick:stopPropagation="true"
+             style="padding-bottom:calc(8px + env(safe-area-inset-bottom));">
+            <div class="rm-sheet__handle"></div>
+
+            @* ── Header ────────────────────────────────────────────── *@
+            <div class="rm-save-sheet__head">
+                <h3 class="rm-save-sheet__title">
+                    Guardar carga · <span class="rm-chip">@MachineLabel</span>
+                </h3>
+            </div>
+
+            @* ── Summary stats ─────────────────────────────────────── *@
+            @if (!string.IsNullOrEmpty(UnitSummary) || !string.IsNullOrEmpty(SlotSummary))
+            {
+                <div class="rm-save-sheet__summary">
+                    @if (!string.IsNullOrEmpty(UnitSummary))
+                    {
+                        <span class="rm-save-sheet__stat">@UnitSummary</span>
+                    }
+                    @if (!string.IsNullOrEmpty(SlotSummary))
+                    {
+                        <span class="rm-save-sheet__sep">·</span>
+                        <span class="rm-save-sheet__stat">@SlotSummary</span>
+                    }
+                </div>
+            }
+
+            @* ── Photo section with "Obligatoria" badge ────────────── *@
+            <div class="rm-save-sheet__photo-section">
+                <div class="rm-save-sheet__photo-label">
+                    <span>Foto de la máquina</span>
+                    <span class="rm-tag rm-tag--required">OBLIGATORIA</span>
+                </div>
+
+                @if (_capturedFile != null && _previewUrl != null)
+                {
+                    @* Photo preview ────────────────────────────────── *@
+                    <div class="rm-save-sheet__preview">
+                        <img src="@_previewUrl" alt="Vista previa de la foto"
+                             class="rm-save-sheet__preview-img" />
+                        <button class="rm-save-sheet__delete-btn"
+                                aria-label="Quitar foto"
+                                @onclick="ClearPhoto">
+                            <i class="bi bi-trash3"></i>
+                        </button>
+                    </div>
+                }
+                else
+                {
+                    @* Photo CTA (dashed area) ──────────────────────── *@
+                    <label class="rm-save-sheet__photo-cta"
+                           aria-label="Tomar foto de la máquina">
+                        <i class="bi bi-camera rm-save-sheet__camera-icon"></i>
+                        <span class="rm-save-sheet__photo-text">
+                            Toma la foto de cómo quedó cargada
+                        </span>
+                        <InputFile accept="image/*"
+                                   capture="environment"
+                                   style="display:none;"
+                                   OnChange="HandleFileSelected" />
+                    </label>
+                }
+            </div>
+
+            @* ── Hora de carga notice ──────────────────────────────── *@
+            <div class="rm-save-sheet__notice">
+                <i class="bi bi-info-circle"></i>
+                <span>Al guardar, la hora de carga de esta máquina quedará registrada como ahora (@DateTime.Now.ToString("HH:mm"))</span>
+            </div>
+
+            @* ── Error banner ──────────────────────────────────────── *@
+            @if (_error != null)
+            {
+                <div class="rm-error rm-save-sheet__error" data-testid="save-sheet-error">
+                    <i class="bi bi-exclamation-triangle-fill"></i>
+                    <span style="flex:1;font-size:0.78rem;">@_error</span>
+                    <button class="rm-iconbtn" style="width:28px;height:28px;font-size:0.72rem;"
+                            aria-label="Cerrar error"
+                            @onclick="() => { _error = null; StateHasChanged(); }">×</button>
+                </div>
+            }
+
+            @* ── Action row ─────────────────────────────────────────── *@
+            <div class="rm-save-sheet__actions">
+                <button class="rm-cta rm-cta--primary rm-save-sheet__btn"
+                        type="button"
+                        disabled="@(_capturedFile == null || _uploading)"
+                        aria-label="Guardar carga"
+                        @onclick="HandleSaveAndOverview">
+                    @if (_uploading)
+                    {
+                        <span class="spinner-border spinner-border-sm" role="status"></span>
+                    }
+                    else
+                    {
+                        <i class="bi bi-cloud-arrow-up"></i>
+                    }
+                    Guardar carga
+                </button>
+                <button class="rm-cta rm-cta--outline rm-save-sheet__btn"
+                        type="button"
+                        disabled="@(_capturedFile == null || _uploading)"
+                        aria-label="Guardar y cargar otra máquina"
+                        @onclick="HandleSaveAndPickAnother">
+                    <i class="bi bi-arrow-right-circle"></i>
+                    Guardar y cargar otra máquina
+                </button>
+            </div>
+
+            @* ── Cancel ────────────────────────────────────────────── *@
+            <div class="rm-save-sheet__cancel-row">
+                <button class="rm-save-sheet__cancel-btn"
+                        type="button"
+                        aria-label="Cancelar"
+                        @onclick="HandleCancel">
+                    Cancelar
+                </button>
+            </div>
+        </div>
+    </div>
+}
