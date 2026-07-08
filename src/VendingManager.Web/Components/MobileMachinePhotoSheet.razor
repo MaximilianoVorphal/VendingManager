@@ -51,7 +51,7 @@
             </div>
 
             @* ── Preview area ──────────────────────────────────────── *@
-            @if (_capturedFile != null && _previewUrl != null)
+            @if (_capturedBytes != null && _previewUrl != null)
             {
                 <div style="padding:8px 16px;text-align:center;">
                     <div style="border-radius:12px;overflow:hidden;max-width:240px;margin:0 auto;
@@ -92,7 +92,7 @@
                 </button>
                 <button class="rm-cta rm-cta--primary" type="button"
                         style="flex:1;"
-                        disabled="@(_capturedFile == null || _uploading)"
+                        disabled="@(_capturedBytes == null || _uploading)"
                         aria-label="Subir y finalizar"
                         @onclick="HandleSubmit">
                     @if (_uploading)

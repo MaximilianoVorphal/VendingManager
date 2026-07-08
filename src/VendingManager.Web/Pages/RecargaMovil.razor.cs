@@ -651,7 +651,7 @@ public partial class RecargaMovil : ComponentBase, IDisposable
     /// foto-guía endpoint. On success: close sheet, toast, navigate to Lista.
     /// On error: keep sheet open with retry.
     /// </summary>
-    private async Task HandlePhotoAccepted(IBrowserFile file)
+    private async Task HandlePhotoAccepted(CapturedPhoto photo)
     {
         var template = _activeTemplate;
         var machine = _photoSheetMachine;
@@ -671,28 +671,11 @@ public partial class RecargaMovil : ComponentBase, IDisposable
             return;
         }
 
-        // Read the file into a byte[] (max 10MB)
-        byte[] bytes;
-        try
-        {
-            await using var stream = file.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024);
-            using var ms = new MemoryStream();
-            await stream.CopyToAsync(ms, _cts.Token);
-            bytes = ms.ToArray();
-        }
-        catch (OperationCanceledException) { return; }
-        catch (Exception ex)
-        {
-            _error = $"Error al leer la foto: {ex.Message}";
-            StateHasChanged();
-            return;
-        }
-
         // Build MultipartFormDataContent with field name "file" (the controller's expected field name)
         using var content = new MultipartFormDataContent();
-        var fileContent = new ByteArrayContent(bytes);
-        fileContent.Headers.ContentType = new MediaTypeHeaderValue(file.ContentType);
-        content.Add(fileContent, "file", file.Name);
+        var fileContent = new ByteArrayContent(photo.Bytes);
+        fileContent.Headers.ContentType = new MediaTypeHeaderValue(photo.ContentType);
+        content.Add(fileContent, "file", photo.FileName);
 
         // PUT to the foto-guía endpoint
         _uploadCts = CancellationTokenSource.CreateLinkedTokenSource(_cts.Token);
@@ -767,7 +750,7 @@ public partial class RecargaMovil : ComponentBase, IDisposable
     /// HandleSaveAndOverview — saves slots + uploads photo, then returns to Overview.
     /// Called by MobileRecargaSaveSheet.OnSaveAndOverview.
     /// </summary>
-    private async Task HandleSaveAndOverview(IBrowserFile file)
+    private async Task HandleSaveAndOverview(CapturedPhoto photo)
     {
         var template = _activeTemplate;
         var machine = _saveSheetMachine ?? _editingMachine;
@@ -777,14 +760,14 @@ public partial class RecargaMovil : ComponentBase, IDisposable
             return;
         }
 
-        await UploadPhotoAsync(template, machine, file, navigateToPickMachine: false);
+        await UploadPhotoAsync(template, machine, photo, navigateToPickMachine: false);
     }
 
     /// <summary>
     /// HandleSaveAndPickAnother — saves slots + uploads photo, then navigates to PickMachine.
     /// Called by MobileRecargaSaveSheet.OnSaveAndPickAnother.
     /// </summary>
-    private async Task HandleSaveAndPickAnother(IBrowserFile file)
+    private async Task HandleSaveAndPickAnother(CapturedPhoto photo)
     {
         var template = _activeTemplate;
         var machine = _saveSheetMachine ?? _editingMachine;
@@ -794,7 +777,7 @@ public partial class RecargaMovil : ComponentBase, IDisposable
             return;
         }
 
-        await UploadPhotoAsync(template, machine, file, navigateToPickMachine: true);
+        await UploadPhotoAsync(template, machine, photo, navigateToPickMachine: true);
     }
 
     /// <summary>
@@ -804,24 +787,8 @@ public partial class RecargaMovil : ComponentBase, IDisposable
     /// On error: keep sheet open with inline error.
     /// </summary>
     private async Task UploadPhotoAsync(TemplateRecargaDto template, PeriodoRecargaDto machine,
-        IBrowserFile file, bool navigateToPickMachine)
+        CapturedPhoto photo, bool navigateToPickMachine)
     {
-        // Read file into bytes
-        byte[] bytes;
-        try
-        {
-            await using var stream = file.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024);
-            using var ms = new MemoryStream();
-            await stream.CopyToAsync(ms, _cts.Token);
-            bytes = ms.ToArray();
-        }
-        catch (OperationCanceledException) { return; }
-        catch (Exception ex)
-        {
-            await (_saveSheet?.SetErrorAsync($"Error al leer la foto: {ex.Message}") ?? Task.CompletedTask);
-            return;
-        }
-
         // Find the periodo for the machine
         var periodo = template.Periodos.FirstOrDefault(p => p.MaquinaId == machine.MaquinaId);
         if (periodo == null)
@@ -832,9 +799,9 @@ public partial class RecargaMovil : ComponentBase, IDisposable
 
         // Build MultipartFormDataContent
         using var content = new MultipartFormDataContent();
-        var fileContent = new ByteArrayContent(bytes);
-        fileContent.Headers.ContentType = new MediaTypeHeaderValue(file.ContentType);
-        content.Add(fileContent, "file", file.Name);
+        var fileContent = new ByteArrayContent(photo.Bytes);
+        fileContent.Headers.ContentType = new MediaTypeHeaderValue(photo.ContentType);
+        content.Add(fileContent, "file", photo.FileName);
 
         // PUT to foto-guía endpoint
         _uploadCts = CancellationTokenSource.CreateLinkedTokenSource(_cts.Token);
