@@ -455,8 +455,8 @@ public class RecargaMovilTests : TestContext
             .Add(p => p.OnPhotoAccepted, (IBrowserFile f) => { receivedFile = f; })
         );
 
-        // Create minimal JPEG bytes (no HEIC magic)
-        var jpegBytes = new byte[] { 0xFF, 0xD8, 0xFF, 0xE0 };
+        // Create minimal JPEG bytes (16 bytes, no ftyp box, big enough to pass the size check)
+        var jpegBytes = new byte[] { 0xFF, 0xD8, 0xFF, 0xE0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
         var jpegFile = new MockBrowserFile(jpegBytes, "image/jpeg", "test.jpg");
 
         // Trigger InputFile selection
@@ -488,8 +488,8 @@ public class RecargaMovilTests : TestContext
             .Add(p => p.OnPhotoAccepted, (IBrowserFile _) => { callbackInvoked = true; })
         );
 
-        // Capture a valid JPEG
-        var jpegBytes = new byte[] { 0xFF, 0xD8, 0xFF, 0xE0 };
+        // Capture a valid JPEG (16 bytes, no ftyp box, big enough to pass the size check)
+        var jpegBytes = new byte[] { 0xFF, 0xD8, 0xFF, 0xE0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
         var jpegFile = new MockBrowserFile(jpegBytes, "image/jpeg", "test.jpg");
 
         var inputFile = cut.FindComponent<InputFile>();
@@ -534,14 +534,16 @@ public class RecargaMovilTests : TestContext
         closeInvoked.Should().BeTrue();
     }
 
-    // ── Test 18: All 4 HEIC brands rejected ───────────────────────────
+    // ── Test 18: All 8 modern image brands rejected ───────────────────
 
     [Theory]
-    [InlineData("heic")]
-    [InlineData("heix")]
-    [InlineData("hevc")]
-    [InlineData("hevx")]
-    public void MobileMachinePhotoSheet_Rejects_All_HEIC_Brands(string brand)
+    [InlineData("heic", "HEIC")]
+    [InlineData("heix", "HEIC")]
+    [InlineData("hevc", "HEIC")]
+    [InlineData("hevx", "HEIC")]
+    [InlineData("avif", "AVIF")]
+    [InlineData("avis", "AVIF")]
+    public void MobileMachinePhotoSheet_Rejects_All_Modern_Image_Brands(string brand, string expectedLabel)
     {
         var cut = RenderComponent<MobileMachinePhotoSheet>(parameters => parameters
             .Add(p => p.Visible, true)
@@ -549,23 +551,24 @@ public class RecargaMovilTests : TestContext
             .Add(p => p.OnPhotoAccepted, (IBrowserFile _) => { })
         );
 
-        // Construct HEIC bytes with the given brand at offset 8
-        var heicBytes = new byte[12];
-        heicBytes[4] = (byte)'f'; heicBytes[5] = (byte)'t';
-        heicBytes[6] = (byte)'y'; heicBytes[7] = (byte)'p';
-        heicBytes[8] = (byte)'h'; heicBytes[9] = (byte)'e';
-        heicBytes[10] = (byte)brand[2];
-        heicBytes[11] = (byte)brand[3];
+        // Construct ftyp bytes with the given brand at offset 8
+        var bytes = new byte[12];
+        bytes[4] = (byte)'f'; bytes[5] = (byte)'t';
+        bytes[6] = (byte)'y'; bytes[7] = (byte)'p';
+        bytes[8] = (byte)brand[0];
+        bytes[9] = (byte)brand[1];
+        bytes[10] = (byte)brand[2];
+        bytes[11] = (byte)brand[3];
 
-        var heicFile = new MockBrowserFile(heicBytes, "image/jpeg", $"test.{brand}");
+        var mockFile = new MockBrowserFile(bytes, "image/jpeg", $"test.{brand}");
 
         var inputFile = cut.FindComponent<InputFile>();
-        var args = new InputFileChangeEventArgs(new[] { heicFile });
+        var args = new InputFileChangeEventArgs(new[] { mockFile });
         cut.InvokeAsync(() => inputFile.Instance.OnChange.InvokeAsync(args));
 
         // Assert error is shown via data-testid
         var errorEl = cut.Find("[data-testid='photo-error']");
-        errorEl.TextContent.Should().Contain("HEIC");
+        errorEl.TextContent.Should().Contain(expectedLabel);
 
         // CTA should remain disabled
         var submitBtn = cut.Find("button[aria-label='Subir y finalizar']");
