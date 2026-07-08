@@ -60,11 +60,17 @@
                 <div class="rm-sheet__handle"></div>
                 <div class="rm-sheet__head">Seleccionar producto</div>
 
-                <div style="padding:0 12px 10px;">
+                <div style="padding:0 12px 10px;display:flex;gap:8px;">
                     <input class="rm-search" type="text"
                            placeholder="Buscar producto..."
                            value="@_productSearch"
-                            @oninput="OnProductSearchChanged" />
+                           @oninput="OnProductSearchChanged" />
+                    <button class="rm-scan-btn" aria-label="Escanear producto"
+                            style="width:44px;height:44px;flex-shrink:0;border:2px solid var(--ink-900);
+                                   background:var(--ink-900);color:var(--paper-0);font-size:1.1rem;
+                                   cursor:pointer;display:flex;align-items:center;justify-content:center;">
+                        <i class="bi bi-upc-scan"></i>
+                    </button>
                 </div>
 
                 <div style="max-height:320px;overflow-y:auto;padding:0 12px 16px;
@@ -196,6 +202,25 @@
                              MachineLabel="@(_photoSheetMachine != null ? $"Máquina …{MachineShortCode(_photoSheetMachine)}" : null)"
                              OnPhotoAccepted="HandlePhotoAccepted"
                              OnClose="HandlePhotoSheetClose" />
+
+    @* ── BOTTOM SHEET: MobileRecargaSaveSheet (PR 2) ────────────── *@
+    <MobileRecargaSaveSheet @ref="_saveSheet"
+                            Visible="@_saveSheetVisible"
+                            MachineLabel="@(_saveSheetMachine != null ? $"Máq …{MachineShortCode(_saveSheetMachine)}" : null)"
+                            UnitSummary="@(_saveSheetMachine != null ? $"{MachineUnits(_saveSheetMachine)} u. cargadas" : null)"
+                            SlotSummary="@(_saveSheetMachine != null ? $"{_saveSheetMachine.SnapshotSlots.Count(s => s.CantidadInicial > 0)} productos" : null)"
+                            OnSaveAndOverview="HandleSaveAndOverview"
+                            OnSaveAndPickAnother="HandleSaveAndPickAnother"
+                            OnClose="HandleSaveSheetClose" />
+
+    @* ── BOTTOM SHEET: MobileDatePickerSheet (PR 2) ─────────────── *@
+    @if (_datePickerVisible && _activeTemplate != null)
+    {
+        <MobileDatePickerSheet Visible="@_datePickerVisible"
+                               CurrentDate="@_activeTemplate.FechaCreacion"
+                               OnDateConfirmed="HandleDateConfirmed"
+                               OnClose="() => _datePickerVisible = false" />
+    }
 </div>
 
 @code {
@@ -283,6 +308,10 @@
                 <span class="rm-eyebrow rm-eyebrow--muted">Resumen de carga</span>
                 <h2 class="rm-title--bar">@(_activeTemplate?.Nombre ?? "Carga")</h2>
             </div>
+            <button class="rm-iconbtn" aria-label="Editar fecha"
+                    @onclick="() => _datePickerVisible = true">
+                <i class="bi bi-calendar"></i>
+            </button>
         </div>
 
         <div class="rm-view__scroll">
@@ -357,10 +386,7 @@
         </div>
 
         <div class="rm-view__bottombar">
-            @{
-                var allLoaded = _machines.Count > 0 && _machines.All(m => MachineUnits(m) > 0);
-            }
-            @if (allLoaded)
+            @if (AllMachinesLoaded())
             {
                 <button class="rm-cta rm-cta--primary" @onclick="OnFinalizarCarga">
                     <i class="bi bi-check2-circle"></i> Finalizar carga
@@ -434,7 +460,7 @@
                         <span class="rm-scan-box__icon"><i class="bi bi-upc-scan"></i></span>
                         <span class="rm-line"></span>
                     </div>
-                    <span class="rm-scan-label">Escaneando...</span>
+                    <span class="rm-scan-label">Escaneando<span class="rm-scan-cursor">_</span></span>
                     <small style="color:rgba(255,255,255,0.5);font-size:0.65rem;"
                            class="font-monospace">Tocá para cancelar</small>
                 </div>
@@ -465,17 +491,22 @@
         </div>
 
         <div class="rm-view__scroll" style="position:relative;">
-            @* Density toggle *@
-            <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+            @* Density toggle + mostrarPrecios *@
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap;">
                 <span style="font-family:var(--font-mono);font-size:0.6rem;font-weight:var(--fw-bold);
                              text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);">
                     Vista
                 </span>
                 <VmSegmented @bind-Value="DensityKey"
                              Options="@(new[] { ("comoda","Cómoda"), ("compacta","Compacta") })" />
+                <label class="rm-show-price" style="margin-left:auto;display:flex;align-items:center;gap:6px;
+                                                     font-family:var(--font-mono);font-size:0.6rem;cursor:pointer;">
+                    <input type="checkbox" @bind="_showPrices" />
+                    <span>$</span>
+                </label>
             </div>
 
-            @* Floors + slot grid *@
+            @* Machine figure wrapper *@
             @{
                 var floorGroups = _slots.Select((s, i) => new { s, Index = i })
                     .GroupBy(x => x.Index / 10)
@@ -489,48 +520,85 @@
             }
             else
             {
-                @foreach (var floor in floorGroups)
-                {
-                    var floorSlots = floor.Select(x => x.s).ToList();
-                    var floorUnits = floorSlots.Sum(s => s.CantidadInicial);
-                    var floorCap = floorSlots.Sum(s => s.CapacidadSlot);
-                    var floorVacios = floorSlots.Count(s => s.CantidadInicial == 0 && s.ProductoId != null);
+                var totalUnits = _slots.Sum(s => s.CantidadInicial);
+                var totalCap = _slots.Sum(s => s.CapacidadSlot);
 
-                    <div class="rm-floor">
-                        <div class="rm-floor__head">
-                            <span class="rm-floor__tag">PISO @(floor.Key + 1)</span>
-                            <span class="rm-floor__summary">
-                                @floorUnits/@floorCap u.
-                                @if (floorVacios > 0)
-                                {
-                                    <text> · @floorVacios vacíos</text>
-                                }
-                            </span>
-                            <button class="rm-floor__fill-btn"
-                                    aria-label="Llenar piso"
-                                    @onclick="() => { _hasChanges = true; foreach(var s in floorSlots) { s.CantidadInicial = s.CapacidadSlot; } StateHasChanged(); }">
-                                <i class="bi bi-arrow-bar-up"></i> Llenar
-                            </button>
-                        </div>
-                        <div class="rm-slot-grid" style="grid-template-columns: repeat(@(_compactDensity ? 4 : 5), 1fr);">
-                            @foreach (var slot in floorSlots)
-                            {
-                                var isEmpty = slot.ProductoId == null || slot.ProductoId == 0;
-                                var slotPct = slot.CapacidadSlot > 0 ? (slot.CantidadInicial * 100 / slot.CapacidadSlot) : 0;
-                                <div class="rm-slot @(isEmpty ? "rm-slot-empty" : "") @(_editingSlot == slot ? "rm-slot-sel" : "")"
-                                     @onclick="() => OnSlotEdit(slot)">
-                                    <span class="rm-slot__id">@slot.NumeroSlot</span>
-                                    <span class="rm-slot__product">
-                                        @(isEmpty ? "Vacío" : slot.ProductoNombre)
+                <div class="rm-figure">
+                    @* Top bar: machine code + units/cap badge *@
+                    <div class="rm-figure__topbar">
+                        <span class="rm-figure__topbar-label">MÁQUINA …@MachineShortCode(_editingMachine!)</span>
+                        <span class="rm-figure__topbar-badge">@totalUnits/@totalCap u.</span>
+                    </div>
+
+                    @* Body: floors + slot grid *@
+                    <div class="rm-figure__body">
+                        @foreach (var floor in floorGroups)
+                        {
+                            var floorSlots = floor.Select(x => x.s).ToList();
+                            var floorUnits = floorSlots.Sum(s => s.CantidadInicial);
+                            var floorCap = floorSlots.Sum(s => s.CapacidadSlot);
+                            var floorVacios = floorSlots.Count(s => s.CantidadInicial == 0 && s.ProductoId != null);
+
+                            <div class="rm-floor">
+                                <div class="rm-floor__head">
+                                    <span class="rm-floor__tag">PISO @(floor.Key + 1)</span>
+                                    <span class="rm-floor__summary">
+                                        @floorUnits/@floorCap u.
+                                        @if (floorVacios > 0)
+                                        {
+                                            <text> · @floorVacios vacíos</text>
+                                        }
                                     </span>
-                                    <span class="rm-slot__qty">
-                                        @slot.CantidadInicial/@slot.CapacidadSlot
-                                    </span>
+                                    <button class="rm-floor__fill-btn"
+                                            aria-label="Llenar piso"
+                                            @onclick="() => { _hasChanges = true; foreach(var s in floorSlots) { s.CantidadInicial = s.CapacidadSlot; } StateHasChanged(); }">
+                                        <i class="bi bi-arrow-bar-up"></i> Llenar
+                                    </button>
                                 </div>
+                                <div class="rm-slot-grid" style="grid-template-columns: repeat(@(_compactDensity ? 4 : 5), 1fr);">
+                                    @foreach (var slot in floorSlots)
+                                    {
+                                        var isEmpty = slot.ProductoId == null || slot.ProductoId == 0;
+                                        var slotPct = slot.CapacidadSlot > 0 ? (slot.CantidadInicial * 100 / slot.CapacidadSlot) : 0;
+                                        <div class="rm-slot @(isEmpty ? "rm-slot-empty" : "") @(_editingSlot == slot ? "rm-slot-sel" : "")"
+                                             @onclick="() => OnSlotEdit(slot)">
+                                            @* Fill bar *@
+                                            <span class="rm-slot-fill" style="width:@(slotPct)%"></span>
+                                            <span class="rm-slot__id">
+                                                @slot.NumeroSlot
+                                                @if (isEmpty && slot.CantidadInicial == 0)
+                                                {
+                                                    <i class="bi bi-exclamation-triangle-fill rm-slot-empty-warn"></i>
+                                                }
+                                            </span>
+                                            <span class="rm-slot__product">
+                                                @(isEmpty ? "Vacío" : slot.ProductoNombre)
+                                            </span>
+                                            <span class="rm-slot__qty">
+                                                @slot.CantidadInicial/@slot.CapacidadSlot
+                                            </span>
+                                            @if (_showPrices)
+                                            {
+                                                <span class="rm-slot__price" style="font-family:var(--font-mono);font-size:0.48rem;color:var(--ink-500);">$ —</span>
+                                            }
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </div>
+
+                    @* Bottom bar: "RETIRE AQUÍ" + 3×3 grid *@
+                    <div class="rm-figure__bottombar">
+                        <span class="rm-figure__retire">RETIRE AQUÍ</span>
+                        <div class="rm-figure__grid-3x3">
+                            @for (int g = 0; g < 9; g++)
+                            {
+                                <div class="rm-figure__grid-cell"></div>
                             }
                         </div>
                     </div>
-                }
+                </div>
             }
         </div>
 

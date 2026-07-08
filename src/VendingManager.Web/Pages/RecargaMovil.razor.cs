@@ -72,6 +72,7 @@ public partial class RecargaMovil : ComponentBase, IDisposable
     private int _editingSlotIndex;
     private bool _compactDensity = true; // PR 4 — wire to slot grid density toggle
     private bool _hasChanges; // PR 4 — Guardar disabled when no changes
+    private bool _showPrices; // G13 — mostrarPrecios toggle
     private string DensityKey
     {
         get => _compactDensity ? "compacta" : "comoda";
@@ -83,6 +84,16 @@ public partial class RecargaMovil : ComponentBase, IDisposable
     private bool _photoSheetVisible; // Wired to MobileMachinePhotoSheet.Visible
     private PeriodoRecargaDto? _photoSheetMachine; // Machine context for the open photo sheet
     private MobileMachinePhotoSheet? _photoSheet; // @ref for inline error display
+
+    // ─── Save Sheet (PR 2) ──────────────────────────────────────────────
+
+    private bool _saveSheetVisible;
+    private PeriodoRecargaDto? _saveSheetMachine;
+    private MobileRecargaSaveSheet? _saveSheet;
+
+    // ─── Date Picker Sheet (PR 2) ───────────────────────────────────────
+
+    private bool _datePickerVisible;
 
     // ─── Toast ───────────────────────────────────────────────────────────
 
@@ -371,15 +382,58 @@ public partial class RecargaMovil : ComponentBase, IDisposable
     }
 
     /// <summary>
-    /// SaveSlotsAsync — NO-OP in PR 2. The full save + photo sheet flow
-    /// (POST .../slot-batch then photo sheet) is wired in PR 3.
+    /// SaveSlotsAsync — collects slot actions and POSTs to slot-batch.
+    /// On success, opens the save sheet for photo capture.
+    /// On failure, shows inline error.
     /// </summary>
-    private Task SaveSlotsAsync()
+    private async Task SaveSlotsAsync()
     {
-        _hasChanges = false;
-        // Wired in PR 3 with the photo sheet
-        ShowToast("Guardar carga se habilita en PR 3", "bi-info-circle");
-        return Task.CompletedTask;
+        if (_activeTemplate == null || _editingMachine == null) return;
+
+        // Collect slot actions: only slots with changes (CantidadInicial > 0)
+        var actions = _slots
+            .Where(s => s.CantidadInicial > 0 || s.ProductoId != null)
+            .Select(s => new SlotActionDto
+            {
+                SlotId = s.Id,
+                ActionType = "REFILL",
+                Cantidad = s.CantidadInicial,
+                NewProductoId = s.ProductoId
+            })
+            .ToList();
+
+        if (actions.Count == 0)
+        {
+            ShowToast("No hay cambios para guardar", "bi-info-circle");
+            return;
+        }
+
+        try
+        {
+            _hasChanges = false;
+
+            var request = new SlotBatchRequest { Actions = actions };
+            var json = JsonSerializer.Serialize(request);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            var response = await Http.PostAsync(
+                $"/api/TemplateRecarga/{_activeTemplate.Id}/periodo/{_editingMachine.Id}/slot-batch",
+                content, _cts.Token);
+
+            response.EnsureSuccessStatusCode();
+
+            // On success, open the save sheet for photo capture
+            _saveSheetMachine = _editingMachine;
+            _saveSheetVisible = true;
+            StateHasChanged();
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to save slots for machine {Id}", _editingMachine.MaquinaId);
+            _error = "Error al guardar los slots. Intentá de nuevo.";
+            StateHasChanged();
+        }
     }
 
     private async Task LoadProductCatalogAsync()
@@ -482,15 +536,7 @@ public partial class RecargaMovil : ComponentBase, IDisposable
             {
                 Nombre = $"Carga {DateTime.UtcNow:dd/MM}",
                 Descripcion = null,
-                Periodos = new List<CreatePeriodoDto>
-                {
-                    new CreatePeriodoDto
-                    {
-                        MaquinaId = 0,
-                        FechaRecarga = DateTime.UtcNow,
-                        SnapshotSlots = new List<CreateSnapshotSlotDto>()
-                    }
-                }
+                Periodos = new List<CreatePeriodoDto>()
             };
 
             var json = JsonSerializer.Serialize(dto);
@@ -572,7 +618,7 @@ public partial class RecargaMovil : ComponentBase, IDisposable
         _editingSlot.ProductoNombre = product.Nombre;
         if (_editingSlot.CantidadInicial <= 0)
         {
-            _editingSlot.CantidadInicial = Math.Min(1, _editingSlot.CapacidadSlot);
+            _editingSlot.CantidadInicial = _editingSlot.CapacidadSlot;
         }
 
         _productSheetVisible = false;
@@ -713,6 +759,199 @@ public partial class RecargaMovil : ComponentBase, IDisposable
         _photoSheetMachine = null;
         _uploadCts?.Cancel();
         StateHasChanged();
+    }
+
+    // ─── Save Sheet Handlers (PR 2) ───────────────────────────────────────
+
+    /// <summary>
+    /// HandleSaveAndOverview — saves slots + uploads photo, then returns to Overview.
+    /// Called by MobileRecargaSaveSheet.OnSaveAndOverview.
+    /// </summary>
+    private async Task HandleSaveAndOverview(IBrowserFile file)
+    {
+        var template = _activeTemplate;
+        var machine = _saveSheetMachine ?? _editingMachine;
+        if (template == null || machine == null)
+        {
+            await (_saveSheet?.SetErrorAsync("Contexto perdido. Volvé a intentarlo.") ?? Task.CompletedTask);
+            return;
+        }
+
+        await UploadPhotoAsync(template, machine, file, navigateToPickMachine: false);
+    }
+
+    /// <summary>
+    /// HandleSaveAndPickAnother — saves slots + uploads photo, then navigates to PickMachine.
+    /// Called by MobileRecargaSaveSheet.OnSaveAndPickAnother.
+    /// </summary>
+    private async Task HandleSaveAndPickAnother(IBrowserFile file)
+    {
+        var template = _activeTemplate;
+        var machine = _saveSheetMachine ?? _editingMachine;
+        if (template == null || machine == null)
+        {
+            await (_saveSheet?.SetErrorAsync("Contexto perdido. Volvé a intentarlo.") ?? Task.CompletedTask);
+            return;
+        }
+
+        await UploadPhotoAsync(template, machine, file, navigateToPickMachine: true);
+    }
+
+    /// <summary>
+    /// UploadPhotoAsync — reads the file and PUTs to foto-guia endpoint.
+    /// Does NOT call POST terminar (that stays in HandlePhotoAccepted for Finalizar flow).
+    /// On success: close save sheet, reload template, navigate to Overview or PickMachine.
+    /// On error: keep sheet open with inline error.
+    /// </summary>
+    private async Task UploadPhotoAsync(TemplateRecargaDto template, PeriodoRecargaDto machine,
+        IBrowserFile file, bool navigateToPickMachine)
+    {
+        // Read file into bytes
+        byte[] bytes;
+        try
+        {
+            await using var stream = file.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024);
+            using var ms = new MemoryStream();
+            await stream.CopyToAsync(ms, _cts.Token);
+            bytes = ms.ToArray();
+        }
+        catch (OperationCanceledException) { return; }
+        catch (Exception ex)
+        {
+            await (_saveSheet?.SetErrorAsync($"Error al leer la foto: {ex.Message}") ?? Task.CompletedTask);
+            return;
+        }
+
+        // Find the periodo for the machine
+        var periodo = template.Periodos.FirstOrDefault(p => p.MaquinaId == machine.MaquinaId);
+        if (periodo == null)
+        {
+            await (_saveSheet?.SetErrorAsync("Período no encontrado.") ?? Task.CompletedTask);
+            return;
+        }
+
+        // Build MultipartFormDataContent
+        using var content = new MultipartFormDataContent();
+        var fileContent = new ByteArrayContent(bytes);
+        fileContent.Headers.ContentType = new MediaTypeHeaderValue(file.ContentType);
+        content.Add(fileContent, "file", file.Name);
+
+        // PUT to foto-guía endpoint
+        _uploadCts = CancellationTokenSource.CreateLinkedTokenSource(_cts.Token);
+        try
+        {
+            var url = $"api/TemplateRecarga/{template.Id}/periodo/{periodo.Id}/foto-guia";
+            var response = await Http.PutAsync(url, content, _uploadCts.Token);
+
+            if (response.IsSuccessStatusCode)
+            {
+                _saveSheetVisible = false;
+                _saveSheetMachine = null;
+                _error = null;
+
+                ShowToast("Máquina guardada", "bi-check2-circle");
+
+                // Reload template
+                try
+                {
+                    await LoadTemplateAsync(template.Id);
+                }
+                catch
+                {
+                    Logger.LogWarning("Post-save LoadTemplateAsync failed");
+                }
+
+                if (navigateToPickMachine)
+                {
+                    await GoToPickMachineAsync();
+                }
+                else
+                {
+                    if (_activeTemplate != null)
+                    {
+                        GoToOverview(_activeTemplate);
+                    }
+                    else
+                    {
+                        GoToList();
+                    }
+                }
+            }
+            else
+            {
+                var errorBody = await response.Content.ReadAsStringAsync(_uploadCts.Token);
+                await (_saveSheet?.SetErrorAsync(
+                    $"Error al subir la foto ({(int)response.StatusCode}). {errorBody}") ?? Task.CompletedTask);
+            }
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            await (_saveSheet?.SetErrorAsync($"Error al subir la foto: {ex.Message}") ?? Task.CompletedTask);
+            Logger.LogError(ex, "Error uploading foto-guía for template {TemplateId}, periodo {PeriodoId}",
+                template.Id, periodo.Id);
+        }
+        finally
+        {
+            _uploadCts?.Dispose();
+            _uploadCts = null;
+        }
+    }
+
+    /// <summary>
+    /// HandleSaveSheetClose — closes the save sheet.
+    /// </summary>
+    private void HandleSaveSheetClose()
+    {
+        _saveSheetVisible = false;
+        _saveSheetMachine = null;
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// HandleDateConfirmed — called by MobileDatePickerSheet when date is confirmed.
+    /// PUTs updated nombre/fecha to the template.
+    /// </summary>
+    private async Task HandleDateConfirmed(DateTime newDate)
+    {
+        if (_activeTemplate == null) return;
+
+        _datePickerVisible = false;
+        _loading = true;
+        _error = null;
+        StateHasChanged();
+
+        try
+        {
+            // Update the template nombre with the new date, keeping existing periodos
+            var updateDto = new UpdateTemplateRecargaDto
+            {
+                Nombre = $"Carga {newDate:dd/MM}",
+                Descripcion = _activeTemplate.Descripcion,
+                Periodos = _activeTemplate.Periodos.Select(ClonePeriodo).ToList()
+            };
+
+            var json = JsonSerializer.Serialize(updateDto);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            var response = await Http.PutAsync(
+                $"/api/TemplateRecarga/{_activeTemplate.Id}", content, _cts.Token);
+
+            response.EnsureSuccessStatusCode();
+
+            await LoadTemplateAsync(_activeTemplate.Id);
+            ShowToast("Fecha actualizada");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to update template date");
+            _error = "Error al actualizar la fecha";
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
     }
 
     // ─── Product Sheet ───────────────────────────────────────────────────
@@ -915,8 +1154,7 @@ public partial class RecargaMovil : ComponentBase, IDisposable
 
     private bool IsMachineLoaded(PeriodoRecargaDto machine)
     {
-        return machine.SnapshotSlots.Any() &&
-               machine.SnapshotSlots.All(s => s.CantidadInicial > 0 || s.ProductoId == null);
+        return machine.TieneFotoGuia && machine.FechaRecarga != default;
     }
 
     private int MachineUnits(PeriodoRecargaDto machine)
@@ -931,7 +1169,7 @@ public partial class RecargaMovil : ComponentBase, IDisposable
 
     private (int loaded, int total) MachinesLoadedStats()
     {
-        var loaded = _machines.Count(m => m.SnapshotSlots.Any(s => s.CantidadInicial > 0));
+        var loaded = _machines.Count(m => m.TieneFotoGuia && m.FechaRecarga != default);
         return (loaded, _machines.Count);
     }
 
@@ -976,18 +1214,20 @@ public partial class RecargaMovil : ComponentBase, IDisposable
 
     private string GetCargadaTag(PeriodoRecargaDto m)
     {
-        return m.SnapshotSlots.Any(s => s.CantidadInicial > 0) ? "Cargada" : "Sin cargar";
+        return m.TieneFotoGuia && m.FechaRecarga != default
+            ? $"Cargada {m.FechaRecarga:HH:mm}"
+            : "Sin cargar";
     }
 
     private string GetCargadaTagVariant(PeriodoRecargaDto m)
     {
-        return m.SnapshotSlots.Any(s => s.CantidadInicial > 0) ? "success" : "outline";
+        return m.TieneFotoGuia && m.FechaRecarga != default ? "success" : "outline";
     }
 
     private bool AllMachinesLoaded()
     {
         return _machines.Count > 0 &&
-               _machines.All(m => m.SnapshotSlots.Any(s => s.CantidadInicial > 0));
+               _machines.All(m => m.TieneFotoGuia && m.FechaRecarga != default);
     }
 
     // =====================================================================
