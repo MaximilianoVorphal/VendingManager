@@ -90,6 +90,7 @@ public partial class RecargaMovil : ComponentBase, IDisposable
     // ─── Cancellation ────────────────────────────────────────────────────
 
     private CancellationTokenSource _cts = new();
+    private CancellationTokenSource? _uploadCts; // Per-upload CTS, cancelled on sheet close
     private bool _disposed;
 
     // =====================================================================
@@ -639,10 +640,11 @@ public partial class RecargaMovil : ComponentBase, IDisposable
         content.Add(fileContent, "file", file.Name);
 
         // PUT to the foto-guía endpoint
+        _uploadCts = CancellationTokenSource.CreateLinkedTokenSource(_cts.Token);
         try
         {
             var url = $"api/TemplateRecarga/{template.Id}/periodo/{periodo.Id}/foto-guia";
-            var response = await Http.PutAsync(url, content, _cts.Token);
+            var response = await Http.PutAsync(url, content, _uploadCts.Token);
             if (response.IsSuccessStatusCode)
             {
                 _photoSheetVisible = false;
@@ -652,7 +654,7 @@ public partial class RecargaMovil : ComponentBase, IDisposable
                 // POST to /terminar to mark template as Finalizado
                 try
                 {
-                    await Http.PostAsync($"/api/TemplateRecarga/{template.Id}/terminar", null, _cts.Token);
+                    await Http.PostAsync($"/api/TemplateRecarga/{template.Id}/terminar", null, _uploadCts.Token);
                 }
                 catch (Exception ex)
                 {
@@ -667,7 +669,7 @@ public partial class RecargaMovil : ComponentBase, IDisposable
             }
             else
             {
-                var errorBody = await response.Content.ReadAsStringAsync(_cts.Token);
+                var errorBody = await response.Content.ReadAsStringAsync(_uploadCts.Token);
                 _error = $"Error al subir la foto ({(int)response.StatusCode}). {errorBody}";
                 StateHasChanged();
             }
@@ -680,15 +682,21 @@ public partial class RecargaMovil : ComponentBase, IDisposable
                 template.Id, periodo.Id);
             StateHasChanged();
         }
+        finally
+        {
+            _uploadCts?.Dispose();
+            _uploadCts = null;
+        }
     }
 
     /// <summary>
-    /// HandlePhotoSheetClose — closes the photo sheet and clears the machine context.
+    /// HandlePhotoSheetClose — closes the photo sheet and cancels any in-flight upload.
     /// </summary>
     private void HandlePhotoSheetClose()
     {
         _photoSheetVisible = false;
         _photoSheetMachine = null;
+        _uploadCts?.Cancel();
         StateHasChanged();
     }
 
@@ -975,6 +983,8 @@ public partial class RecargaMovil : ComponentBase, IDisposable
 
         _cts.Cancel();
         _cts.Dispose();
+        _uploadCts?.Cancel();
+        _uploadCts?.Dispose();
         _toastTimer?.Dispose();
     }
 }
