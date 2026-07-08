@@ -85,9 +85,17 @@ public partial class MobileMachinePhotoSheet : ComponentBase, IDisposable
             var header = new byte[12];
             var bytesRead = await stream.ReadAsync(header.AsMemory(0, 12));
 
+            // Reject files smaller than 12 bytes — too small for any valid image
+            if (bytesRead < 12)
+            {
+                _error = "Archivo inválido o demasiado pequeño. Probá con otra foto.";
+                StateHasChanged();
+                return;
+            }
+
             // ftyp box starts at offset 4: "ftyp" + brand (4 bytes)
             // HEIC brands: "heic", "heix", "hevc", "hevx"
-            if (bytesRead >= 12 && header[4] == 'f' && header[5] == 't' && header[6] == 'y' && header[7] == 'p')
+            if (header[4] == 'f' && header[5] == 't' && header[6] == 'y' && header[7] == 'p')
             {
                 var isHeic = (header[8] == 'h' && header[9] == 'e' && (header[10] == 'i' || header[10] == 'x') && (header[11] == 'c' || header[11] == 'x'))
                           || (header[8] == 'm' && header[9] == 'i' && header[10] == 'f' && header[11] == '3')
