@@ -475,10 +475,45 @@ public partial class RecargaMovil : ComponentBase, IDisposable
     // EVENT HANDLERS
     // =====================================================================
 
-    private void OnNewCarga()
+    private async Task OnNuevaCargaAsync()
     {
-        // Navigate to PC page for creating new templates
-        Nav.NavigateTo("/templates-recarga");
+        _loading = true;
+        _error = null;
+        StateHasChanged();
+
+        try
+        {
+            var dto = new CreateTemplateRecargaDto
+            {
+                Nombre = $"Carga {DateTime.Now:dd/MM}",
+                Descripcion = null,
+                Periodos = new List<CreatePeriodoDto>()
+            };
+
+            var json = JsonSerializer.Serialize(dto);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            var response = await Http.PostAsync("/api/TemplateRecarga", content, _cts.Token);
+            response.EnsureSuccessStatusCode();
+
+            var newTemplate = await response.Content.ReadFromJsonAsync<TemplateRecargaDto>(_cts.Token);
+            if (newTemplate != null)
+            {
+                _activeTemplate = newTemplate;
+                _machines = newTemplate.Periodos.ToList();
+                _view = View.Overview;
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to create new template");
+            _error = "Error al crear nueva recarga";
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
     }
 
     private async Task OnTemplateCardClick(TemplateRecargaDto template)
