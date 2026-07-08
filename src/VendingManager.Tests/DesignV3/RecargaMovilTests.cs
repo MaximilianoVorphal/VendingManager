@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -12,8 +13,10 @@ using FluentAssertions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.Extensions.DependencyInjection;
+using VendingManager.Web.Components;
 using VendingManager.Web.Pages;
 using VendingManager.Web.Shared;
 using Xunit;
@@ -384,6 +387,115 @@ public class RecargaMovilTests : TestContext
             // Guardar button still visible in the dock
             cut.Markup.Should().Contain("Guardar");
         });
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  PHOTO SHEET TESTS (PR 3)
+    // ═══════════════════════════════════════════════════════════════════
+
+    // ── Test 13: Primary CTA disabled before capture ─────────────────
+
+    [Fact]
+    public void MobileMachinePhotoSheet_PrimaryCTA_Disabled_Before_Capture()
+    {
+        var cut = RenderComponent<MobileMachinePhotoSheet>(parameters => parameters
+            .Add(p => p.Visible, true)
+            .Add(p => p.OnClose, () => { })
+            .Add(p => p.OnPhotoAccepted, (IBrowserFile _) => { })
+        );
+
+        var submitBtn = cut.Find("button[aria-label='Subir y finalizar']");
+        submitBtn.HasAttribute("disabled").Should().BeTrue();
+    }
+
+    // ── Test 14: Rejects HEIC via magic bytes ────────────────────────
+
+    [Fact]
+    public void MobileMachinePhotoSheet_Rejects_HEIC()
+    {
+        var cut = RenderComponent<MobileMachinePhotoSheet>(parameters => parameters
+            .Add(p => p.Visible, true)
+            .Add(p => p.OnClose, () => { })
+            .Add(p => p.OnPhotoAccepted, (IBrowserFile _) => { })
+        );
+
+        // Construct minimal HEIC bytes with ftyp-heic magic marker
+        var heicBytes = new byte[12];
+        // ftyp box (offset 4)
+        heicBytes[4] = (byte)'f'; heicBytes[5] = (byte)'t';
+        heicBytes[6] = (byte)'y'; heicBytes[7] = (byte)'p';
+        heicBytes[8] = (byte)'h'; heicBytes[9] = (byte)'e';
+        heicBytes[10] = (byte)'i'; heicBytes[11] = (byte)'c';
+
+        var heicFile = new MockBrowserFile(heicBytes, "image/jpeg", "test.heic");
+
+        // Trigger InputFile selection
+        var inputFile = cut.FindComponent<InputFile>();
+        var args = new InputFileChangeEventArgs(new[] { heicFile });
+        cut.InvokeAsync(() => inputFile.Instance.OnChange.InvokeAsync(args));
+
+        // Assert error is shown
+        cut.Markup.Should().Contain("HEIC no soportado");
+
+        // CTA should remain disabled
+        var submitBtn = cut.Find("button[aria-label='Subir y finalizar']");
+        submitBtn.HasAttribute("disabled").Should().BeTrue();
+    }
+
+    // ── Test 15: Valid JPEG triggers OnPhotoAccepted on submit ──────
+
+    [Fact]
+    public void MobileMachinePhotoSheet_Invokes_OnPhotoAccepted_On_Submit()
+    {
+        IBrowserFile? receivedFile = null;
+        var cut = RenderComponent<MobileMachinePhotoSheet>(parameters => parameters
+            .Add(p => p.Visible, true)
+            .Add(p => p.OnClose, () => { })
+            .Add(p => p.OnPhotoAccepted, (IBrowserFile f) => { receivedFile = f; })
+        );
+
+        // Create minimal JPEG bytes (no HEIC magic)
+        var jpegBytes = new byte[] { 0xFF, 0xD8, 0xFF, 0xE0 };
+        var jpegFile = new MockBrowserFile(jpegBytes, "image/jpeg", "test.jpg");
+
+        // Trigger InputFile selection
+        var inputFile = cut.FindComponent<InputFile>();
+        var args = new InputFileChangeEventArgs(new[] { jpegFile });
+        cut.InvokeAsync(() => inputFile.Instance.OnChange.InvokeAsync(args));
+
+        cut.WaitForState(() => !cut.Markup.Contains("formato", StringComparison.OrdinalIgnoreCase));
+
+        // Tap submit
+        var submitBtn = cut.Find("button[aria-label='Subir y finalizar']");
+        submitBtn.Click();
+
+        receivedFile.Should().NotBeNull();
+        receivedFile!.Name.Should().Be("test.jpg");
+        receivedFile.ContentType.Should().Be("image/jpeg");
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    //  MOCK BROWSER FILE
+    // ═══════════════════════════════════════════════════════════════════
+
+    private class MockBrowserFile : IBrowserFile
+    {
+        private readonly byte[] _content;
+
+        public MockBrowserFile(byte[] content, string contentType, string name)
+        {
+            _content = content;
+            ContentType = contentType;
+            Name = name;
+        }
+
+        public string Name { get; }
+        public long Size => _content.Length;
+        public DateTimeOffset LastModified => DateTimeOffset.Now;
+        public string ContentType { get; }
+
+        public Stream OpenReadStream(long maxAllowedSize = 512000, CancellationToken cancellationToken = default)
+            => new MemoryStream(_content);
     }
 
     // ═══════════════════════════════════════════════════════════════════
