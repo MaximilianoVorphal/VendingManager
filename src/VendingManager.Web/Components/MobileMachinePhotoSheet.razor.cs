@@ -4,15 +4,24 @@
 // Presentation-only bottom sheet for proof-of-load photo. Does NOT call the
 // API directly — the parent (RecargaMovil) handles the foto-guía PUT in
 // HandlePhotoAccepted.
+//
+// The preview uses a blob: URL instead of a data: URL to avoid holding a
+// full base64 string (~33% larger than the binary) in the DOM. The blob URL
+// is revoked when the photo is cleared or the component is disposed.
 // =========================================================================
 
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
+using Microsoft.JSInterop;
 
 namespace VendingManager.Web.Components;
 
-public partial class MobileMachinePhotoSheet : ComponentBase, IDisposable
+public partial class MobileMachinePhotoSheet : ComponentBase, IDisposable, IAsyncDisposable
 {
+    // ─── Dependencies ───────────────────────────────────────────────────
+
+    [Inject] private IJSRuntime JS { get; set; } = null!;
+
     // ─── Parameters ─────────────────────────────────────────────────────
 
     /// <summary>Whether the bottom sheet is visible.</summary>
@@ -49,6 +58,13 @@ public partial class MobileMachinePhotoSheet : ComponentBase, IDisposable
         // Only reset state when the sheet OPENS (false → true transition)
         if (Visible && !_wasVisible)
         {
+            // Revoke any existing blob URL from a previous session
+            if (_previewUrl != null && _previewUrl.StartsWith("blob:", StringComparison.Ordinal))
+            {
+                var oldUrl = _previewUrl;
+                _ = InvokeAsync(() => RevokeBlobUrlAsync(oldUrl));
+            }
+
             _capturedFile = null;
             _previewUrl = null;
             _uploading = false;
@@ -124,7 +140,7 @@ public partial class MobileMachinePhotoSheet : ComponentBase, IDisposable
             return;
         }
 
-        // Read file into data-URL for preview
+        // Read file into blob URL for preview (avoids storing large base64 in the DOM)
         try
         {
             const long maxSize = 10 * 1024 * 1024;
@@ -133,8 +149,17 @@ public partial class MobileMachinePhotoSheet : ComponentBase, IDisposable
             await readStream.CopyToAsync(ms);
             var bytes = ms.ToArray();
 
+            // Revoke previous blob URL if reopening with a new photo before clearing
+            if (_previewUrl != null && _previewUrl.StartsWith("blob:", StringComparison.Ordinal))
+            {
+                await RevokeBlobUrlAsync(_previewUrl);
+            }
+
             _capturedFile = file;
-            _previewUrl = $"data:{file.ContentType};base64,{Convert.ToBase64String(bytes)}";
+            _previewUrl = await JS.InvokeAsync<string>(
+                "vmCreateBlobUrl",
+                Convert.ToBase64String(bytes),
+                file.ContentType);
         }
         catch (Exception ex)
         {
@@ -145,12 +170,35 @@ public partial class MobileMachinePhotoSheet : ComponentBase, IDisposable
     }
 
     /// <summary>Clear the captured photo so the user can retake it.</summary>
-    private void ClearPhoto()
+    private async Task ClearPhoto()
     {
+        if (_previewUrl != null && _previewUrl.StartsWith("blob:", StringComparison.Ordinal))
+        {
+            await RevokeBlobUrlAsync(_previewUrl);
+        }
+
         _capturedFile = null;
         _previewUrl = null;
         _error = null;
         StateHasChanged();
+    }
+
+    // ─── Blob URL Lifecycle ─────────────────────────────────────────────
+
+    /// <summary>
+    /// Revoke a blob: URL via JS interop to free browser memory.
+    /// Safe to call even during disposal (errors are silently caught).
+    /// </summary>
+    private async Task RevokeBlobUrlAsync(string url)
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("vmRevokeBlobUrl", url);
+        }
+        catch
+        {
+            // JS interop may fail during disposal (page unloading or detached context)
+        }
     }
 
     // ─── Submit / Cancel ────────────────────────────────────────────────
@@ -192,12 +240,31 @@ public partial class MobileMachinePhotoSheet : ComponentBase, IDisposable
         await InvokeAsync(StateHasChanged);
     }
 
-    // ─── IDisposable ────────────────────────────────────────────────────
+    // ─── IDisposable / IAsyncDisposable ─────────────────────────────────
 
-    public void Dispose()
+    public async ValueTask DisposeAsync()
     {
         if (_disposed) return;
         _disposed = true;
-        _previewUrl = null; // Release the data-URL
+
+        if (_previewUrl != null && _previewUrl.StartsWith("blob:", StringComparison.Ordinal))
+        {
+            try
+            {
+                await JS.InvokeVoidAsync("vmRevokeBlobUrl", _previewUrl);
+            }
+            catch
+            {
+                // JS interop may fail during disposal (page unloading or detached context)
+            }
+        }
+
+        _previewUrl = null;
+    }
+
+    void IDisposable.Dispose()
+    {
+        // Cleanup handled by DisposeAsync — this guard prevents double-dispose
+        // without duplicating the async revocation logic.
     }
 }
