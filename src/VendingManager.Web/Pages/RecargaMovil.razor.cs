@@ -422,6 +422,10 @@ public partial class RecargaMovil : ComponentBase, IDisposable
     {
         _activeTemplate = template;
         _machines = template.Periodos.ToList();
+        _editingMachine = null;
+        _slots = new();
+        _slotDockVisible = false;
+        _productSheetVisible = false;
         _view = View.Overview;
         _error = null;
         StateHasChanged();
@@ -431,6 +435,10 @@ public partial class RecargaMovil : ComponentBase, IDisposable
     {
         _pickSearch = "";
         _pickScanning = false;
+        _editingMachine = null;
+        _slots = new();
+        _slotDockVisible = false;
+        _productSheetVisible = false;
         await LoadMachinePoolAsync();
         _view = View.PickMachine;
         _error = null;
