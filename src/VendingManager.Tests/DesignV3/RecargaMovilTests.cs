@@ -434,8 +434,9 @@ public class RecargaMovilTests : TestContext
         var args = new InputFileChangeEventArgs(new[] { heicFile });
         cut.InvokeAsync(() => inputFile.Instance.OnChange.InvokeAsync(args));
 
-        // Assert error is shown
-        cut.Markup.Should().Contain("HEIC no soportado");
+        // Assert error is shown via data-testid
+        var errorEl = cut.Find("[data-testid='photo-error']");
+        errorEl.TextContent.Should().Contain("HEIC");
 
         // CTA should remain disabled
         var submitBtn = cut.Find("button[aria-label='Subir y finalizar']");
@@ -463,7 +464,8 @@ public class RecargaMovilTests : TestContext
         var args = new InputFileChangeEventArgs(new[] { jpegFile });
         cut.InvokeAsync(() => inputFile.Instance.OnChange.InvokeAsync(args));
 
-        cut.WaitForState(() => !cut.Markup.Contains("formato", StringComparison.OrdinalIgnoreCase));
+        // No error banner should appear for a valid JPEG
+        cut.WaitForAssertion(() => cut.FindAll("[data-testid='photo-error']").Should().BeEmpty());
 
         // Tap submit
         var submitBtn = cut.Find("button[aria-label='Subir y finalizar']");
@@ -494,7 +496,8 @@ public class RecargaMovilTests : TestContext
         var args = new InputFileChangeEventArgs(new[] { jpegFile });
         cut.InvokeAsync(() => inputFile.Instance.OnChange.InvokeAsync(args));
 
-        cut.WaitForState(() => !cut.Markup.Contains("formato", StringComparison.OrdinalIgnoreCase));
+        // No error banner should appear for a valid JPEG
+        cut.WaitForAssertion(() => cut.FindAll("[data-testid='photo-error']").Should().BeEmpty());
 
         // The button should be enabled (file is captured)
         var submitBtn = cut.Find("button[aria-label='Subir y finalizar']");
@@ -560,8 +563,9 @@ public class RecargaMovilTests : TestContext
         var args = new InputFileChangeEventArgs(new[] { heicFile });
         cut.InvokeAsync(() => inputFile.Instance.OnChange.InvokeAsync(args));
 
-        // Assert error is shown
-        cut.Markup.Should().Contain("HEIC no soportado");
+        // Assert error is shown via data-testid
+        var errorEl = cut.Find("[data-testid='photo-error']");
+        errorEl.TextContent.Should().Contain("HEIC");
 
         // CTA should remain disabled
         var submitBtn = cut.Find("button[aria-label='Subir y finalizar']");
