@@ -38,19 +38,16 @@
 
             @* ── Tomar foto button ─────────────────────────────────── *@
             <div style="padding:8px 16px 4px;">
-                <div style="position:relative;overflow:hidden;">
-                    <button class="rm-cta rm-cta--primary" type="button"
-                            style="width:100%;"
-                            aria-label="Tomar foto"
-                            @onclick="() => _inputFile?.ClickAsync()">
-                        <i class="bi bi-camera"></i> Tomar foto
-                    </button>
-                    <InputFile @ref="_inputFile"
-                               accept="image/*"
+                <label class="rm-cta rm-cta--primary"
+                       style="display:flex;align-items:center;justify-content:center;gap:6px;
+                              width:100%;cursor:pointer;"
+                       aria-label="Tomar foto">
+                    <i class="bi bi-camera"></i> Tomar foto
+                    <InputFile accept="image/*"
                                capture="environment"
-                               style="position:absolute;top:-9999px;left:-9999px;opacity:0;pointer-events:none;"
+                               style="position:absolute;opacity:0;pointer-events:none;width:0;height:0;"
                                OnChange="HandleFileSelected" />
-                </div>
+                </label>
             </div>
 
             @* ── Preview area ──────────────────────────────────────── *@
