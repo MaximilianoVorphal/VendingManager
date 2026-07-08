@@ -88,6 +88,7 @@ public partial class RecargaMovil : ComponentBase, IDisposable
     // ─── Cancellation ────────────────────────────────────────────────────
 
     private CancellationTokenSource _cts = new();
+    private bool _disposed;
 
     // =====================================================================
     // LIFECYCLE
@@ -726,6 +727,7 @@ public partial class RecargaMovil : ComponentBase, IDisposable
         _toastTimer?.Dispose();
         _toastTimer = new Timer(_ =>
         {
+            if (_disposed) return;
             _toastMessage = null;
             _toastIcon = null;
             InvokeAsync(StateHasChanged);
@@ -841,6 +843,9 @@ public partial class RecargaMovil : ComponentBase, IDisposable
 
     public void Dispose()
     {
+        if (_disposed) return;
+        _disposed = true;
+
         _cts.Cancel();
         _cts.Dispose();
         _toastTimer?.Dispose();
