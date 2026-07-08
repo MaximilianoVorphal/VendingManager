@@ -1007,6 +1007,189 @@
    25. REDUCED MOTION
        Source: .dc.html line 30
    ========================================================================= */
+/* =========================================================================
+   27. SAVE SHEET — MobileRecargaSaveSheet specific styles
+       Source: PR 1 design spec for recarga-movil-save-flow
+   ========================================================================= */
+
+/* Sheet header with mono title + machine chip */
+.rm-save-sheet__head {
+  padding: 2px 16px 2px;
+}
+
+.rm-save-sheet__title {
+  margin: 6px 0 2px;
+  font-family: var(--font-mono);
+  font-weight: var(--fw-bold);
+  text-transform: uppercase;
+  font-size: 0.85rem;
+  letter-spacing: 0.3px;
+  line-height: 1.3;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+/* Summary row between header and photo section */
+.rm-save-sheet__summary {
+  padding: 0 16px 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+.rm-save-sheet__sep {
+  color: var(--line-200);
+}
+
+.rm-save-sheet__stat {
+  white-space: nowrap;
+}
+
+/* Photo section wrapper */
+.rm-save-sheet__photo-section {
+  padding: 4px 16px 8px;
+}
+
+/* "Foto de la máquina" label + "OBLIGATORIA" badge */
+.rm-save-sheet__photo-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-family: var(--font-mono);
+  font-weight: var(--fw-bold);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Dashed CTA area — camera icon + text */
+.rm-save-sheet__photo-cta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 120px;
+  border: 2px dashed var(--ink-900);
+  background: var(--paper-50);
+  cursor: pointer;
+  padding: 20px;
+  transition: background .1s;
+}
+.rm-save-sheet__photo-cta:hover {
+  background: var(--tint-hover, #eef2f5);
+}
+
+.rm-save-sheet__camera-icon {
+  font-size: 2rem;
+  color: var(--ink-500);
+}
+
+.rm-save-sheet__photo-text {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--ink-500);
+  text-align: center;
+  line-height: 1.4;
+}
+
+/* Photo preview container */
+.rm-save-sheet__preview {
+  position: relative;
+  max-width: 240px;
+  margin: 0 auto;
+  border: 2px solid var(--ink-900);
+  overflow: hidden;
+}
+
+.rm-save-sheet__preview-img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 200px;
+  object-fit: contain;
+  background: #000;
+}
+
+/* Delete/trash button over preview */
+.rm-save-sheet__delete-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 32px;
+  height: 32px;
+  border: 1.5px solid var(--signal-danger);
+  background: var(--paper-0);
+  color: var(--signal-danger);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  border-radius: 0;
+}
+
+/* Hora de carga notice box */
+.rm-save-sheet__notice {
+  margin: 0 16px 4px;
+  padding: 10px 12px;
+  border: 1.5px solid var(--ink-900);
+  background: var(--paper-50);
+  font-family: var(--font-mono);
+  font-size: 0.64rem;
+  line-height: 1.4;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: var(--text-muted);
+}
+.rm-save-sheet__notice i {
+  font-size: 0.8rem;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+/* Error banner in save sheet */
+.rm-save-sheet__error {
+  margin: 4px 16px !important;
+}
+
+/* Action buttons row */
+.rm-save-sheet__actions {
+  padding: 10px 16px 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rm-save-sheet__btn {
+  width: 100%;
+  min-height: var(--rm-bottombar-h);
+}
+
+/* Cancel link below actions */
+.rm-save-sheet__cancel-row {
+  padding: 4px 16px calc(4px + env(safe-area-inset-bottom));
+  text-align: center;
+}
+
+.rm-save-sheet__cancel-btn {
+  background: none;
+  border: none;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--ink-500);
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 8px 16px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .rm-cursor {
     animation: none !important;
