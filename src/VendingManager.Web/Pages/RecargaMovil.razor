@@ -133,7 +133,7 @@
 
                 @* Product picker *@
                 <div class="rm-dock__product" style="padding:0 12px;">
-                    <button class="rm-dock__picker" @onclick="() => OpenProductSheet(_editingSlot)">
+                    <button class="rm-dock__picker" @onclick="async () => await OpenProductSheetAsync(_editingSlot)">
                         <span style="font-family:var(--font-mono);font-weight:var(--fw-bold);
                                      font-size:0.75rem;text-transform:uppercase;">
                             @(!string.IsNullOrEmpty(_editingSlot.ProductoNombre) ? _editingSlot.ProductoNombre : "Elegir producto")
