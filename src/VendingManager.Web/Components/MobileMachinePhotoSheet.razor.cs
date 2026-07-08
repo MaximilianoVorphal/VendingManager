@@ -89,7 +89,7 @@ public partial class MobileMachinePhotoSheet : ComponentBase, IDisposable
             // HEIC brands: "heic", "heix", "hevc", "hevx"
             if (bytesRead >= 12 && header[4] == 'f' && header[5] == 't' && header[6] == 'y' && header[7] == 'p')
             {
-                var isHeic = (header[8] == 'h' && header[9] == 'e' && (header[10] == 'i' || header[10] == 'x') && header[11] == 'c')
+                var isHeic = (header[8] == 'h' && header[9] == 'e' && (header[10] == 'i' || header[10] == 'x') && (header[11] == 'c' || header[11] == 'x'))
                           || (header[8] == 'm' && header[9] == 'i' && header[10] == 'f' && header[11] == '3')
                           || (header[8] == 'h' && header[9] == 'e' && header[10] == 'v' && (header[11] == 'c' || header[11] == 'x'));
 
