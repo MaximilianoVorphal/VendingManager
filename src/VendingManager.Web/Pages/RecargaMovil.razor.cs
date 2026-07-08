@@ -18,6 +18,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms; // PR 3 — InputFile for photo sheet
 using Microsoft.Extensions.Logging;
+using VendingManager.Web.Components; // PR 3 fix 5 — MobileMachinePhotoSheet @ref
 using Microsoft.JSInterop;
 using VendingManager.Shared.DTOs;
 using VendingManager.Shared.Enums;
@@ -80,6 +81,7 @@ public partial class RecargaMovil : ComponentBase, IDisposable
 
     private bool _photoSheetVisible; // Wired to MobileMachinePhotoSheet.Visible
     private PeriodoRecargaDto? _photoSheetMachine; // Machine context for the open photo sheet
+    private MobileMachinePhotoSheet? _photoSheet; // @ref for inline error display
 
     // ─── Toast ───────────────────────────────────────────────────────────
 
@@ -678,17 +680,15 @@ public partial class RecargaMovil : ComponentBase, IDisposable
             else
             {
                 var errorBody = await response.Content.ReadAsStringAsync(_uploadCts.Token);
-                _error = $"Error al subir la foto ({(int)response.StatusCode}). {errorBody}";
-                StateHasChanged();
+                await (_photoSheet?.SetErrorAsync($"Error al subir la foto ({(int)response.StatusCode}). {errorBody}") ?? Task.CompletedTask);
             }
         }
         catch (OperationCanceledException) { }
         catch (Exception ex)
         {
-            _error = $"Error al subir la foto: {ex.Message}";
+            await (_photoSheet?.SetErrorAsync($"Error al subir la foto: {ex.Message}") ?? Task.CompletedTask);
             Logger.LogError(ex, "Error uploading foto-guía for template {TemplateId}, periodo {PeriodoId}",
                 template.Id, periodo.Id);
-            StateHasChanged();
         }
         finally
         {
