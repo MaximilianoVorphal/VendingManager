@@ -1,0 +1,111 @@
+@* =========================================================================
+   MobileMachinePhotoSheet.razor — Bottom sheet for proof-of-load photo
+   Opens when "Finalizar carga" is tapped on the Resumen view.
+   Presentation-only: the parent (RecargaMovil) handles the foto-guía PUT.
+   ========================================================================= *@
+
+@namespace VendingManager.Web.Components
+@using Microsoft.AspNetCore.Components.Forms
+@using System.Net.Http.Headers
+
+@if (Visible)
+{
+    <div class="rm-sheet__backdrop" @onclick="HandleCancel">
+        <div class="rm-sheet__panel" @onclick:stopPropagation="true"
+             style="padding-bottom:calc(8px + env(safe-area-inset-bottom));">
+            <div class="rm-sheet__handle"></div>
+
+            @* ── Header ────────────────────────────────────────────── *@
+            <div style="padding:4px 16px 0;">
+                <h3 style="margin:0 0 2px;font-size:1.05rem;font-weight:var(--fw-bold,700);
+                           color:var(--ink-900,#1a1a2e);line-height:1.3;">
+                    @Title
+                </h3>
+                @if (!string.IsNullOrEmpty(Subtitle))
+                {
+                    <p style="margin:0 0 4px;font-size:0.78rem;color:var(--text-muted,#6b7280);
+                              line-height:1.4;">
+                        @Subtitle
+                    </p>
+                }
+                @if (!string.IsNullOrEmpty(MachineLabel))
+                {
+                    <span class="rm-tag rm-tag--info" style="margin-bottom:8px;display:inline-block;">
+                        @MachineLabel
+                    </span>
+                }
+            </div>
+
+            @* ── Tomar foto button ─────────────────────────────────── *@
+            <div style="padding:8px 16px 4px;">
+                <label class="rm-cta rm-cta--primary"
+                       style="display:flex;align-items:center;justify-content:center;gap:6px;
+                              width:100%;cursor:pointer;"
+                       aria-label="Tomar foto">
+                    <i class="bi bi-camera"></i> Tomar foto
+                    <InputFile accept="image/*"
+                               capture="environment"
+                               style="position:absolute;opacity:0;pointer-events:none;width:0;height:0;"
+                               OnChange="HandleFileSelected" />
+                </label>
+            </div>
+
+            @* ── Preview area ──────────────────────────────────────── *@
+            @if (_capturedFile != null && _previewUrl != null)
+            {
+                <div style="padding:8px 16px;text-align:center;">
+                    <div style="border-radius:12px;overflow:hidden;max-width:240px;margin:0 auto;
+                                box-shadow:0 2px 8px rgba(0,0,0,0.12);background:#000;">
+                        <img src="@_previewUrl" alt="Vista previa de la foto"
+                             style="display:block;width:100%;height:auto;max-height:200px;object-fit:contain;" />
+                    </div>
+                    <button class="rm-iconbtn" style="margin-top:4px;width:auto;height:auto;
+                                                      font-size:0.72rem;color:var(--ink-500,#6b7280);"
+                            aria-label="Quitar foto"
+                            @onclick="ClearPhoto">
+                        <i class="bi bi-x-circle"></i> Quitar foto
+                    </button>
+                </div>
+            }
+
+            @* ── Error banner ──────────────────────────────────────── *@
+            @if (_error != null)
+            {
+                <div style="padding:4px 16px;">
+                    <div class="rm-error" style="margin:0;">
+                        <i class="bi bi-exclamation-triangle-fill"></i>
+                        <span style="flex:1;font-size:0.78rem;">@_error</span>
+                        <button class="rm-iconbtn" style="width:28px;height:28px;font-size:0.72rem;"
+                                aria-label="Cerrar error"
+                                @onclick="() => { _error=null; StateHasChanged(); }">×</button>
+                    </div>
+                </div>
+            }
+
+            @* ── Action row ─────────────────────────────────────────── *@
+            <div style="padding:10px 16px 4px;display:flex;gap:10px;">
+                <button class="rm-cta rm-cta--outline" type="button"
+                        style="flex:1;"
+                        aria-label="Cancelar"
+                        @onclick="HandleCancel">
+                    Cancelar
+                </button>
+                <button class="rm-cta rm-cta--primary" type="button"
+                        style="flex:1;"
+                        disabled="@(_capturedFile == null || _uploading)"
+                        aria-label="Subir y finalizar"
+                        @onclick="HandleSubmit">
+                    @if (_uploading)
+                    {
+                        <span class="spinner-border spinner-border-sm" role="status"></span>
+                    }
+                    else
+                    {
+                        <i class="bi bi-cloud-arrow-up"></i>
+                    }
+                    Subir y finalizar
+                </button>
+            </div>
+        </div>
+    </div>
+}
