@@ -1019,6 +1019,296 @@ public class RecargaMovilTests : TestContext
     }
 
     // ═══════════════════════════════════════════════════════════════════
+    //  MOBILERECARGASAVESHEET TESTS
+    // ═══════════════════════════════════════════════════════════════════
+
+    [Fact]
+    public void MobileRecargaSaveSheet_Buttons_Disabled_Before_Photo_Capture()
+    {
+        var cut = RenderComponent<MobileRecargaSaveSheet>(parameters => parameters
+            .Add(p => p.Visible, true)
+            .Add(p => p.OnClose, () => { })
+            .Add(p => p.OnSaveAndOverview, (IBrowserFile _) => { })
+            .Add(p => p.OnSaveAndPickAnother, (IBrowserFile _) => { })
+            .Add(p => p.MachineLabel, "Máq …2400")
+            .Add(p => p.UnitSummary, "12 u. cargadas")
+            .Add(p => p.SlotSummary, "5 productos")
+        );
+
+        var primaryBtn = cut.Find("button[aria-label='Guardar carga']");
+        primaryBtn.HasAttribute("disabled").Should().BeTrue();
+
+        var secondaryBtn = cut.Find("button[aria-label='Guardar y cargar otra máquina']");
+        secondaryBtn.HasAttribute("disabled").Should().BeTrue();
+
+        // "Obligatoria" badge should be visible
+        cut.Markup.Should().Contain("OBLIGATORIA");
+    }
+
+    [Fact]
+    public void MobileRecargaSaveSheet_OnSaveAndOverview_Invoked_On_Submit()
+    {
+        var overviewInvoked = false;
+        var cut = RenderComponent<MobileRecargaSaveSheet>(parameters => parameters
+            .Add(p => p.Visible, true)
+            .Add(p => p.OnClose, () => { })
+            .Add(p => p.OnSaveAndOverview, (IBrowserFile _) => { overviewInvoked = true; })
+            .Add(p => p.OnSaveAndPickAnother, () => { })
+            .Add(p => p.MachineLabel, "Máq …2400")
+        );
+
+        // Capture a valid JPEG
+        var jpegBytes = new byte[] { 0xFF, 0xD8, 0xFF, 0xE0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+        var jpegFile = new MockBrowserFile(jpegBytes, "image/jpeg", "test.jpg");
+
+        var inputFile = cut.FindComponent<InputFile>();
+        var args = new InputFileChangeEventArgs(new[] { jpegFile });
+        cut.InvokeAsync(() => inputFile.Instance.OnChange.InvokeAsync(args));
+
+        // Primary button should now be enabled
+        cut.WaitForAssertion(() =>
+        {
+            var btn = cut.Find("button[aria-label='Guardar carga']");
+            btn.HasAttribute("disabled").Should().BeFalse();
+        });
+
+        // Tap primary button
+        var primaryBtn = cut.Find("button[aria-label='Guardar carga']");
+        primaryBtn.Click();
+
+        overviewInvoked.Should().BeTrue();
+    }
+
+    [Fact]
+    public void MobileRecargaSaveSheet_OnSaveAndPickAnother_Invoked()
+    {
+        var pickAnotherInvoked = false;
+        var cut = RenderComponent<MobileRecargaSaveSheet>(parameters => parameters
+            .Add(p => p.Visible, true)
+            .Add(p => p.OnClose, () => { })
+            .Add(p => p.OnSaveAndOverview, () => { })
+            .Add(p => p.OnSaveAndPickAnother, (IBrowserFile _) => { pickAnotherInvoked = true; })
+            .Add(p => p.MachineLabel, "Máq …2400")
+        );
+
+        // Capture a valid JPEG
+        var jpegBytes = new byte[] { 0xFF, 0xD8, 0xFF, 0xE0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+        var jpegFile = new MockBrowserFile(jpegBytes, "image/jpeg", "test.jpg");
+
+        var inputFile = cut.FindComponent<InputFile>();
+        var args = new InputFileChangeEventArgs(new[] { jpegFile });
+        cut.InvokeAsync(() => inputFile.Instance.OnChange.InvokeAsync(args));
+
+        // Secondary button should now be enabled
+        cut.WaitForAssertion(() =>
+        {
+            var btn = cut.Find("button[aria-label='Guardar y cargar otra máquina']");
+            btn.HasAttribute("disabled").Should().BeFalse();
+        });
+
+        // Tap secondary button
+        var secondaryBtn = cut.Find("button[aria-label='Guardar y cargar otra máquina']");
+        secondaryBtn.Click();
+
+        pickAnotherInvoked.Should().BeTrue();
+    }
+
+    [Fact]
+    public void MobileRecargaSaveSheet_Cancel_Invokes_OnClose()
+    {
+        var closeInvoked = false;
+        var cut = RenderComponent<MobileRecargaSaveSheet>(parameters => parameters
+            .Add(p => p.Visible, true)
+            .Add(p => p.OnClose, () => { closeInvoked = true; })
+            .Add(p => p.OnSaveAndOverview, (IBrowserFile _) => { })
+            .Add(p => p.OnSaveAndPickAnother, (IBrowserFile _) => { })
+            .Add(p => p.MachineLabel, "Máq …2400")
+        );
+
+        var cancelBtn = cut.Find("button[aria-label='Cancelar']");
+        cancelBtn.Click();
+
+        closeInvoked.Should().BeTrue();
+    }
+
+    [Fact]
+    public void MobileRecargaSaveSheet_Rejects_HEIC()
+    {
+        var cut = RenderComponent<MobileRecargaSaveSheet>(parameters => parameters
+            .Add(p => p.Visible, true)
+            .Add(p => p.OnClose, () => { })
+            .Add(p => p.OnSaveAndOverview, (IBrowserFile _) => { })
+            .Add(p => p.OnSaveAndPickAnother, (IBrowserFile _) => { })
+            .Add(p => p.MachineLabel, "Máq …2400")
+        );
+
+        var heicBytes = new byte[12];
+        heicBytes[4] = (byte)'f'; heicBytes[5] = (byte)'t';
+        heicBytes[6] = (byte)'y'; heicBytes[7] = (byte)'p';
+        heicBytes[8] = (byte)'h'; heicBytes[9] = (byte)'e';
+        heicBytes[10] = (byte)'i'; heicBytes[11] = (byte)'c';
+
+        var heicFile = new MockBrowserFile(heicBytes, "image/jpeg", "test.heic");
+
+        var inputFile = cut.FindComponent<InputFile>();
+        var args = new InputFileChangeEventArgs(new[] { heicFile });
+        cut.InvokeAsync(() => inputFile.Instance.OnChange.InvokeAsync(args));
+
+        var errorEl = cut.Find("[data-testid='save-sheet-error']");
+        errorEl.TextContent.Should().Contain("HEIC");
+
+        // Both buttons should remain disabled
+        var primaryBtn = cut.Find("button[aria-label='Guardar carga']");
+        primaryBtn.HasAttribute("disabled").Should().BeTrue();
+
+        var secondaryBtn = cut.Find("button[aria-label='Guardar y cargar otra máquina']");
+        secondaryBtn.HasAttribute("disabled").Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData("heic", "HEIC")]
+    [InlineData("heix", "HEIC")]
+    [InlineData("hevc", "HEIC")]
+    [InlineData("hevx", "HEIC")]
+    [InlineData("avif", "AVIF")]
+    [InlineData("avis", "AVIF")]
+    public void MobileRecargaSaveSheet_Rejects_All_Modern_Image_Brands(string brand, string expectedLabel)
+    {
+        var cut = RenderComponent<MobileRecargaSaveSheet>(parameters => parameters
+            .Add(p => p.Visible, true)
+            .Add(p => p.OnClose, () => { })
+            .Add(p => p.OnSaveAndOverview, (IBrowserFile _) => { })
+            .Add(p => p.OnSaveAndPickAnother, (IBrowserFile _) => { })
+            .Add(p => p.MachineLabel, "Máq …2400")
+        );
+
+        var bytes = new byte[12];
+        bytes[4] = (byte)'f'; bytes[5] = (byte)'t';
+        bytes[6] = (byte)'y'; bytes[7] = (byte)'p';
+        bytes[8] = (byte)brand[0];
+        bytes[9] = (byte)brand[1];
+        bytes[10] = (byte)brand[2];
+        bytes[11] = (byte)brand[3];
+
+        var mockFile = new MockBrowserFile(bytes, "image/jpeg", $"test.{brand}");
+
+        var inputFile = cut.FindComponent<InputFile>();
+        var args = new InputFileChangeEventArgs(new[] { mockFile });
+        cut.InvokeAsync(() => inputFile.Instance.OnChange.InvokeAsync(args));
+
+        var errorEl = cut.Find("[data-testid='save-sheet-error']");
+        errorEl.TextContent.Should().Contain(expectedLabel);
+
+        var primaryBtn = cut.Find("button[aria-label='Guardar carga']");
+        primaryBtn.HasAttribute("disabled").Should().BeTrue();
+    }
+
+    [Fact]
+    public void MobileRecargaSaveSheet_Rejects_TooSmall_File()
+    {
+        var cut = RenderComponent<MobileRecargaSaveSheet>(parameters => parameters
+            .Add(p => p.Visible, true)
+            .Add(p => p.OnClose, () => { })
+            .Add(p => p.OnSaveAndOverview, (IBrowserFile _) => { })
+            .Add(p => p.OnSaveAndPickAnother, (IBrowserFile _) => { })
+            .Add(p => p.MachineLabel, "Máq …2400")
+        );
+
+        var tinyBytes = new byte[] { 0x00, 0x00, 0x00, 0x00 };
+        var tinyFile = new MockBrowserFile(tinyBytes, "image/jpeg", "tiny.jpg");
+
+        var inputFile = cut.FindComponent<InputFile>();
+        var args = new InputFileChangeEventArgs(new[] { tinyFile });
+        cut.InvokeAsync(() => inputFile.Instance.OnChange.InvokeAsync(args));
+
+        var errorEl = cut.Find("[data-testid='save-sheet-error']");
+        errorEl.TextContent.Should().Contain("demasiado pequeño");
+
+        var primaryBtn = cut.Find("button[aria-label='Guardar carga']");
+        primaryBtn.HasAttribute("disabled").Should().BeTrue();
+    }
+
+    [Fact]
+    public void MobileRecargaSaveSheet_Shows_Error_Banner_When_Set()
+    {
+        var cut = RenderComponent<MobileRecargaSaveSheet>(parameters => parameters
+            .Add(p => p.Visible, true)
+            .Add(p => p.OnClose, () => { })
+            .Add(p => p.OnSaveAndOverview, (IBrowserFile _) => { })
+            .Add(p => p.OnSaveAndPickAnother, (IBrowserFile _) => { })
+            .Add(p => p.MachineLabel, "Máq …2400")
+        );
+
+        // Set error via the public method
+        cut.InvokeAsync(() => cut.Instance.SetErrorAsync("Error de red"));
+
+        cut.WaitForAssertion(() =>
+        {
+            var errorEl = cut.Find("[data-testid='save-sheet-error']");
+            errorEl.TextContent.Should().Contain("Error de red");
+        });
+    }
+
+    [Fact]
+    public void MobileRecargaSaveSheet_Resets_State_When_Reopened()
+    {
+        var cut = RenderComponent<MobileRecargaSaveSheet>(parameters => parameters
+            .Add(p => p.Visible, true)
+            .Add(p => p.OnClose, () => { })
+            .Add(p => p.OnSaveAndOverview, (IBrowserFile _) => { })
+            .Add(p => p.OnSaveAndPickAnother, (IBrowserFile _) => { })
+            .Add(p => p.MachineLabel, "Máq …2400")
+        );
+
+        // Capture a valid JPEG — button becomes enabled after file selection
+        var jpegBytes = new byte[] { 0xFF, 0xD8, 0xFF, 0xE0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+        var jpegFile = new MockBrowserFile(jpegBytes, "image/jpeg", "test.jpg");
+
+        var inputFile = cut.FindComponent<InputFile>();
+        var args = new InputFileChangeEventArgs(new[] { jpegFile });
+        cut.InvokeAsync(() => inputFile.Instance.OnChange.InvokeAsync(args));
+
+        // Wait for button to be enabled (proves file was captured internal state)
+        cut.WaitForAssertion(() =>
+        {
+            var btn = cut.Find("button[aria-label='Guardar carga']");
+            btn.HasAttribute("disabled").Should().BeFalse();
+        });
+
+        // Close the sheet
+        cut.SetParametersAndRender(parameters => parameters
+            .Add(p => p.Visible, false)
+        );
+
+        // Reopen the sheet
+        cut.SetParametersAndRender(parameters => parameters
+            .Add(p => p.Visible, true)
+        );
+
+        // State should be reset — button should be disabled again
+        var reopenedBtn = cut.Find("button[aria-label='Guardar carga']");
+        reopenedBtn.HasAttribute("disabled").Should().BeTrue();
+    }
+
+    [Fact]
+    public void MobileRecargaSaveSheet_Shows_Hora_Notice()
+    {
+        var cut = RenderComponent<MobileRecargaSaveSheet>(parameters => parameters
+            .Add(p => p.Visible, true)
+            .Add(p => p.OnClose, () => { })
+            .Add(p => p.OnSaveAndOverview, (IBrowserFile _) => { })
+            .Add(p => p.OnSaveAndPickAnother, (IBrowserFile _) => { })
+            .Add(p => p.MachineLabel, "Máq …2400")
+        );
+
+        // The notice should contain the formatted time
+        var now = DateTime.Now;
+        var expectedTime = now.ToString("HH:mm");
+        cut.Markup.Should().Contain("Al guardar, la hora de carga de esta máquina quedará registrada como ahora");
+        cut.Markup.Should().Contain(expectedTime);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
     //  TEST HOST COMPONENT
     // ═══════════════════════════════════════════════════════════════════
 
