@@ -189,7 +189,8 @@
     }
 
     @* ── BOTTOM SHEET: MobileMachinePhotoSheet (PR 3) ────────────── *@
-    <MobileMachinePhotoSheet Visible="@_photoSheetVisible"
+    <MobileMachinePhotoSheet @ref="_photoSheet"
+                             Visible="@_photoSheetVisible"
                              Title="Foto de la máquina"
                              Subtitle="Sacale una foto a la máquina ya cargada"
                              MachineLabel="@(_photoSheetMachine != null ? $"Máquina …{MachineShortCode(_photoSheetMachine)}" : null)"
