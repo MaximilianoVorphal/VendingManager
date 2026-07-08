@@ -1027,3 +1027,76 @@
     animation: none !important;
   }
 }
+
+/* =========================================================================
+   26. RM-* CLASSES MOVED FROM SCOPED FILE (PR 2 Fix 5)
+       These were originally in RecargaMovil.razor.css but belong to the
+       global rm-* system. Moved here to enforce the "no rm-* in scoped" rule.
+   ========================================================================= */
+
+/* Machine chip inside cards: clickable style */
+.rm-chip--link {
+  cursor: pointer;
+  text-decoration: none;
+}
+.rm-chip--link:hover {
+  background: var(--ink-900);
+  color: var(--paper-0);
+}
+
+/* Product sheet row hover */
+.rm-sheet__row:hover {
+  background: var(--paper-50);
+}
+
+/* Scan overlay: positioned within scroll container */
+.rm-scan-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.85);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  z-index: 10;
+}
+
+/* Dock summary row */
+.rm-dock__summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 0;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: var(--fw-bold);
+  text-transform: uppercase;
+}
+
+/* Loading spinner centered overlay */
+.rm-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 120px;
+  gap: 10px;
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  color: var(--ink-500);
+}
+
+/* Error banner */
+.rm-error {
+  margin: 12px 16px;
+  padding: 12px 14px;
+  border: 2px solid var(--signal-danger);
+  background: var(--tint-danger);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: var(--fw-bold);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
