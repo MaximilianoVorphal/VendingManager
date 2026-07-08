@@ -512,7 +512,7 @@
                                 <i class="bi bi-arrow-bar-up"></i> Llenar
                             </button>
                         </div>
-                        <div class="rm-slot-grid">
+                        <div class="rm-slot-grid" style="grid-template-columns: repeat(@(_compactDensity ? 4 : 5), 1fr);">
                             @foreach (var slot in floorSlots)
                             {
                                 var isEmpty = slot.ProductoId == null || slot.ProductoId == 0;
