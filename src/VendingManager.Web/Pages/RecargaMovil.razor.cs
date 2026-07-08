@@ -10,6 +10,7 @@
 //   6. Helpers + IDisposable
 // =========================================================================
 
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
@@ -17,6 +18,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms; // PR 3 — InputFile for photo sheet
 using Microsoft.Extensions.Logging;
+using VendingManager.Web.Components; // PR 3 fix 5 — MobileMachinePhotoSheet @ref
 using Microsoft.JSInterop;
 using VendingManager.Shared.DTOs;
 using VendingManager.Shared.Enums;
@@ -75,9 +77,11 @@ public partial class RecargaMovil : ComponentBase, IDisposable
         set => _compactDensity = value == "compacta";
     }
 
-    // ─── Photo Sheet (PR 3 placeholder) ──────────────────────────────────
+    // ─── Photo Sheet (PR 3) ─────────────────────────────────────────────
 
-    private bool _photoSheetVisible; // PR 3 — wired to MobileMachinePhotoSheet.Visible
+    private bool _photoSheetVisible; // Wired to MobileMachinePhotoSheet.Visible
+    private PeriodoRecargaDto? _photoSheetMachine; // Machine context for the open photo sheet
+    private MobileMachinePhotoSheet? _photoSheet; // @ref for inline error display
 
     // ─── Toast ───────────────────────────────────────────────────────────
 
@@ -88,6 +92,7 @@ public partial class RecargaMovil : ComponentBase, IDisposable
     // ─── Cancellation ────────────────────────────────────────────────────
 
     private CancellationTokenSource _cts = new();
+    private CancellationTokenSource? _uploadCts; // Per-upload CTS, cancelled on sheet close
     private bool _disposed;
 
     // =====================================================================
@@ -412,7 +417,7 @@ public partial class RecargaMovil : ComponentBase, IDisposable
         _machines = new();
         _editingMachine = null;
         _slots = new();
-        _error = null;
+        // Do NOT clear _error — caller may have set it (e.g. post-upload LoadTemplatesAsync failure)
         _productSheetVisible = false;
         _slotDockVisible = false;
         StateHasChanged();
@@ -568,13 +573,139 @@ public partial class RecargaMovil : ComponentBase, IDisposable
     }
 
     /// <summary>
-    /// OnFinalizarCarga — NO-OP placeholder in PR 2.
-    /// PR 3 wires this to open the MobileMachinePhotoSheet.
+    /// OnFinalizarCarga — opens the photo sheet when all machines are loaded.
+    /// PR 3: wired to open MobileMachinePhotoSheet.
     /// </summary>
     private void OnFinalizarCarga()
     {
-        // Wired in PR 3 — shows the photo sheet
-        ShowToast("Finalizar carga se habilita en PR 3", "bi-info-circle");
+        if (_activeTemplate == null) return;
+
+        // Pick the first machine that is loaded for photo context
+        _photoSheetMachine = _machines.FirstOrDefault();
+        if (_photoSheetMachine == null)
+        {
+            ShowToast("No hay máquinas para finalizar", "bi-exclamation-circle");
+            return;
+        }
+
+        _photoSheetVisible = true;
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// HandlePhotoAccepted — receives the captured file from MobileMachinePhotoSheet,
+    /// builds MultipartFormDataContent with field name "file", and PUTs to the
+    /// foto-guía endpoint. On success: close sheet, toast, navigate to Lista.
+    /// On error: keep sheet open with retry.
+    /// </summary>
+    private async Task HandlePhotoAccepted(IBrowserFile file)
+    {
+        var template = _activeTemplate;
+        var machine = _photoSheetMachine;
+        if (template == null || machine == null)
+        {
+            _error = "Contexto perdido. Volvé a intentarlo.";
+            StateHasChanged();
+            return;
+        }
+
+        // Find the periodo for the machine
+        var periodo = template.Periodos.FirstOrDefault(p => p.MaquinaId == machine.MaquinaId);
+        if (periodo == null)
+        {
+            _error = "Período no encontrado.";
+            StateHasChanged();
+            return;
+        }
+
+        // Read the file into a byte[] (max 10MB)
+        byte[] bytes;
+        try
+        {
+            await using var stream = file.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024);
+            using var ms = new MemoryStream();
+            await stream.CopyToAsync(ms, _cts.Token);
+            bytes = ms.ToArray();
+        }
+        catch (OperationCanceledException) { return; }
+        catch (Exception ex)
+        {
+            _error = $"Error al leer la foto: {ex.Message}";
+            StateHasChanged();
+            return;
+        }
+
+        // Build MultipartFormDataContent with field name "file" (the controller's expected field name)
+        using var content = new MultipartFormDataContent();
+        var fileContent = new ByteArrayContent(bytes);
+        fileContent.Headers.ContentType = new MediaTypeHeaderValue(file.ContentType);
+        content.Add(fileContent, "file", file.Name);
+
+        // PUT to the foto-guía endpoint
+        _uploadCts = CancellationTokenSource.CreateLinkedTokenSource(_cts.Token);
+        try
+        {
+            var url = $"api/TemplateRecarga/{template.Id}/periodo/{periodo.Id}/foto-guia";
+            var response = await Http.PutAsync(url, content, _uploadCts.Token);
+            if (response.IsSuccessStatusCode)
+            {
+                _photoSheetVisible = false;
+                _photoSheetMachine = null;
+                _error = null;
+
+                // POST to /terminar to mark template as Finalizado
+                try
+                {
+                    await Http.PostAsync($"/api/TemplateRecarga/{template.Id}/terminar", null, _uploadCts.Token);
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogWarning(ex, "Failed to terminar template {Id} after foto-guía upload — non-critical", template.Id);
+                }
+
+                ShowToast("Carga finalizada", "bi-check2-circle");
+
+                // Navigate to Lista — keep any error from LoadTemplatesAsync if it fails
+                try
+                {
+                    await LoadTemplatesAsync();
+                }
+                catch
+                {
+                    // _error is already set by LoadTemplatesAsync — let it stay
+                    Logger.LogWarning("Post-upload LoadTemplatesAsync failed, showing Lista with error");
+                }
+                GoToList();
+            }
+            else
+            {
+                var errorBody = await response.Content.ReadAsStringAsync(_uploadCts.Token);
+                await (_photoSheet?.SetErrorAsync($"Error al subir la foto ({(int)response.StatusCode}). {errorBody}") ?? Task.CompletedTask);
+            }
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            await (_photoSheet?.SetErrorAsync($"Error al subir la foto: {ex.Message}") ?? Task.CompletedTask);
+            Logger.LogError(ex, "Error uploading foto-guía for template {TemplateId}, periodo {PeriodoId}",
+                template.Id, periodo.Id);
+        }
+        finally
+        {
+            _uploadCts?.Dispose();
+            _uploadCts = null;
+        }
+    }
+
+    /// <summary>
+    /// HandlePhotoSheetClose — closes the photo sheet and cancels any in-flight upload.
+    /// </summary>
+    private void HandlePhotoSheetClose()
+    {
+        _photoSheetVisible = false;
+        _photoSheetMachine = null;
+        _uploadCts?.Cancel();
+        StateHasChanged();
     }
 
     // ─── Product Sheet ───────────────────────────────────────────────────
@@ -860,6 +991,8 @@ public partial class RecargaMovil : ComponentBase, IDisposable
 
         _cts.Cancel();
         _cts.Dispose();
+        _uploadCts?.Cancel();
+        _uploadCts?.Dispose();
         _toastTimer?.Dispose();
     }
 }
