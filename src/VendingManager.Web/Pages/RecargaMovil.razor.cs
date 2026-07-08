@@ -1,11 +1,13 @@
 // =========================================================================
 // RecargaMovil.razor.cs — Code-behind for the mobile Recarga page
 // =========================================================================
-// 4 views switched by `View` enum: List, Overview, PickMachine, EditSlots.
-// Each view's render is inline in RecargaMovil.razor via @if (_view == View.X).
-// State is in-memory; loss-on-navigate is acceptable per NG1.
-// 2 bottom sheets: product selector (inline <div>) and slot editor dock.
-// The photo sheet (MobileMachinePhotoSheet) comes in PR 3.
+// SECTIONS (search for the section markers):
+//   1. View enum + state fields
+//   2. Lifecycle (OnInitializedAsync)
+//   3. HTTP methods
+//   4. Navigation (GoTo*)
+//   5. Event handlers + sheets
+//   6. Helpers + IDisposable
 // =========================================================================
 
 using System.Net.Http.Json;
@@ -13,9 +15,7 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Components;
-using Microsoft.AspNetCore.Components.Authorization;
-using Microsoft.AspNetCore.Components.Forms;
-using Microsoft.AspNetCore.Components.Web;
+using Microsoft.AspNetCore.Components.Forms; // PR 3 — InputFile for photo sheet
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 using VendingManager.Shared.DTOs;
@@ -68,7 +68,7 @@ public partial class RecargaMovil : ComponentBase, IDisposable
     private bool _slotDockVisible;
     private SnapshotSlotDto? _editingSlot;
     private int _editingSlotIndex;
-    private bool _compactDensity = true;
+    private bool _compactDensity = true; // PR 4 — wire to slot grid density toggle
     private string DensityKey
     {
         get => _compactDensity ? "compacta" : "comoda";
@@ -77,7 +77,7 @@ public partial class RecargaMovil : ComponentBase, IDisposable
 
     // ─── Photo Sheet (PR 3 placeholder) ──────────────────────────────────
 
-    private bool _photoSheetVisible;
+    private bool _photoSheetVisible; // PR 3 — wired to MobileMachinePhotoSheet.Visible
 
     // ─── Toast ───────────────────────────────────────────────────────────
 
