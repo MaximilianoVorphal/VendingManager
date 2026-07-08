@@ -300,6 +300,92 @@ public class RecargaMovilTests : TestContext
         });
     }
 
+    // ── Test 9: Resumen Empty State (0 machines) ──────────────────────
+
+    [Fact]
+    public void RecargaMovil_Resumen_Renders_Empty_State_When_No_Machines()
+    {
+        _mockHandler.SetSingleEmptyTemplate();
+        var cut = RenderComponent<RecargaMovilTestHost>();
+
+        cut.WaitForAssertion(() =>
+        {
+            // Single 0-machine template card
+            var cards = cut.FindAll(".rm-card");
+            cards.Should().HaveCount(1);
+        });
+
+        // Click the empty template to navigate to Resumen
+        var card = cut.FindAll(".rm-card")[0];
+        card.Click();
+
+        cut.WaitForAssertion(() =>
+        {
+            // Empty state text
+            cut.Markup.Should().Contain("Carga sin máquinas");
+            // CTA to add machine
+            cut.Markup.Should().Contain("Cargar máquina");
+            // Finalizar carga NOT present (no machines)
+            cut.Markup.Should().NotContain("Finalizar carga");
+        });
+    }
+
+    // ── Test 10: PickMachine Empty State (pool empty) ──────────────────
+
+    [Fact]
+    public void RecargaMovil_PickMachine_Renders_Empty_State_When_Pool_Empty()
+    {
+        _mockHandler.SetEmptyPool();
+        var cut = RenderComponent<RecargaMovilTestHost>();
+
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Cargas"));
+
+        // Navigate to Resumen via template 1
+        var firstCard = cut.FindAll(".rm-card")[0];
+        firstCard.Click();
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Resumen de carga"));
+
+        // Click "Agregar máquina" to go to PickMachine
+        var addBtn = cut.FindAll(".rm-cta--dashed")[0];
+        addBtn.Click();
+
+        cut.WaitForAssertion(() =>
+        {
+            // Pool is empty — shows all-machines-included message
+            cut.Markup.Should().Contain("Todas las máquinas del pool ya están en esta carga");
+            // Escanear button still present
+            cut.FindAll(".rm-scan-btn").Should().NotBeEmpty();
+        });
+    }
+
+    // ── Test 11: EditSlots Empty State (0 slots) ───────────────────────
+
+    [Fact]
+    public void RecargaMovil_EditSlots_Renders_Empty_State_When_No_Slots()
+    {
+        _mockHandler.SetZeroSlotsForMachine();
+        var cut = RenderComponent<RecargaMovilTestHost>();
+
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Cargas"));
+
+        // Navigate to Resumen via template 1 (returned with 1 machine, 0 slots)
+        var firstCard = cut.FindAll(".rm-card")[0];
+        firstCard.Click();
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Resumen de carga"));
+
+        // Click the machine card to go to EditSlots
+        var machineCards = cut.FindAll(".rm-card");
+        machineCards[0].Click();
+
+        cut.WaitForAssertion(() =>
+        {
+            // Empty slots text
+            cut.Markup.Should().Contain("No hay slots configurados para esta máquina");
+            // Guardar button still visible in the dock
+            cut.Markup.Should().Contain("Guardar");
+        });
+    }
+
     // ═══════════════════════════════════════════════════════════════════
     //  MOCK HTTP MESSAGE HANDLER
     // ═══════════════════════════════════════════════════════════════════
@@ -307,8 +393,14 @@ public class RecargaMovilTests : TestContext
     private class RecargaMovilMockHttpMessageHandler : HttpMessageHandler
     {
         private bool _emptyTemplates;
+        private bool _emptyPool;
+        private bool _singleEmptyTemplate;
+        private bool _zeroSlotsForMachine;
 
         public void SetEmptyTemplates() => _emptyTemplates = true;
+        public void SetEmptyPool() => _emptyPool = true;
+        public void SetSingleEmptyTemplate() => _singleEmptyTemplate = true;
+        public void SetZeroSlotsForMachine() => _zeroSlotsForMachine = true;
 
         private static readonly JsonSerializerOptions JsonOptions = new()
         {
@@ -322,11 +414,14 @@ public class RecargaMovilTests : TestContext
 
             if (path == "/api/Ventas/lista-maquinas")
             {
-                var json = JsonSerializer.Serialize(new[]
-                {
-                    new { Id = 3, Nombre = "Máquina 003" },
-                    new { Id = 4, Nombre = "Máquina 004" }
-                }, JsonOptions);
+                var machines = _emptyPool
+                    ? Array.Empty<object>()
+                    : new object[]
+                    {
+                        new { Id = 3, Nombre = "Máquina 003" },
+                        new { Id = 4, Nombre = "Máquina 004" }
+                    };
+                var json = JsonSerializer.Serialize(machines, JsonOptions);
                 return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
                 {
                     Content = new StringContent(json)
@@ -405,8 +500,22 @@ public class RecargaMovilTests : TestContext
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound));
         }
 
-        private static object CreateTemplateDetail(int templateId)
+        private object CreateTemplateDetail(int templateId)
         {
+            if (templateId == 4 && _singleEmptyTemplate)
+            {
+                return new
+                {
+                    Id = 4,
+                    Nombre = "Template Vacío",
+                    Descripcion = (string?)"Sin máquinas",
+                    FechaCreacion = DateTime.Now,
+                    Estado = 0,
+                    EsActivo = false,
+                    Periodos = Array.Empty<object>()
+                };
+            }
+
             if (templateId == 2)
             {
                 // Template 2: all machines loaded
@@ -465,6 +574,35 @@ public class RecargaMovilTests : TestContext
                 };
             }
 
+            if (templateId == 1 && _zeroSlotsForMachine)
+            {
+                // Template 1 variant: 1 machine with 0 slots
+                return new
+                {
+                    Id = 1,
+                    Nombre = "Carga Semanal",
+                    Descripcion = "Template con 1 máquina sin slots",
+                    FechaCreacion = DateTime.Now.AddDays(-7),
+                    Estado = 0,
+                    EsActivo = false,
+                    Periodos = new[]
+                    {
+                        new
+                        {
+                            Id = 5,
+                            MaquinaId = 5,
+                            MaquinaNombre = "Máquina 005",
+                            IdInternoMaquina = "0005",
+                            FechaRecarga = DateTime.Now,
+                            FechaFin = DateTime.Now.AddDays(7),
+                            TieneFotoGuia = false,
+                            TieneFotoOcr = false,
+                            SnapshotSlots = Array.Empty<object>()
+                        }
+                    }
+                };
+            }
+
             // Template 1: one machine loaded, one not
             return new
             {
@@ -504,8 +642,27 @@ public class RecargaMovilTests : TestContext
             };
         }
 
-        private static object[] CreateTemplateList()
+        private object[] CreateTemplateList()
         {
+            if (_singleEmptyTemplate)
+            {
+                return new[]
+                {
+                    new
+                    {
+                        Id = 4,
+                        Nombre = "Template Vacío",
+                        Descripcion = (string?)"Sin máquinas",
+                        FechaCreacion = DateTime.Now,
+                        Estado = 0,
+                        EsActivo = false,
+                        CantidadMaquinas = 0,
+                        CantidadSlotsPendientes = 0,
+                        Periodos = Array.Empty<object>()
+                    }
+                };
+            }
+
             return new[]
             {
                 new
