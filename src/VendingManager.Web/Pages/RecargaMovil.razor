@@ -1,11 +1,555 @@
 @page "/recarga-movil"
 @using Microsoft.AspNetCore.Authorization
 @using VendingManager.Shared.Constants
+@using VendingManager.Shared.DTOs
+@using VendingManager.Shared.Enums
 @attribute [Authorize(Roles = Roles.Admin)]
 
+@* =========================================================================
+   RecargaMovil.razor — 4 views (Lista, Resumen, Elegir máquina, Editar slots)
+   Each view is a RenderFragment property defined in @code below.
+   All styling is via the rm-* class system in wwwroot/css/vm-recarga-movil.css.
+   Component-specific overrides live in RecargaMovil.razor.css.
+   ========================================================================= *@
+
 <div class="rm-view">
-    <div class="rm-view__scroll" style="align-items:center;justify-content:center;text-align:center;">
-        <h1 class="rm-title" style="font-size:1.7rem;letter-spacing:-1px;margin:0;">Recarga Móvil</h1>
-        <p class="rm-empty" style="padding:12px 20px;">Próximamente.</p>
-    </div>
+    @* ── Loading overlay ─────────────────────────────────────────── *@
+    @if (_loading)
+    {
+        <div class="rm-loading">
+            <span class="spinner-border spinner-border-sm" role="status"></span>
+            Cargando...
+        </div>
+    }
+
+    @* ── Error banner ────────────────────────────────────────────── *@
+    @if (_error != null)
+    {
+        <div class="rm-error">
+            <i class="bi bi-exclamation-triangle-fill"></i>
+            <span style="flex:1">@_error</span>
+            <button class="rm-iconbtn" style="width:36px;height:36px;font-size:0.85rem;"
+                    aria-label="Reintentar"
+                    @onclick="() => { _error=null; StateHasChanged(); }">×</button>
+        </div>
+    }
+
+    @* ── VIEW SWITCH ─────────────────────────────────────────────── *@
+    @switch (_view)
+    {
+        case View.List:
+            @ViewListFragment
+            break;
+        case View.Overview:
+            @ViewOverviewFragment
+            break;
+        case View.PickMachine:
+            @ViewPickMachineFragment
+            break;
+        case View.EditSlots:
+            @ViewEditSlotsFragment
+            break;
+    }
+
+    @* ── BOTTOM SHEET: Product Selector ──────────────────────────── *@
+    @if (_productSheetVisible)
+    {
+        <div class="rm-sheet__backdrop" @onclick="CloseProductSheet">
+            <div class="rm-sheet__panel" @onclick:stopPropagation="true">
+                <div class="rm-sheet__handle"></div>
+                <div class="rm-sheet__head">Seleccionar producto</div>
+
+                <div style="padding:0 12px 10px;">
+                    <input class="rm-search" type="text"
+                           placeholder="Buscar producto..."
+                           value="@_productSearch"
+                            @oninput="OnProductSearchChanged" />
+                </div>
+
+                <div style="max-height:320px;overflow-y:auto;padding:0 12px 16px;
+                            display:flex;flex-direction:column;gap:4px;">
+                    @if (_filteredProducts.Count == 0)
+                    {
+                        <div class="rm-empty" style="padding:20px 0;">
+                            <p>Sin resultados</p>
+                        </div>
+                    }
+                    else
+                    {
+                        @foreach (var prod in _filteredProducts)
+                        {
+                            <button class="rm-row rm-press"
+                                    style="border-width:1px;padding:10px 12px;"
+                                    @onclick="() => OnProductSelected(prod)">
+                                <div style="flex:1;min-width:0;text-align:left;">
+                                    <div class="rm-row__label" style="font-size:0.82rem;">@prod.Nombre</div>
+                                    <small style="color:var(--text-muted);font-family:var(--font-mono);font-size:0.65rem;">
+                                        Cap. @prod.StockBodega · $@prod.PrecioVenta.ToString("N0")
+                                    </small>
+                                </div>
+                                <span class="rm-row__chev"><i class="bi bi-chevron-right"></i></span>
+                            </button>
+                        }
+                    }
+                </div>
+            </div>
+        </div>
+    }
+
+    @* ── BOTTOM SHEET: Slot Editor Dock ──────────────────────────── *@
+    @if (_slotDockVisible && _editingSlot != null)
+    {
+        <div class="rm-sheet__backdrop" @onclick="CloseSlotDock">
+            <div class="rm-sheet__panel" @onclick:stopPropagation="true"
+                 style="padding-bottom:calc(8px + env(safe-area-inset-bottom));">
+                <div class="rm-sheet__handle"></div>
+
+                @* Navigation arrows *@
+                <div class="rm-dock__nav" style="padding:0 12px;">
+                    <button class="rm-stepper__btn" style="width:56px;height:44px;font-size:1.2rem;"
+                            aria-label="Slot anterior"
+                            disabled="@(_editingSlotIndex <= 0)"
+                            @onclick="GoToPreviousSlot">
+                        <i class="bi bi-chevron-left"></i>
+                    </button>
+                    <span style="flex:1;text-align:center;font-family:var(--font-mono);
+                                 font-weight:var(--fw-bold);font-size:0.82rem;
+                                 text-transform:uppercase;">
+                        Slot @_editingSlot.NumeroSlot · @(_editingSlotIndex + 1)/@_slots.Count
+                    </span>
+                    <button class="rm-stepper__btn" style="width:56px;height:44px;font-size:1.2rem;"
+                            aria-label="Slot siguiente"
+                            disabled="@(_editingSlotIndex >= _slots.Count - 1)"
+                            @onclick="GoToNextSlot">
+                        <i class="bi bi-chevron-right"></i>
+                    </button>
+                    <button class="rm-iconbtn rm-iconbtn--dark"
+                            style="width:44px;height:44px;"
+                            aria-label="Cerrar"
+                            @onclick="CloseSlotDock">
+                        <i class="bi bi-check-lg"></i>
+                    </button>
+                </div>
+
+                @* Product picker *@
+                <div class="rm-dock__product" style="padding:0 12px;">
+                    <button class="rm-dock__picker" @onclick="async () => await OpenProductSheetAsync(_editingSlot)">
+                        <span style="font-family:var(--font-mono);font-weight:var(--fw-bold);
+                                     font-size:0.75rem;text-transform:uppercase;">
+                            @(!string.IsNullOrEmpty(_editingSlot.ProductoNombre) ? _editingSlot.ProductoNombre : "Elegir producto")
+                        </span>
+                        <i class="bi bi-search" style="color:var(--ink-500);font-size:0.85rem;"></i>
+                    </button>
+                    <button class="rm-dock__clear" aria-label="Vaciar slot"
+                            @onclick="ClearEditingSlot">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+
+                @* Stepper *@
+                <div class="rm-dock__edit" style="padding:0 12px 8px;">
+                    <button class="rm-stepper__btn" aria-label="Restar"
+                            disabled="@(_editingSlot.CantidadInicial <= 0)"
+                            @onclick="() => OnSlotChanged(_editingSlot, _editingSlot.CantidadInicial - 1)">−</button>
+                    <div class="rm-stepper__val">
+                        <span class="rm-stepper__qty">@_editingSlot.CantidadInicial</span>
+                        <span class="rm-stepper__cap">/@_editingSlot.CapacidadSlot</span>
+                    </div>
+                    <button class="rm-stepper__btn" aria-label="Sumar"
+                            disabled="@(_editingSlot.CantidadInicial >= _editingSlot.CapacidadSlot)"
+                            @onclick="() => OnSlotChanged(_editingSlot, _editingSlot.CantidadInicial + 1)">+</button>
+                    <button class="rm-stepper__max" aria-label="Máximo"
+                            @onclick="() => OnSlotChanged(_editingSlot, _editingSlot.CapacidadSlot)">Máx</button>
+                </div>
+
+                @* Inline bar *@
+                @{
+                    var dockPct = _editingSlot.CapacidadSlot > 0
+                        ? (_editingSlot.CantidadInicial * 100 / _editingSlot.CapacidadSlot)
+                        : 0;
+                }
+                <div style="padding:0 12px;">
+                    <div class="rm-progress__bar" style="width:100%;">
+                        <span class="rm-progress__fill @ProgressFillClass(dockPct)"
+                              style="width:@(dockPct)%;transition:width 0.15s;"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+    @* ── Toast ────────────────────────────────────────────────────── *@
+    @if (_toastMessage != null)
+    {
+        <div class="rm-toast">
+            <span class="rm-toast__icon"><i class="bi @_toastIcon"></i></span>
+            @_toastMessage
+        </div>
+    }
 </div>
+
+@code {
+
+    // ═══════════════════════════════════════════════════════════════════
+    // VIEW: Lista — template list with progress bars
+    // ═══════════════════════════════════════════════════════════════════
+    private RenderFragment ViewListFragment => @<text>
+        <div class="rm-head--dark">
+            <span class="rm-eyebrow">Terreno · Recarga</span>
+            <h1 class="rm-title">Cargas<span class="rm-cursor">_</span></h1>
+        </div>
+
+        <div class="rm-view__scroll">
+            @if (_templates == null || _templates.Count == 0)
+            {
+                <div class="rm-empty">
+                    <p>Sin cargas registradas</p>
+                </div>
+            }
+            else
+            {
+                @foreach (var template in _templates)
+                {
+                    var periodoCount = template.Periodos.Count;
+                    var loadedCount = periodoCount > 0
+                        ? template.Periodos.Count(p => p.SnapshotSlots.Any(s => s.CantidadInicial > 0))
+                        : 0;
+                    var pct = periodoCount > 0 ? loadedCount * 100 / periodoCount : 0;
+                    <div class="rm-card" @onclick="() => OnTemplateCardClick(template)">
+                        <div class="rm-card__head">
+                            <div>
+                                <span class="rm-card__name">@template.Nombre</span>
+                                @if (!string.IsNullOrEmpty(template.Descripcion))
+                                {
+                                    <span class="rm-card__sub">@template.Descripcion</span>
+                                }
+                            </div>
+                            <span class="rm-tag rm-tag--@GetEstadoTagVariant(template)">@GetEstadoTag(template)</span>
+                        </div>
+                        <div class="rm-card__sub">
+                            @periodoCount máq. · @loadedCount/@periodoCount cargadas
+                        </div>
+                        <div class="rm-progress">
+                            <span class="rm-progress__bar">
+                                <span class="rm-progress__fill @ProgressFillClass(pct)" style="width:@(pct)%"></span>
+                            </span>
+                            <span class="rm-progress__pct">@pct%</span>
+                        </div>
+                        <div class="rm-card__foot">
+                            @if (template.FechaRecargaMin.HasValue)
+                            {
+                                <span class="rm-chip">@template.FechaRecargaMin.Value.ToString("dd/MM")</span>
+                            }
+                            @foreach (var periodo in template.Periodos.Take(3))
+                            {
+                                <span class="rm-chip">@MachineShortCode(periodo)</span>
+                            }
+                            @if (template.Periodos.Count > 3)
+                            {
+                                <span class="rm-chip">+@(template.Periodos.Count - 3)</span>
+                            }
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+
+        <div class="rm-view__bottombar">
+            <button class="rm-cta rm-cta--primary" @onclick="OnNuevaCargaAsync">
+                <i class="bi bi-plus-lg"></i> Nueva carga
+            </button>
+        </div>
+    </text>;
+
+    // ═══════════════════════════════════════════════════════════════════
+    // VIEW: Overview (Resumen) — machine list with stats
+    // ═══════════════════════════════════════════════════════════════════
+    private RenderFragment ViewOverviewFragment => @<text>
+        <div class="rm-head--bar">
+            <button class="rm-iconbtn" aria-label="Volver" @onclick="GoToList">
+                <i class="bi bi-arrow-left"></i>
+            </button>
+            <div style="flex:1;min-width:0;">
+                <span class="rm-eyebrow rm-eyebrow--muted">Resumen de carga</span>
+                <h2 class="rm-title--bar">@(_activeTemplate?.Nombre ?? "Carga")</h2>
+            </div>
+        </div>
+
+        <div class="rm-view__scroll">
+            @if (_machines.Count == 0)
+            {
+                <div class="rm-empty">
+                    <p>Carga sin máquinas</p>
+                </div>
+                <button class="rm-cta rm-cta--dashed" @onclick="() => GoToPickMachineAsync()">
+                    <i class="bi bi-plus-lg"></i> Cargar máquina
+                </button>
+            }
+            else
+            {
+                var (loaded, total) = MachinesLoadedStats();
+                var allUnits = _machines.Sum(m => MachineUnits(m));
+                var allCap = _machines.Sum(m => MachineCapacity(m));
+
+                <div class="rm-stats">
+                    <div class="rm-stats__cell">
+                        <div class="rm-stats__label">Máquinas</div>
+                        <div class="rm-stats__value">
+                            @loaded/@total
+                            <span class="rm-stats__value-muted">cargadas</span>
+                        </div>
+                    </div>
+                    <div class="rm-stats__cell">
+                        <div class="rm-stats__label">Unidades</div>
+                        <div class="rm-stats__value">
+                            @allUnits/@allCap
+                            <span class="rm-stats__value-muted">u.</span>
+                        </div>
+                    </div>
+                </div>
+
+                @foreach (var machine in _machines)
+                {
+                    var mUnits = MachineUnits(machine);
+                    var mCap = MachineCapacity(machine);
+                    var mPct = mCap > 0 ? (mUnits * 100 / mCap) : 0;
+                    var isLoaded = mUnits > 0;
+                    <div class="rm-card" @onclick="() => OnMachineCardClick(machine)">
+                        <div class="rm-card__head">
+                            <span class="rm-card__name" style="font-size:0.82rem;">
+                                @MachineShortCode(machine)
+                            </span>
+                            <span class="rm-tag rm-tag--@GetCargadaTagVariant(machine)">@GetCargadaTag(machine)</span>
+                        </div>
+                        <div class="rm-card__sub">@machine.MaquinaNombre</div>
+                        <div class="rm-progress">
+                            <span class="rm-progress__bar">
+                                <span class="rm-progress__fill @ProgressFillClass(mPct)" style="width:@(mPct)%"></span>
+                            </span>
+                            <span class="rm-progress__pct">@mUnits/@mCap u.</span>
+                        </div>
+                        <div class="rm-card__foot" style="justify-content:flex-end;">
+                            <button class="rm-iconbtn rm-iconbtn--danger"
+                                    style="width:36px;height:36px;font-size:0.85rem;"
+                                    aria-label="Quitar máquina"
+                                    @onclick:stopPropagation="true"
+                                    @onclick="() => OnRemoveMachineClick(machine)">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                }
+
+                <button class="rm-cta rm-cta--dashed" @onclick="() => GoToPickMachineAsync()">
+                    <i class="bi bi-plus-lg"></i> Agregar máquina
+                </button>
+            }
+        </div>
+
+        <div class="rm-view__bottombar">
+            @{
+                var allLoaded = _machines.Count > 0 && _machines.All(m => MachineUnits(m) > 0);
+            }
+            @if (allLoaded)
+            {
+                <button class="rm-cta rm-cta--primary" @onclick="OnFinalizarCarga">
+                    <i class="bi bi-check2-circle"></i> Finalizar carga
+                </button>
+            }
+            else
+            {
+                <div class="rm-cta rm-cta--disabled">
+                    Faltan máquinas por cargar
+                </div>
+            }
+        </div>
+    </text>;
+
+    // ═══════════════════════════════════════════════════════════════════
+    // VIEW: PickMachine (Elegir máquina) — search + scan + pick list
+    // ═══════════════════════════════════════════════════════════════════
+    private RenderFragment ViewPickMachineFragment => @<text>
+        <div class="rm-head--bar">
+            <button class="rm-iconbtn" aria-label="Volver"
+                    @onclick="() => { GoToOverview(_activeTemplate!); }">
+                <i class="bi bi-arrow-left"></i>
+            </button>
+            <div style="flex:1;min-width:0;">
+                <span class="rm-eyebrow rm-eyebrow--muted">Paso 1 de 2</span>
+                <h2 class="rm-title--bar">Elegir máquina</h2>
+            </div>
+        </div>
+
+        <div class="rm-view__scroll" style="position:relative;">
+            @* Search + scan row *@
+            <div style="display:flex;gap:8px;margin-bottom:12px;">
+                <input class="rm-search" type="text"
+                       placeholder="Buscar máquina..."
+                       value="@_pickSearch"
+                       @oninput="OnPickSearchChanged" />
+                <button class="rm-scan-btn" aria-label="Escanear"
+                        @onclick="() => OnScanClick()">
+                    <i class="bi bi-upc-scan"></i>
+                </button>
+            </div>
+
+            @{
+                var available = GetAvailableMachines();
+            }
+            @if (available.Count == 0)
+            {
+                <div class="rm-empty">
+                    <p>Todas las máquinas del pool ya están en esta carga</p>
+                </div>
+            }
+            else
+            {
+                @foreach (var m in available)
+                {
+                    <div class="rm-row rm-press" @onclick="() => OnAddMachineClick(m.Id)">
+                        <div class="rm-row__iconbox">
+                            <i class="bi bi-cpu"></i>
+                        </div>
+                        <span class="rm-row__label">@m.Nombre</span>
+                        <span class="rm-row__chev"><i class="bi bi-chevron-right"></i></span>
+                    </div>
+                }
+            }
+
+            @* Scanning overlay *@
+            @if (_pickScanning)
+            {
+                <div class="rm-scan-overlay" @onclick="OnScanOverlayTap">
+                    <div class="rm-scan-box">
+                        <span class="rm-scan-box__icon"><i class="bi bi-upc-scan"></i></span>
+                        <span class="rm-line"></span>
+                    </div>
+                    <span class="rm-scan-label">Escaneando...</span>
+                    <small style="color:rgba(255,255,255,0.5);font-size:0.65rem;"
+                           class="font-monospace">Tocá para cancelar</small>
+                </div>
+            }
+        </div>
+    </text>;
+
+    // ═══════════════════════════════════════════════════════════════════
+    // VIEW: EditSlots (Editar slots) — slot grid with floor groups + dock
+    // ═══════════════════════════════════════════════════════════════════
+    private RenderFragment ViewEditSlotsFragment => @<text>
+        <div class="rm-head--bar">
+            <button class="rm-iconbtn" aria-label="Volver"
+                    @onclick="() => GoToOverview(_activeTemplate!)">
+                <i class="bi bi-arrow-left"></i>
+            </button>
+            <div style="flex:1;min-width:0;">
+                <span class="rm-eyebrow rm-eyebrow--muted">Paso 2 · Editar carga</span>
+                <h2 class="rm-title--bar">@(_editingMachine != null ? MachineShortCode(_editingMachine) : "")</h2>
+            </div>
+            @if (_editingMachine != null)
+            {
+                <span class="rm-tag rm-tag--@GetCargadaTagVariant(_editingMachine)"
+                      style="flex-shrink:0;">
+                    @GetCargadaTag(_editingMachine)
+                </span>
+            }
+        </div>
+
+        <div class="rm-view__scroll" style="position:relative;">
+            @* Density toggle *@
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+                <span style="font-family:var(--font-mono);font-size:0.6rem;font-weight:var(--fw-bold);
+                             text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);">
+                    Vista
+                </span>
+                <VmSegmented @bind-Value="DensityKey"
+                             Options="@(new[] { ("comoda","Cómoda"), ("compacta","Compacta") })" />
+            </div>
+
+            @* Floors + slot grid *@
+            @{
+                var floorGroups = _slots.Select((s, i) => new { s, Index = i })
+                    .GroupBy(x => x.Index / 10)
+                    .ToList();
+            }
+            @if (floorGroups.Count == 0)
+            {
+                <div class="rm-empty">
+                    <p>No hay slots configurados para esta máquina</p>
+                </div>
+            }
+            else
+            {
+                @foreach (var floor in floorGroups)
+                {
+                    var floorSlots = floor.Select(x => x.s).ToList();
+                    var floorUnits = floorSlots.Sum(s => s.CantidadInicial);
+                    var floorCap = floorSlots.Sum(s => s.CapacidadSlot);
+                    var floorVacios = floorSlots.Count(s => s.CantidadInicial == 0 && s.ProductoId != null);
+
+                    <div class="rm-floor">
+                        <div class="rm-floor__head">
+                            <span class="rm-floor__tag">PISO @(floor.Key + 1)</span>
+                            <span class="rm-floor__summary">
+                                @floorUnits/@floorCap u.
+                                @if (floorVacios > 0)
+                                {
+                                    <text> · @floorVacios vacíos</text>
+                                }
+                            </span>
+                            <button class="rm-floor__fill-btn"
+                                    aria-label="Llenar piso"
+                                    @onclick="() => { foreach(var s in floorSlots) { s.CantidadInicial = s.CapacidadSlot; } StateHasChanged(); }">
+                                <i class="bi bi-arrow-bar-up"></i> Llenar
+                            </button>
+                        </div>
+                        <div class="rm-slot-grid">
+                            @foreach (var slot in floorSlots)
+                            {
+                                var isEmpty = slot.ProductoId == null || slot.ProductoId == 0;
+                                var slotPct = slot.CapacidadSlot > 0 ? (slot.CantidadInicial * 100 / slot.CapacidadSlot) : 0;
+                                <div class="rm-slot @(isEmpty ? "rm-slot-empty" : "") @(_editingSlot == slot ? "rm-slot-sel" : "")"
+                                     @onclick="() => OnSlotEdit(slot)">
+                                    <span class="rm-slot__id">@slot.NumeroSlot</span>
+                                    <span class="rm-slot__product">
+                                        @(isEmpty ? "Vacío" : slot.ProductoNombre)
+                                    </span>
+                                    <span class="rm-slot__qty">
+                                        @slot.CantidadInicial/@slot.CapacidadSlot
+                                    </span>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+
+        @if (_editingMachine != null)
+        {
+            var (units, capacity, vacios) = AllSlotsStats();
+            <div class="rm-dock">
+                <div class="rm-dock__summary">
+                    <span>@units/@capacity u.</span>
+                    @if (vacios > 0)
+                    {
+                        <span class="rm-tag rm-tag--vacios">@vacios vacíos</span>
+                    }
+                    <span style="flex:1;"></span>
+                    <button class="rm-iconbtn" style="width:36px;height:36px;font-size:0.85rem;"
+                            aria-label="Vaciar slots"
+                            @onclick="() => VaciarSlotsAsync(_editingMachine?.MaquinaId ?? 0)">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                    <button class="rm-iconbtn" style="width:36px;height:36px;font-size:0.85rem;"
+                            aria-label="Restablecer slots"
+                            @onclick="() => ResetSlotsAsync(_editingMachine?.MaquinaId ?? 0)">
+                        <i class="bi bi-arrow-counterclockwise"></i>
+                    </button>
+                </div>
+                <button class="rm-cta rm-cta--primary" @onclick="() => SaveSlotsAsync()">
+                    <i class="bi bi-save"></i> Guardar
+                </button>
+            </div>
+        }
+    </text>;
+}

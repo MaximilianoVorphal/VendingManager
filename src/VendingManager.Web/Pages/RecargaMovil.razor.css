@@ -1,0 +1,20 @@
+/* =========================================================================
+   RecargaMovil.razor.css — Scoped overrides for /recarga-movil
+   =========================================================================
+   This file contains ONLY truly component-specific overrides that can't be
+   expressed with existing rm-* classes from vm-recarga-movil.css:
+   - Scrollbar hide for specific containers
+   - Toast offset repositioning
+
+   All rm-* classes belong in the global file. See vm-recarga-movil.css
+   section 26 for rm-* classes moved here during PR 2 Fix 5.
+   ========================================================================= */
+
+/* Hide scrollbar on scroll areas (content looks cleaner) */
+.rm-view__scroll::-webkit-scrollbar { display: none; }
+.rm-view__scroll { scrollbar-width: none; }
+
+/* Toast offset within rm-view (overrides global absolute positioning) */
+.rm-view .rm-toast {
+  bottom: calc(var(--rm-toast-bottom) + env(safe-area-inset-bottom));
+}
