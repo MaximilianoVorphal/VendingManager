@@ -1212,10 +1212,146 @@
 }
 
 /* =========================================================================
-   26. RM-* CLASSES MOVED FROM SCOPED FILE (PR 2 Fix 5)
-       These were originally in RecargaMovil.razor.css but belong to the
-       global rm-* system. Moved here to enforce the "no rm-* in scoped" rule.
-   ========================================================================= */
+    28. FIGURE WRAPPER — machine figure in EditSlots (PR 2)
+        Source: PR 2 design spec
+    ========================================================================= */
+
+.rm-figure {
+  border: 2px solid var(--ink-900);
+  margin-bottom: 16px;
+}
+
+.rm-figure__topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--ink-900);
+  color: var(--paper-0);
+  padding: 6px 10px;
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  font-weight: var(--fw-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.rm-figure__topbar-label {
+  letter-spacing: 0.3px;
+}
+
+.rm-figure__topbar-badge {
+  background: var(--paper-0);
+  color: var(--ink-900);
+  padding: 1px 6px;
+  font-size: 0.55rem;
+}
+
+.rm-figure__body {
+  padding: 12px 10px 6px;
+  background: var(--paper-50);
+}
+
+.rm-figure__bottombar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--ink-900);
+  color: var(--paper-0);
+  padding: 6px 10px;
+}
+
+.rm-figure__retire {
+  font-family: var(--font-mono);
+  font-weight: var(--fw-bold);
+  font-size: 0.55rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.rm-figure__grid-3x3 {
+  display: grid;
+  grid-template-columns: repeat(3, 13px);
+  grid-template-rows: repeat(3, 13px);
+  gap: 2px;
+}
+
+.rm-figure__grid-cell {
+  border: 1px solid var(--paper-0);
+  opacity: 0.6;
+}
+
+/* =========================================================================
+    29. SLOT FILL BAR — thin progress bar inside slot card (G9, PR 2)
+    ========================================================================= */
+
+.rm-slot-fill {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  background: var(--fill-good);
+  transition: width 0.15s;
+  z-index: 0;
+}
+
+.rm-slot {
+  position: relative;
+  overflow: hidden;
+}
+
+.rm-slot > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* =========================================================================
+    30. EMPTY SLOT WARNING — ⚠ triangle icon (G10, PR 2)
+    ========================================================================= */
+
+.rm-slot-empty-warn {
+  color: var(--signal-danger);
+  font-size: 0.55rem;
+  margin-left: 3px;
+  vertical-align: middle;
+}
+
+/* =========================================================================
+    31. SCAN CURSOR — blinking animation (G12, PR 2)
+    ========================================================================= */
+
+.rm-scan-cursor {
+  animation: rmBlink 1s steps(1) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rm-scan-cursor {
+    animation: none !important;
+  }
+}
+
+/* =========================================================================
+    32. SHOW PRICE TOGGLE — mostrarPrecios control (G13, PR 2)
+    ========================================================================= */
+
+.rm-show-price input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--ink-900);
+}
+
+.rm-slot__price {
+  font-family: var(--font-mono);
+  font-size: 0.48rem;
+  color: var(--ink-500);
+  line-height: 1;
+}
+
+/* =========================================================================
+    33. RM-* CLASSES MOVED FROM SCOPED FILE (PR 2 Fix 5)
+        These were originally in RecargaMovil.razor.css but belong to the
+        global rm-* system. Moved here to enforce the "no rm-* in scoped" rule.
+    ========================================================================= */
 
 /* Machine chip inside cards: clickable style */
 .rm-chip--link {
