@@ -486,11 +486,11 @@ public class RecargaMovilTests : TestContext
                     Estado = 0,
                     EsActivo = false,
                     CantidadMaquinas = 2,
-                    CantidadSlotsPendientes = 1,
+                    CantidadSlotsPendientes = 0, // Computed from Periodos.SnapshotSlots
                     Periodos = new[]
                     {
-                        new { Id = 1, MaquinaId = 1, IdInternoMaquina = "2410280022" },
-                        new { Id = 2, MaquinaId = 2, IdInternoMaquina = "2410280023" }
+                        CreateListPeriodo(1, 1, "2410280022", loaded: true, slotCount: 10),
+                        CreateListPeriodo(2, 2, "2410280023", loaded: false, slotCount: 10)
                     }
                 },
                 new
@@ -502,10 +502,10 @@ public class RecargaMovilTests : TestContext
                     Estado = 0,
                     EsActivo = false,
                     CantidadMaquinas = 1,
-                    CantidadSlotsPendientes = 0,
+                    CantidadSlotsPendientes = 0, // Computed from Periodos.SnapshotSlots
                     Periodos = new[]
                     {
-                        new { Id = 3, MaquinaId = 3, IdInternoMaquina = "2410280033" }
+                        CreateListPeriodo(3, 3, "2410280033", loaded: true, slotCount: 10)
                     }
                 },
                 new
@@ -517,12 +517,24 @@ public class RecargaMovilTests : TestContext
                     Estado = 2,
                     EsActivo = true,
                     CantidadMaquinas = 1,
-                    CantidadSlotsPendientes = 0,
+                    CantidadSlotsPendientes = 0, // Computed from Periodos.SnapshotSlots
                     Periodos = new[]
                     {
-                        new { Id = 4, MaquinaId = 4, IdInternoMaquina = "2410280044" }
+                        CreateListPeriodo(4, 4, "2410280044", loaded: true, slotCount: 10)
                     }
                 }
+            };
+        }
+
+        private static object CreateListPeriodo(int id, int maquinaId, string idInterno, bool loaded, int slotCount)
+        {
+            return new
+            {
+                Id = id,
+                MaquinaId = maquinaId,
+                IdInternoMaquina = idInterno,
+                FechaRecarga = DateTime.Now,
+                SnapshotSlots = GenerateSlotConfig(maquinaId, slotCount, loaded)
             };
         }
 
