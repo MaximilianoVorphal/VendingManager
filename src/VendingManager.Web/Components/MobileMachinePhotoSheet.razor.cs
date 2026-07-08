@@ -35,7 +35,6 @@ public partial class MobileMachinePhotoSheet : ComponentBase, IDisposable
 
     // ─── Internal State ─────────────────────────────────────────────────
 
-    private InputFile? _inputFile;
     private IBrowserFile? _capturedFile;
     private string? _previewUrl;
     private bool _uploading;
