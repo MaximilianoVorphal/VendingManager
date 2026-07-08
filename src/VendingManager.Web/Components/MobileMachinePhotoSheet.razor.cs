@@ -94,16 +94,24 @@ public partial class MobileMachinePhotoSheet : ComponentBase, IDisposable
             }
 
             // ftyp box starts at offset 4: "ftyp" + brand (4 bytes)
-            // HEIC brands: "heic", "heix", "hevc", "hevx"
+            // HEIC/HEIF brands: "heic", "heix", "hevc", "hevx", "mif1", "mif3", "heim", "heis"
+            // AVIF brands: "avif", "avis"
             if (header[4] == 'f' && header[5] == 't' && header[6] == 'y' && header[7] == 'p')
             {
-                var isHeic = (header[8] == 'h' && header[9] == 'e' && (header[10] == 'i' || header[10] == 'x') && (header[11] == 'c' || header[11] == 'x'))
-                          || (header[8] == 'm' && header[9] == 'i' && header[10] == 'f' && header[11] == '3')
-                          || (header[8] == 'h' && header[9] == 'e' && header[10] == 'v' && (header[11] == 'c' || header[11] == 'x'));
+                var brand = System.Text.Encoding.ASCII.GetString(header, 8, 4);
+                var heicBrands = new[] { "heic", "heix", "hevc", "hevx", "mif1", "mif3", "heim", "heis" };
+                var avifBrands = new[] { "avif", "avis" };
 
-                if (isHeic)
+                if (heicBrands.Contains(brand))
                 {
                     _error = "Formato HEIC no soportado. Convertila a JPG o PNG.";
+                    StateHasChanged();
+                    return;
+                }
+
+                if (avifBrands.Contains(brand))
+                {
+                    _error = "Formato AVIF no soportado. Convertila a JPG o PNG.";
                     StateHasChanged();
                     return;
                 }
