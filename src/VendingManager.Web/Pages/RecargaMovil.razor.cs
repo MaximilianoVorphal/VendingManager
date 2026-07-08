@@ -570,17 +570,17 @@ public partial class RecargaMovil : ComponentBase, IDisposable
 
     // ─── Product Sheet ───────────────────────────────────────────────────
 
-    private async void OpenProductSheet(SnapshotSlotDto slot)
+    private async Task OpenProductSheetAsync(SnapshotSlotDto slot)
     {
-        _editingSlot = slot;
-        _editingSlotIndex = _slots.IndexOf(slot);
-        _productSearch = "";
-
+        // Load catalog FIRST, then mutate state
         if (_productCatalog.Count == 0)
         {
             await LoadProductCatalogAsync();
         }
 
+        _editingSlot = slot;
+        _editingSlotIndex = _slots.IndexOf(slot);
+        _productSearch = "";
         _filteredProducts = FilterProducts(_productSearch);
         _productSheetVisible = true;
         StateHasChanged();
