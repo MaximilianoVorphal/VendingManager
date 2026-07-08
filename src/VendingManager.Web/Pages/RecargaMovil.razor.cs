@@ -239,7 +239,7 @@ public partial class RecargaMovil : ComponentBase, IDisposable
             updateDto.Periodos.Add(new CreatePeriodoDto
             {
                 MaquinaId = machineId,
-                FechaRecarga = DateTime.Now,
+                FechaRecarga = DateTime.UtcNow,
                 SnapshotSlots = slotConfig.Select(s => new CreateSnapshotSlotDto
                 {
                     NumeroSlot = s.NumeroSlot,
@@ -480,14 +480,14 @@ public partial class RecargaMovil : ComponentBase, IDisposable
         {
             var dto = new CreateTemplateRecargaDto
             {
-                Nombre = $"Carga {DateTime.Now:dd/MM}",
+                Nombre = $"Carga {DateTime.UtcNow:dd/MM}",
                 Descripcion = null,
                 Periodos = new List<CreatePeriodoDto>
                 {
                     new CreatePeriodoDto
                     {
                         MaquinaId = 0,
-                        FechaRecarga = DateTime.Now,
+                        FechaRecarga = DateTime.UtcNow,
                         SnapshotSlots = new List<CreateSnapshotSlotDto>()
                     }
                 }
