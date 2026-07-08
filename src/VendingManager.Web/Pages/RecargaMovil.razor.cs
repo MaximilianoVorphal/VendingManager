@@ -499,6 +499,8 @@ public partial class RecargaMovil : ComponentBase, IDisposable
     private async Task OnRemoveMachineClick(PeriodoRecargaDto machine)
     {
         if (_activeTemplate == null) return;
+        var confirmed = await JS.InvokeAsync<bool>("confirm", "¿Quitar máquina de la carga?");
+        if (!confirmed) return;
         await RemoveMachineAsync(_activeTemplate.Id, machine.Id);
     }
 
