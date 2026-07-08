@@ -63,6 +63,31 @@
             }
         }
 
+        /**
+         * Create a blob URL from a base64 string and content type.
+         * Used by MobileMachinePhotoSheet to avoid storing full data URLs in the DOM.
+         * @param {string} base64 - Raw base64-encoded file bytes.
+         * @param {string} contentType - MIME type (e.g. "image/jpeg").
+         * @returns {string} A blob:// URL that can be used as an <img> src.
+         */
+        window.vmCreateBlobUrl = (base64, contentType) => {
+            const byteCharacters = atob(base64);
+            const byteNumbers = new Uint8Array(byteCharacters.length);
+            for (let i = 0; i < byteCharacters.length; i++) {
+                byteNumbers[i] = byteCharacters.charCodeAt(i);
+            }
+            const blob = new Blob([byteNumbers], { type: contentType });
+            return URL.createObjectURL(blob);
+        };
+
+        /**
+         * Revoke a blob URL created by vmCreateBlobUrl to free memory.
+         * @param {string} url - The blob: URL to revoke.
+         */
+        window.vmRevokeBlobUrl = (url) => {
+            URL.revokeObjectURL(url);
+        };
+
         window.downloadFromBase64 = (base64, filename) => {
             var a = document.createElement("a");
             document.body.appendChild(a);
