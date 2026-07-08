@@ -391,6 +391,242 @@ public class RecargaMovilTests : TestContext
         });
     }
 
+    // ── SC-04.1: Machine figure wrapper ──────────────────────────────
+
+    [Fact]
+    public void RecargaMovil_EditSlots_Figure_Renders_RetireAqui_Bar()
+    {
+        var cut = RenderComponent<RecargaMovilTestHost>();
+
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Cargas"));
+
+        // Navigate to Resumen via template 1
+        var firstCard = cut.FindAll(".rm-card")[0];
+        firstCard.Click();
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Resumen de carga"));
+
+        // Click a machine card → EditSlots
+        var machineCards = cut.FindAll(".rm-card");
+        machineCards[0].Click();
+
+        cut.WaitForAssertion(() =>
+        {
+            // "RETIRE AQUÍ" bar must be visible
+            cut.Markup.Should().Contain("RETIRE AQUÍ");
+            var retireEl = cut.Find(".rm-figure__retire");
+            retireEl.TextContent.Should().Be("RETIRE AQUÍ");
+        });
+    }
+
+    [Fact]
+    public void RecargaMovil_EditSlots_Figure_Renders_3x3_Grid_Footer()
+    {
+        var cut = RenderComponent<RecargaMovilTestHost>();
+
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Cargas"));
+
+        // Navigate to Resumen
+        var firstCard = cut.FindAll(".rm-card")[0];
+        firstCard.Click();
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Resumen de carga"));
+
+        // Click a machine card → EditSlots
+        var machineCards = cut.FindAll(".rm-card");
+        machineCards[0].Click();
+
+        cut.WaitForAssertion(() =>
+        {
+            // 3×3 grid must render 9 cells
+            var grid = cut.Find(".rm-figure__grid-3x3");
+            grid.Should().NotBeNull();
+
+            var cells = cut.FindAll(".rm-figure__grid-cell");
+            cells.Should().HaveCount(9);
+        });
+    }
+
+    [Fact]
+    public void RecargaMovil_EditSlots_Figure_Shows_Topbar_Stats()
+    {
+        var cut = RenderComponent<RecargaMovilTestHost>();
+
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Cargas"));
+
+        // Navigate to Resumen
+        var firstCard = cut.FindAll(".rm-card")[0];
+        firstCard.Click();
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Resumen de carga"));
+
+        // Click a machine card → EditSlots
+        var machineCards = cut.FindAll(".rm-card");
+        machineCards[0].Click();
+
+        cut.WaitForAssertion(() =>
+        {
+            // Figure topbar: machine code + units/capacity badge
+            var topbar = cut.Find(".rm-figure__topbar");
+            topbar.Should().NotBeNull();
+
+            var label = cut.Find(".rm-figure__topbar-label");
+            label.TextContent.Should().Contain("MÁQUINA");
+
+            var badge = cut.Find(".rm-figure__topbar-badge");
+            badge.TextContent.Should().Contain("u.");
+            // Machine 1 has 10 slots, each with capacity 5 → total capacity 50
+            // Slots with CantidadInicial > 0: (i*2 % 5)+1 for i=1..10
+            badge.TextContent.Should().Match("*/* u.");
+        });
+    }
+
+    // ── SC-01.1: Integration — save triggers slot-batch then foto-guia ─
+
+    [Fact]
+    public void SaveFlow_SlotBatch_Then_FotoGuia_Api_Sequence()
+    {
+        var cut = RenderComponent<RecargaMovilTestHost>();
+
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Cargas"));
+
+        // Navigate to Resumen → template 1
+        var firstCard = cut.FindAll(".rm-card")[0];
+        firstCard.Click();
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Resumen de carga"));
+
+        // Click machine card → EditSlots
+        var machineCards = cut.FindAll(".rm-card");
+        machineCards[0].Click();
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Paso 2 · Editar carga"));
+
+        // Trigger a slot change to enable Guardar: click a slot → slot dock opens
+        var firstSlot = cut.FindAll(".rm-slot")[0];
+        firstSlot.Click();
+        cut.WaitForAssertion(() =>
+        {
+            // Slot dock opened
+            cut.Markup.Should().Contain("Slot");
+        });
+
+        // Click [+] to increase qty → sets _hasChanges = true
+        var sumarBtn = cut.Find("button[aria-label='Sumar']");
+        sumarBtn.Click();
+
+        // Close slot dock
+        var cerrarBtn = cut.Find("button[aria-label='Cerrar']");
+        cerrarBtn.Click();
+
+        // Wait for dock to close
+        cut.WaitForAssertion(() =>
+        {
+            cut.FindAll(".rm-dock__nav").Should().BeEmpty();
+        });
+
+        // Now Guardar button should be enabled — click it
+        var guardarBtn = cut.FindAll("button.rm-cta--primary")
+            .First(b => b.TextContent.Trim().Contains("Guardar", StringComparison.OrdinalIgnoreCase));
+
+        // Guardar button should NOT be disabled
+        guardarBtn.HasAttribute("disabled").Should().BeFalse();
+
+        guardarBtn.Click();
+
+        // Wait for save sheet to open
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("Guardar carga ·");
+            cut.FindAll(".rm-save-sheet__photo-section").Should().NotBeEmpty();
+        });
+
+        // Verify slot-batch was called
+        _mockHandler.ApiCallLog.Should().Contain("slot-batch");
+
+        // No foto-guia yet — save sheet is open, photo not yet captured
+        _mockHandler.ApiCallLog.Should().NotContain("foto-guia");
+
+        // Now capture a photo in the save sheet
+        var jpegBytes = new byte[] { 0xFF, 0xD8, 0xFF, 0xE0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+        var jpegFile = new MockBrowserFile(jpegBytes, "image/jpeg", "test.jpg");
+
+        var inputFile = cut.FindComponent<InputFile>();
+        var args = new InputFileChangeEventArgs(new[] { jpegFile });
+        cut.InvokeAsync(() => inputFile.Instance.OnChange.InvokeAsync(args));
+
+        // Wait for primary button to be enabled (file captured)
+        cut.WaitForAssertion(() =>
+        {
+            var btn = cut.Find("button[aria-label='Guardar carga']");
+            btn.HasAttribute("disabled").Should().BeFalse();
+        });
+
+        // Tap "Guardar carga" to trigger HandleSaveAndOverview → UploadPhotoAsync → PUT foto-guia
+        var saveBtn = cut.Find("button[aria-label='Guardar carga']");
+        saveBtn.Click();
+
+        // Wait for foto-guia to be called
+        cut.WaitForAssertion(() =>
+        {
+            _mockHandler.ApiCallLog.Should().Contain("foto-guia");
+        });
+
+        // Verify call order: slot-batch before foto-guia
+        var log = _mockHandler.ApiCallLog.ToList();
+        var slotBatchIdx = log.IndexOf("slot-batch");
+        var fotoGuiaIdx = log.IndexOf("foto-guia");
+        slotBatchIdx.Should().BeLessThan(fotoGuiaIdx);
+
+        // Verify no terminar was called
+        _mockHandler.ApiCallLog.Should().NotContain(m => m.Contains("terminar"));
+    }
+
+    // ── SC-01.3: API failure keeps sheet open with inline error ────
+
+    [Fact]
+    public void SaveFlow_SlotBatch_Failure_Shows_Error()
+    {
+        _mockHandler.SetSaveApiFailure();
+        var cut = RenderComponent<RecargaMovilTestHost>();
+
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Cargas"));
+
+        // Navigate to Resumen → template 1
+        var firstCard = cut.FindAll(".rm-card")[0];
+        firstCard.Click();
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Resumen de carga"));
+
+        // Click machine card → EditSlots
+        var machineCards = cut.FindAll(".rm-card");
+        machineCards[0].Click();
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Paso 2 · Editar carga"));
+
+        // Trigger a slot change to enable Guardar
+        var firstSlot = cut.FindAll(".rm-slot")[0];
+        firstSlot.Click();
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Slot"));
+
+        var sumarBtn = cut.Find("button[aria-label='Sumar']");
+        sumarBtn.Click();
+
+        var cerrarBtn = cut.Find("button[aria-label='Cerrar']");
+        cerrarBtn.Click();
+        cut.WaitForAssertion(() =>
+        {
+            cut.FindAll(".rm-dock__nav").Should().BeEmpty();
+        });
+
+        // Click Guardar — API failure should show error banner on page
+        var guardarBtn = cut.FindAll("button.rm-cta--primary")
+            .First(b => b.TextContent.Trim().Contains("Guardar", StringComparison.OrdinalIgnoreCase));
+        guardarBtn.Click();
+
+        cut.WaitForAssertion(() =>
+        {
+            // Error banner should appear (page-level error from SaveSlotsAsync catch)
+            cut.Markup.Should().Contain("Error al guardar los slots");
+        });
+
+        // Save sheet should NOT open when slot-batch fails
+        cut.FindAll(".rm-save-sheet__photo-section").Should().BeEmpty();
+    }
+
     // ═══════════════════════════════════════════════════════════════════
     //  PHOTO SHEET TESTS (PR 3)
     // ═══════════════════════════════════════════════════════════════════
@@ -643,11 +879,15 @@ public class RecargaMovilTests : TestContext
         private bool _emptyPool;
         private bool _singleEmptyTemplate;
         private bool _zeroSlotsForMachine;
+        private bool _saveApiFails;
+        private readonly List<string> _apiCallLog = new();
 
         public void SetEmptyTemplates() => _emptyTemplates = true;
         public void SetEmptyPool() => _emptyPool = true;
         public void SetSingleEmptyTemplate() => _singleEmptyTemplate = true;
         public void SetZeroSlotsForMachine() => _zeroSlotsForMachine = true;
+        public void SetSaveApiFailure() => _saveApiFails = true;
+        public IReadOnlyList<string> ApiCallLog => _apiCallLog.AsReadOnly();
 
         private static readonly JsonSerializerOptions JsonOptions = new()
         {
@@ -658,6 +898,23 @@ public class RecargaMovilTests : TestContext
             HttpRequestMessage request, CancellationToken cancellationToken)
         {
             var path = request.RequestUri?.AbsolutePath.TrimEnd('/') ?? "";
+            var method = request.Method.Method.ToUpperInvariant();
+
+            // POST /api/TemplateRecarga/{tid}/periodo/{pid}/slot-batch
+            if (method == "POST" && path.Contains("/periodo/") && path.EndsWith("/slot-batch"))
+            {
+                _apiCallLog.Add("slot-batch");
+                return Task.FromResult(new HttpResponseMessage(
+                    _saveApiFails ? HttpStatusCode.InternalServerError : HttpStatusCode.OK));
+            }
+
+            // PUT /api/TemplateRecarga/{tid}/periodo/{pid}/foto-guia
+            if (method == "PUT" && path.Contains("/periodo/") && path.EndsWith("/foto-guia"))
+            {
+                _apiCallLog.Add("foto-guia");
+                return Task.FromResult(new HttpResponseMessage(
+                    _saveApiFails ? HttpStatusCode.InternalServerError : HttpStatusCode.OK));
+            }
 
             if (path == "/api/Ventas/lista-maquinas")
             {

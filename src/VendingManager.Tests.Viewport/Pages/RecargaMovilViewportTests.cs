@@ -287,5 +287,203 @@ public class RecargaMovilViewportTests : ViewportTestBase
         await AssertNoHorizontalOverflow();
     }
 
+    // ═══════════════════════════════════════════════════════════════════
+    //  PR 3 — Save Sheet, Figure Wrapper, Slot Fill Bar, ⚠ Icon Tests
+    // ═══════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Navigate to EditSlots and verify the save sheet opens when Guardar is tapped.
+    /// Requires seed data: a template with at least one machine that has slots.
+    /// </summary>
+    [Test]
+    public async Task IPhone14_EditSlots_SaveSheet_Opens_OnGuardar()
+    {
+        var available = await IsAppAvailableAsync();
+        if (!available) Assert.Ignore("App not available at " + BaseUrl);
+
+        await SetupViewport(ViewportConfig.IPhonePortrait, "/recarga-movil");
+        await Page.WaitForTimeoutAsync(1000);
+
+        // Tap first template card → Resumen
+        var firstCard = Page.Locator(".rm-card").First;
+        if (await firstCard.CountAsync() == 0)
+            Assert.Ignore("No template cards found — seed data required");
+        await firstCard.ClickAsync();
+        await Page.WaitForTimeoutAsync(1000);
+
+        // Tap first machine card → EditSlots
+        var machineCards = Page.Locator(".rm-card");
+        if (await machineCards.CountAsync() == 0)
+            Assert.Ignore("No machine cards found in Resumen");
+        await machineCards.First.ClickAsync();
+        await Page.WaitForTimeoutAsync(1000);
+
+        // Verify EditSlots loaded
+        var editSlotsTitle = Page.Locator("text=Paso 2");
+        Assert.That(await editSlotsTitle.CountAsync(), Is.GreaterThan(0),
+            "Did not navigate to EditSlots view");
+
+        // Tap a slot to enable Guardar
+        var slot = Page.Locator(".rm-slot").First;
+        if (await slot.CountAsync() == 0)
+            Assert.Ignore("No slots found — cannot enable Guardar");
+        await slot.ClickAsync();
+        await Page.WaitForTimeoutAsync(300);
+
+        // Click [+] to make a change
+        var sumarBtn = Page.Locator("button[aria-label='Sumar']");
+        if (await sumarBtn.CountAsync() > 0)
+        {
+            await sumarBtn.ClickAsync();
+            await Page.WaitForTimeoutAsync(200);
+        }
+
+        // Close slot dock
+        var cerrarBtn = Page.Locator("button[aria-label='Cerrar']");
+        if (await cerrarBtn.CountAsync() > 0)
+            await cerrarBtn.ClickAsync();
+        await Page.WaitForTimeoutAsync(500);
+
+        // Tap Guardar button (enabled after change)
+        var guardarBtn = Page.Locator("button.rm-cta--primary").And(
+            Page.Locator("text=Guardar"));
+        if (await guardarBtn.CountAsync() == 0)
+            Assert.Ignore("Guardar button not found or disabled");
+        await guardarBtn.ClickAsync();
+        await Page.WaitForTimeoutAsync(1000);
+
+        // Assert save sheet backdrops renders
+        var sheetBackdrop = Page.Locator(".rm-sheet__backdrop");
+        Assert.That(await sheetBackdrop.CountAsync(), Is.GreaterThan(0),
+            "Save sheet did not open after tapping Guardar");
+
+        // Assert save sheet title
+        var sheetTitle = Page.Locator("text=Guardar carga");
+        Assert.That(await sheetTitle.CountAsync(), Is.GreaterThan(0),
+            "Save sheet title 'Guardar carga' not found");
+
+        // Assert "OBLIGATORIA" badge visible
+        var obligatoriaBadge = Page.Locator("text=OBLIGATORIA");
+        Assert.That(await obligatoriaBadge.CountAsync(), Is.GreaterThan(0),
+            "'OBLIGATORIA' badge not found in save sheet");
+    }
+
+    /// <summary>
+    /// Verify figure wrapper elements are visible in EditSlots.
+    /// </summary>
+    [Test]
+    public async Task IPhone14_EditSlots_FigureWrapper_Visible()
+    {
+        var available = await IsAppAvailableAsync();
+        if (!available) Assert.Ignore("App not available at " + BaseUrl);
+
+        await SetupViewport(ViewportConfig.IPhonePortrait, "/recarga-movil");
+        await Page.WaitForTimeoutAsync(1000);
+
+        // Tap first template card → Resumen
+        var firstCard = Page.Locator(".rm-card").First;
+        if (await firstCard.CountAsync() == 0)
+            Assert.Ignore("No template cards found");
+        await firstCard.ClickAsync();
+        await Page.WaitForTimeoutAsync(1000);
+
+        // Tap first machine card → EditSlots
+        var machineCards = Page.Locator(".rm-card");
+        if (await machineCards.CountAsync() == 0)
+            Assert.Ignore("No machine cards found");
+        await machineCards.First.ClickAsync();
+        await Page.WaitForTimeoutAsync(1000);
+
+        // Verify figure wrapper
+        var figure = Page.Locator(".rm-figure");
+        Assert.That(await figure.CountAsync(), Is.GreaterThan(0),
+            "Figure wrapper .rm-figure not found");
+
+        // "RETIRE AQUÍ" bar
+        var retireAqui = Page.Locator(".rm-figure__retire");
+        Assert.That(await retireAqui.CountAsync(), Is.GreaterThan(0),
+            "'RETIRE AQUÍ' bar not found");
+
+        // 3×3 grid footer
+        var grid = Page.Locator(".rm-figure__grid-3x3");
+        Assert.That(await grid.CountAsync(), Is.GreaterThan(0),
+            "3×3 grid footer not found");
+
+        // Topbar with stats
+        var topbar = Page.Locator(".rm-figure__topbar");
+        Assert.That(await topbar.CountAsync(), Is.GreaterThan(0),
+            "Figure topbar not found");
+    }
+
+    /// <summary>
+    /// Verify slot fill bars render in EditSlots.
+    /// </summary>
+    [Test]
+    public async Task IPhone14_EditSlots_SlotFillBars_Render()
+    {
+        var available = await IsAppAvailableAsync();
+        if (!available) Assert.Ignore("App not available at " + BaseUrl);
+
+        await SetupViewport(ViewportConfig.IPhonePortrait, "/recarga-movil");
+        await Page.WaitForTimeoutAsync(1000);
+
+        // Navigate to EditSlots
+        var firstCard = Page.Locator(".rm-card").First;
+        if (await firstCard.CountAsync() == 0)
+            Assert.Ignore("No template cards found");
+        await firstCard.ClickAsync();
+        await Page.WaitForTimeoutAsync(1000);
+
+        var machineCards = Page.Locator(".rm-card");
+        if (await machineCards.CountAsync() == 0)
+            Assert.Ignore("No machine cards found");
+        await machineCards.First.ClickAsync();
+        await Page.WaitForTimeoutAsync(1000);
+
+        // Assert slot fill bars rendered
+        var fillBars = Page.Locator(".rm-slot-fill");
+        Assert.That(await fillBars.CountAsync(), Is.GreaterThan(0),
+            "Slot fill bars (.rm-slot-fill) not found");
+    }
+
+    /// <summary>
+    /// Verify empty slots show ⚠ warning icon in EditSlots.
+    /// Requires seed data with at least one empty slot.
+    /// </summary>
+    [Test]
+    public async Task IPhone14_EditSlots_EmptySlots_Show_Warning()
+    {
+        var available = await IsAppAvailableAsync();
+        if (!available) Assert.Ignore("App not available at " + BaseUrl);
+
+        await SetupViewport(ViewportConfig.IPhonePortrait, "/recarga-movil");
+        await Page.WaitForTimeoutAsync(1000);
+
+        // Navigate to EditSlots for a machine that has empty slots
+        var firstCard = Page.Locator(".rm-card").First;
+        if (await firstCard.CountAsync() == 0)
+            Assert.Ignore("No template cards found");
+        await firstCard.ClickAsync();
+        await Page.WaitForTimeoutAsync(1000);
+
+        var machineCards = Page.Locator(".rm-card");
+        if (await machineCards.CountAsync() == 0)
+            Assert.Ignore("No machine cards found");
+        await machineCards.First.ClickAsync();
+        await Page.WaitForTimeoutAsync(1000);
+
+        // Find empty slots with ⚠ icon
+        var emptyWarnIcons = Page.Locator(".rm-slot-empty-warn");
+        var count = await emptyWarnIcons.CountAsync();
+        if (count == 0)
+        {
+            // Not all machines have empty slots — skip rather than fail
+            Assert.Ignore("No empty slot warnings found — seed data may have all slots filled");
+            return;
+        }
+
+        Assert.Pass($"Found {count} empty slot warnings (⚠ icons)");
+    }
+
     private record BoundingBoxResult(double Width, double Height, double Top, double Left);
 }
