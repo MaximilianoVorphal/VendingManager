@@ -147,14 +147,16 @@ main {
         overflow: visible !important;
     }
 
-    /* El body queda en ~739px y el viewport en 635px — solo 104px de scroll.
-       iOS Safari no auto-esconde la barra de URL con tan poca diferencia.
-       Ponemos padding-bottom en el WRAPPER (no en vm-shell__main, que tiene
-       height:667px fijo del content y el padding quedaba absorbido por
-       border-box). El wrapper tiene height:auto, así que el padding SÍ
-       agranda el wrapper y por extensión el body, dando más scroll y
-       empujando los últimos botones arriba de la barra de URL. */
+    /* Padding-bottom del wrapper: solo el safe-area-inset-bottom.
+       Antes era 100px para forzar el auto-hide de la URL bar de Safari
+       (con el bug del inner wrapper scrolleando internamente, el body
+       quedaba en ~739px y necesitaba 100px extra de padding para llegar
+       a ~839px y dar suficiente rango de scroll). Ahora que el body es
+       el scroller real (~984px en iPhone X), 100px es espacio vacío
+       innecesario. .vm-shell__main ya tiene padding-bottom:
+       calc(1rem + env(safe-area-inset-bottom)) = 16px en iPhone X,
+       suficiente para no pegar el contenido al borde inferior. */
     .industrial-wrapper--fullscreen:has(.vm-shell__left) {
-        padding-bottom: 100px !important;
+        padding-bottom: env(safe-area-inset-bottom, 0px) !important;
     }
 }
