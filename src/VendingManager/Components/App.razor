@@ -7,7 +7,13 @@
 
 <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Importante: este <meta viewport> DEBE tener viewport-fit=cover.
+         Blazor inyecta OTRO <meta viewport> desde el WebAssembly client
+         (VendingManager.Web/App.razor) vía <HeadOutlet>. El browser usa
+         el PRIMERO y descarta el resto, así que si este no tiene
+         viewport-fit=cover, los env(safe-area-inset-*) devuelven 0px
+         y el padding del navbar fijo / home indicator no funciona. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, viewport-fit=cover" />
     <title>VendingManager</title>
     <base href="/" />
     <link rel="stylesheet" href="lib/bootstrap/dist/css/bootstrap.min.css" />
