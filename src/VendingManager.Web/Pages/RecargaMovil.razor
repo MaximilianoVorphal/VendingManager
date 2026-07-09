@@ -348,15 +348,27 @@
                             </span>
                             <span class="rm-progress__pct">@mUnits/@mCap u.</span>
                         </div>
-                        <div class="rm-card__foot" style="justify-content:flex-end;">
-                            <button class="rm-iconbtn rm-iconbtn--danger"
-                                    style="width:36px;height:36px;font-size:0.85rem;"
-                                    aria-label="Quitar máquina"
+                        @if (!isLoaded)
+                        {
+                            <button class="rm-cta rm-cta--danger-dashed"
+                                    style="margin-top:10px;"
                                     @onclick:stopPropagation="true"
                                     @onclick="() => OnRemoveMachineClick(machine)">
-                                <i class="bi bi-trash"></i>
+                                <i class="bi bi-trash"></i> Eliminar carga
                             </button>
-                        </div>
+                        }
+                        else
+                        {
+                            <div class="rm-card__foot" style="justify-content:flex-end;">
+                                <button class="rm-iconbtn rm-iconbtn--danger"
+                                        style="width:36px;height:36px;font-size:0.85rem;"
+                                        aria-label="Quitar máquina"
+                                        @onclick:stopPropagation="true"
+                                        @onclick="() => OnRemoveMachineClick(machine)">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        }
                     </div>
                 }
 

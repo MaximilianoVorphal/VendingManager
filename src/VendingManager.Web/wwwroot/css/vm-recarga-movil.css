@@ -601,6 +601,15 @@
   letter-spacing: 0.5px;
 }
 
+.rm-cta--danger-dashed {
+  border-style: dashed;
+  border-color: var(--signal-danger);
+  background: transparent;
+  color: var(--signal-danger);
+  font-size: 0.76rem;
+  letter-spacing: 0.5px;
+}
+
 .rm-cta--disabled {
   border-color: var(--line-200);
   background: var(--paper-50);
