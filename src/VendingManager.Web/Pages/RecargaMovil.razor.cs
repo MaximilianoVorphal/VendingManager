@@ -41,7 +41,7 @@ public partial class RecargaMovil : ComponentBase, IDisposable
 
     // ─── Data State ──────────────────────────────────────────────────────
 
-    private List<TemplateRecargaDto>? _templates;
+    private List<TemplateRecargaListItemDto>? _templates;
     private TemplateRecargaDto? _activeTemplate;
     private List<PeriodoRecargaDto> _machines = new();
     private PeriodoRecargaDto? _editingMachine;
@@ -129,8 +129,8 @@ public partial class RecargaMovil : ComponentBase, IDisposable
 
         try
         {
-            _templates = await Http.GetFromJsonAsync<List<TemplateRecargaDto>>(
-                "/api/TemplateRecarga", _cts.Token);
+            _templates = await Http.GetFromJsonAsync<List<TemplateRecargaListItemDto>>(
+                "/api/TemplateRecarga/list", _cts.Token);
         }
         catch (OperationCanceledException) { }
         catch (Exception ex)
@@ -565,7 +565,7 @@ public partial class RecargaMovil : ComponentBase, IDisposable
         }
     }
 
-    private async Task OnTemplateCardClick(TemplateRecargaDto template)
+    private async Task OnTemplateCardClick(TemplateRecargaListItemDto template)
     {
         await LoadTemplateAsync(template.Id);
         if (_activeTemplate != null)
@@ -1167,14 +1167,14 @@ public partial class RecargaMovil : ComponentBase, IDisposable
              : "rm-progress__fill--danger";
     }
 
-    private string GetEstadoTag(TemplateRecargaDto t) => t.Estado switch
+    private string GetEstadoTag(TemplateRecargaListItemDto t) => t.Estado switch
     {
         EstadoTemplate.Terminado => "Finalizado",
         EstadoTemplate.Pendiente => "Pendiente",
         _ => "Desconocido"
     };
 
-    private string GetEstadoTagVariant(TemplateRecargaDto t)
+    private string GetEstadoTagVariant(TemplateRecargaListItemDto t)
     {
         return t.Estado == EstadoTemplate.Terminado ? "success" : "warning";
     }

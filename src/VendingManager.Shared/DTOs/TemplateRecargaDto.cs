@@ -2,6 +2,23 @@ namespace VendingManager.Shared.DTOs;
 using VendingManager.Shared.Enums;
 
 /// <summary>
+/// Lightweight DTO for template list view — flat projection, no nested periodos.
+/// Used by GET /api/TemplateRecarga/list for the RecargaMovil page.
+/// </summary>
+public class TemplateRecargaListItemDto
+{
+    public int Id { get; set; }
+    public string Nombre { get; set; } = string.Empty;
+    public string? Descripcion { get; set; }
+    public string MaquinaNombre { get; set; } = string.Empty;
+    public bool EsActivo { get; set; }
+    public DateTime FechaCreacion { get; set; }
+    public EstadoTemplate Estado { get; set; } = EstadoTemplate.Pendiente;
+    public int PeriodoCount { get; set; }
+    public int TotalProducts { get; set; }
+}
+
+/// <summary>
 /// DTO para mostrar un template de recarga con sus períodos
 /// </summary>
 public class TemplateRecargaDto

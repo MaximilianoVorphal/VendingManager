@@ -20,6 +20,17 @@ public class TemplateRecargaController(
     }
 
     /// <summary>
+    /// Obtener lista ligera de templates (sin periodos anidados).
+    /// Para la vista de lista del módulo RecargaMovil.
+    /// </summary>
+    [HttpGet("list")]
+    public async Task<ActionResult<List<TemplateRecargaListItemDto>>> GetList()
+    {
+        var result = await service.GetAllListAsync();
+        return Ok(result);
+    }
+
+    /// <summary>
     /// Termina un template: Pendiente (0) → Terminado (2).
     /// El template queda como completado, fuente para stock-critico.
     /// </summary>

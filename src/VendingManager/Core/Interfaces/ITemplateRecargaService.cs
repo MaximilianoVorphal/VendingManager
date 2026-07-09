@@ -8,6 +8,9 @@ public interface ITemplateRecargaService
     /// <summary>Obtener todos los templates</summary>
     Task<List<TemplateRecargaDto>> GetAllAsync();
 
+    /// <summary>Obtener todos los templates como lista ligera (sin periodos anidados)</summary>
+    Task<List<TemplateRecargaListItemDto>> GetAllListAsync();
+
     /// <summary>Obtener un template por ID con sus períodos</summary>
     Task<TemplateRecargaDto?> GetByIdAsync(int id);
 

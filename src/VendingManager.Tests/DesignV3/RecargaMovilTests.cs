@@ -133,9 +133,6 @@ public class RecargaMovilTests : TestContext
         cut.Markup.Should().Contain("Pendiente");
         cut.Markup.Should().Contain("Finalizado");
 
-        // Progress bars rendered
-        cut.FindAll(".rm-progress").Should().HaveCount(3);
-
         // Machine chips rendered
         cut.FindAll(".rm-chip").Should().NotBeEmpty();
     }
@@ -152,23 +149,9 @@ public class RecargaMovilTests : TestContext
             cut.Markup.Should().Contain("Cargas");
         });
 
-        // Template 1 (Carga Semanal) has 2 periodos, 1 loaded + 1 with pending slots
-        // After per-periodo fix: loadedCount=1, periodoCount=2, pct=50%
-        
-        // The sub text should show non-negative machine count
-        cut.Markup.Should().Contain("2 máq. · 1/2 cargadas");
-
-        // Progress bar should show 50%, not negative
-        var progressFills = cut.FindAll(".rm-progress__fill");
-        progressFills.Should().HaveCount(3);
-
-        // First template's fill width should be 50%
-        var firstFill = progressFills[0];
-        var style = firstFill.GetAttribute("style");
-        style.Should().Be("width:50%");
-
-        // The percentage text should be non-negative
-        cut.Markup.Should().Contain("50%");
+        // Template 1 (Carga Semanal) has 2 periodos, 10 total products
+        // List card shows: "2 máq. · 10 slots con producto"
+        cut.Markup.Should().Contain("2 máq. · 10 slots con producto");
     }
 
     // ── Test 5: Resumen Renders Stats ─────────────────────────────────
@@ -964,6 +947,25 @@ public class RecargaMovilTests : TestContext
             }
 
             // Match any /api/TemplateRecarga or /api/TemplateRecarga/{id} path
+            if (path == "/api/TemplateRecarga/list")
+            {
+                if (_emptyTemplates)
+                {
+                    var json = JsonSerializer.Serialize(Array.Empty<object>(), JsonOptions);
+                    return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+                    {
+                        Content = new StringContent(json)
+                    });
+                }
+
+                var listItems = CreateTemplateListItemDtos();
+                var listJson = JsonSerializer.Serialize(listItems, JsonOptions);
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(listJson)
+                });
+            }
+
             if (path == "/api/TemplateRecarga")
             {
                 if (_emptyTemplates)
@@ -1214,6 +1216,68 @@ public class RecargaMovilTests : TestContext
                     {
                         CreateListPeriodo(4, 4, "2410280044", loaded: true, slotCount: 10)
                     }
+                }
+            };
+        }
+
+        private object[] CreateTemplateListItemDtos()
+        {
+            if (_singleEmptyTemplate)
+            {
+                return new[]
+                {
+                    new
+                    {
+                        Id = 4,
+                        Nombre = "Template Vacío",
+                        Descripcion = (string?)"Sin máquinas",
+                        MaquinaNombre = "Sin máquina",
+                        EsActivo = false,
+                        FechaCreacion = DateTime.Now,
+                        Estado = 0,
+                        PeriodoCount = 0,
+                        TotalProducts = 0
+                    }
+                };
+            }
+
+            return new[]
+            {
+                new
+                {
+                    Id = 1,
+                    Nombre = "Carga Semanal",
+                    Descripcion = "Template con 2 máquinas",
+                    MaquinaNombre = "Máquina 001",
+                    EsActivo = false,
+                    FechaCreacion = DateTime.Now.AddDays(-7),
+                    Estado = 0,
+                    PeriodoCount = 2,
+                    TotalProducts = 10
+                },
+                new
+                {
+                    Id = 2,
+                    Nombre = "Carga Express",
+                    Descripcion = "Carga rápida",
+                    MaquinaNombre = "Máquina 003",
+                    EsActivo = false,
+                    FechaCreacion = DateTime.Now.AddDays(-1),
+                    Estado = 0,
+                    PeriodoCount = 1,
+                    TotalProducts = 10
+                },
+                new
+                {
+                    Id = 3,
+                    Nombre = "Carga Mensual",
+                    Descripcion = "Finalizada",
+                    MaquinaNombre = "Máquina 004",
+                    EsActivo = true,
+                    FechaCreacion = DateTime.Now.AddDays(-30),
+                    Estado = 2,
+                    PeriodoCount = 1,
+                    TotalProducts = 10
                 }
             };
         }

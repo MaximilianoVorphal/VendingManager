@@ -60,6 +60,31 @@ public class TemplateRecargaService : ITemplateRecargaService
         return dtos;
     }
 
+    public async Task<List<TemplateRecargaListItemDto>> GetAllListAsync()
+    {
+        return await _context.TemplatesRecarga
+            .AsNoTracking()
+            .OrderByDescending(t => t.FechaCreacion)
+            .Select(t => new TemplateRecargaListItemDto
+            {
+                Id = t.Id,
+                Nombre = t.Nombre,
+                Descripcion = t.Descripcion,
+                MaquinaNombre = t.Periodos
+                    .OrderBy(p => p.FechaRecarga)
+                    .Select(p => p.Maquina.Nombre)
+                    .FirstOrDefault() ?? "Sin máquina",
+                EsActivo = t.Estado == EstadoTemplate.Terminado,
+                FechaCreacion = t.FechaCreacion,
+                Estado = t.Estado,
+                PeriodoCount = t.Periodos.Count,
+                TotalProducts = t.Periodos
+                    .SelectMany(p => p.SnapshotSlots)
+                    .Count(s => s.ProductoId != null)
+            })
+            .ToListAsync();
+    }
+
     /// <summary>
     /// Marca como EsActivo los templates que son el último Terminado de cada máquina.
     /// </summary>
@@ -111,6 +136,8 @@ public class TemplateRecargaService : ITemplateRecargaService
     public async Task<TemplateRecargaDto?> GetByIdAsync(int id)
     {
         var template = await _context.TemplatesRecarga
+            .AsNoTracking()
+            .AsSplitQuery()
             .Include(t => t.Periodos)
                 .ThenInclude(p => p.Maquina)
             .Include(t => t.Periodos)
