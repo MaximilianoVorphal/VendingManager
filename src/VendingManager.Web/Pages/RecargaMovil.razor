@@ -245,11 +245,8 @@
             {
                 @foreach (var template in _templates)
                 {
-                    var periodoCount = template.Periodos.Count;
-                    var loadedCount = periodoCount > 0
-                        ? template.Periodos.Count(p => p.SnapshotSlots.Any(s => s.CantidadInicial > 0))
-                        : 0;
-                    var pct = periodoCount > 0 ? loadedCount * 100 / periodoCount : 0;
+                    var periodoCount = template.PeriodoCount;
+                    var totalProducts = template.TotalProducts;
                     <div class="rm-card" @onclick="() => OnTemplateCardClick(template)">
                         <div class="rm-card__head">
                             <div>
@@ -262,27 +259,11 @@
                             <span class="rm-tag rm-tag--@GetEstadoTagVariant(template)">@GetEstadoTag(template)</span>
                         </div>
                         <div class="rm-card__sub">
-                            @periodoCount máq. · @loadedCount/@periodoCount cargadas
-                        </div>
-                        <div class="rm-progress">
-                            <span class="rm-progress__bar">
-                                <span class="rm-progress__fill @ProgressFillClass(pct)" style="width:@(pct)%"></span>
-                            </span>
-                            <span class="rm-progress__pct">@pct%</span>
+                            @periodoCount máq. · @totalProducts slots con producto
                         </div>
                         <div class="rm-card__foot">
-                            @if (template.FechaRecargaMin.HasValue)
-                            {
-                                <span class="rm-chip">@template.FechaRecargaMin.Value.ToString("dd/MM")</span>
-                            }
-                            @foreach (var periodo in template.Periodos.Take(3))
-                            {
-                                <span class="rm-chip">@MachineShortCode(periodo)</span>
-                            }
-                            @if (template.Periodos.Count > 3)
-                            {
-                                <span class="rm-chip">+@(template.Periodos.Count - 3)</span>
-                            }
+                            <span class="rm-chip">@template.FechaCreacion.ToString("dd/MM")</span>
+                            <span class="rm-chip">@template.MaquinaNombre</span>
                         </div>
                     </div>
                 }
