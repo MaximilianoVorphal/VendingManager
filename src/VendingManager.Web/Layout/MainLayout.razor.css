@@ -86,13 +86,23 @@ main {
         /* 72px = mobile navbar height (hamburger 45px + padding + border).
            max() ensures the notch on iPhones with a Dynamic Island doesn't
            clip the navbar. On non-notch devices, env() returns 0px so it's
-           effectively just 72px. */
+           effectively just 72px.
+           Bottom safe-area ensures the last block of the page (buttons,
+           footer, etc.) doesn't sit behind the iOS home indicator. */
         padding-top: max(72px, var(--safe-inset-top)) !important;
+        padding-bottom: env(safe-area-inset-bottom);
         overflow-x: hidden; /* evita scroll horizontal por drawer fixed/transformed fuera del viewport */
     }
 
+    /* rm-view (RecargaMovil) maneja su propio safe-area via 100dvh +
+       env(safe-area-inset-bottom) en sus bottom bars. En combinación con
+       el padding-bottom de --fullscreen se produce doble espacio abajo. */
+    .industrial-wrapper--fullscreen:has(.rm-view) {
+        padding-bottom: 0;
+    }
+
     .vm-shell__main {
-        padding-bottom: 1rem;
+        padding-bottom: calc(1rem + env(safe-area-inset-bottom));
         -webkit-overflow-scrolling: touch;
     }
 
