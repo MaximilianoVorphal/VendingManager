@@ -10,7 +10,7 @@ public class TemplateRecargaListItemDto
     public int Id { get; set; }
     public string Nombre { get; set; } = string.Empty;
     public string? Descripcion { get; set; }
-    public string MaquinaNombre { get; set; } = string.Empty;
+    public List<string> MaquinaNombres { get; set; } = new();
     public bool EsActivo { get; set; }
     public DateTime FechaCreacion { get; set; }
     public EstadoTemplate Estado { get; set; } = EstadoTemplate.Pendiente;

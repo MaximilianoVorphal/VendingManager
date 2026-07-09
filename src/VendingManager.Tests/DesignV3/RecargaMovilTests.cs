@@ -1039,7 +1039,7 @@ public class RecargaMovilTests : TestContext
                         {
                             Id = 3,
                             MaquinaId = 3,
-                            MaquinaNombre = "Máquina 003",
+                    MaquinaNombres = new List<string> { "Máquina 003" },
                             IdInternoMaquina = "2410280033",
                             FechaRecarga = DateTime.Now,
                             FechaFin = DateTime.Now.AddDays(7),
@@ -1068,7 +1068,7 @@ public class RecargaMovilTests : TestContext
                         {
                             Id = 4,
                             MaquinaId = 4,
-                            MaquinaNombre = "Máquina 004",
+                    MaquinaNombres = new List<string> { "Máquina 004" },
                             IdInternoMaquina = "2410280044",
                             FechaRecarga = DateTime.Now.AddDays(-30),
                             FechaFin = DateTime.Now.AddDays(-23),
@@ -1231,7 +1231,7 @@ public class RecargaMovilTests : TestContext
                         Id = 4,
                         Nombre = "Template Vacío",
                         Descripcion = (string?)"Sin máquinas",
-                        MaquinaNombre = "Sin máquina",
+                        MaquinaNombres = new List<string>(),
                         EsActivo = false,
                         FechaCreacion = DateTime.Now,
                         Estado = 0,

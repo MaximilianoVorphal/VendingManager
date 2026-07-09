@@ -18,7 +18,7 @@ public class TemplateRecargaListItemDtoTests
             Id = 1,
             Nombre = "Recarga Semana 1",
             Descripcion = "Test description",
-            MaquinaNombre = "Máquina 23",
+            MaquinaNombres = new List<string> { "Máquina 23" },
             EsActivo = true,
             FechaCreacion = new DateTime(2025, 1, 15),
             Estado = EstadoTemplate.Terminado,
@@ -29,7 +29,8 @@ public class TemplateRecargaListItemDtoTests
         dto.Id.Should().Be(1);
         dto.Nombre.Should().Be("Recarga Semana 1");
         dto.Descripcion.Should().Be("Test description");
-        dto.MaquinaNombre.Should().Be("Máquina 23");
+        dto.MaquinaNombres.Should().HaveCount(1);
+        dto.MaquinaNombres[0].Should().Be("Máquina 23");
         dto.EsActivo.Should().BeTrue();
         dto.FechaCreacion.Should().Be(new DateTime(2025, 1, 15));
         dto.Estado.Should().Be(EstadoTemplate.Terminado);
@@ -44,7 +45,7 @@ public class TemplateRecargaListItemDtoTests
 
         dto.Nombre.Should().Be(string.Empty);
         dto.Descripcion.Should().BeNull();
-        dto.MaquinaNombre.Should().Be(string.Empty);
+        dto.MaquinaNombres.Should().BeEmpty();
         dto.EsActivo.Should().BeFalse();
         dto.Estado.Should().Be(EstadoTemplate.Pendiente);
         dto.PeriodoCount.Should().Be(0);
