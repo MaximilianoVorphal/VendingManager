@@ -76,10 +76,11 @@ main {
    por la barra fija, y abajo para que el último bloque
    no quede pegado al borde del viewport. Desktop intacto.
    ------------------------------------------------ */
-@@media (max-width: 760px) {
+@media (max-width: 760px) {
     .industrial-wrapper {
         box-sizing: border-box;
         padding-top: 72px; /* alto aprox. del navbar móvil (hamburger 45px + padding 12+12 + border 2) */
+        overflow-x: hidden; /* evita scroll horizontal por drawer fixed/transformed fuera del viewport */
     }
 
     .vm-shell__main {
