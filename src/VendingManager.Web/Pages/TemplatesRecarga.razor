@@ -1399,6 +1399,13 @@
 
     protected override async Task OnInitializedAsync()
     {
+        // Redirect to mobile-friendly version on small screens
+        if (await IsMobileDeviceAsync())
+        {
+            NavManager.NavigateTo("/recarga-movil");
+            return;
+        }
+
         NavManager.LocationChanged += OnLocationChanged;
         await CargarMaquinas();
         await CargarProductos();
@@ -1412,6 +1419,19 @@
         {
             _focusProductoSearch = false;
             try { await _productoSearchInput.FocusAsync(); } catch { }
+        }
+    }
+
+    private async Task<bool> IsMobileDeviceAsync()
+    {
+        try
+        {
+            var width = await JS.InvokeAsync<int>("eval", "window.innerWidth");
+            return width < 760;
+        }
+        catch
+        {
+            return false;
         }
     }
 

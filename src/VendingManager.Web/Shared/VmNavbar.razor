@@ -40,7 +40,6 @@
         new("Análisis Productos", "analisis-productos", "/analisis-productos"),
         new("Quiebres de Stock", "stockout", "/stockout-dashboard"),
         new("Templates Recarga", "recarga", "/templates-recarga"),
-        new("Recarga (Móvil)", "recarga-movil", "/recarga-movil", BadgeText: "MÓVIL"),
         new("Informe Compras", "informe-compras", "/informe-compras"),
         new("Caja", "caja", "/caja"),
         new("Conciliación", "contabilidad", "/contabilidad"),
@@ -69,6 +68,11 @@
         if (string.IsNullOrWhiteSpace(item.Href)) return false;
         var itemPath = item.Href.Trim('/').ToLowerInvariant();
         if (itemPath == "") return _currentPath == "";
+
+        // "Templates Recarga" highlights for both desktop and mobile routes
+        if (item.Key == "recarga")
+            return _currentPath == itemPath || _currentPath == "recarga-movil";
+
         return _currentPath == itemPath;
     }
 
@@ -93,10 +97,15 @@
         if (_isMobile)
             _mobileOpen = false;
 
+        // "Templates Recarga" → mobile-friendly version on small screens
+        var href = item.Key == "recarga" && _isMobile
+            ? "/recarga-movil"
+            : item.Href;
+
         if (item.Key != null && OnNavigate.HasDelegate)
             await OnNavigate.InvokeAsync(item.Key);
-        else if (!string.IsNullOrWhiteSpace(item.Href))
-            Nav.NavigateTo(item.Href);
+        else if (!string.IsNullOrWhiteSpace(href))
+            Nav.NavigateTo(href);
     }
 
     private void ToggleDropdown(string name) =>
