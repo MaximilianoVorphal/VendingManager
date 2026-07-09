@@ -108,12 +108,12 @@ main {
         -webkit-overflow-scrolling: touch;
     }
 
-    /* En iOS, overflow:hidden en el contenedor interno + overflow:hidden
-       en el wrapper hace que el scroll se delegue al body, y al scrollear
-       el body el wrapper se va para arriba y el contenido pasa por detrás
-       del navbar fijo. Forzamos overflow:auto en móvil para que el scroll
-       viva adentro del contenedor y el body se quede quieto. */
-    .industrial-wrapper--fullscreen .vm-shell__main {
-        overflow: auto;
+    /* Home page: el body debe ser el scroller para que iOS Safari auto-esconda
+       la barra de URL inferior. La home es la única ruta fullscreen con
+       .vm-shell__left (sidebar del PanelDeControl), por eso usamos :has()
+       para no afectar las otras 10 rutas fullscreen (Caja, InformeVentas, etc.)
+       que dependen del scroll interno. */
+    .industrial-wrapper--fullscreen:has(.vm-shell__left) .vm-shell__main {
+        overflow: visible;
     }
 }
