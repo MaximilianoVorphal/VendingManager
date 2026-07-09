@@ -54,15 +54,20 @@
        crezca con el contenido. padding-top reserva el espacio del navbar
        fijo (position:fixed en mobile, ver VmNavbar.razor).
 
-       Specificidad (0,0,3,0) — chained class .industrial-wrapper eleva
-       la specificity para ganarle a la regla base en MainLayout.razor.css:14
-       (0,0,2,0 scoped). Sin esto, las props quedaban en empate y el browser
-       no aplicaba los overrides consistentemente. */
+       !important es OBLIGATORIO aquí: el scoped CSS de Blazor carga ANTES
+       en index.html (VendingManager.Web.styles.css antes de vm-mobile-anchor.css)
+       y la regla base .industrial-wrapper--fullscreen[b-xyz] tiene specificity
+       (0,0,2,0). Nuestra regla con chained class tiene (0,0,3,0), pero como
+       ambos selectores matchean el MISMO elemento, las props que define cada
+       uno se aplican independientemente — el browser usa el valor de la
+       regla con mayor specificity POR PROPIEDAD, no por selector completo.
+       Sin !important, las props de la regla base (height:100vh, overflow:hidden)
+       compiten y el resultado es impredecible. !important garantiza la victoria. */
     .industrial-wrapper.industrial-wrapper--fullscreen:has(.vm-shell__left) {
-        height: auto;
-        min-height: 100dvh;
-        overflow: visible;
-        padding-top: calc(72px + env(safe-area-inset-top, 0px));
+        height: auto !important;
+        min-height: 100dvh !important;
+        overflow: visible !important;
+        padding-top: calc(72px + env(safe-area-inset-top, 0px)) !important;
     }
 }
 
