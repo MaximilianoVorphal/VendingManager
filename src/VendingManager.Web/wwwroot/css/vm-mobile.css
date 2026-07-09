@@ -13,7 +13,19 @@
 }
 
 /* ------------------------------------------------
-   0.2 — Safe-Area-Inset Utilities
+   0.2 — Shell transparency (desktop + mobile)
+   .vm-mobile-shell is a layout passthrough — it does NOT
+   add a box to the layout tree. This preserves the flex
+   height chain from MainLayout → page content that pages
+   like InformeVentas, TemplatesRecarga and others rely on
+   for internal scrolling (flex: 1 containers).
+   ------------------------------------------------ */
+.vm-mobile-shell {
+    display: contents;
+}
+
+/* ------------------------------------------------
+   0.3 — Safe-Area-Inset Utilities
    ------------------------------------------------ */
 .vm-safe-bottom {
     padding-bottom: env(safe-area-inset-bottom);
@@ -24,15 +36,15 @@
 }
 
 /* ------------------------------------------------
-   0.3–0.4 — Mobile Breakpoint & Responsive Utilities
+   0.4–0.5 — Mobile Breakpoint & Responsive Utilities
    ------------------------------------------------ */
 @media (max-width: 520px) {
-    /* 0.3 — iOS zoom prevention */
+    /* 0.4 — iOS zoom prevention */
     input, select, textarea {
         font-size: max(16px, 1em);
     }
 
-    /* 0.4 — Responsive utilities */
+    /* 0.5 — Responsive utilities */
     .vm-hide-mobile {
         display: none !important;
     }
