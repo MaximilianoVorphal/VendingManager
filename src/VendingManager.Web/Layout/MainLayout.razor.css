@@ -16,6 +16,10 @@ html, body {
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    /* Same safe-area contract as .industrial-wrapper.
+       box-sizing: border-box keeps padding inside the 100vh box. */
+    padding-top: var(--safe-inset-top);
+    padding-bottom: var(--safe-inset-bottom);
 }
 
 .industrial-wrapper--fullscreen > main {
@@ -79,7 +83,11 @@ main {
 @media (max-width: 760px) {
     .industrial-wrapper {
         box-sizing: border-box;
-        padding-top: 72px !important; /* alto aprox. del navbar móvil (hamburger 45px + padding 12+12 + border 2). El !important gana sobre `padding:0 !important` de app.css. */
+        /* 72px = mobile navbar height (hamburger 45px + padding + border).
+           max() ensures the notch on iPhones with a Dynamic Island doesn't
+           clip the navbar. On non-notch devices, env() returns 0px so it's
+           effectively just 72px. */
+        padding-top: max(72px, var(--safe-inset-top)) !important;
         overflow-x: hidden; /* evita scroll horizontal por drawer fixed/transformed fuera del viewport */
     }
 

@@ -5,6 +5,9 @@ html {
 
 body {
     margin: 0;
+    /* Protect against horizontal safe areas on iPhone landscape (rounded corners) */
+    padding-left: var(--safe-inset-left);
+    padding-right: var(--safe-inset-right);
 }
 
 /* Blazor <FocusOnNavigate Selector="h1"> foca el h1 en cada navegación
@@ -44,6 +47,14 @@ body {
        which falls back to Consolas / Segoe UI if the webfonts never load. */
     --industrial-font-primary: var(--font-mono);
     --industrial-font-secondary: var(--font-sans);
+
+    /* Safe Area Insets — iOS notch, Dynamic Island, home indicator.
+       Requires viewport-fit=cover in the meta viewport tag.
+       Falls back to 0px on non-iOS browsers. */
+    --safe-inset-top: env(safe-area-inset-top, 0px);
+    --safe-inset-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-inset-left: env(safe-area-inset-left, 0px);
+    --safe-inset-right: env(safe-area-inset-right, 0px);
 }
 
 /* =========================================
@@ -66,6 +77,10 @@ body {
     display: flex;
     flex-direction: column;
     font-family: var(--font-sans);
+    /* Push content below the notch and above the home indicator on iOS.
+       box-sizing is border-box (set by Bootstrap), so padding is INSIDE the 100vh box. */
+    padding-top: var(--safe-inset-top);
+    padding-bottom: var(--safe-inset-bottom);
 }
 
 /* Main content area: takes all remaining height after navbar, scrolls internally */
