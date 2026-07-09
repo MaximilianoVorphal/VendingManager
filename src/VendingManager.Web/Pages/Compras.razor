@@ -1,6 +1,7 @@
 @page "/compras"
 @using VendingManager.Shared.DTOs
 @using VendingManager.Web.Components
+@using VendingManager.Web.Components.Mobile
 @using Microsoft.AspNetCore.Components.Forms
 @inject HttpClient Http
 @inject NavigationManager Navigation
@@ -15,6 +16,8 @@
    ============================================================================= *@
 
 <PageTitle>COMPRAS</PageTitle>
+
+<MobileShell>
 
 <div class="cp-page" style="flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden;padding:0.95rem 1.4rem 1.1rem;gap:12px;position:relative;">
 
@@ -103,7 +106,7 @@
 
         <!-- Tabla -->
         <div style="flex:1;min-height:0;overflow:auto;">
-            <table style="width:100%;border-collapse:collapse;">
+            <table class="vm-accordion-table" style="width:100%;border-collapse:collapse;">
                 <thead>
                     <tr>
                         <th style="position:sticky;top:0;background:var(--ink-700);color:#fff;text-align:left;padding:8px 12px;font-family:var(--font-mono);font-weight:700;font-size:0.62rem;text-transform:uppercase;letter-spacing:0.5px;white-space:nowrap;">Fecha</th>
@@ -522,6 +525,8 @@
         </div>
     </div>
 }
+
+</MobileShell>
 
 @code {
     // ── Estado del listado ────────────────────────────────────────────────────
