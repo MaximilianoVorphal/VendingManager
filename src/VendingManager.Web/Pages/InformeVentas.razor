@@ -115,6 +115,36 @@
             padding: 6px 0 8px !important;
             gap: 8px !important;
         }
+        /* Header actions: stack the three command buttons full-width so
+           they fit a 390px viewport. The 160px inline width on VmButton
+           must be overridden with !important (inline style trumps normal
+           CSS specificity). */
+        .iv-header-bar {
+            flex-direction: column !important;
+            align-items: stretch !important;
+            gap: 10px !important;
+        }
+        .iv-header-actions {
+            flex-direction: column !important;
+            align-items: stretch !important;
+            width: 100% !important;
+            gap: 8px !important;
+        }
+        .iv-header-status {
+            align-items: flex-start !important;
+            order: 0;
+        }
+        .iv-header-sync {
+            width: 100% !important;
+            gap: 8px !important;
+        }
+        .iv-header-divider {
+            display: none !important;
+        }
+        .iv-header-actions button {
+            width: 100% !important;
+            flex: 1 1 100% !important;
+        }
     }
     /* El título y su cursor parpadeante no deben poder seleccionarse. */
     .iv-page h1 { user-select: none; }
@@ -136,9 +166,9 @@
             <h1 style="margin:0;font-family:var(--font-mono);font-weight:700;text-transform:uppercase;letter-spacing:-1px;font-size:1.55rem;line-height:1;">Informe de Ventas<span class="iv-cursor">_</span></h1>
             <p style="margin:5px 0 0;font-family:var(--font-mono);font-size:0.68rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.4px;">Análisis de rendimiento y transacciones</p>
         </div>
-        <div style="display:flex;gap:9px;align-items:center;flex-wrap:wrap;justify-content:flex-end;">
+        <div class="iv-header-actions" style="display:flex;gap:9px;align-items:center;flex-wrap:wrap;justify-content:flex-end;">
             <!-- Estado de sincronización -->
-            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px;padding-right:2px;">
+            <div class="iv-header-status" style="display:flex;flex-direction:column;align-items:flex-end;gap:2px;padding-right:2px;">
                 <span style="font-family:var(--font-mono);font-weight:700;font-size:0.56rem;text-transform:uppercase;letter-spacing:0.6px;color:var(--text-muted);">Fuente · OurVend</span>
                 <span style="display:flex;align-items:center;gap:5px;font-family:var(--font-mono);font-weight:700;font-size:0.62rem;text-transform:uppercase;letter-spacing:0.4px;">
                     @if (_syncing)
@@ -154,7 +184,7 @@
                 </span>
             </div>
             <!-- Botón de sincronización -->
-            <div style="display:flex;align-items:center;gap:6px;">
+            <div class="iv-header-sync" style="display:flex;align-items:center;gap:6px;">
                 @if (_syncing)
                 {
                     <button disabled style="display:inline-flex;align-items:center;justify-content:center;gap:0.5rem;font-family:var(--font-mono);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;line-height:1;border-radius:0;border:2px solid var(--ink-900);background:transparent;color:var(--ink-900);padding:0.5rem 1rem;font-size:var(--fs-sm);opacity:0.65;cursor:wait;">
@@ -170,7 +200,7 @@
                     API
                 </label>
             </div>
-            <span style="width:1px;height:30px;background:var(--line-300);"></span>
+            <span class="iv-header-divider" style="width:1px;height:30px;background:var(--line-300);"></span>
             @if (_exporting)
             {
                 <button disabled style="display:inline-flex;align-items:center;justify-content:center;gap:0.5rem;font-family:var(--font-mono);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;line-height:1;border-radius:0;border:2px solid var(--ink-900);background:transparent;color:var(--ink-900);padding:0.5rem 1rem;font-size:var(--fs-sm);opacity:0.65;cursor:wait;">
@@ -293,16 +323,16 @@
                         @foreach (var o in FilteredOps)
                         {
                             <tr class="iv-row" @onclick="() => OpenDetail(o)" style="border-bottom:1px solid var(--line-200);cursor:pointer;">
-                                <td style="font-family:var(--font-mono);font-size:0.74rem;color:var(--text-secondary);white-space:nowrap;">@o.Fecha</td>
-                                <td style="font-family:var(--font-mono);font-weight:700;font-size:0.76rem;">@o.Unidad</td>
-                                <td style="text-align:center;font-family:var(--font-mono);font-size:0.74rem;color:var(--text-muted);">@o.Slot</td>
-                                <td style="font-family:var(--font-sans);font-weight:600;font-size:0.8rem;text-transform:uppercase;">@o.Prod</td>
-                                <td style="text-align:right;font-family:var(--font-mono);font-weight:700;font-size:0.78rem;color:var(--text-muted);">@Fmt(o.Costo)</td>
-                                <td style="text-align:right;font-family:var(--font-mono);font-weight:700;font-size:0.78rem;">@Fmt(o.Monto)</td>
-                                <td style="text-align:right;font-family:var(--font-mono);font-weight:700;font-size:0.78rem;">
+                                <td data-label="Fecha" style="font-family:var(--font-mono);font-size:0.74rem;color:var(--text-secondary);white-space:nowrap;">@o.Fecha</td>
+                                <td data-label="Unidad" style="font-family:var(--font-mono);font-weight:700;font-size:0.76rem;">@o.Unidad</td>
+                                <td data-label="Slot" style="text-align:center;font-family:var(--font-mono);font-size:0.74rem;color:var(--text-muted);">@o.Slot</td>
+                                <td data-label="Producto" style="font-family:var(--font-sans);font-weight:600;font-size:0.8rem;text-transform:uppercase;">@o.Prod</td>
+                                <td data-label="Costo" style="text-align:right;font-family:var(--font-mono);font-weight:700;font-size:0.78rem;color:var(--text-muted);">@Fmt(o.Costo)</td>
+                                <td data-label="Monto" style="text-align:right;font-family:var(--font-mono);font-weight:700;font-size:0.78rem;">@Fmt(o.Monto)</td>
+                                <td data-label="Ganancia" style="text-align:right;font-family:var(--font-mono);font-weight:700;font-size:0.78rem;">
                                     <span style="color:@(o.Gan >= 0 ? "var(--signal-success)" : "var(--signal-danger)");">@FmtGan(o.Gan)</span>
                                 </td>
-                                <td style="text-align:center;">
+                                <td data-label="Estado" style="text-align:center;">
                                     @switch (o.Estado)
                                     {
                                         case "CONF":
@@ -379,10 +409,10 @@
                             {
                                 rank++;
                                 <tr class="iv-row" style="border-bottom:1px solid var(--line-200);">
-                                    <td style="padding:6px 10px;font-family:var(--font-mono);font-weight:700;font-size:0.7rem;color:var(--text-muted);">@rank.ToString("D2")</td>
-                                    <td style="padding:6px 6px;font-family:var(--font-sans);font-weight:600;font-size:0.74rem;text-transform:uppercase;">@p.Prod</td>
-                                    <td style="padding:6px 8px;text-align:right;font-family:var(--font-mono);font-size:0.72rem;">@p.Cant</td>
-                                    <td style="padding:6px 10px;text-align:right;font-family:var(--font-mono);font-weight:700;font-size:0.72rem;">@Fmt(p.Total)</td>
+                                    <td data-label="Rank" style="padding:6px 10px;font-family:var(--font-mono);font-weight:700;font-size:0.7rem;color:var(--text-muted);">@rank.ToString("D2")</td>
+                                    <td data-label="Producto" style="padding:6px 6px;font-family:var(--font-sans);font-weight:600;font-size:0.74rem;text-transform:uppercase;">@p.Prod</td>
+                                    <td data-label="Cant" style="padding:6px 8px;text-align:right;font-family:var(--font-mono);font-size:0.72rem;">@p.Cant</td>
+                                    <td data-label="Total" style="padding:6px 10px;text-align:right;font-family:var(--font-mono);font-weight:700;font-size:0.72rem;">@Fmt(p.Total)</td>
                                 </tr>
                             }
                         </tbody>

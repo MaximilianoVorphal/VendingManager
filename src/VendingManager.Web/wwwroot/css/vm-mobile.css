@@ -172,4 +172,40 @@
         min-height: var(--vm-hit-min);
         min-width: var(--vm-hit-min);
     }
+
+    /* 1.6 — Accordion card polish: dark header + inline label/value rows.
+       Works for any `vm-accordion-table` whose <td>s carry a `data-label`
+       attribute. Avoids the "value-only" rows that look unfinished. */
+    .vm-accordion-table tbody tr {
+        box-shadow: 3px 3px 0 var(--ink-900, #000);
+    }
+    .vm-accordion-table tbody tr > td:first-child {
+        background: var(--ink-900, #000) !important;
+        color: var(--paper-0, #fff) !important;
+        border-bottom: 2px solid var(--ink-900, #000) !important;
+        font-size: 0.7rem !important;
+        letter-spacing: 0.4px;
+        text-transform: uppercase;
+    }
+    /* Reset text-align inherited from desktop <td>s so label-left/value-right
+       reads correctly inside the flex row. */
+    .vm-accordion-table tbody tr > td {
+        text-align: left !important;
+    }
+    /* Non-first <td>s: render `data-label` as a small muted prefix on the
+       left, keep the value on the right via the existing flex space-between. */
+    .vm-accordion-table tbody tr > td[data-label]:not(:first-child)::before {
+        content: attr(data-label);
+        font-family: var(--font-mono);
+        font-size: 0.58rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+        color: var(--text-muted, #888);
+        flex-shrink: 0;
+        margin-right: 10px;
+    }
+    .vm-accordion-table tbody tr > td:not(:first-child) {
+        padding: 0.45rem 0.7rem !important;
+    }
 }
