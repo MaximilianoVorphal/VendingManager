@@ -17,9 +17,10 @@ html, body {
     flex-direction: column;
     overflow: hidden;
     /* Same safe-area contract as .industrial-wrapper.
-       box-sizing: border-box keeps padding inside the 100vh box. */
-    padding-top: var(--safe-inset-top);
-    padding-bottom: var(--safe-inset-bottom);
+       box-sizing: border-box keeps padding inside the 100vh box.
+       env() is used directly to avoid Safari freeze-at-parse-time bug. */
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 .industrial-wrapper--fullscreen > main {
@@ -89,7 +90,7 @@ main {
            effectively just 72px.
            Bottom safe-area ensures the last block of the page (buttons,
            footer, etc.) doesn't sit behind the iOS home indicator. */
-        padding-top: max(72px, var(--safe-inset-top)) !important;
+        padding-top: max(72px, env(safe-area-inset-top, 0px)) !important;
         padding-bottom: env(safe-area-inset-bottom);
         overflow-x: hidden; /* evita scroll horizontal por drawer fixed/transformed fuera del viewport */
     }

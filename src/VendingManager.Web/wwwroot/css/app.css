@@ -5,9 +5,11 @@ html {
 
 body {
     margin: 0;
-    /* Protect against horizontal safe areas on iPhone landscape (rounded corners) */
-    padding-left: var(--safe-inset-left);
-    padding-right: var(--safe-inset-right);
+    /* Protect against horizontal safe areas on iPhone landscape (rounded corners).
+       env() is used directly (not via CSS variables) because Safari may not have
+       the insets available at parse time, which would freeze the variable at 0px. */
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
 }
 
 /* Blazor <FocusOnNavigate Selector="h1"> foca el h1 en cada navegación
@@ -78,9 +80,10 @@ body {
     flex-direction: column;
     font-family: var(--font-sans);
     /* Push content below the notch and above the home indicator on iOS.
-       box-sizing is border-box (set by Bootstrap), so padding is INSIDE the 100vh box. */
-    padding-top: var(--safe-inset-top);
-    padding-bottom: var(--safe-inset-bottom);
+       box-sizing is border-box (set by Bootstrap), so padding is INSIDE the 100vh box.
+       env() is used directly — CSS variables would freeze the value at parse time. */
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 /* Main content area: takes all remaining height after navbar, scrolls internally */
