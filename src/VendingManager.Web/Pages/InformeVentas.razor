@@ -247,11 +247,11 @@
         <!-- Utilidad -->
         <div style="border:2px solid var(--ink-900);background:var(--ink-900);padding:0.8rem 0.95rem;display:flex;flex-direction:column;gap:0.4rem;">
             <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
-                <span style="font-family:var(--font-mono);font-weight:700;font-size:0.66rem;text-transform:uppercase;letter-spacing:0.5px;color:rgba(255,255,255,0.72);">Utilidad (real / pagada)</span>
+                <span style="font-family:var(--font-mono);font-weight:700;font-size:0.66rem;text-transform:uppercase;letter-spacing:0.5px;color:rgba(255,255,255,0.72);">Margen bruto</span>
                 <span style="font-family:var(--font-mono);font-weight:700;font-size:0.6rem;text-transform:uppercase;border:1px solid rgba(255,255,255,0.55);color:#fff;padding:2px 7px;">Margen @Margen</span>
             </div>
             <span style="font-family:var(--font-sans);font-weight:700;font-size:1.85rem;letter-spacing:-1px;line-height:1;color:#fff;">@UtilidadFmt</span>
-            <small style="font-family:var(--font-mono);font-size:0.66rem;color:rgba(255,255,255,0.5);text-transform:uppercase;">Ganancia neta del período</small>
+            <small style="font-family:var(--font-mono);font-size:0.66rem;color:rgba(255,255,255,0.5);text-transform:uppercase;">Ventas confirmadas − costo</small>
         </div>
 
         <!-- Ventas confirmadas -->
@@ -560,7 +560,7 @@
             .ToList();
 
     // ── KPI bindings ──────────────────────────────────────────────────────────
-    private string UtilidadFmt => _financiero is not null ? Fmt(_financiero.UtilidadNeta) : "$0";
+    private string UtilidadFmt => _financiero is not null ? Fmt(_financiero.MargenBruto) : "$0";
     private string Margen => _financiero is not null ? $"{_financiero.MargenPorcentaje:F1}%" : "0%";
     private string VentasFmt => _reporte is not null ? Fmt(_reporte.MontoTotal) : "$0";
     private string TxCount => _reporte is not null ? _reporte.TotalVentas.ToString("N0", Nfi) : "0";
