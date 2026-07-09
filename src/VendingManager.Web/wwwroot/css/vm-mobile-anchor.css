@@ -1,0 +1,151 @@
+/* =========================================================================
+   vm-mobile-anchor.css
+   Mobile viewport anchoring & scroll hardening.
+   -------------------------------------------------------------------------
+   Carga DESPUÉS de vm-mobile.css y VendingManager.Web.styles.css.
+   Corrige la sensación "flotante" en móvil:
+
+   1. 100dvh reemplaza 100vh → se adapta a la barra de direcciones
+   2. overscroll-behavior: none → elimina el efecto rebote en iOS
+   3. Safe-area padding consistente → sin márgenes blancos abajo
+   4. Bottom sheet bloquea el scroll del fondo (CSS :has)
+
+   Solo se activa en mobile (≤767.98px). Desktop intacto.
+   ========================================================================= */
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   0. HTML/BODY — base contract for mobile anchoring
+   ═══════════════════════════════════════════════════════════════════════════ */
+@media (max-width: 767.98px) {
+    html {
+        /* Previene que el viewport "rebote" cuando no hay scroll suficiente */
+        overscroll-behavior: none;
+        /* -webkit-fill-available es el 100% real en iOS Safari con address bar */
+        height: -webkit-fill-available;
+    }
+
+    body {
+        min-height: 100vh;
+        min-height: -webkit-fill-available;
+        min-height: 100dvh;
+        overscroll-behavior: none;
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   1. DYNAMIC VIEWPORT HEIGHT — reemplaza 100vh estático
+   ═══════════════════════════════════════════════════════════════════════════ */
+@media (max-width: 767.98px) {
+    /* Wrapper principal: ocupa exactamente el viewport visible.
+       100vh = fallback, -webkit-fill-available = iOS < 15.4, 100dvh = moderno.
+       Chained class selector (.industrial-wrapper.industrial-wrapper) eleva
+       la especificidad a 0,0,2,0 para empatar con el CSS scoped de Blazor. */
+    .industrial-wrapper.industrial-wrapper {
+        height: 100vh;
+        height: -webkit-fill-available;
+        height: 100dvh;
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   2. ANTI-BOUNCE — elimina el efecto "rebote" (rubber band) de iOS
+   ═══════════════════════════════════════════════════════════════════════════ */
+@media (max-width: 767.98px) {
+    /* El wrapper principal nunca debe hacer bounce */
+    .industrial-wrapper {
+        overscroll-behavior: none;
+    }
+
+    /* Área de contenido con scroll: contain evita que el bounce se propague
+       al body/html, pero permite el scroll normal dentro del contenedor. */
+    .industrial-wrapper > main {
+        overscroll-behavior-y: contain;
+    }
+
+    .vm-shell__main {
+        overscroll-behavior-y: contain;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* Scroll interno de RecargaMovil */
+    .rm-view__scroll {
+        overscroll-behavior-y: contain;
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   3. SAFE-AREA PADDING — contrato único y consistente
+   ═══════════════════════════════════════════════════════════════════════════ */
+@media (max-width: 767.98px) {
+    /* PROBLEMA: app.css tiene padding: 0 !important que borra el
+       padding-bottom con env(safe-area-inset-bottom). Como usa !important
+       gana sobre la regla scoped de MainLayout.razor.css (que no tiene
+       !important en padding-bottom).
+
+       SOLUCIÓN: usamos !important con especificidad 0,0,2,0 (chained class)
+       que supera a la regla de app.css (0,0,1,0) por especificidad.
+       Cuando ambas tienen !important, gana la de mayor especificidad. */
+    .industrial-wrapper.industrial-wrapper {
+        padding-bottom: env(safe-area-inset-bottom, 0px) !important;
+    }
+
+    /* padding-top para la navbar fija + notch ya está correctamente
+       manejado por MainLayout.razor.css scoped (con !important).
+       No lo tocamos — la regla scoped gana por especificidad. */
+
+    /* Safe-area horizontal (iPhone landscape con bordes redondeados) */
+    .industrial-wrapper.industrial-wrapper {
+        padding-left: env(safe-area-inset-left, 0px);
+        padding-right: env(safe-area-inset-right, 0px);
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   4. BOTTOM SHEET — bloqueo de scroll del fondo
+   ═══════════════════════════════════════════════════════════════════════════ */
+@media (max-width: 767.98px) {
+    /* Cuando un bottom sheet (rm-sheet__backdrop) está visible dentro
+       de rm-view, el contenedor de scroll (rm-view__scroll) se bloquea.
+       Esto evita que el contenido detrás del sheet se mueva al hacer
+       scroll o al tocar el backdrop. */
+    .rm-view:has(.rm-sheet__backdrop) .rm-view__scroll {
+        overflow: hidden !important;
+    }
+
+    /* El backdrop del sheet: nos aseguramos de que cubra todo el viewport
+       y no herede overscroll del padre. position:absolute + inset:0 ya
+       lo hace correctamente en rm-recarga-movil.css. */
+    .rm-sheet__backdrop {
+        overscroll-behavior: none;
+        /* Previene que toques en el backdrop "atraviesen" al contenido */
+        touch-action: none;
+    }
+
+    /* El panel del sheet: solo permite interacción dentro del panel */
+    .rm-sheet__panel {
+        touch-action: manipulation;
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   5. SCROLL LOCK — clase aplicada por modalScrollLock JS
+   ═══════════════════════════════════════════════════════════════════════════ */
+@media (max-width: 767.98px) {
+    /* Cuando modalScrollLock.lock() se ejecuta, agrega .vm-locked a <html>.
+       position:fixed + overflow:hidden es la ÚNICA forma confiable de
+       bloquear el scroll en iOS Safari.
+       El JS preserva la posición de scroll seteando top: -scrollY. */
+    html.vm-locked {
+        position: fixed;
+        overflow: hidden;
+        width: 100%;
+        height: 100%;
+    }
+
+    html.vm-locked body {
+        position: fixed;
+        overflow: hidden;
+        width: 100%;
+        height: 100%;
+    }
+}
