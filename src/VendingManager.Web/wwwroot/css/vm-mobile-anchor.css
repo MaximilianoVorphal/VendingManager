@@ -49,6 +49,30 @@
         height: 100dvh;
     }
 
+    /* IMPORTANTE: la regla anterior aplica 100dvh a CUALQUIER .industrial-wrapper,
+       incluyendo los wrappers anidados dentro de <MobileShell> (Home, Inventario, etc.).
+       Esos wrappers interiores deben crecer con su contenido, no estar forzados a
+       100dvh. Si los dejamos en 100dvh, su contenido (típicamente 1200-1400px) se
+       clipea dentro de 812px y el navegador los convierte en scroll containers
+       internos automáticamente (por la combinación height fija + min-height:0 en
+       el padre flex). El body queda con solo 200px de scroll y el usuario nunca
+       llega al final real del contenido.
+
+       Verificado en Home con iPhone X viewport (375x812): inner wrapper con
+       height:100dvh + content 1284px → scrollHeight:1284, clientHeight:812,
+       overflow-y:auto implícito. El body se queda en scrollHeight:1016 con solo
+       204px de rango. El usuario scrollea el body, no se mueve nada visible.
+
+       Fix: neutralizar el inner wrapper para que se comporte como un block normal
+       que crece con su contenido. El body se convierte en el scroller real. */
+    .vm-mobile-shell > .industrial-wrapper {
+        display: block !important;
+        flex: none !important;
+        height: auto !important;
+        min-height: 0 !important;
+        overflow: visible !important;
+    }
+
     /* Home page only: el body debe scrollear para que Safari auto-esconda
        la barra inferior. min-height en vez de height permite que el wrapper
        crezca con el contenido. padding-top reserva el espacio del navbar
