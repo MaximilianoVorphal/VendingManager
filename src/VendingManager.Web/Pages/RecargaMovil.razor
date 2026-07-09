@@ -55,7 +55,7 @@
     @* ── BOTTOM SHEET: Product Selector ──────────────────────────── *@
     @if (_productSheetVisible)
     {
-        <div class="rm-sheet__backdrop" @onclick="CloseProductSheet">
+        <div class="rm-sheet__backdrop" @onclick="() => CloseProductSheet()">
             <div class="rm-sheet__panel" @onclick:stopPropagation="true">
                 <div class="rm-sheet__handle"></div>
                 <div class="rm-sheet__head">Seleccionar producto</div>
@@ -106,7 +106,7 @@
     @* ── BOTTOM SHEET: Slot Editor Dock ──────────────────────────── *@
     @if (_slotDockVisible && _editingSlot != null)
     {
-        <div class="rm-sheet__backdrop" @onclick="CloseSlotDock">
+        <div class="rm-sheet__backdrop" @onclick="() => CloseSlotDock()">
             <div class="rm-sheet__panel" @onclick:stopPropagation="true"
                  style="padding-bottom:calc(8px + env(safe-area-inset-bottom));">
                 <div class="rm-sheet__handle"></div>
@@ -116,7 +116,7 @@
                     <button class="rm-stepper__btn" style="width:56px;height:44px;font-size:1.2rem;"
                             aria-label="Slot anterior"
                             disabled="@(_editingSlotIndex <= 0)"
-                            @onclick="GoToPreviousSlot">
+                            @onclick="() => GoToPreviousSlot()">
                         <i class="bi bi-chevron-left"></i>
                     </button>
                     <span style="flex:1;text-align:center;font-family:var(--font-mono);
@@ -127,13 +127,13 @@
                     <button class="rm-stepper__btn" style="width:56px;height:44px;font-size:1.2rem;"
                             aria-label="Slot siguiente"
                             disabled="@(_editingSlotIndex >= _slots.Count - 1)"
-                            @onclick="GoToNextSlot">
+                            @onclick="() => GoToNextSlot()">
                         <i class="bi bi-chevron-right"></i>
                     </button>
                     <button class="rm-iconbtn rm-iconbtn--dark"
                             style="width:44px;height:44px;"
                             aria-label="Cerrar"
-                            @onclick="CloseSlotDock">
+                            @onclick="() => CloseSlotDock()">
                         <i class="bi bi-check-lg"></i>
                     </button>
                 </div>
@@ -148,7 +148,7 @@
                         <i class="bi bi-search" style="color:var(--ink-500);font-size:0.85rem;"></i>
                     </button>
                     <button class="rm-dock__clear" aria-label="Vaciar slot"
-                            @onclick="ClearEditingSlot">
+                            @onclick="() => ClearEditingSlot()">
                         <i class="bi bi-trash"></i>
                     </button>
                 </div>

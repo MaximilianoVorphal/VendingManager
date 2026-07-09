@@ -653,6 +653,11 @@ public partial class RecargaMovil : ComponentBase, IDisposable
 
         _productSheetVisible = false;
         _slotDockVisible = true; // restore dock that was hidden when product sheet opened
+
+        // Force a new list reference so Blazor's diffing picks up
+        // the inline mutation of SnapshotSlotDto elements.
+        _slots = new List<SnapshotSlotDto>(_slots);
+
         StateHasChanged();
     }
 
