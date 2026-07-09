@@ -1402,17 +1402,26 @@
   text-transform: uppercase;
 }
 
-/* Loading spinner centered overlay */
+/* Loading spinner overlay — covers the view with a frosted backdrop so
+   the underlying content (cards, header, bottom bar) stays in place
+   instead of being pushed down by an in-flow loading bar. */
 .rm-loading {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 120px;
   gap: 10px;
+  padding: 14px 18px;
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
   font-family: var(--font-mono);
   font-size: 0.76rem;
   text-transform: uppercase;
   color: var(--ink-500);
+  pointer-events: none;
 }
 
 /* Error banner */
