@@ -639,7 +639,7 @@ public class RecargaMovilTests : TestContext
         var cut = RenderComponent<MobileMachinePhotoSheet>(parameters => parameters
             .Add(p => p.Visible, true)
             .Add(p => p.OnClose, () => { })
-            .Add(p => p.OnPhotoAccepted, (IBrowserFile _) => { })
+            .Add(p => p.OnPhotoAccepted, (CapturedPhoto _) => { })
         );
 
         var submitBtn = cut.Find("button[aria-label='Subir y finalizar']");
@@ -654,7 +654,7 @@ public class RecargaMovilTests : TestContext
         var cut = RenderComponent<MobileMachinePhotoSheet>(parameters => parameters
             .Add(p => p.Visible, true)
             .Add(p => p.OnClose, () => { })
-            .Add(p => p.OnPhotoAccepted, (IBrowserFile _) => { })
+            .Add(p => p.OnPhotoAccepted, (CapturedPhoto _) => { })
         );
 
         // Construct minimal HEIC bytes with ftyp-heic magic marker
@@ -686,11 +686,11 @@ public class RecargaMovilTests : TestContext
     [Fact]
     public void MobileMachinePhotoSheet_Invokes_OnPhotoAccepted_On_Submit()
     {
-        IBrowserFile? receivedFile = null;
+        CapturedPhoto? receivedFile = null;
         var cut = RenderComponent<MobileMachinePhotoSheet>(parameters => parameters
             .Add(p => p.Visible, true)
             .Add(p => p.OnClose, () => { })
-            .Add(p => p.OnPhotoAccepted, (IBrowserFile f) => { receivedFile = f; })
+            .Add(p => p.OnPhotoAccepted, (CapturedPhoto f) => { receivedFile = f; })
         );
 
         // Create minimal JPEG bytes (16 bytes, no ftyp box, big enough to pass the size check)
@@ -710,7 +710,7 @@ public class RecargaMovilTests : TestContext
         submitBtn.Click();
 
         receivedFile.Should().NotBeNull();
-        receivedFile!.Name.Should().Be("test.jpg");
+        receivedFile!.FileName.Should().Be("test.jpg");
         receivedFile.ContentType.Should().Be("image/jpeg");
     }
 
@@ -723,7 +723,7 @@ public class RecargaMovilTests : TestContext
         var cut = RenderComponent<MobileMachinePhotoSheet>(parameters => parameters
             .Add(p => p.Visible, true)
             .Add(p => p.OnClose, () => { })
-            .Add(p => p.OnPhotoAccepted, (IBrowserFile _) => { callbackInvoked = true; })
+            .Add(p => p.OnPhotoAccepted, (CapturedPhoto _) => { callbackInvoked = true; })
         );
 
         // Capture a valid JPEG (16 bytes, no ftyp box, big enough to pass the size check)
@@ -763,7 +763,7 @@ public class RecargaMovilTests : TestContext
         var cut = RenderComponent<MobileMachinePhotoSheet>(parameters => parameters
             .Add(p => p.Visible, true)
             .Add(p => p.OnClose, () => { closeInvoked = true; })
-            .Add(p => p.OnPhotoAccepted, (IBrowserFile _) => { })
+            .Add(p => p.OnPhotoAccepted, (CapturedPhoto _) => { })
         );
 
         var cancelBtn = cut.Find("button[aria-label='Cancelar']");
@@ -786,7 +786,7 @@ public class RecargaMovilTests : TestContext
         var cut = RenderComponent<MobileMachinePhotoSheet>(parameters => parameters
             .Add(p => p.Visible, true)
             .Add(p => p.OnClose, () => { })
-            .Add(p => p.OnPhotoAccepted, (IBrowserFile _) => { })
+            .Add(p => p.OnPhotoAccepted, (CapturedPhoto _) => { })
         );
 
         // Construct ftyp bytes with the given brand at offset 8
@@ -821,7 +821,7 @@ public class RecargaMovilTests : TestContext
         var cut = RenderComponent<MobileMachinePhotoSheet>(parameters => parameters
             .Add(p => p.Visible, true)
             .Add(p => p.OnClose, () => { })
-            .Add(p => p.OnPhotoAccepted, (IBrowserFile _) => { })
+            .Add(p => p.OnPhotoAccepted, (CapturedPhoto _) => { })
         );
 
         // 4 bytes — too small for any valid image header
@@ -1287,8 +1287,8 @@ public class RecargaMovilTests : TestContext
         var cut = RenderComponent<MobileRecargaSaveSheet>(parameters => parameters
             .Add(p => p.Visible, true)
             .Add(p => p.OnClose, () => { })
-            .Add(p => p.OnSaveAndOverview, (IBrowserFile _) => { })
-            .Add(p => p.OnSaveAndPickAnother, (IBrowserFile _) => { })
+            .Add(p => p.OnSaveAndOverview, (CapturedPhoto _) => { })
+            .Add(p => p.OnSaveAndPickAnother, (CapturedPhoto _) => { })
             .Add(p => p.MachineLabel, "Máq …2400")
             .Add(p => p.UnitSummary, "12 u. cargadas")
             .Add(p => p.SlotSummary, "5 productos")
@@ -1311,7 +1311,7 @@ public class RecargaMovilTests : TestContext
         var cut = RenderComponent<MobileRecargaSaveSheet>(parameters => parameters
             .Add(p => p.Visible, true)
             .Add(p => p.OnClose, () => { })
-            .Add(p => p.OnSaveAndOverview, (IBrowserFile _) => { overviewInvoked = true; })
+            .Add(p => p.OnSaveAndOverview, (CapturedPhoto _) => { overviewInvoked = true; })
             .Add(p => p.OnSaveAndPickAnother, () => { })
             .Add(p => p.MachineLabel, "Máq …2400")
         );
@@ -1346,7 +1346,7 @@ public class RecargaMovilTests : TestContext
             .Add(p => p.Visible, true)
             .Add(p => p.OnClose, () => { })
             .Add(p => p.OnSaveAndOverview, () => { })
-            .Add(p => p.OnSaveAndPickAnother, (IBrowserFile _) => { pickAnotherInvoked = true; })
+            .Add(p => p.OnSaveAndPickAnother, (CapturedPhoto _) => { pickAnotherInvoked = true; })
             .Add(p => p.MachineLabel, "Máq …2400")
         );
 
@@ -1379,8 +1379,8 @@ public class RecargaMovilTests : TestContext
         var cut = RenderComponent<MobileRecargaSaveSheet>(parameters => parameters
             .Add(p => p.Visible, true)
             .Add(p => p.OnClose, () => { closeInvoked = true; })
-            .Add(p => p.OnSaveAndOverview, (IBrowserFile _) => { })
-            .Add(p => p.OnSaveAndPickAnother, (IBrowserFile _) => { })
+            .Add(p => p.OnSaveAndOverview, (CapturedPhoto _) => { })
+            .Add(p => p.OnSaveAndPickAnother, (CapturedPhoto _) => { })
             .Add(p => p.MachineLabel, "Máq …2400")
         );
 
@@ -1396,8 +1396,8 @@ public class RecargaMovilTests : TestContext
         var cut = RenderComponent<MobileRecargaSaveSheet>(parameters => parameters
             .Add(p => p.Visible, true)
             .Add(p => p.OnClose, () => { })
-            .Add(p => p.OnSaveAndOverview, (IBrowserFile _) => { })
-            .Add(p => p.OnSaveAndPickAnother, (IBrowserFile _) => { })
+            .Add(p => p.OnSaveAndOverview, (CapturedPhoto _) => { })
+            .Add(p => p.OnSaveAndPickAnother, (CapturedPhoto _) => { })
             .Add(p => p.MachineLabel, "Máq …2400")
         );
 
@@ -1436,8 +1436,8 @@ public class RecargaMovilTests : TestContext
         var cut = RenderComponent<MobileRecargaSaveSheet>(parameters => parameters
             .Add(p => p.Visible, true)
             .Add(p => p.OnClose, () => { })
-            .Add(p => p.OnSaveAndOverview, (IBrowserFile _) => { })
-            .Add(p => p.OnSaveAndPickAnother, (IBrowserFile _) => { })
+            .Add(p => p.OnSaveAndOverview, (CapturedPhoto _) => { })
+            .Add(p => p.OnSaveAndPickAnother, (CapturedPhoto _) => { })
             .Add(p => p.MachineLabel, "Máq …2400")
         );
 
@@ -1468,8 +1468,8 @@ public class RecargaMovilTests : TestContext
         var cut = RenderComponent<MobileRecargaSaveSheet>(parameters => parameters
             .Add(p => p.Visible, true)
             .Add(p => p.OnClose, () => { })
-            .Add(p => p.OnSaveAndOverview, (IBrowserFile _) => { })
-            .Add(p => p.OnSaveAndPickAnother, (IBrowserFile _) => { })
+            .Add(p => p.OnSaveAndOverview, (CapturedPhoto _) => { })
+            .Add(p => p.OnSaveAndPickAnother, (CapturedPhoto _) => { })
             .Add(p => p.MachineLabel, "Máq …2400")
         );
 
@@ -1493,8 +1493,8 @@ public class RecargaMovilTests : TestContext
         var cut = RenderComponent<MobileRecargaSaveSheet>(parameters => parameters
             .Add(p => p.Visible, true)
             .Add(p => p.OnClose, () => { })
-            .Add(p => p.OnSaveAndOverview, (IBrowserFile _) => { })
-            .Add(p => p.OnSaveAndPickAnother, (IBrowserFile _) => { })
+            .Add(p => p.OnSaveAndOverview, (CapturedPhoto _) => { })
+            .Add(p => p.OnSaveAndPickAnother, (CapturedPhoto _) => { })
             .Add(p => p.MachineLabel, "Máq …2400")
         );
 
@@ -1514,8 +1514,8 @@ public class RecargaMovilTests : TestContext
         var cut = RenderComponent<MobileRecargaSaveSheet>(parameters => parameters
             .Add(p => p.Visible, true)
             .Add(p => p.OnClose, () => { })
-            .Add(p => p.OnSaveAndOverview, (IBrowserFile _) => { })
-            .Add(p => p.OnSaveAndPickAnother, (IBrowserFile _) => { })
+            .Add(p => p.OnSaveAndOverview, (CapturedPhoto _) => { })
+            .Add(p => p.OnSaveAndPickAnother, (CapturedPhoto _) => { })
             .Add(p => p.MachineLabel, "Máq …2400")
         );
 
@@ -1555,8 +1555,8 @@ public class RecargaMovilTests : TestContext
         var cut = RenderComponent<MobileRecargaSaveSheet>(parameters => parameters
             .Add(p => p.Visible, true)
             .Add(p => p.OnClose, () => { })
-            .Add(p => p.OnSaveAndOverview, (IBrowserFile _) => { })
-            .Add(p => p.OnSaveAndPickAnother, (IBrowserFile _) => { })
+            .Add(p => p.OnSaveAndOverview, (CapturedPhoto _) => { })
+            .Add(p => p.OnSaveAndPickAnother, (CapturedPhoto _) => { })
             .Add(p => p.MachineLabel, "Máq …2400")
         );
 
