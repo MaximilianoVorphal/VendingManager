@@ -503,5 +503,14 @@
                wrapper reservation in MainLayout.razor.css must match. */
             padding-top: env(safe-area-inset-top, 0px);
         }
+
+        /* Prevent drawer flash: when closed, the drawer is translated
+           offscreen but display:block can briefly show it before Blazor
+           hydrates the .show class. visibility + pointer-events are a
+           belt-and-suspenders guard that does not break the transition. */
+        .vm-mobile-drawer:not(.show) {
+            visibility: hidden;
+            pointer-events: none;
+        }
     }
 </style>
