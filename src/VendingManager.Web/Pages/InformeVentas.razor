@@ -40,6 +40,82 @@
             max-height: 320px;
         }
     }
+    /* ============================================================
+       Mobile (max-width 520px): unlock fullscreen scroll-lock.
+       On desktop the page is a fixed-height flex column where
+       .iv-body (the table) fills the remaining space. On a 390px
+       viewport the header (title + 3 wrapped buttons), filters,
+       and 4 stacked KPI cards consume the entire vertical space
+       and .iv-body collapses to 0px, making the 337-row table
+       unreachable. We let the page grow with content and let
+       .vm-shell__main (overflow:auto on mobile) handle the scroll.
+       Desktop layout is untouched.
+       ============================================================ */
+    @@media (max-width: 520px) {
+        .iv-page {
+            height: auto !important;
+            min-height: 0 !important;
+            overflow: visible !important;
+            padding: 0.7rem 0.8rem 0.85rem !important;
+        }
+        .iv-body {
+            height: auto !important;
+            min-height: 0 !important;
+            overflow: visible !important;
+        }
+        .iv-body > section,
+        .iv-body > aside {
+            height: auto !important;
+            min-height: 0 !important;
+            overflow: visible !important;
+        }
+        /* Remove internal scroll on the table wrapper so the
+           337 accordion-cards render fully and the page scrolls. */
+        .iv-body > section > div:last-child {
+            height: auto !important;
+            min-height: 0 !important;
+            overflow: visible !important;
+        }
+        /* Rail: drop the 320px cap imposed by the 1080px breakpoint
+           so the full analysis panel is reachable on mobile. */
+        .iv-rail {
+            max-height: none !important;
+        }
+        /* KPIs: 2x2 grid on mobile (saves ~270px vs single column). */
+        .iv-kpis {
+            grid-template-columns: 1fr 1fr !important;
+            gap: 8px !important;
+            margin-bottom: 8px !important;
+        }
+        .iv-kpis > div {
+            padding: 0.5rem 0.6rem !important;
+            gap: 0.25rem !important;
+        }
+        .iv-kpis > div > span:nth-child(2) {
+            font-size: 1.2rem !important;
+        }
+        .iv-kpis > div > small {
+            font-size: 0.56rem !important;
+        }
+        /* Header: compact on mobile so the table is reachable sooner. */
+        .iv-header-bar {
+            gap: 8px !important;
+            padding-bottom: 8px !important;
+        }
+        .iv-header-bar h1 {
+            font-size: 1.1rem !important;
+            letter-spacing: -0.5px !important;
+        }
+        .iv-header-bar p {
+            font-size: 0.56rem !important;
+            margin-top: 3px !important;
+        }
+        /* Filters strip: tighter on mobile */
+        .iv-filters {
+            padding: 6px 0 8px !important;
+            gap: 8px !important;
+        }
+    }
     /* El título y su cursor parpadeante no deben poder seleccionarse. */
     .iv-page h1 { user-select: none; }
     /* Foco solo visible con teclado (accesible), no la caja al click de mouse. */
@@ -54,7 +130,7 @@
 <div class="iv-page" style="flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden;padding:0.95rem 1.4rem 1.1rem;">
 
     <!-- ===== Header + barra de comando ===== -->
-    <div style="flex-shrink:0;display:flex;justify-content:space-between;align-items:flex-end;gap:14px;flex-wrap:wrap;border-bottom:3px solid var(--ink-900);padding-bottom:11px;">
+    <div class="iv-header-bar" style="flex-shrink:0;display:flex;justify-content:space-between;align-items:flex-end;gap:14px;flex-wrap:wrap;border-bottom:3px solid var(--ink-900);padding-bottom:11px;">
         <div>
             <div style="display:inline-block;background:var(--ink-900);color:#fff;font-family:var(--font-mono);font-weight:700;font-size:0.58rem;letter-spacing:2px;padding:3px 9px;text-transform:uppercase;margin-bottom:7px;">Gestión · Ventas</div>
             <h1 style="margin:0;font-family:var(--font-mono);font-weight:700;text-transform:uppercase;letter-spacing:-1px;font-size:1.55rem;line-height:1;">Informe de Ventas<span class="iv-cursor">_</span></h1>
@@ -110,7 +186,7 @@
     </div>
 
     <!-- Strip de filtros -->
-    <div style="flex-shrink:0;display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap;padding:10px 0 12px;">
+    <div class="iv-filters" style="flex-shrink:0;display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap;padding:10px 0 12px;">
         <div style="min-width:230px;">
             <VmSelect Label="Unidad" Value="_unit" Options="UnitOptions" ValueChanged="@((string v) => { _unit = v; _ = OnFilterChanged(); })" />
         </div>
@@ -135,7 +211,7 @@
     }
 
     <!-- ===== KPIs ===== -->
-    <div style="flex-shrink:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;margin-bottom:12px;">
+    <div class="iv-kpis" style="flex-shrink:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;margin-bottom:12px;">
 
         <!-- Utilidad -->
         <div style="border:2px solid var(--ink-900);background:var(--ink-900);padding:0.8rem 0.95rem;display:flex;flex-direction:column;gap:0.4rem;">
