@@ -24,7 +24,7 @@
                     }
                     else if (row.Status == PdcUnitStatus.StockLow)
                     {
-                        <span class="pdc-dot pdc-dot--err" aria-hidden="true"></span>
+                        <span class="pdc-dot pdc-dot--warn" aria-hidden="true"></span>
                     }
                     else if (row.Status == PdcUnitStatus.Offline)
                     {
@@ -37,7 +37,7 @@
                             var secClass = row.Status switch
                             {
                                 PdcUnitStatus.Offline => "pdc-unit-item__secondary--err",
-                                PdcUnitStatus.StockLow => "pdc-unit-item__secondary--err",
+                                PdcUnitStatus.StockLow => "pdc-unit-item__secondary--warn",
                                 _ => ""
                             };
                             <span class="pdc-unit-item__secondary @secClass">@secondaryText</span>
