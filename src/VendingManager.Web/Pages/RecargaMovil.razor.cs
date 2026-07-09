@@ -652,6 +652,7 @@ public partial class RecargaMovil : ComponentBase, IDisposable
         }
 
         _productSheetVisible = false;
+        _slotDockVisible = true; // restore dock that was hidden when product sheet opened
         StateHasChanged();
     }
 
@@ -956,6 +957,7 @@ public partial class RecargaMovil : ComponentBase, IDisposable
         _editingSlotIndex = _slots.IndexOf(slot);
         _productSearch = "";
         _filteredProducts = FilterProducts(_productSearch);
+        _slotDockVisible = false; // hide dock so product sheet renders on top (both share rm-sheet__backdrop z-index 2600)
         _productSheetVisible = true;
         StateHasChanged();
     }
@@ -963,6 +965,7 @@ public partial class RecargaMovil : ComponentBase, IDisposable
     private void CloseProductSheet()
     {
         _productSheetVisible = false;
+        _slotDockVisible = true; // restore dock that was hidden when product sheet opened
         StateHasChanged();
     }
 
