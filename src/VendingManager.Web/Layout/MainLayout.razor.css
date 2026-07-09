@@ -84,5 +84,15 @@ main {
 
     .vm-shell__main {
         padding-bottom: 1rem;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* En iOS, overflow:hidden en el contenedor interno + overflow:hidden
+       en el wrapper hace que el scroll se delegue al body, y al scrollear
+       el body el wrapper se va para arriba y el contenido pasa por detrás
+       del navbar fijo. Forzamos overflow:auto en móvil para que el scroll
+       viva adentro del contenedor y el body se quede quieto. */
+    .industrial-wrapper--fullscreen .vm-shell__main {
+        overflow: auto;
     }
 }
