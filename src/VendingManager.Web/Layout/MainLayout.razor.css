@@ -114,14 +114,27 @@ main {
        para no afectar las otras 10 rutas fullscreen (Caja, InformeVentas, etc.)
        que dependen del scroll interno.
 
-       El scroller real es <main> (definido en app.css:90 con overflow-y:auto),
-       NO .vm-shell__main. Hay que neutralizar <main> para que el body tome el
-       control del scroll. */
+       El problema raíz no es solo el overflow: es la cadena de flexbox.
+       En desktop el wrapper es display:flex con flex:1 + min-height:0 en
+       <main> y .vm-shell (este último con overflow:hidden). Con esa cadena,
+       los flex items colapsan a 0 de alto cuando el padre es height:auto,
+       el contenido se clipea dentro de .vm-shell, y el body se queda en
+       100dvh sin scrollear. Safari no puede auto-esconder la barra porque
+       el body no scrollea.
+
+       Fix mobile: pasar la cadena entera a block normal, sin flex. El body
+       crece con el contenido y Safari esconde la barra. */
+    .industrial-wrapper--fullscreen:has(.vm-shell__left) {
+        display: block;
+    }
     .industrial-wrapper--fullscreen:has(.vm-shell__left) > main {
+        display: block;
+        flex: none;
         overflow-y: visible;
     }
-
-    .industrial-wrapper--fullscreen:has(.vm-shell__left) .vm-shell__main {
+    .industrial-wrapper--fullscreen:has(.vm-shell__left) .vm-shell {
+        display: block;
+        flex: none;
         overflow: visible;
     }
 }
