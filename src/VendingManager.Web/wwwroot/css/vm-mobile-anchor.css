@@ -52,8 +52,13 @@
     /* Home page only: el body debe scrollear para que Safari auto-esconda
        la barra inferior. min-height en vez de height permite que el wrapper
        crezca con el contenido. padding-top reserva el espacio del navbar
-       fijo (position:fixed en mobile, ver VmNavbar.razor). */
-    .industrial-wrapper--fullscreen:has(.vm-shell__left) {
+       fijo (position:fixed en mobile, ver VmNavbar.razor).
+
+       Specificidad (0,0,3,0) — chained class .industrial-wrapper eleva
+       la specificity para ganarle a la regla base en MainLayout.razor.css:14
+       (0,0,2,0 scoped). Sin esto, las props quedaban en empate y el browser
+       no aplicaba los overrides consistentemente. */
+    .industrial-wrapper.industrial-wrapper--fullscreen:has(.vm-shell__left) {
         height: auto;
         min-height: 100dvh;
         overflow: visible;
