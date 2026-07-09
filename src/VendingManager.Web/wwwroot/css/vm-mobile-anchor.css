@@ -46,13 +46,15 @@
         height: 100dvh;
     }
 
-    /* fullscreen variant — same fallback chain.
-       Chained class selector eleva especificidad a 0,0,2,0 para ganarle
-       a la regla en MainLayout.razor.css:15 (0,0,1,0). */
-    .industrial-wrapper--fullscreen.industrial-wrapper--fullscreen {
-        height: 100vh;
-        height: -webkit-fill-available;
-        height: 100dvh;
+    /* Home page only: el body debe scrollear para que Safari auto-esconda
+       la barra inferior. min-height en vez de height permite que el wrapper
+       crezca con el contenido. padding-top reserva el espacio del navbar
+       fijo (position:fixed en mobile, ver VmNavbar.razor). */
+    .industrial-wrapper--fullscreen:has(.vm-shell__left) {
+        height: auto;
+        min-height: 100dvh;
+        overflow: visible;
+        padding-top: calc(72px + env(safe-area-inset-top, 0px));
     }
 }
 
