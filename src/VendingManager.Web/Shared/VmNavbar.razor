@@ -122,7 +122,7 @@
 }
 
 <!-- Barra superior -->
-<div style="flex-shrink:0;background:var(--paper-0);
+<div class="vm-navbar" style="flex-shrink:0;background:var(--paper-0);
             border-bottom:2px solid var(--ink-900);
             position:relative;z-index:var(--z-nav);
             @(Collapsed ? "display:none;" : "")">
@@ -477,6 +477,15 @@
 
         .vm-mobile-drawer {
             display: block;
+        }
+
+        /* En móvil la barra se mantiene fija arriba para que no se vaya
+           con el scroll y tape la URL bar / status bar de iOS. */
+        .vm-navbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
         }
     }
 </style>
