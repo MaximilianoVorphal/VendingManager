@@ -128,34 +128,36 @@
                     <span>INGRESO DE DATOS_</span>
                 </h5>
 
-                <div class="mb-2">
-                    <VmCard BodyStyle="padding:0.75rem 1rem;background:var(--bg-surface-inset);">
-                        <div class="d-flex align-items-center mb-3">
-                            <div class="bg-dark text-white fw-bold px-2 py-1 me-2">01</div>
-                            <label class="fw-bold text-uppercase text-dark mb-0">REPORTE OURVEND (.XLS)</label>
-                        </div>
-                        <p class="small text-muted mb-2 font-monospace">Archivo fuente: "Give-out record"</p>
+                <div class="row g-2">
+                    <div class="col-6">
+                        <VmCard BodyStyle="padding:0.75rem 1rem;background:var(--bg-surface-inset);">
+                            <div class="d-flex align-items-center mb-3">
+                                <div class="bg-dark text-white fw-bold px-2 py-1 me-2">01</div>
+                                <label class="fw-bold text-uppercase text-dark mb-0">REPORTE OURVEND (.XLS)</label>
+                            </div>
+                            <p class="small text-muted mb-2 font-monospace">Archivo fuente: "Give-out record"</p>
 
-                        <div class="input-group">
-                            <InputFile @key="InputKey" OnChange="SubirArchivoMaquina"
-                                       class="form-control form-control-sm border-dark rounded-0" accept=".xls,.xlsx" />
-                        </div>
-                    </VmCard>
-                </div>
+                            <div class="input-group">
+                                <InputFile @key="InputKey" OnChange="SubirArchivoMaquina"
+                                           class="form-control form-control-sm border-dark rounded-0" accept=".xls,.xlsx" />
+                            </div>
+                        </VmCard>
+                    </div>
 
-                <div class="mb-2">
-                    <VmCard BodyStyle="padding:0.75rem 1rem;background:var(--bg-surface-inset);">
-                        <div class="d-flex align-items-center mb-3">
-                            <div class="bg-dark text-white fw-bold px-2 py-1 me-2">02</div>
-                            <label class="fw-bold text-uppercase text-dark mb-0">CARTOLA TRANSBANK (.XLS/.CSV)</label>
-                        </div>
-                        <p class="small text-muted mb-2 font-monospace">Archivo fuente: "Transbank/Banco"</p>
+                    <div class="col-6">
+                        <VmCard BodyStyle="padding:0.75rem 1rem;background:var(--bg-surface-inset);">
+                            <div class="d-flex align-items-center mb-3">
+                                <div class="bg-dark text-white fw-bold px-2 py-1 me-2">02</div>
+                                <label class="fw-bold text-uppercase text-dark mb-0">CARTOLA TRANSBANK (.XLS/.CSV)</label>
+                            </div>
+                            <p class="small text-muted mb-2 font-monospace">Archivo fuente: "Transbank/Banco"</p>
 
-                        <div class="input-group">
-                            <InputFile @key="InputKey" OnChange="SubirArchivoTransbank"
-                                       class="form-control form-control-sm border-dark rounded-0" accept=".xls,.xlsx,.csv" />
-                        </div>
-                    </VmCard>
+                            <div class="input-group">
+                                <InputFile @key="InputKey" OnChange="SubirArchivoTransbank"
+                                           class="form-control form-control-sm border-dark rounded-0" accept=".xls,.xlsx,.csv" />
+                            </div>
+                        </VmCard>
+                    </div>
                 </div>
 
                 @if (!string.IsNullOrEmpty(Mensaje))
