@@ -552,7 +552,7 @@
                                     </span>
                                     <button class="rm-floor__fill-btn"
                                             aria-label="Llenar piso"
-                                            @onclick="() => { _hasChanges = true; foreach(var s in floorSlots) { s.CantidadInicial = s.CapacidadSlot; } StateHasChanged(); }">
+                                            @onclick="() => { _hasChanges = true; foreach(var s in floorSlots) { s.CantidadInicial = s.CapacidadSlot; } _slots = new List<SnapshotSlotDto>(_slots); StateHasChanged(); }">
                                         <i class="bi bi-arrow-bar-up"></i> Llenar
                                     </button>
                                 </div>
@@ -562,6 +562,7 @@
                                         var isEmpty = slot.ProductoId == null || slot.ProductoId == 0;
                                         var slotPct = slot.CapacidadSlot > 0 ? (slot.CantidadInicial * 100 / slot.CapacidadSlot) : 0;
                                         <div class="rm-slot @(isEmpty ? "rm-slot-empty" : "") @(_editingSlot == slot ? "rm-slot-sel" : "")"
+                                             @key="slot.Id"
                                              @onclick="() => OnSlotEdit(slot)">
                                             @* Fill bar *@
                                             <span class="rm-slot-fill" style="width:@(slotPct)%"></span>

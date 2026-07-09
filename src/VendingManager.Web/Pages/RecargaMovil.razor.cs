@@ -636,6 +636,7 @@ public partial class RecargaMovil : ComponentBase, IDisposable
         {
             _editingSlotIndex = _slots.IndexOf(slot);
         }
+        _slots = new List<SnapshotSlotDto>(_slots);
         StateHasChanged();
     }
 
@@ -1016,6 +1017,7 @@ public partial class RecargaMovil : ComponentBase, IDisposable
         if (_editingSlotIndex <= 0) return;
         _editingSlotIndex--;
         _editingSlot = _slots[_editingSlotIndex];
+        _slots = new List<SnapshotSlotDto>(_slots);
         StateHasChanged();
     }
 
@@ -1024,6 +1026,7 @@ public partial class RecargaMovil : ComponentBase, IDisposable
         if (_editingSlotIndex >= _slots.Count - 1) return;
         _editingSlotIndex++;
         _editingSlot = _slots[_editingSlotIndex];
+        _slots = new List<SnapshotSlotDto>(_slots);
         StateHasChanged();
     }
 
@@ -1034,6 +1037,7 @@ public partial class RecargaMovil : ComponentBase, IDisposable
         _editingSlot.ProductoId = null;
         _editingSlot.ProductoNombre = "";
         _editingSlot.CantidadInicial = 0;
+        _slots = new List<SnapshotSlotDto>(_slots);
         StateHasChanged();
     }
 
