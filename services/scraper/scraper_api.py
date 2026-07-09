@@ -123,8 +123,7 @@ async def get_machines_status():
                     "machine_id": m["MId"],
                     "name": m.get("MiAlias", m["MId"]),
                     "status": (
-                        "online" if m.get("MiNoline", 0) >= 3 else
-                        "warning" if m.get("MiNoline", 0) in (1, 2) else
+                        "online" if m.get("MiNoline", 0) >= 1 else
                         "offline"
                     ),
                     "noline": m.get("MiNoline", 0),
