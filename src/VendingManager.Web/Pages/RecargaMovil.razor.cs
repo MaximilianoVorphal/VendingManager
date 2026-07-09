@@ -320,7 +320,7 @@ public partial class RecargaMovil : ComponentBase, IDisposable
             response.EnsureSuccessStatusCode();
 
             await LoadTemplateAsync(templateId);
-            GoToList();
+            await GoToList();
         }
         catch (OperationCanceledException) { }
         catch (Exception ex)
@@ -468,17 +468,18 @@ public partial class RecargaMovil : ComponentBase, IDisposable
     // NAVIGATION
     // =====================================================================
 
-    private void GoToList()
+    private async Task GoToList()
     {
         _view = View.List;
         _activeTemplate = null;
         _machines = new();
         _editingMachine = null;
         _slots = new();
-        // Do NOT clear _error — caller may have set it (e.g. post-upload LoadTemplatesAsync failure)
         _productSheetVisible = false;
         _slotDockVisible = false;
-        StateHasChanged();
+
+        // Reload templates so the list reflects any changes made
+        await LoadTemplatesAsync();
     }
 
     private void GoToOverview(TemplateRecargaDto template)
@@ -701,17 +702,8 @@ public partial class RecargaMovil : ComponentBase, IDisposable
 
                 ShowToast("Carga finalizada", "bi-check2-circle");
 
-                // Navigate to Lista — keep any error from LoadTemplatesAsync if it fails
-                try
-                {
-                    await LoadTemplatesAsync();
-                }
-                catch
-                {
-                    // _error is already set by LoadTemplatesAsync — let it stay
-                    Logger.LogWarning("Post-upload LoadTemplatesAsync failed, showing Lista with error");
-                }
-                GoToList();
+                // Navigate to Lista — GoToList reloads templates
+                await GoToList();
             }
             else
             {
@@ -840,7 +832,7 @@ public partial class RecargaMovil : ComponentBase, IDisposable
                     }
                     else
                     {
-                        GoToList();
+                        await GoToList();
                     }
                 }
             }
