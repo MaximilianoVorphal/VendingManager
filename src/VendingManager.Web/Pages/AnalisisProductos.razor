@@ -4,6 +4,7 @@
 @inject Microsoft.Extensions.Logging.ILogger<AnalisisProductos> Logger
 @using System.Globalization
 @using VendingManager.Shared.DTOs
+@using VendingManager.Web.Components.Mobile
 
 @* =============================================================================
    Análisis de Productos — port fiel de templates/analisis-productos/AnalisisProductos.dc.html
@@ -41,6 +42,8 @@
         outline: none; box-shadow: inset 0 0 0 2px var(--ink-900);
     }
 </style>
+
+<MobileShell>
 
 <div class="ap-page" style="flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden;padding:0.95rem 1.4rem 1.1rem;">
 
@@ -147,7 +150,7 @@
             }
             else
             {
-                <table class="ap-tbl" style="width:100%;border-collapse:collapse;">
+                <table class="ap-tbl vm-accordion-table" style="width:100%;border-collapse:collapse;">
                     <thead style="position:sticky;top:0;z-index:2;">
                         <tr style="background:var(--ink-700);color:#fff;font-family:var(--font-mono);text-transform:uppercase;font-size:0.62rem;letter-spacing:0.5px;">
                             <th class="ap-th ap-sortable" @onclick='() => SortBy("prod")' style="text-align:left;padding:8px 12px;font-weight:700;background:var(--ink-700);">Producto@(Caret("prod"))</th>
@@ -220,6 +223,8 @@
         </div>
     </section>
 </div>
+
+</MobileShell>
 
 @code {
     // ── Estado de filtros ─────────────────────────────────────────────────────
