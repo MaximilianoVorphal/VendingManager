@@ -1430,7 +1430,8 @@
         try
         {
             var width = await JS.InvokeAsync<int>("eval", "window.innerWidth");
-            return width < 760;
+            // width 0 = JS unavailable (test/SSR context); default to desktop
+            return width > 0 && width < 760;
         }
         catch
         {
