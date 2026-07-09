@@ -200,10 +200,6 @@
                 {
                     <VmButton Variant="outline" Bar="true" Width="160px" Icon="bi-cloud-arrow-down" OnClick="Sincronizar">Sincronizar</VmButton>
                 }
-                <label style="display:flex;align-items:center;gap:4px;font-family:var(--font-mono);font-size:0.58rem;text-transform:uppercase;letter-spacing:0.4px;color:var(--text-muted);cursor:pointer;user-select:none;" title="Viejo: Playwright (~6 min) | Nuevo: API directa (~3 seg)">
-                    <input type="checkbox" @bind="_useApiSync" style="accent-color:var(--signal-success);cursor:pointer;" disabled="@_syncing" />
-                    API
-                </label>
             </div>
             <span class="iv-header-divider" style="width:1px;height:30px;background:var(--line-300);"></span>
             @if (_exporting)
@@ -476,7 +472,6 @@
     private OpRow? _detail;
     private bool _syncing = false;
     private bool _exporting = false;
-    private bool _useApiSync = false;
     private DateTime? _lastSyncAt;
     private string LastSyncLabel => _lastSyncAt is null ? "nunca" : TimeAgoHelper.Format(_lastSyncAt.Value, DateTime.Now);
     private string? _error;
@@ -833,9 +828,7 @@
         try
         {
             var fechaParam = fechaLimite.ToString("yyyy-MM-ddTHH:mm:ss");
-            var endpoint = _useApiSync
-                ? $"api/Ventas/sync-portal-api?maquinaId=0&fechaLimite={fechaParam}"
-                : $"api/Ventas/sync-portal?maquinaId=0&fechaLimite={fechaParam}";
+            var endpoint = $"api/Ventas/sync-portal-api?maquinaId=0&fechaLimite={fechaParam}";
             var response = await Http.PostAsync(endpoint, null, ct);
             if (response.IsSuccessStatusCode)
             {
