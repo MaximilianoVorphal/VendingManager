@@ -150,8 +150,8 @@ def get_quick_stats(session: requests.Session) -> dict:
 STATUS_MAP = {
     4: ("🟢 ONLINE", "online"),
     3: ("🟢 ONLINE", "online"),
-    2: ("🟡 WARNING", "warning"),
-    1: ("🟡 WARNING", "warning"),
+    2: ("🟢 ONLINE", "online"),
+    1: ("🟢 ONLINE", "online"),
     0: ("🔴 OFFLINE", "offline"),
 }
 
@@ -220,7 +220,7 @@ def main():
     if args.machine:
         machines = [m for m in machines if m["MId"] == args.machine]
     if args.online:
-        machines = [m for m in machines if m["MiNoline"] >= 3]
+        machines = [m for m in machines if m["MiNoline"] >= 1]
     if args.warning:
         machines = [m for m in machines if m["MiNoline"] in (1, 2)]
     if args.offline:
