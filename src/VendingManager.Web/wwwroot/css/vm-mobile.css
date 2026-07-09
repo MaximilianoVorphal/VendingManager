@@ -1,0 +1,158 @@
+/* =========================================================================
+   VendingManager — Mobile CSS Layer
+   Activates below 520px viewport. Desktop is untouched.
+   Loading order: Bootstrap → app.css → vendingmanager.css → vm-mobile.css
+   ========================================================================= */
+
+/* ------------------------------------------------
+   0.1 — Design Tokens
+   ------------------------------------------------ */
+:root {
+    --vm-hit-min: 44px;
+    --vm-view-max: 520px;
+}
+
+/* ------------------------------------------------
+   0.2 — Safe-Area-Inset Utilities
+   ------------------------------------------------ */
+.vm-safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+}
+
+.vm-safe-top {
+    padding-top: env(safe-area-inset-top);
+}
+
+/* ------------------------------------------------
+   0.3–0.4 — Mobile Breakpoint & Responsive Utilities
+   ------------------------------------------------ */
+@media (max-width: 520px) {
+    /* 0.3 — iOS zoom prevention */
+    input, select, textarea {
+        font-size: max(16px, 1em);
+    }
+
+    /* 0.4 — Responsive utilities */
+    .vm-hide-mobile {
+        display: none !important;
+    }
+
+    .vm-full-width {
+        width: 100% !important;
+    }
+
+    .vm-stack {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 0.5rem;
+    }
+}
+
+/* ------------------------------------------------
+   1.1–1.5 — Accordion Table (CSS-only, no JS)
+   ------------------------------------------------ */
+@media (max-width: 520px) {
+    /* 1.1 — Base accordion table: reset table display */
+    .vm-accordion-table,
+    .vm-accordion-table thead,
+    .vm-accordion-table tbody,
+    .vm-accordion-table th,
+    .vm-accordion-table td,
+    .vm-accordion-table tr {
+        display: block;
+    }
+
+    /* Hide <thead> on mobile — card headers replace column headers */
+    .vm-accordion-table thead {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+    }
+
+    /* 1.2 — Row → card */
+    .vm-accordion-table tbody tr {
+        border: 2px solid var(--industrial-black, #000);
+        margin-bottom: 0.75rem;
+        padding: 0;
+        background-color: var(--industrial-white, #fff);
+        box-shadow: 2px 2px 0px rgba(0, 0, 0, 0.1);
+    }
+
+    /* 1.2 — First <td> → summary header (≥44px tap target) */
+    .vm-accordion-table tbody tr > td:first-child {
+        min-height: var(--vm-hit-min);
+        display: flex;
+        align-items: center;
+        padding: 0.5rem 0.75rem;
+        font-weight: bold;
+        cursor: pointer;
+        user-select: none;
+        background-color: var(--industrial-gray-100, #f4f4f4);
+        border-bottom: 1px solid var(--industrial-gray-200, #e0e0e0);
+    }
+
+    /* 1.3 — CSS-only expand/collapse via <details>/<summary> */
+    .vm-accordion-table tbody tr > td:first-child > details {
+        width: 100%;
+    }
+
+    .vm-accordion-table tbody tr > td:first-child > details > summary {
+        display: flex;
+        align-items: center;
+        min-height: var(--vm-hit-min);
+        padding: 0.5rem 0;
+        cursor: pointer;
+        list-style: none;
+        font-weight: bold;
+    }
+
+    /* Remove default marker */
+    .vm-accordion-table tbody tr > td:first-child > details > summary::-webkit-details-marker {
+        display: none;
+    }
+
+    .vm-accordion-table tbody tr > td:first-child > details > summary::marker {
+        content: "";
+    }
+
+    /* Detail cells (after the summary) */
+    .vm-accordion-table tbody tr > td:not(:first-child) {
+        padding: 0.4rem 0.75rem;
+        border-bottom: 1px solid var(--industrial-gray-200, #e0e0e0);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        min-height: var(--vm-hit-min);
+    }
+
+    .vm-accordion-table tbody tr > td:last-child {
+        border-bottom: none;
+    }
+
+    /* 1.4 — Stacked-card fallback for >5 columns */
+    .vm-accordion-table.vm-stacked-card tbody tr > td:not(:first-child) {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.15rem;
+    }
+
+    .vm-accordion-table.vm-stacked-card tbody tr > td:not(:first-child)::before {
+        content: attr(data-label);
+        font-weight: bold;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        color: var(--industrial-gray-500, #888);
+    }
+
+    /* 1.5 — Touch target compliance for interactive elements inside accordion */
+    .vm-accordion-table a,
+    .vm-accordion-table button,
+    .vm-accordion-table input,
+    .vm-accordion-table select,
+    .vm-accordion-table textarea {
+        min-height: var(--vm-hit-min);
+        min-width: var(--vm-hit-min);
+    }
+}
