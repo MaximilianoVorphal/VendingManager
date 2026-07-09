@@ -205,7 +205,7 @@ public class SalesAnalyticsService : ISalesAnalyticsService
                 decimal costo = v.CostoVenta;
                 if (costo == 0 && v.Producto != null) costo = v.Producto.CostoPromedio;
 
-                decimal ganancia = v.PrecioVenta - costo;
+                decimal ganancia = v.Pagado ? v.PrecioVenta - costo : 0;
 
                 var detalleDto = new DetalleVentaDto
                 {
