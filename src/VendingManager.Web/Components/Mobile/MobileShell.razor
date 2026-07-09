@@ -1,0 +1,12 @@
+@* MobileShell — opt-in mobile wrapper for pages.
+   Wraps content in a <div class="vm-mobile-shell"> container.
+   Desktop rendering is unaffected — all mobile CSS is inside @media (max-width: 520px). *@
+
+<div class="vm-mobile-shell">
+    @ChildContent
+</div>
+
+@code {
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+}
