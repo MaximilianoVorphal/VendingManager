@@ -589,6 +589,35 @@ public partial class RecargaMovil : ComponentBase, IDisposable
         await RemoveMachineAsync(_activeTemplate.Id, machine.Id);
     }
 
+    private async Task DeleteTemplateAsync(int templateId)
+    {
+        var confirmed = await JS.InvokeAsync<bool>("confirm", "¿Eliminar esta carga?");
+        if (!confirmed) return;
+
+        _loading = true;
+        _error = null;
+        StateHasChanged();
+
+        try
+        {
+            var response = await Http.DeleteAsync($"/api/TemplateRecarga/{templateId}", _cts.Token);
+            response.EnsureSuccessStatusCode();
+            await GoToList();
+            ShowToast("Carga eliminada");
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to delete template {TemplateId}", templateId);
+            _error = "Error al eliminar la carga";
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
     private void OnMachineCardClick(PeriodoRecargaDto machine)
     {
         GoToEditSlots(machine);

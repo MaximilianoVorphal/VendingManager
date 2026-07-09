@@ -304,6 +304,11 @@
                 <button class="rm-cta rm-cta--dashed" @onclick="() => GoToPickMachineAsync()">
                     <i class="bi bi-plus-lg"></i> Cargar máquina
                 </button>
+                <button class="rm-cta rm-cta--danger-dashed"
+                        style="margin-top:10px;"
+                        @onclick="() => DeleteTemplateAsync(_activeTemplate!.Id)">
+                    <i class="bi bi-trash"></i> Eliminar carga
+                </button>
             }
             else
             {
