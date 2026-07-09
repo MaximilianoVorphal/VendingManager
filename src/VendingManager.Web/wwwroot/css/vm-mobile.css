@@ -13,15 +13,20 @@
 }
 
 /* ------------------------------------------------
-   0.2 — Shell transparency (desktop + mobile)
-   .vm-mobile-shell is a layout passthrough — it does NOT
-   add a box to the layout tree. This preserves the flex
-   height chain from MainLayout → page content that pages
-   like InformeVentas, TemplatesRecarga and others rely on
-   for internal scrolling (flex: 1 containers).
+   0.2 — Shell flex chain (desktop + mobile)
+   .vm-mobile-shell is part of the MainLayout flex height
+   chain. Pages like InformeVentas and TemplatesRecarga
+   rely on flex:1 containers with internal scrolling.
+   This wrapper must pass the height constraint through
+   to its children without breaking the chain.
+   When the parent is NOT a flex container, flex:1 is
+   ignored and the shell behaves as a normal block.
    ------------------------------------------------ */
 .vm-mobile-shell {
-    display: contents;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    flex: 1;
 }
 
 /* ------------------------------------------------
