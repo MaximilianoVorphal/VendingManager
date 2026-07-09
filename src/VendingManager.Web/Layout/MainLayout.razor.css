@@ -73,11 +73,16 @@ main {
    Mobile-only: el navbar pasa a position:fixed en
    móvil (ver VmNavbar.razor). Reservamos espacio arriba
    en el wrapper para que el contenido no quede tapado
-   por la barra fija. Desktop intacto.
+   por la barra fija, y abajo para que el último bloque
+   no quede pegado al borde del viewport. Desktop intacto.
    ------------------------------------------------ */
 @@media (max-width: 760px) {
     .industrial-wrapper {
         box-sizing: border-box;
-        padding-top: 72px; /* alto aprox. del navbar móvil (botón 38px + padding 12+12 + border 2 + margen) */
+        padding-top: 72px; /* alto aprox. del navbar móvil (hamburger 45px + padding 12+12 + border 2) */
+    }
+
+    .vm-shell__main {
+        padding-bottom: 1rem;
     }
 }

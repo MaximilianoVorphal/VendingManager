@@ -124,7 +124,7 @@
 <!-- Barra superior -->
 <div class="vm-navbar" style="flex-shrink:0;background:var(--paper-0);
             border-bottom:2px solid var(--ink-900);
-            position:relative;z-index:var(--z-nav);
+            z-index:var(--z-nav);
             @(Collapsed ? "display:none;" : "")">
     <div style="display:flex;justify-content:space-between;align-items:center;
                 gap:16px;padding:12px 24px;">
@@ -435,6 +435,12 @@
 </div>
 
 <style>
+    /* Base: position la define la CSS para que el @media móvil pueda
+       override sin que un inline style le gane por specificity. */
+    .vm-navbar {
+        position: relative;
+    }
+
     .vm-hamburger {
         display: none;
         background: transparent;
