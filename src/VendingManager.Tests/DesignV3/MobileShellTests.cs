@@ -32,7 +32,7 @@ public class MobileShellTests : TestContext
             .AddChildContent("<span>inner</span>"));
 
         var shell = cut.Find(".vm-mobile-shell");
-        shell.QuerySelector("span").TextContent.Should().Be("inner");
+        shell.QuerySelector("span")!.TextContent.Should().Be("inner");
     }
 
     [Fact]
