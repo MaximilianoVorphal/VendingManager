@@ -67,3 +67,17 @@
         padding: 0.3rem 0.35rem;
     }
 }
+
+/* iOS viewport: 100dvh + safe-area for the movements scroll area.
+   The table-responsive div uses this class (was inline style with 100vh). */
+.caja-movements-scroll {
+    overflow-y: auto;
+    max-height: calc(100vh - 520px);
+    max-height: calc(100dvh - 520px);
+}
+
+@@media (max-width: 767.98px) {
+    .caja-movements-scroll {
+        max-height: calc(100dvh - 180px);
+    }
+}
