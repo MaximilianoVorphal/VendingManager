@@ -18,10 +18,13 @@
    ═══════════════════════════════════════════════════════════════════════════ */
 @media (max-width: 767.98px) {
     html {
-        /* Previene que el viewport "rebote" cuando no hay scroll suficiente */
+        /* Anti-bounce via overscroll-behavior (NO height:-webkit-fill-available:
+           eso fija el alto del html y Safari interpreta la página como
+           "no scrolleable hasta el final" → no auto-esconde la barra de URL
+           y limita el scroll al alto del viewport). Dejamos height:auto para
+           que el html crezca con el body y Safari entienda que la página
+           es más alta que el viewport. */
         overscroll-behavior: none;
-        /* -webkit-fill-available es el 100% real en iOS Safari con address bar */
-        height: -webkit-fill-available;
     }
 
     body {
