@@ -460,7 +460,12 @@
         top: 0;
         right: 0;
         width: min(320px, 85vw);
-        height: 100vh;
+        /* 100dvh (not 100vh) so the drawer stops at the home indicator instead
+           of spilling behind it. padding clears the notch top and bottom. */
+        height: 100dvh;
+        padding-top: env(safe-area-inset-top, 0px);
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+        box-sizing: border-box;
         background: var(--paper-0);
         border-left: 2px solid var(--ink-900);
         z-index: var(--z-modal);
@@ -492,6 +497,11 @@
             top: 0;
             left: 0;
             right: 0;
+            /* Push the bar's own content below the notch / status bar.
+               The background fills the inset because padding is inside the
+               background box. Its total height becomes 72px + inset — the
+               wrapper reservation in MainLayout.razor.css must match. */
+            padding-top: env(safe-area-inset-top, 0px);
         }
     }
 </style>
