@@ -85,12 +85,13 @@ main {
     .industrial-wrapper {
         box-sizing: border-box;
         /* 72px = mobile navbar height (hamburger 45px + padding + border).
-           max() ensures the notch on iPhones with a Dynamic Island doesn't
-           clip the navbar. On non-notch devices, env() returns 0px so it's
-           effectively just 72px.
+           The fixed navbar now adds env(safe-area-inset-top) of its own
+           padding, so its real height is 72px + inset — the reservation must
+           SUM both, not max() them. On non-notch devices env() returns 0px,
+           so this collapses back to 72px.
            Bottom safe-area ensures the last block of the page (buttons,
            footer, etc.) doesn't sit behind the iOS home indicator. */
-        padding-top: max(72px, env(safe-area-inset-top, 0px)) !important;
+        padding-top: calc(72px + env(safe-area-inset-top, 0px)) !important;
         padding-bottom: env(safe-area-inset-bottom);
         overflow-x: hidden; /* evita scroll horizontal por drawer fixed/transformed fuera del viewport */
     }
