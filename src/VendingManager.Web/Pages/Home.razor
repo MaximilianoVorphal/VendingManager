@@ -6,8 +6,11 @@
 @using System.Net.Http.Headers
 @using VendingManager.Web.Services
 @using VendingManager.Web.Components.Shared
+@using VendingManager.Web.Components.Mobile
 
 <PageTitle>CENTRO DE COMANDO</PageTitle>
+
+<MobileShell>
 
     <div class="industrial-wrapper container-fluid px-4 mt-3" style="max-width: 1180px;">
 
@@ -458,7 +461,7 @@
                     else
                     {
                         <div class="table-responsive">
-                            <table class="table table-striped table-hover m-0 align-middle" style="font-size: 0.75rem;">
+                            <table class="table table-striped table-hover m-0 align-middle vm-accordion-table" style="font-size: 0.75rem;">
                                 <thead class="bg-light text-dark text-uppercase small font-monospace sticky-top">
                                     <tr>
                                         <th class="px-2" style="width: 60px;">MÁQ.</th>
@@ -497,3 +500,4 @@
         </div>
     </div>
 }
+</MobileShell>

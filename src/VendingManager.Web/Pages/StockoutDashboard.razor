@@ -1,4 +1,5 @@
 @page "/stockout-dashboard"
+@using VendingManager.Web.Components.Mobile
 @attribute [Authorize]
 
 @* =============================================================================
@@ -37,6 +38,7 @@
     }
 </style>
 
+<MobileShell>
 <div class="qs-page" style="flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden;padding:0.7rem 1.3rem 1rem;gap:9px;">
 
     <!-- ===== Header (franja fina full-width) ===== -->
@@ -177,7 +179,7 @@
             </div>
 
             <div style="flex:1;min-height:0;overflow:auto;">
-                <table style="width:100%;border-collapse:collapse;">
+                <table class="vm-accordion-table" style="width:100%;border-collapse:collapse;">
                     <thead style="position:sticky;top:0;z-index:2;">
                         <tr style="background:var(--ink-700);color:#fff;font-family:var(--font-mono);text-transform:uppercase;font-size:0.58rem;letter-spacing:0.5px;">
                             <th class="qs-th" style="text-align:left;padding:7px 10px;font-weight:700;background:var(--ink-700);">Producto</th>
@@ -421,3 +423,4 @@
         </div>
     }
 </div>
+</MobileShell>

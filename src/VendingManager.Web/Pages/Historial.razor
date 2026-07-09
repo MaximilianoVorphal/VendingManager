@@ -1,5 +1,6 @@
 @page "/historial"
 @using VendingManager.Shared.DTOs
+@using VendingManager.Web.Components.Mobile
 @using DiffPlex
 @using DiffPlex.DiffBuilder
 @using DiffPlex.DiffBuilder.Model
@@ -8,6 +9,8 @@
 @inject IJSRuntime JS
 
 <PageTitle>HISTORIAL DE CAMBIOS</PageTitle>
+
+<MobileShell>
 
 <div class="industrial-wrapper container-fluid px-4 mt-4">
     <div class="row align-items-center mb-4 border-bottom border-3 border-dark pb-3">
@@ -40,7 +43,7 @@
             <span class="badge bg-light text-dark">@($"Últimos {HistorialItems.Count} cambios")</span>
         </div>
         <div class="table-responsive">
-            <table class="table table-hover table-bordered border-dark m-0 align-middle">
+            <table class="table table-hover table-bordered border-dark m-0 align-middle vm-accordion-table">
                 <thead class="bg-secondary text-white text-uppercase small font-monospace fw-bold">
                     <tr>
                         <th style="min-width: 120px;">TIMESTAMP</th>
@@ -405,3 +408,4 @@
         };
     }
 }
+</MobileShell>

@@ -2,12 +2,14 @@
 @using Microsoft.AspNetCore.Authorization
 @using VendingManager.Shared.DTOs
 @using VendingManager.Shared.Constants
+@using VendingManager.Web.Components.Mobile
 @attribute [Authorize(Roles = Roles.Admin)]
 @inject HttpClient Http
 @inject IJSRuntime JS
 
 <PageTitle>Gestión de Usuarios</PageTitle>
 
+<MobileShell>
     <div class="industrial-wrapper container-fluid px-4 mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4 border-bottom border-3 border-dark pb-3">
         <h1 class="m-0 fw-bold text-uppercase" style="letter-spacing: -1px;">Gestión de Usuarios</h1>
@@ -23,7 +25,7 @@
 else
 {
     <div class="table-responsive">
-        <table class="table table-striped table-hover table-bordered border-dark">
+        <table class="table table-striped table-hover table-bordered border-dark vm-accordion-table">
             <thead class="bg-secondary text-white text-uppercase">
                 <tr>
                     <th>Usuario</th>
@@ -42,10 +44,10 @@ else
                             </span>
                         </td>
                         <td>
-                            <button class="btn btn-sm btn-outline-primary me-2" @onclick="() => ShowEditModal(user)">
+                            <button class="btn btn-sm btn-outline-primary me-2" style="min-height: var(--vm-hit-min); min-width: var(--vm-hit-min);" @onclick="() => ShowEditModal(user)">
                                 <i class="bi bi-pencil"></i> Editar
                             </button>
-                            <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteUser(user)">
+                            <button class="btn btn-sm btn-outline-danger" style="min-height: var(--vm-hit-min); min-width: var(--vm-hit-min);" @onclick="() => DeleteUser(user)">
                                 <i class="bi bi-trash"></i> Eliminar
                             </button>
                         </td>
@@ -56,6 +58,7 @@ else
     </div>
 }
 </div>
+</MobileShell>
 
 <!-- CREATE MODAL -->
 @if (showCreateModal)

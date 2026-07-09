@@ -3,8 +3,11 @@
 @inject IJSRuntime JS
 @inject NavigationManager NavManager
 @using System.Net.Http.Headers
+@using VendingManager.Web.Components.Mobile
 
 <PageTitle>INVENTARIO</PageTitle>
+
+<MobileShell>
 
     <div class="industrial-wrapper container-fluid px-4 mt-4">
 
@@ -59,7 +62,7 @@
             <span>VALOR: $@FilteredProductos.Sum(x => x.StockBodega * x.CostoPromedio).ToString("N0")</span>
         </div>
         <div class="table-responsive">
-            <table class="industrial-table table-hover table-bordered border-dark m-0 align-middle">
+            <table class="industrial-table table-hover table-bordered border-dark m-0 align-middle vm-accordion-table">
                 <thead class="bg-secondary text-white text-uppercase" style="font-size: 0.85rem;">
                     <tr>
                         <th class="industrial-sortable-header" @onclick="@(() => SortBy("Nombre"))">
@@ -647,3 +650,4 @@
         public int StockBodega { get; set; }
     }
 }
+</MobileShell>

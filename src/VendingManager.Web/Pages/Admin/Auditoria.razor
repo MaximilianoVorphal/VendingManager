@@ -2,10 +2,12 @@
 @using Microsoft.AspNetCore.Authorization
 @using VendingManager.Shared.DTOs
 @using VendingManager.Shared.Constants
+@using VendingManager.Web.Components.Mobile
 @attribute [Authorize(Roles = Roles.Admin)]
 @inject HttpClient Http
 
 <PageTitle>Auditoría</PageTitle>
+<MobileShell>
     <div class="industrial-wrapper container-fluid px-4 mt-4">
 
     <div class="row align-items-center mb-4 border-bottom border-3 border-dark pb-3">
@@ -24,7 +26,7 @@
             <input type="text" class="form-control border-dark rounded-0" @bind="filtroAccion" placeholder="Ej: Login" />
         </div>
         <div class="col-md-2 d-flex align-items-end">
-            <button class="btn btn-dark w-100 fw-bold rounded-0" @onclick="CargarLogs">
+            <button class="btn btn-dark w-100 fw-bold rounded-0" style="min-height: var(--vm-hit-min);" @onclick="CargarLogs">
                 <i class="bi bi-search me-2"></i>Filtrar
             </button>
         </div>
@@ -41,7 +43,7 @@ else if (!logs.Any())
 else
 {
     <div class="table-responsive">
-        <table class="table table-striped table-hover table-bordered border-dark">
+        <table class="table table-striped table-hover table-bordered border-dark vm-accordion-table">
             <thead class="bg-secondary text-white text-uppercase">
                 <tr>
                     <th>Fecha</th>
@@ -65,6 +67,7 @@ else
     </div>
 }
 </div>
+</MobileShell>
 
 @code {
     private List<AuditoriaDto>? logs;
