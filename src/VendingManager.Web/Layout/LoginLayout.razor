@@ -1,8 +1,7 @@
 @inherits LayoutComponentBase
 @inject IJSRuntime JSRuntime
 
-<div style="min-height:100vh;display:grid;place-items:center;
-            background:var(--paper-100);padding:1rem;">
+<div class="login-root">
     @Body
 </div>
 
@@ -15,3 +14,21 @@
         }
     }
 }
+
+<style>
+    .login-root {
+        min-height: 100vh;
+        min-height: -webkit-fill-available;
+        min-height: 100dvh;
+        display: grid;
+        place-items: center;
+        background: var(--paper-100);
+        padding: 1rem;
+    }
+
+    @@media (max-width: 767.98px) {
+        .login-root {
+            padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+        }
+    }
+</style>

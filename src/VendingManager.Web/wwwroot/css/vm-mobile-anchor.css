@@ -45,6 +45,15 @@
         height: -webkit-fill-available;
         height: 100dvh;
     }
+
+    /* fullscreen variant — same fallback chain.
+       Chained class selector eleva especificidad a 0,0,2,0 para ganarle
+       a la regla en MainLayout.razor.css:15 (0,0,1,0). */
+    .industrial-wrapper--fullscreen.industrial-wrapper--fullscreen {
+        height: 100vh;
+        height: -webkit-fill-available;
+        height: 100dvh;
+    }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
