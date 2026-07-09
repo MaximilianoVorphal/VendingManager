@@ -1,6 +1,7 @@
 @page "/caja"
 @page "/caja-v2"
 @using System.Globalization
+@using VendingManager.Web.Components.Mobile
 @using System.Net.Http.Headers
 @using Microsoft.AspNetCore.Components.Forms
 @inject HttpClient Http
@@ -35,6 +36,7 @@
     }
 </style>
 
+<MobileShell>
 <div class="caja-page" style="flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden;padding:1.1rem 1.5rem 1.25rem;">
 
     <!-- Header -->
@@ -149,7 +151,7 @@
                                 <span style="font-family:var(--font-sans);font-weight:700;font-size:1.1rem;color:@(grupo.TotalPos ? "var(--signal-success)" : "var(--signal-danger)");">@MoneySigned(grupo.Total)</span>
                             </div>
                         </div>
-                        <table style="width:100%;border-collapse:collapse;">
+                        <table class="vm-accordion-table" style="width:100%;border-collapse:collapse;">
                             <tbody>
                                 @foreach (var m in grupo.Items)
                                 {
@@ -339,7 +341,7 @@
                     <span style="font-family:var(--font-mono);font-size:0.66rem;border:1px solid var(--ink-900);padding:2px 8px;text-transform:uppercase;">@GastosFijos.Count activos</span>
                 </div>
 
-                <table style="width:100%;border-collapse:collapse;">
+                <table class="vm-accordion-table" style="width:100%;border-collapse:collapse;">
                     <thead>
                         <tr style="border-bottom:2px solid var(--ink-900);">
                             <th style="text-align:left;padding:7px 4px;font-family:var(--font-mono);font-weight:700;font-size:0.6rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);">Descripción</th>
@@ -1041,3 +1043,4 @@
         public decimal ValorTotal => ValorBodega + ValorMaquinas;
     }
 }
+</MobileShell>

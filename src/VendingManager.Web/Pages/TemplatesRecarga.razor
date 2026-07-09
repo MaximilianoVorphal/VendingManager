@@ -9,6 +9,7 @@
 @using VendingManager.Web.Layout
 @using VendingManager.Web.Components
 @using VendingManager.Web.Components.Shared
+@using VendingManager.Web.Components.Mobile
 @attribute [Authorize(Roles = Roles.Admin)]
 @inject HttpClient Http
 @inject Microsoft.Extensions.Logging.ILogger<TemplatesRecarga> Logger
@@ -16,6 +17,7 @@
 @inject IJSRuntime JS
 @implements IDisposable
 
+<MobileShell>
 @if (PeriodoEnEdicionVisual == null)
 {
 <div class="rec-list">
@@ -51,7 +53,7 @@
     else if (TemplatesFiltrados != null && TemplatesFiltrados.Any())
     {
         <div class="rec-tablewrap">
-            <table class="rec-table">
+            <table class="rec-table vm-accordion-table">
                 <thead>
                     <tr>
                         <th>Estado</th>
@@ -730,6 +732,7 @@
         </div>
     </div>
 }
+</MobileShell>
 
 @code {
     [CascadingParameter] public MainLayout? Layout { get; set; }

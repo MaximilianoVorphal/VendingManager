@@ -1,9 +1,12 @@
 @page "/inventario/ean"
 @using VendingManager.Shared.DTOs
+@using VendingManager.Web.Components.Mobile
 @inject HttpClient Http
 @inject NavigationManager Navigation
 
 <PageTitle>CATÁLOGO EAN</PageTitle>
+
+<MobileShell>
 
 <div class="industrial-wrapper container-fluid px-4 mt-4">
     <div class="row align-items-center mb-4 border-bottom border-3 border-dark pb-3 g-3">
@@ -66,7 +69,7 @@
                 <span class="badge bg-light text-dark">@Eans.Count REGISTROS</span>
             </div>
             <div class="table-responsive">
-                <table class="table table-hover table-bordered border-dark m-0 align-middle">
+                <table class="table table-hover table-bordered border-dark m-0 align-middle vm-accordion-table">
                     <thead class="bg-secondary text-white text-uppercase small font-monospace fw-bold">
                         <tr>
                             <th>EAN</th>
@@ -432,3 +435,4 @@
         }
     }
 }
+</MobileShell>

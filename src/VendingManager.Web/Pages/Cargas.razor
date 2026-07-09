@@ -1,9 +1,11 @@
 @page "/cargas"
 @using System.Text.Json.Serialization
 @using Microsoft.AspNetCore.Components
+@using VendingManager.Web.Components.Mobile
 
 <PageTitle>GESTIÓN DE CARGAS</PageTitle>
 
+<MobileShell>
     <div class="industrial-wrapper container-fluid px-4 mt-4">
       <div class="row align-items-center mb-4 border-bottom border-3 border-dark pb-3">
         <div class="col-md-6">
@@ -127,7 +129,7 @@
                          else
                          {
                              <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
-                                 <table class="table table-hover table-striped m-0 align-middle small">
+                                 <table class="table table-hover table-striped m-0 align-middle small vm-accordion-table">
                                     <thead class="bg-light sticky-top">
                                         <tr class="text-uppercase">
                                             <th class="text-center">Slot</th>
@@ -230,6 +232,7 @@
         </div>
     }
 </div>
+</MobileShell>
 
 <!-- MODAL CREAR MANUAL -->
 @if (MostrarModalManual)
@@ -325,7 +328,7 @@
                         </div>
                     }
                     <div class="table-responsive">
-                        <table class="table table-striped m-0 align-middle">
+                        <table class="table table-striped m-0 align-middle vm-accordion-table">
                             <thead class="bg-light small text-uppercase">
                                 <tr>
                                     @if(OrdenSeleccionada != null && (OrdenSeleccionada.MaquinaId == null || OrdenSeleccionada.MaquinaId == 0))

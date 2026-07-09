@@ -1,11 +1,14 @@
 ﻿@page "/maquinas"
 @using Microsoft.AspNetCore.Authorization
 @using VendingManager.Shared.Constants
+@using VendingManager.Web.Components.Mobile
 @attribute [Authorize(Roles = Roles.Admin)]
 @inject HttpClient Http
 @inject IJSRuntime JS
 
 <PageTitle>GESTIÓN DE UNIDADES</PageTitle>
+
+<MobileShell>
 
     <div class="industrial-wrapper container-fluid px-4 mt-4">
     
@@ -51,7 +54,7 @@
             
             <!-- DESKTOP TABLE VIEW -->
             <div class="table-responsive d-none d-md-block">
-                <table class="table table-hover table-bordered border-dark m-0 align-middle">
+                <table class="table table-hover table-bordered border-dark m-0 align-middle vm-accordion-table">
                     <thead class="bg-secondary text-white text-uppercase" style="font-size: 0.85rem;">
                         <tr>
                             <th>NOMBRE REFERENCIA</th>
@@ -336,3 +339,4 @@
         public string CodigoTerminalPos { get; set; } = string.Empty;
     }
 }
+</MobileShell>
