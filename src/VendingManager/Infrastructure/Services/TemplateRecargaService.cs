@@ -62,27 +62,32 @@ public class TemplateRecargaService : ITemplateRecargaService
 
     public async Task<List<TemplateRecargaListItemDto>> GetAllListAsync()
     {
-        return await _context.TemplatesRecarga
+        var templates = await _context.TemplatesRecarga
             .AsNoTracking()
+            .Include(t => t.Periodos)
+                .ThenInclude(p => p.Maquina)
+            .Include(t => t.Periodos)
+                .ThenInclude(p => p.SnapshotSlots)
             .OrderByDescending(t => t.FechaCreacion)
-            .Select(t => new TemplateRecargaListItemDto
-            {
-                Id = t.Id,
-                Nombre = t.Nombre,
-                Descripcion = t.Descripcion,
-                MaquinaNombre = t.Periodos
-                    .OrderBy(p => p.FechaRecarga)
-                    .Select(p => p.Maquina.Nombre)
-                    .FirstOrDefault() ?? "Sin máquina",
-                EsActivo = t.Estado == EstadoTemplate.Terminado,
-                FechaCreacion = t.FechaCreacion,
-                Estado = t.Estado,
-                PeriodoCount = t.Periodos.Count,
-                TotalProducts = t.Periodos
-                    .SelectMany(p => p.SnapshotSlots)
-                    .Count(s => s.ProductoId != null)
-            })
             .ToListAsync();
+
+        return templates.Select(t => new TemplateRecargaListItemDto
+        {
+            Id = t.Id,
+            Nombre = t.Nombre,
+            Descripcion = t.Descripcion,
+            MaquinaNombres = t.Periodos
+                .OrderBy(p => p.FechaRecarga)
+                .Select(p => p.Maquina.Nombre)
+                .ToList(),
+            EsActivo = t.Estado == EstadoTemplate.Terminado,
+            FechaCreacion = t.FechaCreacion,
+            Estado = t.Estado,
+            PeriodoCount = t.Periodos.Count,
+            TotalProducts = t.Periodos
+                .SelectMany(p => p.SnapshotSlots)
+                .Count(s => s.ProductoId != null)
+        }).ToList();
     }
 
     /// <summary>

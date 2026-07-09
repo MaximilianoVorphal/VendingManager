@@ -263,7 +263,10 @@
                         </div>
                         <div class="rm-card__foot">
                             <span class="rm-chip">@template.FechaCreacion.ToString("dd/MM")</span>
-                            <span class="rm-chip">@template.MaquinaNombre</span>
+                            @foreach (var name in template.MaquinaNombres)
+                            {
+                                <span class="rm-chip">@name</span>
+                            }
                         </div>
                     </div>
                 }

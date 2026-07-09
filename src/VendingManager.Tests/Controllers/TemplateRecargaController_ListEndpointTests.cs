@@ -35,7 +35,7 @@ public class TemplateRecargaController_ListEndpointTests
                 Id = 1,
                 Nombre = "Recarga Test",
                 Descripcion = "Test desc",
-                MaquinaNombre = "Máquina 23",
+                MaquinaNombres = new List<string> { "Máquina 23" },
                 EsActivo = true,
                 FechaCreacion = new DateTime(2025, 6, 15),
                 Estado = EstadoTemplate.Terminado,

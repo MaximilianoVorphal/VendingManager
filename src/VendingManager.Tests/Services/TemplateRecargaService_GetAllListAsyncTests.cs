@@ -89,7 +89,7 @@ public class TemplateRecargaService_GetAllListAsyncTests : IDisposable
         item.Estado.Should().Be(EstadoTemplate.Terminado);
         item.EsActivo.Should().BeTrue("template is Terminado");
         item.FechaCreacion.Should().Be(new DateTime(2025, 6, 15));
-        item.MaquinaNombre.Should().Be("Máquina A", "first machine ordered by FechaRecarga");
+        item.MaquinaNombres.Should().BeEquivalentTo(new[] { "Máquina A", "Máquina B" }, "machines ordered by FechaRecarga");
         item.PeriodoCount.Should().Be(2, "template has 2 periods");
         item.TotalProducts.Should().Be(3, "3 slots have ProductoId != null (2 from periodo1 + 1 from periodo2)");
     }
