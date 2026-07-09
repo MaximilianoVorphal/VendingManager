@@ -112,7 +112,15 @@ main {
        la barra de URL inferior. La home es la única ruta fullscreen con
        .vm-shell__left (sidebar del PanelDeControl), por eso usamos :has()
        para no afectar las otras 10 rutas fullscreen (Caja, InformeVentas, etc.)
-       que dependen del scroll interno. */
+       que dependen del scroll interno.
+
+       El scroller real es <main> (definido en app.css:90 con overflow-y:auto),
+       NO .vm-shell__main. Hay que neutralizar <main> para que el body tome el
+       control del scroll. */
+    .industrial-wrapper--fullscreen:has(.vm-shell__left) > main {
+        overflow-y: visible;
+    }
+
     .industrial-wrapper--fullscreen:has(.vm-shell__left) .vm-shell__main {
         overflow: visible;
     }
