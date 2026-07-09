@@ -137,4 +137,13 @@ main {
         flex: none;
         overflow: visible;
     }
+    /* vm-shell__main también necesita el override — la regla base le pone
+       display:flex + overflow:hidden, lo que clipa el contenido y hace que
+       el scroll se "trabe" antes de llegar al final. !important por el
+       mismo motivo de load-order que en vm-mobile-anchor.css. */
+    .industrial-wrapper--fullscreen:has(.vm-shell__left) .vm-shell__main {
+        display: block !important;
+        flex: none !important;
+        overflow: visible !important;
+    }
 }
