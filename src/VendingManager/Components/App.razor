@@ -15,6 +15,12 @@
     <link rel="stylesheet" href="css/app.css" />
     <link rel="stylesheet" href="css/vendingmanager.css" />
     <link rel="stylesheet" href="css/vm-mobile.css" />
+    <!-- ⚠️ ESTE <link> ES EL QUE FALTABA. Sin esto, NINGUNO de los 7 commits
+         anteriores hacía nada en runtime porque el archivo CSS nunca se
+         cargaba en la página. El archivo vm-mobile-anchor.css existe en
+         wwwroot/css/ y se puede acceder por URL, pero el browser solo carga
+         lo que está referenciado en este <head>. -->
+    <link rel="stylesheet" href="css/vm-mobile-anchor.css" />
     <link rel="icon" type="image/png" href="favicon.png" />
     <link href="VendingManager.Web.styles.css" rel="stylesheet" />
     <HeadOutlet @rendermode="new InteractiveWebAssemblyRenderMode(prerender: false)" />
