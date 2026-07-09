@@ -145,5 +145,12 @@ main {
         display: block !important;
         flex: none !important;
         overflow: visible !important;
+        /* El body queda en ~739px y el viewport en 635px — solo 104px de
+           scroll. iOS Safari no auto-esconde la barra de URL con tan poca
+           diferencia. Agregamos 100px de padding-bottom para que el body
+           crezca a ~839px, haya más scroll, y al llegar al fondo los
+           botones "Seleccionar archivo" queden ARRIBA de la barra de URL
+           en vez de tapados por ella. */
+        padding-bottom: 100px !important;
     }
 }
