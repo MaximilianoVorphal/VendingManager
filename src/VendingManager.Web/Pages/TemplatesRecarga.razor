@@ -741,7 +741,7 @@
 
     // Design v3 list/editor state
     private bool SoloPendientes = false;
-    private bool DensidadCompacta = true;
+    private bool DensidadCompacta = false;
     private int ActiveMachineIndex = 0;
 
     // VmSegmented bridge: maps the bool DensidadCompacta to a string key
@@ -1015,11 +1015,13 @@
     private void ToggleGuiaPanel()
     {
         _guiaVisible = !_guiaVisible;
+        DensidadCompacta = _guiaVisible;
     }
 
     private void CerrarGuiaPanel()
     {
         _guiaVisible = false;
+        DensidadCompacta = false;
     }
 
     private async Task HandlePanelFotoUpload(byte[] bytes)
@@ -1031,6 +1033,7 @@
         FotoGuiaData = bytes;
         FotoGuiaUrl = $"data:image/jpeg;base64,{Convert.ToBase64String(bytes)}";
         _guiaVisible = true;
+        DensidadCompacta = true;
         StateHasChanged();
 
         await PersistFotoGuia(bytes);
