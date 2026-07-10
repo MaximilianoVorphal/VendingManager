@@ -435,8 +435,12 @@ namespace VendingManager.Web.Pages
         private string FocusMaqLabel =>
             (Datos ?? new()).FirstOrDefault(d => d.MaquinaId == FocusMaqId)?.MaquinaNombre ?? "—";
 
+        // Solo slots ubicables en el esquema físico: un NumeroSlot vacío no tiene
+        // posición y, si se colara, correría la numeración de las bandejas.
         private List<StockoutAnalysisDto> FocusSlots =>
-            (Datos ?? new()).Where(d => d.MaquinaId == FocusMaqId).ToList();
+            (Datos ?? new())
+                .Where(d => d.MaquinaId == FocusMaqId && !string.IsNullOrWhiteSpace(d.NumeroSlot))
+                .ToList();
 
         // StockInicial desconocido (0) => no podemos inferir capacidad; usamos lo que haya.
         private static int SlotCap(StockoutAnalysisDto d) =>
