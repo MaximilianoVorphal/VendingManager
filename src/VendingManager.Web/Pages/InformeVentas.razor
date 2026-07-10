@@ -96,11 +96,17 @@
             margin-bottom: 8px !important;
         }
         .iv-kpis > div {
+            min-width: 0 !important; /* prevent min-content from forcing the grid wider than 100% */
             padding: 0.5rem 0.6rem !important;
             gap: 0.25rem !important;
         }
+        .iv-kpis > div > div:first-child {
+            flex-wrap: wrap !important; /* allow label + badge row to wrap if narrow */
+            row-gap: 4px !important;
+        }
         .iv-kpis > div > span:nth-child(2) {
             font-size: 1.2rem !important;
+            overflow-wrap: anywhere !important; /* prevent big numbers from pushing the card */
         }
         .iv-kpis > div > small {
             font-size: 0.56rem !important;
@@ -118,10 +124,27 @@
             font-size: 0.56rem !important;
             margin-top: 3px !important;
         }
-        /* Filters strip: tighter on mobile */
+        /* Filters strip: full-width like the header command buttons.
+           Unidad takes 100% (overrides VmSelect 230px min-width);
+           Desde + Hasta share a 50/50 row. */
         .iv-filters {
+            flex-direction: column !important;
+            align-items: stretch !important;
             padding: 6px 0 8px !important;
             gap: 8px !important;
+        }
+        .iv-filters > div {
+            width: 100% !important;
+            min-width: 0 !important;
+        }
+        .iv-filters-dates {
+            display: flex !important;
+            gap: 8px !important;
+            width: 100% !important;
+        }
+        .iv-filters-dates > div {
+            flex: 1 1 0 !important;
+            min-width: 0 !important;
         }
         /* Header actions: stack the three command buttons full-width so
            they fit a 390px viewport. The 160px inline width on VmButton
@@ -222,16 +245,18 @@
 
     <!-- Strip de filtros -->
     <div class="iv-filters" style="flex-shrink:0;display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap;padding:10px 0 12px;">
-        <div style="min-width:230px;">
+        <div>
             <VmSelect Label="Unidad" Value="_unit" Options="UnitOptions" ValueChanged="@((string v) => { _unit = v; _ = OnFilterChanged(); })" />
         </div>
-        <div style="display:flex;flex-direction:column;gap:0.35rem;">
-            <label style="font-family:var(--font-mono);font-size:0.66rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Desde</label>
-            <input type="date" value="@_desde" @onchange="e => { _desde = e.Value?.ToString() ?? _desde; _ = OnFilterChanged(); }" style="font-family:var(--font-mono);font-size:0.8rem;font-weight:700;border:2px solid var(--ink-900);border-radius:0;background:var(--paper-0);padding:0.45rem 0.6rem;outline:none;" />
-        </div>
-        <div style="display:flex;flex-direction:column;gap:0.35rem;">
-            <label style="font-family:var(--font-mono);font-size:0.66rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Hasta</label>
-            <input type="date" value="@_hasta" @onchange="e => { _hasta = e.Value?.ToString() ?? _hasta; _ = OnFilterChanged(); }" style="font-family:var(--font-mono);font-size:0.8rem;font-weight:700;border:2px solid var(--ink-900);border-radius:0;background:var(--paper-0);padding:0.45rem 0.6rem;outline:none;" />
+        <div class="iv-filters-dates" style="display:flex;gap:14px;">
+            <div style="display:flex;flex-direction:column;gap:0.35rem;">
+                <label style="font-family:var(--font-mono);font-size:0.66rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Desde</label>
+                <input type="date" value="@_desde" @onchange="e => { _desde = e.Value?.ToString() ?? _desde; _ = OnFilterChanged(); }" style="font-family:var(--font-mono);font-size:0.8rem;font-weight:700;border:2px solid var(--ink-900);border-radius:0;background:var(--paper-0);padding:0.45rem 0.6rem;outline:none;width:100%;" />
+            </div>
+            <div style="display:flex;flex-direction:column;gap:0.35rem;">
+                <label style="font-family:var(--font-mono);font-size:0.66rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Hasta</label>
+                <input type="date" value="@_hasta" @onchange="e => { _hasta = e.Value?.ToString() ?? _hasta; _ = OnFilterChanged(); }" style="font-family:var(--font-mono);font-size:0.8rem;font-weight:700;border:2px solid var(--ink-900);border-radius:0;background:var(--paper-0);padding:0.45rem 0.6rem;outline:none;width:100%;" />
+            </div>
         </div>
     </div>
 
