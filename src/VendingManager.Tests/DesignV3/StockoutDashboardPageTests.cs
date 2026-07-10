@@ -134,7 +134,7 @@ public class StockoutDashboardPageTests : TestContext
 
         cut.WaitForAssertion(() =>
         {
-            cut.Markup.Should().Contain("Ejecutá el análisis");
+            cut.Markup.Should().Contain("Elegí un template");
         });
         cut.Markup.Should().NotContain("PRODUCTO ENDPOINT TEST");
     }
