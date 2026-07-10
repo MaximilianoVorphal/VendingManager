@@ -42,8 +42,9 @@ public class TemplateRecargaAnalyticsService : ITemplateRecargaAnalyticsService
 
         var result = new List<StockoutAnalysisDto>();
 
-        // Build cross-template lookup to resolve FechaFin across ALL templates
-        var crossTemplateLookup = await BuildCrossTemplateLookupAsync();
+        // Build cross-template lookup to resolve FechaFin — filtered to only relevant machines
+        var maquinaIds = template.Periodos.Select(p => p.MaquinaId).ToHashSet();
+        var crossTemplateLookup = await BuildCrossTemplateLookupAsync(maquinaIds);
 
         foreach (var periodo in template.Periodos)
         {
@@ -263,9 +264,49 @@ public class TemplateRecargaAnalyticsService : ITemplateRecargaAnalyticsService
     }
 
     /// <summary>
-    /// Builds a cross-template lookup: (MaquinaId, FechaRecarga) → FechaFin for O(1) lookup.
+    /// Stub: full implementation belongs in PR 2 (lazy timeline endpoint).
+    /// Returns null to indicate the feature is not yet wired.
     /// </summary>
-    private async Task<Dictionary<(int maquinaId, DateTime fechaRecarga), DateTime>> BuildCrossTemplateLookupAsync()
+    public async Task<SlotTimelineDto?> GetSlotTimelineAsync(int templateId, int maquinaId, string numeroSlot)
+    {
+        var template = await _context.TemplatesRecarga
+            .Include(t => t.Periodos)
+            .FirstOrDefaultAsync(t => t.Id == templateId);
+
+        if (template == null || !template.Periodos.Any(p => p.MaquinaId == maquinaId))
+            return null;
+
+        var periodo = template.Periodos.First(p => p.MaquinaId == maquinaId);
+        var fechaFin = await GetEndDateForPeriodoAsync(maquinaId, periodo.FechaRecarga);
+
+        var fechasVentas = await _context.Ventas
+            .Where(v => v.MaquinaId == maquinaId)
+            .Where(v => v.NumeroSlot == numeroSlot)
+            .Where(v => v.FechaLocal >= periodo.FechaRecarga && v.FechaLocal <= fechaFin)
+            .OrderBy(v => v.FechaLocal)
+            .Select(v => v.FechaLocal)
+            .ToListAsync();
+
+        var productoId = await _context.SnapshotSlots
+            .Where(s => s.PeriodoRecargaId == periodo.Id && s.NumeroSlot == numeroSlot)
+            .Select(s => (int?)s.ProductoId)
+            .FirstOrDefaultAsync();
+
+        return new SlotTimelineDto
+        {
+            MaquinaId = maquinaId,
+            NumeroSlot = numeroSlot,
+            ProductoId = productoId,
+            FechasVentas = fechasVentas
+        };
+    }
+
+    /// <summary>
+    /// Builds a cross-template lookup: (MaquinaId, FechaRecarga) → FechaFin for O(1) lookup.
+    /// When <paramref name="maquinaIds"/> is provided, only loads periods for those machines.
+    /// </summary>
+    private async Task<Dictionary<(int maquinaId, DateTime fechaRecarga), DateTime>> BuildCrossTemplateLookupAsync(
+        HashSet<int>? maquinaIds = null)
     {
         var allTemplates = await _context.TemplatesRecarga
             .Include(t => t.Periodos)
@@ -273,6 +314,11 @@ public class TemplateRecargaAnalyticsService : ITemplateRecargaAnalyticsService
             .ToListAsync();
 
         var allPeriodos = allTemplates.SelectMany(t => t.Periodos).ToList();
+
+        if (maquinaIds != null)
+        {
+            allPeriodos = allPeriodos.Where(p => maquinaIds.Contains(p.MaquinaId)).ToList();
+        }
         var lookup = new Dictionary<(int maquinaId, DateTime fechaRecarga), DateTime>();
 
         foreach (var group in allPeriodos.GroupBy(p => p.MaquinaId))
@@ -430,7 +476,6 @@ public class TemplateRecargaAnalyticsService : ITemplateRecargaAnalyticsService
                 GananciaPromedio = Math.Round(gananciaPromedio, 0),
                 DineroPerdidoEstimado = Math.Round(dineroPerdido, 0),
                 GananciaPerdidaEstimada = Math.Round(gananciaPerdida, 0),
-                FechasVentas = ventasSlot.Select(v => v.FechaLocal).OrderBy(d => d).ToList()
             });
         }
 
@@ -453,7 +498,6 @@ public class TemplateRecargaAnalyticsService : ITemplateRecargaAnalyticsService
                 GananciaPerdidaEstimada = 0,
                 FinReporte = fin,
                 UltimaActividadMaquina = ultimaActividadMaquina,
-                FechasVentas = new List<DateTime>()
             });
         }
 

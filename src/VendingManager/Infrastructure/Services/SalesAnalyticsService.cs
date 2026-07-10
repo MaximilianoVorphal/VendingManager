@@ -669,14 +669,27 @@ public class SalesAnalyticsService : ISalesAnalyticsService
 
             // T12: Agregar Dead Slots — slots configurados que no tuvieron ventas en el período
             var productoIdsConVentas = grupos.Select(g => g.Key.ProductoId!.Value).ToHashSet();
-            foreach (var slot in slotsConfigurados.Where(s => !slotsConVentas.Contains(s.NumeroSlot)))
+            var deadSlots = slotsConfigurados.Where(s => !slotsConVentas.Contains(s.NumeroSlot)).ToList();
+
+            // Batch-load product names for dead slots to avoid N+1 queries (was per-slot FindAsync)
+            var deadSlotProductIds = deadSlots
+                .Where(s => s.ProductoId > 0)
+                .Select(s => s.ProductoId!.Value)
+                .Distinct()
+                .ToList();
+
+            var productNameLookup = deadSlotProductIds.Count > 0
+                ? await _context.Productos
+                    .Where(p => deadSlotProductIds.Contains(p.Id))
+                    .ToDictionaryAsync(p => p.Id, p => p.Nombre)
+                : new Dictionary<int, string>();
+
+            foreach (var slot in deadSlots)
             {
-                // Obtener nombre del producto desde el contexto si existe
                 string productoNombre = "Desconocido";
                 if (slot.ProductoId > 0)
                 {
-                    var prodEntity = await _context.Productos.FindAsync(slot.ProductoId);
-                    productoNombre = prodEntity?.Nombre ?? "Desconocido";
+                    productoNombre = productNameLookup.GetValueOrDefault(slot.ProductoId!.Value, "Desconocido");
                 }
 
                 result.Add(new StockoutAnalysisDto

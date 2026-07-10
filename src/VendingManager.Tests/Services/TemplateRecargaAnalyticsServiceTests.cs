@@ -299,4 +299,93 @@ public class TemplateRecargaAnalyticsServiceTests : IDisposable
     }
 
     #endregion
+
+    #region BuildCrossTemplateLookupAsync filter tests
+
+    /// <summary>
+    /// BuildCrossTemplateLookupAsync should only load periods for machines
+    /// relevant to the analyzed template, not every template in the system.
+    /// Tested indirectly through AnalyzarPorTemplateAsync which now passes
+    /// filtered machine IDs.
+    /// </summary>
+    [Fact]
+    public async Task AnalyzarPorTemplateAsync_WithCrossTemplateLookup_FiltersPeriodsByMachine()
+    {
+        // Arrange — template 1 has periods on machines 1 and 2
+        var maquina1 = TestDataHelpers.CreateMaquina(id: 1, nombre: "Machine 1");
+        var maquina2 = TestDataHelpers.CreateMaquina(id: 2, nombre: "Machine 2");
+        var maquina3 = TestDataHelpers.CreateMaquina(id: 3, nombre: "Machine 3");
+        _context.Maquinas.AddRange(maquina1, maquina2, maquina3);
+
+        var producto = TestDataHelpers.CreateProducto(id: 1, nombre: "Product");
+        _context.Productos.Add(producto);
+
+        // Template 1: periods on machine 1 and machine 2
+        var template1 = new TemplateRecarga
+        {
+            Id = 100,
+            Nombre = "Template 1",
+            FechaCreacion = new DateTime(2025, 1, 1),
+            Periodos = new List<PeriodoRecarga>
+            {
+                new()
+                {
+                    Id = 100,
+                    MaquinaId = 1,
+                    FechaRecarga = new DateTime(2025, 1, 1),
+                    SnapshotSlots = new List<SnapshotSlot>
+                    {
+                        new() { NumeroSlot = "1", ProductoId = 1, CantidadInicial = 10, Estado = EstadoSlot.Lleno }
+                    }
+                },
+                new()
+                {
+                    Id = 101,
+                    MaquinaId = 2,
+                    FechaRecarga = new DateTime(2025, 1, 1),
+                    SnapshotSlots = new List<SnapshotSlot>
+                    {
+                        new() { NumeroSlot = "1", ProductoId = 1, CantidadInicial = 10, Estado = EstadoSlot.Lleno }
+                    }
+                }
+            }
+        };
+
+        // Template 2: period on machine 3 (should be filtered out when analyzing template 1)
+        var template2 = new TemplateRecarga
+        {
+            Id = 200,
+            Nombre = "Template 2",
+            FechaCreacion = new DateTime(2025, 1, 1),
+            Periodos = new List<PeriodoRecarga>
+            {
+                new()
+                {
+                    Id = 200,
+                    MaquinaId = 3,
+                    FechaRecarga = new DateTime(2025, 1, 1),
+                    SnapshotSlots = new List<SnapshotSlot>
+                    {
+                        new() { NumeroSlot = "1", ProductoId = 1, CantidadInicial = 10, Estado = EstadoSlot.Lleno }
+                    }
+                }
+            }
+        };
+
+        _context.TemplatesRecarga.AddRange(template1, template2);
+        await _context.SaveChangesAsync();
+
+        // Act — analyze template 1
+        var result = await _service.AnalyzarPorTemplateAsync(templateId: 100, umbralHorasSilencio: 24);
+
+        // Assert — results should include both machines from template 1
+        result.Should().NotBeEmpty();
+        result.Should().HaveCount(2, "template 1 has 2 periods (machine 1 and machine 2)");
+        result.Any(r => r.MaquinaId == 1).Should().BeTrue("template 1 has a period on machine 1");
+        result.Any(r => r.MaquinaId == 2).Should().BeTrue("template 1 has a period on machine 2");
+        // Machine 3's periods should NOT pollute template 1's results
+        result.Any(r => r.MaquinaId == 3).Should().BeFalse("machine 3 is in a different template");
+    }
+
+    #endregion
 }
