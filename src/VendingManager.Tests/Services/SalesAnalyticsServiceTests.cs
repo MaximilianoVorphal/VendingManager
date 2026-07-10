@@ -151,4 +151,77 @@ public class SalesAnalyticsServiceTests : IDisposable
         // 3 slots have StockActual <= their respective StockMinimo
         result.CantidadStockCritico.Should().Be(3);
     }
+
+    [Fact]
+    public async Task GetStockoutAnalysisAsync_DeadSlots_ResolvesProductNamesViaBatchQuery()
+    {
+        // Arrange — dead slots are slots that have no ventas in the period.
+        // Previously used per-slot FindAsync (N+1); now batch-loads all product names.
+        var maquina = TestDataHelpers.CreateMaquina(id: 1, nombre: "Machine 1");
+        _context.Maquinas.Add(maquina);
+
+        var producto1 = TestDataHelpers.CreateProducto(id: 1, nombre: "Product A");
+        var producto2 = TestDataHelpers.CreateProducto(id: 2, nombre: "Product B");
+        var producto3 = TestDataHelpers.CreateProducto(id: 3, nombre: "Product C");
+        _context.Productos.AddRange(producto1, producto2, producto3);
+
+        // Create slots — these will be dead slots since they have no ventas in period
+        var slot1 = TestDataHelpers.CreateSlot(id: 1, maquinaId: 1, productoId: 1, stockActual: 0, stockMinimo: 2);
+        var slot2 = TestDataHelpers.CreateSlot(id: 2, maquinaId: 1, productoId: 2, stockActual: 3, stockMinimo: 2);
+        var slot3 = TestDataHelpers.CreateSlot(id: 3, maquinaId: 1, productoId: 3, stockActual: 5, stockMinimo: 2);
+        // slot with unknown product ID (no matching Producto in table)
+        var slot4 = TestDataHelpers.CreateSlot(id: 4, maquinaId: 1, productoId: 999, stockActual: 2, stockMinimo: 2);
+        _context.ConfiguracionSlots.AddRange(slot1, slot2, slot3, slot4);
+
+        // Create ventas for a DIFFERENT product (not in dead slots) so the analysis has data
+        var productoVendido = TestDataHelpers.CreateProducto(id: 10, nombre: "Vendido");
+        _context.Productos.Add(productoVendido);
+
+        var now = new DateTime(2025, 6, 15);
+        var venta = TestDataHelpers.CreateVenta(
+            fechaLocal: now.AddDays(-5),
+            precioVenta: 100m,
+            maquinaId: 1,
+            productoId: 10);
+        venta.NumeroSlot = "SLOT-VENDIDO";
+        _context.Ventas.Add(venta);
+
+        // Also add a slot for the sold product so it appears in slotsConfigurados
+        var slotVendido = TestDataHelpers.CreateSlot(id: 5, maquinaId: 1, productoId: 10, stockActual: 10, stockMinimo: 2);
+        slotVendido.NumeroSlot = "SLOT-VENDIDO";
+        _context.ConfiguracionSlots.Add(slotVendido);
+
+        await _context.SaveChangesAsync();
+
+        // Act
+        var inicio = now.AddDays(-30);
+        var fin = now.AddDays(1);
+        var result = await _analyticsService.GetStockoutAnalysisAsync(inicio, fin, maquinaId: 1, umbralHorasSilencio: 24);
+
+        // Assert
+        result.Should().NotBeNull();
+
+        // Find the dead slots in results
+        var deadSlotA = result.FirstOrDefault(r => r.NumeroSlot == "SLOT-1");
+        var deadSlotB = result.FirstOrDefault(r => r.NumeroSlot == "SLOT-2");
+        var deadSlotC = result.FirstOrDefault(r => r.NumeroSlot == "SLOT-3");
+        var deadSlotUnknown = result.FirstOrDefault(r => r.NumeroSlot == "SLOT-4");
+
+        deadSlotA.Should().NotBeNull();
+        deadSlotA!.EsDeadSlot.Should().BeTrue();
+        deadSlotA.ProductoNombre.Should().Be("Product A");
+
+        deadSlotB.Should().NotBeNull();
+        deadSlotB!.EsDeadSlot.Should().BeTrue();
+        deadSlotB.ProductoNombre.Should().Be("Product B");
+
+        deadSlotC.Should().NotBeNull();
+        deadSlotC!.EsDeadSlot.Should().BeTrue();
+        deadSlotC.ProductoNombre.Should().Be("Product C");
+
+        // Unknown product should fall back to "Desconocido"
+        deadSlotUnknown.Should().NotBeNull();
+        deadSlotUnknown!.EsDeadSlot.Should().BeTrue();
+        deadSlotUnknown.ProductoNombre.Should().Be("Desconocido");
+    }
 }
