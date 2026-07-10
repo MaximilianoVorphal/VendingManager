@@ -21,6 +21,7 @@ namespace VendingManager.Core.Interfaces
         /// <summary>
         /// Obtiene reporte de ventas desde Ourvend via API pura (JSON, sin Playwright).
         /// </summary>
-        Task<SalesReportResponse> GetSalesReportAsync(DateTime startDate, DateTime endDate, string machineId = "");
+        Task<SalesReportResponse> GetSalesReportAsync(DateTime startDate, DateTime endDate, string machineId = "",
+            CancellationToken cancellationToken = default);
     }
 }

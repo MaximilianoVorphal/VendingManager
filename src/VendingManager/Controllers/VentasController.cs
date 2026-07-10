@@ -24,7 +24,14 @@ namespace VendingManager.Controllers
         public IActionResult GetLastSync()
         {
             var last = lastSyncTracker.GetLastSync();
-            return Ok(new { lastSync = last });
+            var health = lastSyncTracker.GetHealthStatus();
+            var snapshot = lastSyncTracker.GetBreakerSnapshot();
+            return Ok(new
+            {
+                lastSync = last,
+                healthStatus = health.ToString(),
+                breakerState = snapshot.State.ToString()
+            });
         }
 
         public async Task<IActionResult> SubirVentasMaquina(IFormFile file, [FromQuery] DateTime? fechaLimite = null)

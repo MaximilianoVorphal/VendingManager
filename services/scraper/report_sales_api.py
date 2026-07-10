@@ -15,7 +15,7 @@ Modos:
     python report_sales_api.py --list-json              # query JSON de ventas (rápido)
     python report_sales_api.py --export-excel            # dispara export Excel
     python report_sales_api.py --poll-exports            # lista archivos en ReserveList
-    python report_sales_api.py --full-flow               # flujo completo: query → export → poll
+    python report_sales_api.py --full-flow               # flujo completo: query JSON → export → poll
 
 Uso avanzado:
     python report_sales_api.py --list-json --start "2026-06-01" --end "2026-06-30"
@@ -28,6 +28,8 @@ Environment:
     OURVEND_PASS  — contraseña Ourvend
 """
 
+from __future__ import annotations
+
 import os
 import sys
 import base64
@@ -35,6 +37,7 @@ import argparse
 import json as _json
 import time
 import re
+import asyncio
 from datetime import datetime, timedelta
 from urllib.parse import urljoin
 
@@ -501,6 +504,333 @@ def download_reserve(
 
 
 # ──────────────────────────────────────────────
+# RESPONSE CLASSIFICATION
+# ──────────────────────────────────────────────
+WAF_MARKERS = [
+    "acw_sc", "acw_tc", "aliyungf_tc",
+    "阿里云", "js_challenge", "no-browser",
+]
+
+
+def classify_response(response_data, http_status=None) -> str:
+    """
+    Classify an OurVend ListJson response.
+
+    Accepts either:
+    - A dict from fetch_sales_via_browser (with ``_classified`` / metadata keys)
+    - A raw ListJson response dict (with ``rows`` key)
+    - A string body (with optional ``http_status``) from the legacy requests path
+
+    Returns one of: ``"ok"``, ``"empty"``, ``"blocked"``, ``"error"``, ``"timeout"``.
+    Keeps the legacy ``requests`` path callable — does not modify existing functions.
+    """
+    # ── Case A: Pre-classified result from fetch_sales_via_browser ──
+    if isinstance(response_data, dict) and "_classified" in response_data:
+        return response_data["_classified"]
+
+    # ── Case B: raw ListJson response dict (from fetch or legacy path) ──
+    if isinstance(response_data, dict) and "rows" in response_data:
+        rows = response_data.get("rows", [])
+        return "ok" if rows else "empty"
+
+    # ── Case C: string body (legacy requests path) ──
+    if isinstance(response_data, str):
+        body = response_data.lower()
+
+        # HTTP status–based checks
+        if http_status is not None:
+            if http_status == 429 or http_status == 403:
+                return "blocked"
+            if http_status >= 400:
+                return "error"
+
+        # WAF/aliyun challenge markers
+        for marker in WAF_MARKERS:
+            if marker.lower() in body:
+                return "blocked"
+
+        # Login-page redirect (session expired / blocked)
+        if "account/login" in body or "useraccount" in body or "loginurl" in body:
+            return "blocked"
+
+        return "error"
+
+    # ── Fallback ──
+    return "error"
+
+
+# ──────────────────────────────────────────────
+# BROWSER-BASED FETCH (stealth Playwright)
+# ──────────────────────────────────────────────
+async def fetch_sales_via_browser(
+    start_date: str = DEFAULT_START,
+    end_date: str = DEFAULT_END,
+    machine_id: str = "",
+    group_uuid: str = DEFAULT_GROUP_UUID,
+    rows: int = 2000,
+    debug: bool = False,
+) -> dict:
+    """
+    Login to OurVend via headless Chromium (Playwright + stealth), then fetch
+    ListJson sales data via ``page.evaluate(fetch())`` INSIDE the authenticated
+    browser context — this makes the HTTP request look identical to a real
+    browser (same JA3, same cookies, same headers).
+
+    Returns the raw ListJson response dict (same shape as ``query_sales()``)
+    on success. On failure returns a dict with ``_classified`` and ``_reason``
+    keys that ``classify_response`` understands.
+
+    Raises ``RuntimeError`` if login itself (wrong credentials, WAF login
+    block, etc.) or the Playwright launch fails.
+
+    Environment variables: ``OURVEND_USER``, ``OURVEND_PASS``, ``OURVEND_BASE_URL``.
+    """
+    # Lazy imports — only needed when this function is called
+    from playwright.async_api import async_playwright
+    from playwright_stealth import Stealth
+
+    base = (os.environ.get("OURVEND_BASE_URL") or BASE_URL).rstrip("/")
+    username = os.environ.get("OURVEND_USER")
+    password = os.environ.get("OURVEND_PASS")
+
+    if not username or not password:
+        raise ValueError("OURVEND_USER and OURVEND_PASS must be set")
+
+    if debug:
+        log(f"[browser] Launching stealth Chromium  {start_date}  {end_date} "
+            f"machine={machine_id or 'all'}")
+
+    _stealth = Stealth()
+
+    async with _stealth.use_async(async_playwright()) as pw:
+        browser = await pw.chromium.launch(
+            headless=True,
+            args=[
+                "--no-sandbox",
+                "--disable-setuid-sandbox",
+                "--disable-blink-features=AutomationControlled",
+            ],
+        )
+        context = await browser.new_context(
+            viewport={"width": 1920, "height": 1080},
+            user_agent=(
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/120.0.0.0 Safari/537.36"
+            ),
+            locale="es-CL",
+        )
+        page = await context.new_page()
+
+        # Fallback init-script — extra safety net over playwright-stealth
+        await page.add_init_script("""
+            Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+            window.chrome = window.chrome || {};
+            window.chrome.runtime = window.chrome.runtime || {};
+        """)
+
+        try:
+            # ── 0. Navigate to login page to establish same-origin ──
+            if debug:
+                log("[browser] Navigating to login page...")
+            await page.goto(
+                f"{base}/Account/Login",
+                wait_until="domcontentloaded",
+                timeout=30000,
+            )
+
+            # ── 1. Get RSA public key ──
+            if debug:
+                log("[browser] Getting RSA public key...")
+            pub_key = await page.evaluate("""
+                async (url) => {
+                    const resp = await fetch(url + '/Account/GetPubKey', {
+                        method: 'POST',
+                        credentials: 'include',
+                    });
+                    return await resp.text();
+                }
+            """, base)
+            pub_key = pub_key.strip()
+            if not pub_key or len(pub_key) < 100:
+                raise RuntimeError(
+                    f"Invalid public key from {base}/Account/GetPubKey "
+                    f"(len={len(pub_key)})"
+                )
+            if debug:
+                log(f"[browser] PubKey OK ({len(pub_key)} chars)")
+
+            # ── 2. Encrypt password in Python (reusing existing RSA helper) ──
+            encrypted_pwd = encrypt_password(password, pub_key)
+
+            # ── 3. Login via in-page fetch (JA3-consistent) ──
+            if debug:
+                log("[browser] Logging in via in-page fetch...")
+            login_result = await page.evaluate("""
+                async ([url, data]) => {
+                    const resp = await fetch(url + '/Account/Login', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                            'X-Requested-With': 'XMLHttpRequest',
+                        },
+                        body: new URLSearchParams(data),
+                        credentials: 'include',
+                    });
+                    const text = await resp.text();
+                    return {
+                        ok: resp.ok,
+                        status: resp.status,
+                        redirected: resp.redirected,
+                        finalUrl: resp.url,
+                        textPreview: text.substring(0, 300),
+                    };
+                }
+            """, [base, {
+                "userAccount": username,
+                "userPwd": encrypted_pwd,
+                "LoginUrl": "Account",
+            }])
+
+            # Verify login success — YSTemplet in response = dashboard redirect
+            if "YSTemplet" not in login_result.get("textPreview", ""):
+                raise RuntimeError(
+                    f"Login failed (status={login_result['status']}, "
+                    f"redirected={login_result['redirected']}, "
+                    f"url={login_result.get('finalUrl', '')}, "
+                    f"body={login_result.get('textPreview', '')})"
+                )
+            if debug:
+                log("[browser] Login OK")
+
+            # ── 4. Visit OutReport/Index to establish module session ──
+            if debug:
+                log("[browser] Visiting OutReport/Index...")
+            await page.goto(
+                f"{base}/OutReport/Index",
+                wait_until="networkidle",
+                timeout=45000,
+            )
+
+            # ── 5. Initialize OutReport module ──
+            if debug:
+                log("[browser] getSession...")
+            await page.evaluate("""
+                async (url) => {
+                    await fetch(url + '/OutReport/getSession', {
+                        method: 'POST',
+                        credentials: 'include',
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    });
+                }
+            """, base)
+
+            # ── 6. Fetch ListJson data via in-page fetch ──
+            if debug:
+                log("[browser] Fetching ListJson...")
+            list_json_url = f"{base}/OutReport/ListJson/"
+            params = {
+                "_search": "false",
+                "rows": str(rows),
+                "page": "1",
+                "sidx": "TrTime",
+                "sord": "asc",
+                "firstload": "0",
+            }
+            form_data = {
+                "Group": group_uuid,
+                "MachineID": machine_id,
+                "IndexTime": f"{start_date} 00:00:00",
+                "LastTime": f"{end_date} 23:59:59",
+                "CardNo": "",
+                "PayType": "",
+                "Type": "",
+                "CommodityName": "",
+            }
+
+            fetch_result = await page.evaluate("""
+                async ([url, params, formData]) => {
+                    const qs = Object.entries(params).map(([k, v]) =>
+                        encodeURIComponent(k) + '=' + encodeURIComponent(v)
+                    ).join('&');
+                    const resp = await fetch(url + '?' + qs, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                            'X-Requested-With': 'XMLHttpRequest',
+                        },
+                        body: new URLSearchParams(formData),
+                        credentials: 'include',
+                    });
+                    const text = await resp.text();
+                    let json = null;
+                    try { json = JSON.parse(text); } catch (_) {}
+                    return {
+                        status: resp.status,
+                        redirected: resp.redirected,
+                        finalUrl: resp.url,
+                        textPreview: text.substring(0, 500),
+                        json: json,
+                    };
+                }
+            """, [list_json_url, params, form_data])
+
+            # ── 7. Return / classify result ──
+            if fetch_result["json"] is not None:
+                rows_count = len(fetch_result["json"].get("rows", []))
+                if debug:
+                    log(f"[browser] ListJson OK: {rows_count} rows")
+                return fetch_result["json"]
+
+            # Non-JSON — determine failure type
+            if debug:
+                log(f"[browser] Non-JSON response: "
+                    f"status={fetch_result['status']}, "
+                    f"redirected={fetch_result['redirected']}, "
+                    f"url={fetch_result.get('finalUrl', '')}")
+
+            text_lower = (fetch_result.get("textPreview") or "").lower()
+            if fetch_result.get("redirected") and \
+               "/account/login" in fetch_result.get("finalUrl", "").lower():
+                return {
+                    "_classified": "blocked",
+                    "_reason": "Redirected to login page",
+                }
+            for marker in WAF_MARKERS:
+                if marker in text_lower:
+                    return {"_classified": "blocked", "_reason": f"WAF marker: {marker}"}
+
+            return {
+                "_classified": "error",
+                "_reason": f"Non-JSON response (status {fetch_result['status']})",
+            }
+
+        finally:
+            await browser.close()
+
+
+def fetch_sales_via_browser_sync(
+    start_date: str = DEFAULT_START,
+    end_date: str = DEFAULT_END,
+    machine_id: str = "",
+    group_uuid: str = DEFAULT_GROUP_UUID,
+    rows: int = 2000,
+    debug: bool = False,
+) -> dict:
+    """Synchronous wrapper around ``fetch_sales_via_browser`` for CLI use."""
+    return asyncio.run(
+        fetch_sales_via_browser(
+            start_date=start_date,
+            end_date=end_date,
+            machine_id=machine_id,
+            group_uuid=group_uuid,
+            rows=rows,
+            debug=debug,
+        )
+    )
+
+
+# ──────────────────────────────────────────────
 # FORMATTERS
 # ──────────────────────────────────────────────
 # TrPayType es numérico en la API (string "0", "1", etc.)
@@ -642,6 +972,8 @@ Ejemplos:
                         help="Descarga un archivo por RDID")
     parser.add_argument("--full-flow", action="store_true",
                         help="Flujo completo: query JSON → export Excel → poll → download")
+    parser.add_argument("--self-test", action="store_true",
+                        help="Prueba manual: browser login + fetch contra portal real (no CI)")
 
     # --- Filtros ---
     parser.add_argument("--start", type=str, default=DEFAULT_START,
@@ -678,6 +1010,48 @@ Ejemplos:
     if not USERNAME or not PASSWORD:
         print("[!] Seteá OURVEND_USER y OURVEND_PASS como variables de entorno", file=sys.stderr)
         sys.exit(1)
+
+    # ── MODO: Self-test (browser path, never in CI) ──
+    if args.self_test:
+        print(f"\n{'=' * 60}")
+        print("  SELF-TEST: Browser-based fetch_sales_via_browser")
+        print(f"{'=' * 60}")
+        print(f"  Fechas:  {args.start} → {args.end}")
+        print(f"  Máquina: {args.machine_id or 'todas'}")
+        print(f"  Target:  {BASE_URL}")
+        print(f"\n  ⏱️  3-minute max-cycle budget applies")
+        print(f"\n  Launching stealth Chromium...")
+        sys.stdout.flush()
+
+        try:
+            result = fetch_sales_via_browser_sync(
+                start_date=args.start,
+                end_date=args.end,
+                machine_id=args.machine_id,
+                group_uuid=args.group_uuid,
+                rows=args.rows,
+                debug=args.debug,
+            )
+        except Exception as e:
+            print(f"\n  ❌ FETCH EXCEPTION: {e}")
+            import traceback
+            traceback.print_exc()
+            sys.exit(1)
+
+        # Classify
+        classification = classify_response(result)
+        rows = result.get("rows", []) if isinstance(result, dict) and "rows" in result else []
+
+        print(f"\n  Classification: {classification}")
+        print(f"  Rows returned:  {len(rows)}")
+
+        if classification in ("ok", "empty"):
+            print(f"\n  ✅ SELF-TEST PASSED")
+            sys.exit(0)
+        else:
+            reason = result.get("_reason", "") if isinstance(result, dict) else ""
+            print(f"\n  ❌ SELF-TEST FAILED: {classification} — {reason}")
+            sys.exit(1)
 
     # Crear sesión
     session = create_session()
