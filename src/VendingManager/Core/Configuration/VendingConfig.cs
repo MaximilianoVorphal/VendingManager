@@ -22,4 +22,16 @@ public class VendingConfig
     /// en lugar de ConfiguracionSlots. Permite transición gradual al nuevo flujo.
     /// </summary>
     public bool UseTemplateInventoryForStockCritico { get; set; } = false;
+
+    /// <summary>
+    /// When true, enables in-memory caching for the period list endpoint (GET /periodos).
+    /// Kill-switch: set false to bypass cache without redeploy.
+    /// </summary>
+    public bool UsePeriodCache { get; set; } = true;
+
+    /// <summary>
+    /// Sliding expiration duration in minutes for the period list cache.
+    /// Default: 5 minutes.
+    /// </summary>
+    public int PeriodCacheDurationMinutes { get; set; } = 5;
 }
