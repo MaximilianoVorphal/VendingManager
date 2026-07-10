@@ -8,7 +8,8 @@ namespace VendingManager.Controllers;
 [ApiController]
 public class TemplateRecargaController(
     ITemplateRecargaService service,
-    ITemplateRecargaLifecycleService lifecycleService) : ControllerBase
+    ITemplateRecargaLifecycleService lifecycleService,
+    ITemplateRecargaAnalyticsService analyticsService) : ControllerBase
 {
     /// Obtener todos los templates de recarga
     /// </summary>
@@ -180,6 +181,23 @@ public class TemplateRecargaController(
             return NotFound($"Template con ID {id} no encontrado");
 
         var result = await service.AnalyzarPorTemplateAsync(id, umbralHoras);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Obtiene el timeline de ventas para un slot específico bajo demanda.
+    /// Lazy-loaded: solo se invoca cuando el usuario interactúa con el scrubber en el dashboard.
+    /// </summary>
+    [HttpGet("{templateId}/slot-timeline")]
+    public async Task<ActionResult<SlotTimelineDto>> GetSlotTimeline(
+        int templateId,
+        [FromQuery] int maquinaId,
+        [FromQuery] string numeroSlot)
+    {
+        var result = await analyticsService.GetSlotTimelineAsync(templateId, maquinaId, numeroSlot);
+        if (result == null)
+            return NotFound(new { error = "Slot no encontrado en el período" });
+
         return Ok(result);
     }
 

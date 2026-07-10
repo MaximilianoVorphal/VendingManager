@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
+using VendingManager.Shared.DTOs;
 using VendingManager.Web.Shared;
 
 namespace VendingManager.Web.Pages
@@ -39,6 +40,13 @@ namespace VendingManager.Web.Pages
         private List<MaquinaSimpleDto>? ListaMaquinas;
         private List<StockoutAnalysisDto>? Datos;
 
+        // Memoization for DatosAgrupados (recomputed only when dirty)
+        private List<StockoutProductoDto>? _agrupadosCache;
+        private bool _agrupadosDirty = true;
+
+        // Track which slots have a timeline load in-flight or completed
+        private readonly HashSet<string> _timelineLoadedSlots = new();
+
         // Sorting
         private string ColumnaOrden = "DineroPerdido";
         private bool Ascendente = false;
@@ -66,6 +74,10 @@ namespace VendingManager.Web.Pages
         {
             get
             {
+                // Return cached value when not dirty (memoization optimization)
+                if (!_agrupadosDirty && _agrupadosCache != null)
+                    return _agrupadosCache;
+
                 // Fuente SIN el filtro de quiebre por slot: agrupamos primero por producto y
                 // recién después decidimos el quiebre a nivel producto. Filtrar por
                 // d.PosibleQuiebre acá dejaría afuera los slots que aún tienen stock y
@@ -73,9 +85,9 @@ namespace VendingManager.Web.Pages
                 var baseDatos = (Datos ?? new())
                     .Where(d => !soloDeadSlots || d.EsDeadSlot)
                     .ToList();
-                if (baseDatos.Count == 0) return new();
+                if (baseDatos.Count == 0) return _agrupadosCache = new();
 
-                return baseDatos
+                _agrupadosCache = baseDatos
                     .GroupBy(d => new { d.ProductoId, d.ProductoNombre })
                     .Select(g =>
                     {
@@ -86,23 +98,8 @@ namespace VendingManager.Web.Pages
                         var primeraVenta = g.Min(d => d.PrimeraVenta);
                         var ultimaVenta = g.Max(d => d.UltimaVenta);
 
-                        // Quiebre a nivel PRODUCTO, no por slot: el producto está agotado
-                        // cuando la suma de ventas de todos sus slots iguala o supera el stock
-                        // total cargado. El agotamiento ocurre en la venta que cruza ese total
-                        // (el instante en que el inventario combinado llegó a cero), no en la
-                        // última venta registrada. Un slot que se vació antes no cuenta como
-                        // quiebre mientras otros slots del mismo producto sigan con stock.
                         var posibleQuiebre = stockTotal > 0 && vendidoTotal >= stockTotal;
 
-                        // ¿Tenemos la línea de tiempo de ventas COMPLETA del producto? Sí en el
-                        // flujo por template (un DTO por slot con FechasVentas, cuyo total coincide
-                        // con lo vendido). No en el flujo manual (stockout-analysis), donde el
-                        // backend ya agrega por máquina+producto y no llena FechasVentas.
-                        //
-                        // Lo detectamos por esa completitud, NO por si el producto se agotó: así un
-                        // producto que todavía tiene stock en algún slot entra igual al cálculo por
-                        // producto y, al no estar agotado, su pérdida queda en 0 (no arrastramos la
-                        // pérdida por slot que ya no aplica).
                         bool tieneTimeline = vendidoTotal > 0 && todasFechasVentas.Count == vendidoTotal;
 
                         double horasSinStock;
@@ -110,7 +107,6 @@ namespace VendingManager.Web.Pages
 
                         if (tieneTimeline)
                         {
-                            // Agotamiento en la venta que cruza el stock total combinado.
                             var fechaAgotamiento = posibleQuiebre
                                 ? todasFechasVentas[stockTotal - 1]
                                 : (DateTime?)null;
@@ -118,8 +114,6 @@ namespace VendingManager.Web.Pages
                                 ? Math.Max(0, (finPeriodo - fechaAgotamiento.Value).TotalHours)
                                 : 0;
 
-                            // Precio y ganancia promedio del producto, ponderados por unidades
-                            // vendidas en cada slot (no un promedio simple entre slots).
                             var conVenta = g.Where(d => d.CantidadVendida > 0).ToList();
                             var unidades = conVenta.Sum(d => d.CantidadVendida);
                             decimal precioPromedio = unidades > 0
@@ -129,8 +123,6 @@ namespace VendingManager.Web.Pages
                                 ? conVenta.Sum(d => d.GananciaPromedio * d.CantidadVendida) / unidades
                                 : 0;
 
-                            // Velocidad real del producto: unidades por hora durante la ventana en
-                            // que tuvo stock (primera venta → agotamiento, o última venta si no se agotó).
                             var finVentana = fechaAgotamiento ?? ultimaVenta;
                             double horasActivas = (primeraVenta.HasValue && finVentana.HasValue)
                                 ? Math.Max(1, (finVentana.Value - primeraVenta.Value).TotalHours)
@@ -138,8 +130,6 @@ namespace VendingManager.Web.Pages
                             decimal velocidadPorHora = vendidoTotal / (decimal)horasActivas;
                             velocidadDiaria = Math.Round(velocidadPorHora * 24, 1);
 
-                            // Costo de oportunidad recalculado con las horas sin stock del PRODUCTO,
-                            // no como suma de los huecos por slot.
                             if (posibleQuiebre && horasSinStock > 0 && precioPromedio > 0)
                             {
                                 dineroPerdido = Math.Round(velocidadPorHora * (decimal)horasSinStock * precioPromedio, 0);
@@ -153,7 +143,6 @@ namespace VendingManager.Web.Pages
                         }
                         else
                         {
-                            // El backend ya calculó por producto (o slot único); respetamos sus valores.
                             horasSinStock = posibleQuiebre ? g.Max(d => d.HorasSinStock) : 0;
                             dineroPerdido = g.Sum(d => d.DineroPerdidoEstimado);
                             gananciaPerdida = g.Sum(d => d.GananciaPerdidaEstimada);
@@ -177,11 +166,11 @@ namespace VendingManager.Web.Pages
                             Maquinas = g.Select(d => d.MaquinaNombre).Distinct().ToList()
                         };
                     })
-                    // En modo dead-slots la fuente ya viene acotada; no volvemos a filtrar
-                    // por quiebre-producto (los dead slots no tienen stock ni ventas).
                     .Where(p => !SoloConQuiebre || soloDeadSlots || p.PosibleQuiebre)
                     .OrderByDescending(p => p.GananciaPerdidaEstimada)
                     .ToList();
+                _agrupadosDirty = false;
+                return _agrupadosCache;
             }
         }
 
@@ -524,7 +513,11 @@ namespace VendingManager.Web.Pages
         private string ScrubDateLabel => CurrentTime.ToString("dd/MM");
         private string ScrubDayLabel => ScrubIsToday ? "HOY" : $"Día {ScrubDay} / {TotalDays}";
 
-        private void OpenMap() => mapOpen = true;
+        private void OpenMap()
+        {
+            mapOpen = true;
+            _ = LoadFocusSlotTimelinesAsync();
+        }
         private void CloseMap()
         {
             if (IsPlaying) { IsPlaying = false; PlaybackTimer?.Dispose(); }
@@ -535,6 +528,72 @@ namespace VendingManager.Web.Pages
             if (IsPlaying) { IsPlaying = false; PlaybackTimer?.Dispose(); }
             if (int.TryParse(e.Value?.ToString(), out var v))
                 CurrentStepIndex = Math.Clamp(v, 0, TotalSteps);
+            _ = LoadFocusSlotTimelinesAsync();
+        }
+
+        /// <summary>
+        /// Lazy-loads the sale timeline for a specific slot from the dedicated endpoint.
+        /// Called on-demand when the user interacts with the scrubber or opens the map.
+        /// </summary>
+        private async Task LoadSlotTimelineAsync(int maquinaId, string numeroSlot)
+        {
+            var key = $"{maquinaId}|{numeroSlot}";
+            if (_timelineLoadedSlots.Contains(key)) return;
+
+            if (TemplateSeleccionado == 0) return;
+
+            try
+            {
+                var encodedSlot = Uri.EscapeDataString(numeroSlot);
+                var dto = await Http.GetFromJsonAsync<SlotTimelineDto>(
+                    $"api/TemplateRecarga/{TemplateSeleccionado}/slot-timeline?maquinaId={maquinaId}&numeroSlot={encodedSlot}");
+
+                if (dto != null)
+                {
+                    var targets = Datos?.Where(d => d.MaquinaId == maquinaId && d.NumeroSlot == numeroSlot).ToList();
+                    if (targets != null && targets.Count > 0)
+                    {
+                        foreach (var target in targets)
+                        {
+                            target.FechasVentas = dto.FechasVentas;
+                        }
+                        _agrupadosDirty = true;
+                    }
+                }
+
+                _timelineLoadedSlots.Add(key);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Error loading slot timeline for máquina {MaquinaId} slot {NumeroSlot}",
+                    maquinaId, numeroSlot);
+                // Slot remains unloaded in _timelineLoadedSlots, so it will be retried
+                // on next interaction (scrubber move or map re-open).
+            }
+            finally
+            {
+                StateHasChanged();
+            }
+        }
+
+        /// <summary>
+        /// Loads timelines for all focus-machine slots that don't have data yet.
+        /// Fire-and-forget: called from OpenMap and OnScrubInput.
+        /// </summary>
+        private async Task LoadFocusSlotTimelinesAsync()
+        {
+            if (TemplateSeleccionado == 0 || Datos == null) return;
+
+            var unloaded = FocusSlots
+                .Where(d => (d.FechasVentas == null || d.FechasVentas.Count == 0)
+                            && !_timelineLoadedSlots.Contains($"{d.MaquinaId}|{d.NumeroSlot}"))
+                .Take(5) // Limit batch to avoid burst of HTTP calls
+                .ToList();
+
+            foreach (var slot in unloaded)
+            {
+                await LoadSlotTimelineAsync(slot.MaquinaId, slot.NumeroSlot);
+            }
         }
 
         protected override async Task OnInitializedAsync()
@@ -610,7 +669,35 @@ namespace VendingManager.Web.Pages
             try
             {
                 string url = $"api/TemplateRecarga/{TemplateSeleccionado}/analyze?umbralHoras={UmbralHoras}";
-                var todosLosDatos = await Http.GetFromJsonAsync<List<StockoutAnalysisDto>>(url);
+                var slotDtos = await Http.GetFromJsonAsync<List<StockoutSlotDto>>(url);
+
+                // Map StockoutSlotDto → local StockoutAnalysisDto (no FechasVentas in initial load)
+                var todosLosDatos = slotDtos?.Select(s => new StockoutAnalysisDto
+                {
+                    MaquinaId = s.MaquinaId,
+                    MaquinaNombre = s.MaquinaNombre,
+                    ProductoId = s.ProductoId,
+                    ProductoNombre = s.ProductoNombre,
+                    NumeroSlot = s.NumeroSlot,
+                    PrimeraVenta = s.PrimeraVenta,
+                    UltimaVenta = s.UltimaVenta,
+                    UltimaActividadMaquina = s.UltimaActividadMaquina,
+                    FinReporte = s.FinReporte,
+                    PosibleQuiebre = s.PosibleQuiebre,
+                    HorasSinStock = s.HorasSinStock,
+                    StockInicial = s.StockInicial,
+                    StockActual = s.StockActual,
+                    CantidadVendida = s.CantidadVendida,
+                    FillPct = s.FillPct,
+                    DiasHastaStockout = s.DiasHastaStockout,
+                    EsDeadSlot = s.EsDeadSlot,
+                    HorasActivas = s.HorasActivas,
+                    VelocidadPorHora = s.VelocidadPorHora,
+                    PrecioPromedioVenta = s.PrecioPromedioVenta,
+                    GananciaPromedio = s.GananciaPromedio,
+                    DineroPerdidoEstimado = s.DineroPerdidoEstimado,
+                    GananciaPerdidaEstimada = s.GananciaPerdidaEstimada,
+                }).ToList();
 
                 // Filtrar por máquina si hay una seleccionada
                 if (MaquinaFiltroTemplate > 0 && todosLosDatos != null)
@@ -636,6 +723,9 @@ namespace VendingManager.Web.Pages
                         FechaFin = TemplateActual.Periodos.Max(p => p.FechaFin);
                     }
                 }
+
+                _agrupadosDirty = true;
+                _timelineLoadedSlots.Clear(); // Clear any cached timeline state
 
                 // Initialize timeline
                 CurrentStepIndex = 0;
@@ -673,6 +763,7 @@ namespace VendingManager.Web.Pages
                 $"api/Ventas/stockout-analysis?inicio={inicio}&fin={fin}&maquinaId={MaquinaSeleccionada}&umbralHoras={UmbralHoras}";
 
                 Datos = await Http.GetFromJsonAsync<List<StockoutAnalysisDto>>(url);
+                _agrupadosDirty = true;
                 AplicarOrdenamiento();
             }
             catch (Exception ex)
