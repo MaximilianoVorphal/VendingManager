@@ -2,6 +2,9 @@ using System.Data;
 using System.Globalization;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Options;
+using VendingManager.Core.Configuration;
 using VendingManager.Core.Entities;
 using VendingManager.Core.Interfaces;
 using VendingManager.Infrastructure.Data;
@@ -15,18 +18,31 @@ public class ContabilidadService : IContabilidadService
     private readonly ApplicationDbContext _context;
     private readonly IAccountingPeriodRepository _periodRepository;
     private readonly IUploadPathProvider? _uploadPathProvider;
+    private readonly IMemoryCache? _cache;
+    private readonly VendingConfig _vendingConfig;
 
     public ContabilidadService(ApplicationDbContext context, IAccountingPeriodRepository periodRepository)
+        : this(context, periodRepository, null, null, Options.Create(new VendingConfig()))
     {
-        _context = context;
-        _periodRepository = periodRepository;
     }
 
-    public ContabilidadService(ApplicationDbContext context, IAccountingPeriodRepository periodRepository, IUploadPathProvider uploadPathProvider)
+    public ContabilidadService(ApplicationDbContext context, IAccountingPeriodRepository periodRepository, IUploadPathProvider? uploadPathProvider)
+        : this(context, periodRepository, uploadPathProvider, null, Options.Create(new VendingConfig()))
+    {
+    }
+
+    public ContabilidadService(
+        ApplicationDbContext context,
+        IAccountingPeriodRepository periodRepository,
+        IUploadPathProvider? uploadPathProvider,
+        IMemoryCache? cache,
+        IOptions<VendingConfig> config)
     {
         _context = context;
         _periodRepository = periodRepository;
         _uploadPathProvider = uploadPathProvider;
+        _cache = cache;
+        _vendingConfig = config?.Value ?? new VendingConfig();
     }
 
     public async Task<Transferencia> CrearTransferenciaConMovimientoAsync(
@@ -664,6 +680,14 @@ public class ContabilidadService : IContabilidadService
     public async Task<List<AccountingPeriodDto>> GetPeriodosAsync(
         DateTime? desde, DateTime? hasta, CancellationToken ct = default)
     {
+        // O-07: Cache-aside pattern for period list
+        if (_cache is not null && _vendingConfig.UsePeriodCache)
+        {
+            var cacheKey = $"periods:{desde?.ToString("yyyyMMdd")}:{hasta?.ToString("yyyyMMdd")}";
+            if (_cache.TryGetValue(cacheKey, out List<AccountingPeriodDto>? cached))
+                return cached!;
+        }
+
         var periods = await _periodRepository.GetByDateRangeAsync(desde, hasta, ct);
         var dtos = periods.Select(MapToDto).ToList();
 
@@ -688,6 +712,69 @@ public class ContabilidadService : IContabilidadService
                 if (lookup.TryGetValue(dto.Id, out var total))
                     dto.Devuelto = total;
             }
+        }
+
+        // O-01: Aggregate Transferencias totals per period
+        var transferenciasByPeriodo = await _context.Transferencias
+            .Where(t => t.PeriodoId != null && periodIds.Contains(t.PeriodoId!.Value))
+            .GroupBy(t => t.PeriodoId!.Value)
+            .Select(g => new { PeriodoId = g.Key, Total = g.Sum(t => t.Monto) })
+            .ToListAsync(ct);
+
+        if (transferenciasByPeriodo.Count > 0)
+        {
+            var lookup = transferenciasByPeriodo.ToDictionary(x => x.PeriodoId, x => x.Total);
+            foreach (var dto in dtos)
+            {
+                if (lookup.TryGetValue(dto.Id, out var total))
+                    dto.TotalTransferido = total;
+            }
+        }
+
+        // O-01: Aggregate Compras totals per period (through Transferencias)
+        var comprasByPeriodo = await _context.Compras
+            .Where(c => c.Transferencia != null && c.Transferencia.PeriodoId != null && periodIds.Contains(c.Transferencia.PeriodoId!.Value))
+            .GroupBy(c => c.Transferencia!.PeriodoId!.Value)
+            .Select(g => new { PeriodoId = g.Key, Total = g.Sum(c => c.MontoTotal) })
+            .ToListAsync(ct);
+
+        if (comprasByPeriodo.Count > 0)
+        {
+            var lookup = comprasByPeriodo.ToDictionary(x => x.PeriodoId, x => x.Total);
+            foreach (var dto in dtos)
+            {
+                if (lookup.TryGetValue(dto.Id, out var total))
+                    dto.TotalCompras = total;
+            }
+        }
+
+        // O-01: Aggregate Gastos totals per period (through Transferencias → Rendicion → Gastos)
+        var gastosByPeriodo = await _context.MovimientosCaja
+            .Where(g => g.Tipo == "GASTO" && g.Rendicion != null
+                && g.Rendicion.Transferencias.Any(t => t.PeriodoId != null && periodIds.Contains(t.PeriodoId!.Value))
+                && !CategoriasEstructurales.Contains(g.Categoria ?? string.Empty))
+            .GroupBy(g => g.Rendicion!.Transferencias
+                .Where(t => t.PeriodoId != null && periodIds.Contains(t.PeriodoId!.Value))
+                .Select(t => t.PeriodoId!.Value)
+                .FirstOrDefault())
+            .Select(g => new { PeriodoId = g.Key, Total = g.Sum(x => Math.Abs(x.Monto)) })
+            .ToListAsync(ct);
+
+        if (gastosByPeriodo.Count > 0)
+        {
+            var lookup = gastosByPeriodo.ToDictionary(x => x.PeriodoId, x => x.Total);
+            foreach (var dto in dtos)
+            {
+                if (lookup.TryGetValue(dto.Id, out var total))
+                    dto.TotalGastos = total;
+            }
+        }
+
+        // O-07: Store in cache after all aggregates are computed
+        if (_cache is not null && _vendingConfig.UsePeriodCache)
+        {
+            var cacheKey = $"periods:{desde?.ToString("yyyyMMdd")}:{hasta?.ToString("yyyyMMdd")}";
+            _cache.Set(cacheKey, dtos, TimeSpan.FromMinutes(_vendingConfig.PeriodCacheDurationMinutes));
         }
 
         return dtos;
