@@ -31,4 +31,10 @@ public interface ITemplateRecargaAnalyticsService
     /// dentro de un período.
     /// </summary>
     Task<SyncSlotProductoResultDto> SyncSlotProductoAsync(int templateId, int periodoId, string numeroSlot, int productoId);
+
+    /// <summary>
+    /// Obtiene el timeline de ventas para un slot específico bajo demanda.
+    /// Lazy-loaded: solo se invoca cuando el usuario interactúa con el scrubber.
+    /// </summary>
+    Task<SlotTimelineDto?> GetSlotTimelineAsync(int templateId, int maquinaId, string numeroSlot);
 }
