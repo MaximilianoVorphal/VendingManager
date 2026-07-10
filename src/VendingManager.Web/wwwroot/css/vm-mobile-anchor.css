@@ -73,21 +73,28 @@
         overflow: visible !important;
     }
 
-    /* Home page only: el body debe scrollear para que Safari auto-esconda
-       la barra inferior. min-height en vez de height permite que el wrapper
-       crezca con el contenido. padding-top reserva el espacio del navbar
-       fijo (position:fixed en mobile, ver VmNavbar.razor).
+    /* ── All fullscreen pages (except RecargaMovil) ──────────────
+       On mobile the fullscreen wrapper is forced to 100dvh by the
+       chained-class rule at line 46-50. That's correct for desktop
+       but wrong for mobile — a 390px viewport can't fit a full
+       dashboard. Let the wrapper grow with content so the body
+       becomes the scroller and Safari auto-hides the URL bar.
 
-       !important es OBLIGATORIO aquí: el scoped CSS de Blazor carga ANTES
-       en index.html (VendingManager.Web.styles.css antes de vm-mobile-anchor.css)
-       y la regla base .industrial-wrapper--fullscreen[b-xyz] tiene specificity
-       (0,0,2,0). Nuestra regla con chained class tiene (0,0,3,0), pero como
-       ambos selectores matchean el MISMO elemento, las props que define cada
-       uno se aplican independientemente — el browser usa el valor de la
-       regla con mayor specificity POR PROPIEDAD, no por selector completo.
-       Sin !important, las props de la regla base (height:100vh, overflow:hidden)
-       compiten y el resultado es impredecible. !important garantiza la victoria. */
-    .industrial-wrapper.industrial-wrapper--fullscreen:has(.vm-shell__left) {
+       min-height: 100dvh ensures short pages still fill the viewport.
+       padding-top reserves space for the fixed mobile navbar (72px +
+       safe-area inset top).
+
+       !important is REQUIRED: Blazor scoped CSS
+       (VendingManager.Web.styles.css) loads BEFORE
+       vm-mobile-anchor.css and the base rule
+       .industrial-wrapper--fullscreen[b-xyz] has specificity (0,0,2,0).
+       Without !important the browser may pick the scoped rule's values
+       for height/overflow, producing unpredictable results at the
+       boundary between the two stylesheets.
+
+       RecargaMovil (.rm-view) is excluded — it has its own 100dvh-based
+       mobile layout system and doesn't use MobileShell. */
+    .industrial-wrapper.industrial-wrapper--fullscreen:not(:has(.rm-view)) {
         height: auto !important;
         min-height: 100dvh !important;
         overflow: visible !important;

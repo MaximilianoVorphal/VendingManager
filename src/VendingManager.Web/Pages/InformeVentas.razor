@@ -57,13 +57,16 @@
             min-height: 0 !important;
             overflow: visible !important;
             padding: 0.7rem 0.8rem 0.85rem !important;
+            flex: none !important; /* body-based scroll: prevent 0-height collapse in content-sized flex parent */
         }
         .iv-body {
             height: auto !important;
             min-height: 0 !important;
             overflow: visible !important;
+            flex: none !important; /* body-based scroll: prevent collapse */
         }
         .iv-body > section {
+            flex: none !important; /* body-based scroll: prevent collapse; min-height:400px is the floor */
             min-height: 400px !important;
             overflow: hidden !important;
         }
