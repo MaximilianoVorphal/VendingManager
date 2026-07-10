@@ -108,55 +108,46 @@ main {
         -webkit-overflow-scrolling: touch;
     }
 
-    /* Home page: el body debe ser el scroller para que iOS Safari auto-esconda
-       la barra de URL inferior. La home es la única ruta fullscreen con
-       .vm-shell__left (sidebar del PanelDeControl), por eso usamos :has()
-       para no afectar las otras 10 rutas fullscreen (Caja, InformeVentas, etc.)
-       que dependen del scroll interno.
+    /* ── Mobile body-scroller for ALL fullscreen routes ──────────
+       On mobile (≤760px) the fullscreen flex chain (100dvh + overflow:hidden
+       on wrapper, main, vm-shell, vm-shell__main) is the wrong layout
+       primitive. A 390px viewport can't fit a full dashboard with table,
+       KPIs, and side panels — content gets clipped at viewport height and
+       the user can't scroll to reach anything below the fold.
 
-       El problema raíz no es solo el overflow: es la cadena de flexbox.
-       En desktop el wrapper es display:flex con flex:1 + min-height:0 en
-       <main> y .vm-shell (este último con overflow:hidden). Con esa cadena,
-       los flex items colapsan a 0 de alto cuando el padre es height:auto,
-       el contenido se clipea dentro de .vm-shell, y el body se queda en
-       100dvh sin scrollear. Safari no puede auto-esconder la barra porque
-       el body no scrollea.
+       Fix: convert the entire flex chain to block layout. The body becomes
+       the scroller, and each page's internal layout flows naturally.
+       Individual pages that need internal scroll areas (e.g. a fixed-height
+       table wrapper) must manage that in their own CSS with explicit
+       height + overflow:auto on the scoped container.
 
-       Fix mobile: pasar la cadena entera a block normal, sin flex. El body
-       crece con el contenido y Safari esconde la barra. */
-    .industrial-wrapper--fullscreen:has(.vm-shell__left) {
+       RecargaMovil is excluded — it already has its own 100dvh-based mobile
+       layout system (vm-recarga-movil.css) and doesn't use MobileShell. */
+    .industrial-wrapper--fullscreen:not(:has(.rm-view)) {
         display: block;
     }
-    .industrial-wrapper--fullscreen:has(.vm-shell__left) > main {
+    .industrial-wrapper--fullscreen:not(:has(.rm-view)) > main {
         display: block;
         flex: none;
         overflow-y: visible;
     }
-    .industrial-wrapper--fullscreen:has(.vm-shell__left) .vm-shell {
+    .industrial-wrapper--fullscreen:not(:has(.rm-view)) .vm-shell {
         display: block;
         flex: none;
         overflow: visible;
     }
-    /* vm-shell__main también necesita el override — la regla base le pone
-       display:flex + overflow:hidden, lo que clipa el contenido y hace que
-       el scroll se "trabe" antes de llegar al final. !important por el
-       mismo motivo de load-order que en vm-mobile-anchor.css. */
-    .industrial-wrapper--fullscreen:has(.vm-shell__left) .vm-shell__main {
+    .industrial-wrapper--fullscreen:not(:has(.rm-view)) .vm-shell__main {
         display: block !important;
         flex: none !important;
         overflow: visible !important;
     }
 
-    /* Padding-bottom del wrapper: solo el safe-area-inset-bottom.
-       Antes era 100px para forzar el auto-hide de la URL bar de Safari
-       (con el bug del inner wrapper scrolleando internamente, el body
-       quedaba en ~739px y necesitaba 100px extra de padding para llegar
-       a ~839px y dar suficiente rango de scroll). Ahora que el body es
-       el scroller real (~984px en iPhone X), 100px es espacio vacío
-       innecesario. .vm-shell__main ya tiene padding-bottom:
-       calc(1rem + env(safe-area-inset-bottom)) = 16px en iPhone X,
-       suficiente para no pegar el contenido al borde inferior. */
-    .industrial-wrapper--fullscreen:has(.vm-shell__left) {
+    /* Padding-bottom: only safe-area-inset-bottom. With body-based
+       scrolling the extra 100px of padding from the old approach is
+       dead space. .vm-shell__main already has padding-bottom:
+       calc(1rem + env(safe-area-inset-bottom)) = 16px on iPhone X,
+       enough to keep content off the home indicator. */
+    .industrial-wrapper--fullscreen:not(:has(.rm-view)) {
         padding-bottom: env(safe-area-inset-bottom, 0px) !important;
     }
 }
