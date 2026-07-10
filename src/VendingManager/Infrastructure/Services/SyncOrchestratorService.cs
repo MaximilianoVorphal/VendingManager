@@ -1,7 +1,9 @@
 using System;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 using VendingManager.Core.Interfaces;
+using VendingManager.Infrastructure.Clients;
 using VendingManager.Shared.DTOs;
 
 namespace VendingManager.Infrastructure.Services
@@ -116,6 +118,110 @@ namespace VendingManager.Infrastructure.Services
             {
                 Console.WriteLine($"[SyncAPI] Error: {ex.Message}");
                 return $"Error API: {ex.Message}";
+            }
+        }
+
+        /// <summary>
+        /// Sincroniza ventas para una ventana de fechas explícita via API JSON,
+        /// retornando un resultado estructurado. NO actualiza LastSyncTracker.
+        /// </summary>
+        public async Task<SyncResult> SincronizarDesdePortalApi(DateTime desde, DateTime hasta,
+            CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                var apiEndDate = hasta.AddDays(1);
+
+                SalesReportResponse report;
+                try
+                {
+                    report = await scraperClient.GetSalesReportAsync(desde, apiEndDate, "",
+                        cancellationToken);
+                }
+                catch (WafBlockedException ex)
+                {
+                    return new SyncResult
+                    {
+                        Outcome = SyncOutcome.Blocked,
+                        Details = ex.BlockReason ?? "WAF blocked"
+                    };
+                }
+                catch (OperationCanceledException)
+                {
+                    return new SyncResult
+                    {
+                        Outcome = SyncOutcome.Timeout,
+                        Details = "Scraper request timed out or was cancelled"
+                    };
+                }
+
+                // Classify by the scraper's explicit Status field FIRST (FIX-3).
+                // Only fall back to row-count / exception-based classification when
+                // Status is null or unrecognised.
+                var status = report.Status?.ToLowerInvariant();
+                switch (status)
+                {
+                    case "ok":
+                        if (report.Total == 0 && (report.Rows is null || report.Rows.Count == 0))
+                        {
+                            return new SyncResult
+                            {
+                                Outcome = SyncOutcome.Empty,
+                                Details = "Status 'ok' but zero rows returned"
+                            };
+                        }
+                        break;
+                    case "empty":
+                        return new SyncResult
+                        {
+                            Outcome = SyncOutcome.Empty,
+                            Details = report.Reason ?? "Scraper reported empty"
+                        };
+                    case "blocked":
+                        return new SyncResult
+                        {
+                            Outcome = SyncOutcome.Blocked,
+                            Details = report.Reason ?? "WAF blocked (scraper status)"
+                        };
+                    case "error":
+                        return new SyncResult
+                        {
+                            Outcome = SyncOutcome.Error,
+                            Details = report.Reason ?? "Scraper reported error"
+                        };
+                    case "timeout":
+                        return new SyncResult
+                        {
+                            Outcome = SyncOutcome.Timeout,
+                            Details = report.Reason ?? "Scraper reported timeout"
+                        };
+                    // Fall through to row-count classification for "ok" and unknown/null.
+                }
+
+                if (report.Total == 0 && (report.Rows is null || report.Rows.Count == 0))
+                {
+                    return new SyncResult
+                    {
+                        Outcome = SyncOutcome.Empty,
+                        Details = "No new sales rows returned by scraper"
+                    };
+                }
+
+                string stats = await salesImportService.ImportarVentasDesdeJson(report.Rows, hasta, "");
+                return new SyncResult
+                {
+                    Outcome = SyncOutcome.Ok,
+                    Stats = stats,
+                    Details = $"Recibidas {report.Total} filas desde {desde:yyyy-MM-dd}"
+                };
+            }
+            catch (Exception ex)
+            {
+                return new SyncResult
+                {
+                    Outcome = SyncOutcome.Error,
+                    Details = $"Sync error: {ex.Message}"
+                };
             }
         }
     }

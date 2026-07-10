@@ -54,6 +54,7 @@ public sealed class BreakerSnapshot
     public int ConsecutiveFailures { get; init; }
     public DateTime? CooldownUntil { get; init; }
     public int OpenCycleCount { get; init; }
+    public bool LoadedFromDb { get; init; }
 }
 
 /// <summary>
