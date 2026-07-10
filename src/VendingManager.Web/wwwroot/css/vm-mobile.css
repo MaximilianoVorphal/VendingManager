@@ -208,4 +208,17 @@
     .vm-accordion-table tbody tr > td:not(:first-child) {
         padding: 0.45rem 0.7rem !important;
     }
+
+    /* 1.7 — Home data-input cards: align the "Seleccionar archivo" button
+       to the bottom of each card so both cards have the button at the same
+       vertical position regardless of header/paragraph text height.
+       Desktop is untouched. */
+    .vm-input-card-body {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+    }
+    .vm-input-card-body > .input-group {
+        margin-top: auto;
+    }
 }
