@@ -388,4 +388,151 @@ public class TemplateRecargaAnalyticsServiceTests : IDisposable
     }
 
     #endregion
+
+    #region GetSlotTimelineAsync tests
+
+    [Fact]
+    public async Task GetSlotTimelineAsync_WithSales_ReturnsDates()
+    {
+        // Arrange — seed a template with one period, one slot, and sales
+        var maquina = TestDataHelpers.CreateMaquina(id: 10, nombre: "M10");
+        var producto = TestDataHelpers.CreateProducto(id: 100, nombre: "Coca Cola");
+        _context.Maquinas.Add(maquina);
+        _context.Productos.Add(producto);
+        await _context.SaveChangesAsync();
+
+        var template = new TemplateRecarga
+        {
+            Id = 200,
+            Nombre = "Test Timeline",
+            Estado = EstadoTemplate.Terminado
+        };
+        var periodo = new PeriodoRecarga
+        {
+            Id = 300,
+            TemplateRecargaId = 200,
+            MaquinaId = 10,
+            FechaRecarga = new DateTime(2025, 6, 1)
+        };
+        var slot = new SnapshotSlot
+        {
+            Id = 400,
+            PeriodoRecargaId = 300,
+            NumeroSlot = "A1",
+            ProductoId = 100,
+            CantidadInicial = 10,
+            Estado = EstadoSlot.Lleno
+        };
+        template.Periodos = new List<PeriodoRecarga> { periodo };
+        periodo.SnapshotSlots = new List<SnapshotSlot> { slot };
+        _context.TemplatesRecarga.Add(template);
+
+        var ventas = new List<Venta>
+        {
+            new() { MaquinaId = 10, NumeroSlot = "A1", ProductoId = 100, FechaLocal = new DateTime(2025, 6, 2, 10, 0, 0), PrecioVenta = 1000 },
+            new() { MaquinaId = 10, NumeroSlot = "A1", ProductoId = 100, FechaLocal = new DateTime(2025, 6, 3, 14, 0, 0), PrecioVenta = 1000 },
+            new() { MaquinaId = 10, NumeroSlot = "A1", ProductoId = 100, FechaLocal = new DateTime(2025, 6, 4, 9, 0, 0), PrecioVenta = 1000 }
+        };
+        _context.Ventas.AddRange(ventas);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _service.GetSlotTimelineAsync(200, 10, "A1");
+
+        // Assert
+        result.Should().NotBeNull();
+        result!.MaquinaId.Should().Be(10);
+        result.NumeroSlot.Should().Be("A1");
+        result.ProductoId.Should().Be(100);
+        result.FechasVentas.Should().HaveCount(3);
+        result.FechasVentas.Should().BeInAscendingOrder();
+    }
+
+    [Fact]
+    public async Task GetSlotTimelineAsync_DeadSlot_ReturnsEmptyTimeline()
+    {
+        // Arrange — slot with no sales
+        var maquina = TestDataHelpers.CreateMaquina(id: 11, nombre: "M11");
+        _context.Maquinas.Add(maquina);
+        await _context.SaveChangesAsync();
+
+        var template = new TemplateRecarga
+        {
+            Id = 201,
+            Nombre = "Dead Slot Template",
+            Estado = EstadoTemplate.Terminado
+        };
+        var periodo = new PeriodoRecarga
+        {
+            Id = 301,
+            TemplateRecargaId = 201,
+            MaquinaId = 11,
+            FechaRecarga = new DateTime(2025, 6, 1)
+        };
+        var slot = new SnapshotSlot
+        {
+            Id = 401,
+            PeriodoRecargaId = 301,
+            NumeroSlot = "B2",
+            ProductoId = null,
+            CantidadInicial = 10,
+            Estado = EstadoSlot.Vacio
+        };
+        template.Periodos = new List<PeriodoRecarga> { periodo };
+        periodo.SnapshotSlots = new List<SnapshotSlot> { slot };
+        _context.TemplatesRecarga.Add(template);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _service.GetSlotTimelineAsync(201, 11, "B2");
+
+        // Assert
+        result.Should().NotBeNull();
+        result!.FechasVentas.Should().BeEmpty();
+        result.ProductoId.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task GetSlotTimelineAsync_UnknownSlot_ReturnsNull()
+    {
+        // Arrange — template exists but slot doesn't
+        var maquina = TestDataHelpers.CreateMaquina(id: 12, nombre: "M12");
+        _context.Maquinas.Add(maquina);
+        await _context.SaveChangesAsync();
+
+        var template = new TemplateRecarga
+        {
+            Id = 202,
+            Nombre = "Unknown Slot Template",
+            Estado = EstadoTemplate.Terminado
+        };
+        var periodo = new PeriodoRecarga
+        {
+            Id = 302,
+            TemplateRecargaId = 202,
+            MaquinaId = 12,
+            FechaRecarga = new DateTime(2025, 6, 1)
+        };
+        periodo.SnapshotSlots = new List<SnapshotSlot>();
+        _context.TemplatesRecarga.Add(template);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _service.GetSlotTimelineAsync(202, 12, "NONEXISTENT");
+
+        // Assert
+        result.Should().BeNull("non-existent slot should return null for 404 handling");
+    }
+
+    [Fact]
+    public async Task GetSlotTimelineAsync_UnknownTemplate_ReturnsNull()
+    {
+        // Act
+        var result = await _service.GetSlotTimelineAsync(9999, 1, "A1");
+
+        // Assert
+        result.Should().BeNull();
+    }
+
+    #endregion
 }
