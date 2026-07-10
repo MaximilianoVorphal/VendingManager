@@ -16,13 +16,15 @@ public class TemplateRecargaController_ListEndpointTests
 {
     private readonly Mock<ITemplateRecargaService> _mockService;
     private readonly Mock<ITemplateRecargaLifecycleService> _mockLifecycle;
+    private readonly Mock<ITemplateRecargaAnalyticsService> _mockAnalytics;
     private readonly TemplateRecargaController _controller;
 
     public TemplateRecargaController_ListEndpointTests()
     {
         _mockService = new Mock<ITemplateRecargaService>();
         _mockLifecycle = new Mock<ITemplateRecargaLifecycleService>();
-        _controller = new TemplateRecargaController(_mockService.Object, _mockLifecycle.Object);
+        _mockAnalytics = new Mock<ITemplateRecargaAnalyticsService>();
+        _controller = new TemplateRecargaController(_mockService.Object, _mockLifecycle.Object, _mockAnalytics.Object);
     }
 
     [Fact]
