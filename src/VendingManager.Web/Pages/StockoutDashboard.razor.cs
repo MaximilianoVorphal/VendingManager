@@ -204,12 +204,19 @@ namespace VendingManager.Web.Pages
         private string _template
         {
             get => TemplateSeleccionado.ToString();
-            set { if (int.TryParse(value, out var v)) { TemplateSeleccionado = v; _ = OnTemplateChanged(); } }
+            set { if (int.TryParse(value, out var v) && v != TemplateSeleccionado) { TemplateSeleccionado = v; _ = SeleccionarTemplateYAnalizar(); } }
         }
         private string _maquina
         {
             get => MaquinaFiltroTemplate.ToString();
-            set { if (int.TryParse(value, out var v)) MaquinaFiltroTemplate = v; }
+            set
+            {
+                if (int.TryParse(value, out var v) && v != MaquinaFiltroTemplate)
+                {
+                    MaquinaFiltroTemplate = v;
+                    if (TemplateSeleccionado > 0) _ = CargarDatosPorTemplate();
+                }
+            }
         }
         private int _umbral
         {
@@ -218,7 +225,24 @@ namespace VendingManager.Web.Pages
         }
         private void OnUmbralChanged(ChangeEventArgs e)
         {
-            if (int.TryParse(e.Value?.ToString(), out var v)) UmbralHoras = Math.Max(1, v);
+            if (int.TryParse(e.Value?.ToString(), out var v))
+            {
+                var nuevo = Math.Max(1, v);
+                if (Math.Abs(nuevo - UmbralHoras) < 0.5) return;
+                UmbralHoras = nuevo;
+                if (TemplateSeleccionado > 0) _ = CargarDatosPorTemplate();
+            }
+        }
+
+        /// <summary>
+        /// El diseño de Quiebres no tiene botón "Analizar": elegir un template dispara
+        /// el análisis directamente. Carga la metadata del template y luego los datos.
+        /// </summary>
+        private async Task SeleccionarTemplateYAnalizar()
+        {
+            await OnTemplateChanged();
+            if (TemplateSeleccionado > 0) await CargarDatosPorTemplate();
+            else { Datos = null; StateHasChanged(); }
         }
 
         private List<VmSelect.VmSelectOption> TemplateOptions =>

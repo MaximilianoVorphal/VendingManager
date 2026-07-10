@@ -5,12 +5,13 @@
 @* =============================================================================
    Quiebres de Stock — port visual fiel de templates/quiebres-de-stock/
    QuiebresDeStock.dc.html (VendingManager Design System, lenguaje industrial v3).
+   Layout: barra de comando única (título + template + máquina + umbral), franja
+   horizontal de 4 KPIs con acento lateral, y cuerpo de 3 columnas
+   (Dashboard de alertas · Mapa de agotamiento · Timeline + Ventas diarias).
+   El diseño no tiene botón "Analizar": elegir un template dispara el análisis.
    Data real: cableada al backend vía el partial StockoutDashboard.razor.cs
    (HttpClient + stockout-analysis / TemplateRecarga/{id}/analyze). Un adapter
    en el code-behind mapea Datos/DatosAgrupados a los view-models del markup.
-   Layout sin scroll de página (ruta fullscreen en MainLayout); el scroll vive
-   dentro de la tabla y el aside. Estilos inline con var(--token) copiados del
-   template; el bloque <style> cubre keyframes, hover y responsive.
    ============================================================================= *@
 
 <PageTitle>Quiebres de Stock</PageTitle>
@@ -25,31 +26,48 @@
     .qs-tl-item:hover { background: var(--paper-50); }
     .qs-slot { transition: transform .1s, box-shadow .1s; }
     .qs-slot:hover { transform: translateY(-1px); z-index: 1; }
+    .qs-kpi { transition: transform .12s; }
+    .qs-kpi:hover { transform: translateY(-1px); }
     .qs-th { user-select: none; }
     .qs-page h1 { user-select: none; }
     @@media (prefers-reduced-motion: reduce) { .qs-cursor { animation: none !important; } }
-    @@media (max-width: 1000px) {
+    @@media (max-width: 1180px) {
         .qs-body { flex-direction: column !important; overflow: auto !important; }
-        .qs-rail { width: 100% !important; flex-direction: row !important; flex-wrap: wrap !important; }
-        .qs-rail > * { flex: 1 1 300px; }
-        .qs-kpis { flex-direction: row !important; }
-        .qs-split { flex-direction: column !important; }
-        .qs-aside { flex: none !important; width: 100% !important; }
+        .qs-body > * { flex: none !important; min-height: 360px !important; }
+        .qs-aside { min-height: 0 !important; }
+        .qs-kpistrip { flex-wrap: wrap !important; }
+        .qs-kpistrip > * { flex: 1 1 210px !important; }
+        .qs-cmd { gap: 10px !important; }
     }
 </style>
 
 <MobileShell>
 <div class="qs-page" style="flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden;padding:0.7rem 1.3rem 1rem;gap:9px;">
 
-    <!-- ===== Header (franja fina full-width) ===== -->
-    <div style="flex-shrink:0;display:flex;justify-content:space-between;align-items:center;gap:14px;border-bottom:3px solid var(--ink-900);padding-bottom:7px;">
-        <div style="display:flex;align-items:center;gap:12px;min-width:0;">
-            <div style="flex-shrink:0;background:var(--ink-900);color:#fff;font-family:var(--font-mono);font-weight:700;font-size:0.54rem;letter-spacing:2px;padding:3px 9px;text-transform:uppercase;">Gestión · Stock</div>
-            <h1 style="margin:0;font-family:var(--font-mono);font-weight:700;text-transform:uppercase;letter-spacing:-1px;font-size:1.25rem;line-height:1;display:flex;align-items:center;gap:8px;white-space:nowrap;"><i class="bi bi-exclamation-triangle-fill" style="color:var(--signal-danger);font-size:1.05rem;"></i>Quiebres de Stock<span class="qs-cursor">_</span></h1>
-            <p style="margin:0;font-family:var(--font-mono);font-size:0.62rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Detección de silencio y costo de oportunidad</p>
+    <!-- ===== Barra única: título + controles en una sola línea ===== -->
+    <div class="qs-cmd" style="flex-shrink:0;border:2px solid var(--ink-900);background:var(--paper-50);box-shadow:var(--shadow-card);padding:0.45rem 0.85rem;display:flex;gap:16px;align-items:center;flex-wrap:wrap;">
+        <h1 style="margin:0;font-family:var(--font-mono);font-weight:700;text-transform:uppercase;letter-spacing:-1px;font-size:1.12rem;line-height:1;display:flex;align-items:center;gap:8px;white-space:nowrap;"><i class="bi bi-exclamation-triangle-fill" style="color:var(--signal-danger);font-size:1rem;"></i>Quiebres de Stock<span class="qs-cursor">_</span></h1>
+
+        <span style="width:2px;align-self:stretch;background:var(--ink-900);opacity:0.14;flex-shrink:0;"></span>
+
+        <div style="display:flex;align-items:center;gap:8px;min-width:0;">
+            <label style="font-family:var(--font-mono);font-size:0.6rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-secondary);white-space:nowrap;"><i class="bi bi-card-list" style="margin-right:4px;"></i>Template</label>
+            <div style="width:186px;">
+                <VmSelect Value="@_template" Options="TemplateOptions" ValueChanged="@((string v) => _template = v)" />
+            </div>
+            <button type="button" title="Configurar períodos" style="flex-shrink:0;width:38px;height:38px;border:2px solid var(--ink-900);border-radius:0;background:var(--paper-0);cursor:pointer;font-size:0.9rem;display:flex;align-items:center;justify-content:center;"><i class="bi bi-gear"></i></button>
         </div>
-        <div style="flex-shrink:0;display:flex;align-items:center;gap:7px;font-family:var(--font-mono);font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);">
-            <i class="bi bi-clock-history"></i><span>Análisis: @AnalizadosN slots · @MachinesN máquinas</span>
+
+        <div style="display:flex;align-items:center;gap:8px;min-width:0;flex:1;">
+            <label style="font-family:var(--font-mono);font-size:0.6rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-secondary);white-space:nowrap;">Máquina</label>
+            <div style="flex:1;min-width:190px;max-width:340px;">
+                <VmSelect Value="@_maquina" Options="MaquinaOptions" ValueChanged="@((string v) => _maquina = v)" />
+            </div>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:8px;">
+            <label style="font-family:var(--font-mono);font-size:0.6rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-secondary);white-space:nowrap;">Umbral h</label>
+            <input type="number" value="@_umbral" @onchange="OnUmbralChanged" style="width:64px;font-family:var(--font-mono);font-size:0.85rem;font-weight:700;border:2px solid var(--ink-900);border-radius:0;background:var(--paper-0);padding:0.38rem 0.5rem;outline:none;" />
         </div>
     </div>
 
@@ -60,82 +78,57 @@
         </div>
     }
 
-    <!-- ===== Barra de comando (arriba, horizontal) ===== -->
-    <div class="qs-cmd" style="flex-shrink:0;border:2px solid var(--ink-900);background:var(--paper-50);box-shadow:var(--shadow-card);padding:0.5rem 0.8rem;display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
-        <div style="flex:1.3;min-width:220px;display:flex;flex-direction:column;gap:0.3rem;">
-            <label style="font-family:var(--font-mono);font-size:0.61rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;"><i class="bi bi-card-list" style="margin-right:5px;"></i>Template de recarga</label>
-            <div style="display:flex;gap:6px;">
-                <div style="flex:1;min-width:0;">
-                    <VmSelect Value="@_template" Options="TemplateOptions" ValueChanged="@((string v) => _template = v)" />
+    <!-- ===== Franja de KPIs (horizontal, compacta) ===== -->
+    <div class="qs-kpistrip" style="flex-shrink:0;display:flex;gap:9px;">
+        <!-- Alertas críticas -->
+        <div class="qs-kpi" style="flex:1;min-width:0;display:flex;border:2px solid var(--ink-900);background:var(--tint-danger);overflow:hidden;">
+            <span style="width:5px;flex-shrink:0;background:var(--signal-danger);"></span>
+            <div style="flex:1;min-width:0;padding:0.5rem 0.75rem;display:flex;align-items:center;justify-content:space-between;gap:8px;">
+                <div style="min-width:0;">
+                    <div style="font-family:var(--font-mono);font-weight:700;font-size:0.62rem;text-transform:uppercase;letter-spacing:0.7px;">Alertas críticas</div>
+                    <div style="font-family:var(--font-mono);font-size:0.52rem;text-transform:uppercase;letter-spacing:0.3px;color:var(--text-muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">&gt;@(Umbral48)h sin stock</div>
                 </div>
-                <button type="button" title="Configurar períodos" style="flex-shrink:0;width:40px;height:40px;border:2px solid var(--ink-900);border-radius:0;background:var(--paper-0);cursor:pointer;font-size:0.9rem;display:flex;align-items:center;justify-content:center;"><i class="bi bi-gear"></i></button>
+                <div style="font-family:var(--font-sans);font-weight:700;font-size:1.5rem;letter-spacing:-1px;line-height:1;color:var(--signal-danger);flex-shrink:0;">@KCritico</div>
             </div>
         </div>
-        <div style="flex:1.2;min-width:180px;align-self:stretch;display:flex;flex-direction:column;gap:0.3rem;">
-            <label style="font-family:var(--font-mono);font-size:0.61rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);">Períodos configurados</label>
-            <div style="flex:1;border:2px solid var(--signal-info);background:#e8fbff;display:flex;align-items:center;gap:7px;padding:0 8px;overflow:hidden;">
-                <i class="bi bi-calendar-check" style="color:#0a8aa0;flex-shrink:0;"></i>
-                <span style="background:var(--ink-900);color:#fff;font-family:var(--font-mono);font-weight:700;font-size:0.54rem;letter-spacing:0.5px;padding:3px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">MAQUINA 2410280023 SNACK</span>
-                <span style="font-family:var(--font-mono);font-size:0.55rem;color:var(--text-muted);white-space:nowrap;flex-shrink:0;">+ 2 más</span>
+        <!-- Productos en alerta -->
+        <div class="qs-kpi" style="flex:1;min-width:0;display:flex;border:2px solid var(--ink-900);background:var(--paper-0);overflow:hidden;">
+            <span style="width:5px;flex-shrink:0;background:var(--signal-warning);"></span>
+            <div style="flex:1;min-width:0;padding:0.5rem 0.75rem;display:flex;align-items:center;justify-content:space-between;gap:8px;">
+                <div style="min-width:0;">
+                    <div style="font-family:var(--font-mono);font-weight:700;font-size:0.62rem;text-transform:uppercase;letter-spacing:0.7px;">Productos en alerta</div>
+                    <div style="font-family:var(--font-mono);font-size:0.52rem;text-transform:uppercase;letter-spacing:0.3px;color:var(--text-muted);margin-top:2px;">de @AnalizadosN analizados</div>
+                </div>
+                <div style="font-family:var(--font-sans);font-weight:700;font-size:1.5rem;letter-spacing:-1px;line-height:1;color:var(--ink-900);flex-shrink:0;">@KAlerta</div>
             </div>
         </div>
-        <div style="flex:1.5;min-width:210px;display:flex;flex-direction:column;gap:0.3rem;">
-            <label style="font-family:var(--font-mono);font-size:0.61rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Filtrar máquina</label>
-            <VmSelect Value="@_maquina" Options="MaquinaOptions" ValueChanged="@((string v) => _maquina = v)" />
+        <!-- Ventas perdidas est. -->
+        <div class="qs-kpi" style="flex:1.15;min-width:0;display:flex;border:2px solid var(--ink-900);background:var(--paper-0);overflow:hidden;">
+            <span style="width:5px;flex-shrink:0;background:var(--ink-900);"></span>
+            <div style="flex:1;min-width:0;padding:0.5rem 0.75rem;display:flex;align-items:center;justify-content:space-between;gap:8px;">
+                <div style="min-width:0;">
+                    <div style="font-family:var(--font-mono);font-weight:700;font-size:0.62rem;text-transform:uppercase;letter-spacing:0.7px;">Ventas perdidas est.</div>
+                    <div style="font-family:var(--font-mono);font-size:0.52rem;text-transform:uppercase;letter-spacing:0.3px;color:var(--signal-success);margin-top:2px;">Ganancia est.: @KGanancia</div>
+                </div>
+                <div style="font-family:var(--font-sans);font-weight:700;font-size:1.5rem;letter-spacing:-1px;line-height:1;color:var(--signal-danger);flex-shrink:0;white-space:nowrap;">@KPerdido</div>
+            </div>
         </div>
-        <div style="width:88px;flex-shrink:0;display:flex;flex-direction:column;gap:0.3rem;">
-            <label style="font-family:var(--font-mono);font-size:0.61rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Umbral h</label>
-            <input type="number" value="@_umbral" @onchange="OnUmbralChanged" style="font-family:var(--font-mono);font-size:0.85rem;font-weight:700;border:2px solid var(--ink-900);border-radius:0;background:var(--paper-0);padding:0.42rem 0.55rem;outline:none;width:100%;" />
-        </div>
-        <div style="flex:1;min-width:170px;">
-            <VmButton Variant="danger" Icon="bi-radar" Block="true" Width="100%" OnClick="CargarDatosPorTemplate">Analizar por template</VmButton>
+        <!-- Más crítico -->
+        <div class="qs-kpi" style="flex:1.4;min-width:0;display:flex;border:2px solid var(--ink-900);background:var(--paper-0);overflow:hidden;">
+            <span style="width:5px;flex-shrink:0;background:var(--ink-500);"></span>
+            <div style="flex:1;min-width:0;padding:0.45rem 0.75rem;display:flex;flex-direction:column;justify-content:center;">
+                <div style="font-family:var(--font-mono);font-weight:700;font-size:0.58rem;text-transform:uppercase;letter-spacing:0.7px;color:var(--text-muted);">Más crítico</div>
+                <div style="font-family:var(--font-sans);font-weight:700;font-size:0.95rem;letter-spacing:-0.4px;line-height:1.05;margin:2px 0;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">@KWorstName</div>
+                <div style="font-family:var(--font-mono);font-size:0.55rem;text-transform:uppercase;letter-spacing:0.3px;color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">@KWorstMeta</div>
+            </div>
         </div>
     </div>
 
-    <!-- ===== Cuerpo: KPIs (riel izquierdo) + área de datos ===== -->
+    <!-- ===== Cuerpo: 3 columnas (tabla · mapa · timeline+ventas) ===== -->
     <div class="qs-body" style="flex:1;min-height:0;display:flex;gap:11px;overflow:hidden;">
 
-    <!-- ----- Riel izquierdo: KPIs (altura completa) ----- -->
-    <aside class="qs-rail" style="width:236px;flex-shrink:0;display:flex;flex-direction:column;gap:9px;overflow:hidden;">
-        <div class="qs-kpis" style="flex:1;min-height:0;display:flex;flex-direction:column;gap:9px;">
-            <!-- Alertas críticas -->
-            <div style="border:2px solid var(--ink-900);background:var(--signal-danger);color:#fff;box-shadow:var(--shadow-card);padding:0.6rem 0.8rem;flex:1;display:flex;align-items:center;justify-content:space-between;gap:8px;">
-                <div style="min-width:0;">
-                    <div style="font-family:var(--font-mono);font-weight:700;font-size:0.6rem;text-transform:uppercase;letter-spacing:0.8px;opacity:.92;">Alertas críticas</div>
-                    <div style="font-family:var(--font-mono);font-size:0.53rem;text-transform:uppercase;letter-spacing:0.3px;opacity:.85;margin-top:2px;">Productos &gt;@(Umbral48)h sin stock</div>
-                </div>
-                <div style="font-family:var(--font-sans);font-weight:700;font-size:1.32rem;letter-spacing:-1px;line-height:1;flex-shrink:0;">@KCritico</div>
-            </div>
-            <!-- Productos en alerta -->
-            <div style="border:2px solid var(--ink-900);background:var(--signal-warning);color:var(--ink-900);box-shadow:var(--shadow-card);padding:0.6rem 0.8rem;flex:1;display:flex;align-items:center;justify-content:space-between;gap:8px;">
-                <div style="min-width:0;">
-                    <div style="font-family:var(--font-mono);font-weight:700;font-size:0.6rem;text-transform:uppercase;letter-spacing:0.8px;">Productos en alerta</div>
-                    <div style="font-family:var(--font-mono);font-size:0.53rem;text-transform:uppercase;letter-spacing:0.3px;opacity:.8;margin-top:2px;">de @AnalizadosN analizados</div>
-                </div>
-                <div style="font-family:var(--font-sans);font-weight:700;font-size:1.32rem;letter-spacing:-1px;line-height:1;flex-shrink:0;">@KAlerta</div>
-            </div>
-            <!-- Ventas perdidas est. -->
-            <div style="border:2px solid var(--ink-900);background:var(--ink-900);color:#fff;box-shadow:var(--shadow-card);padding:0.6rem 0.8rem;flex:1;display:flex;align-items:center;justify-content:space-between;gap:8px;">
-                <div style="min-width:0;">
-                    <div style="font-family:var(--font-mono);font-weight:700;font-size:0.6rem;text-transform:uppercase;letter-spacing:0.8px;opacity:.85;">Ventas perdidas est.</div>
-                    <div style="font-family:var(--font-mono);font-size:0.53rem;text-transform:uppercase;letter-spacing:0.3px;color:#5fd08a;margin-top:2px;">Ganancia: @KGanancia</div>
-                </div>
-                <div style="font-family:var(--font-sans);font-weight:700;font-size:1.32rem;letter-spacing:-1px;line-height:1;color:#ff5a67;flex-shrink:0;white-space:nowrap;">@KPerdido</div>
-            </div>
-            <!-- Más crítico -->
-            <div style="border:2px solid var(--ink-900);background:var(--ink-500);color:#fff;box-shadow:var(--shadow-card);padding:0.6rem 0.8rem;flex:1;display:flex;flex-direction:column;justify-content:center;">
-                <div style="font-family:var(--font-mono);font-weight:700;font-size:0.6rem;text-transform:uppercase;letter-spacing:0.8px;opacity:.9;">Más crítico</div>
-                <div style="font-family:var(--font-sans);font-weight:700;font-size:0.95rem;letter-spacing:-0.4px;line-height:1.05;margin:4px 0 2px;text-transform:uppercase;">@KWorstName</div>
-                <div style="font-family:var(--font-mono);font-size:0.57rem;text-transform:uppercase;letter-spacing:0.4px;opacity:.9;">@KWorstMeta</div>
-            </div>
-        </div>
-    </aside>
-
-    <!-- ===== Split principal (altura completa) ===== -->
-    <div class="qs-split" style="flex:1;min-width:0;display:flex;gap:11px;overflow:hidden;">
-
-        <!-- ----- Izquierda: Dashboard de Alertas ----- -->
-        <section style="flex:2;min-width:0;display:flex;flex-direction:column;border:2px solid var(--ink-900);box-shadow:var(--shadow-card);background:var(--paper-0);overflow:hidden;">
+        <!-- ----- A · Dashboard de alertas ----- -->
+        <section style="flex:1.85;min-width:0;display:flex;flex-direction:column;border:2px solid var(--ink-900);box-shadow:var(--shadow-card);background:var(--paper-0);overflow:hidden;">
             <div style="flex-shrink:0;background:var(--ink-900);color:#fff;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:0.45rem 0.8rem;">
                 <div style="font-family:var(--font-mono);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;font-size:0.8rem;display:flex;align-items:center;gap:8px;"><i class="bi bi-grid-3x3-gap-fill"></i>Dashboard de alertas<span style="font-family:var(--font-mono);font-weight:700;font-size:0.62rem;border:1px solid rgba(255,255,255,0.5);padding:2px 7px;">@Rows.Count</span></div>
                 <div style="display:flex;gap:14px;align-items:center;">
@@ -179,7 +172,7 @@
             </div>
 
             <div style="flex:1;min-height:0;overflow:auto;">
-                <table class="vm-accordion-table" style="width:100%;border-collapse:collapse;">
+                <table class="qs-tbl" style="width:100%;border-collapse:collapse;">
                     <thead style="position:sticky;top:0;z-index:2;">
                         <tr style="background:var(--ink-700);color:#fff;font-family:var(--font-mono);text-transform:uppercase;font-size:0.58rem;letter-spacing:0.5px;">
                             <th class="qs-th" style="text-align:left;padding:7px 10px;font-weight:700;background:var(--ink-700);">Producto</th>
@@ -233,7 +226,7 @@
                     <div style="padding:34px 16px;text-align:center;font-family:var(--font-mono);color:var(--text-muted);">
                         <i class="bi bi-radar" style="font-size:1.6rem;color:var(--ink-500);"></i>
                         <div style="margin-top:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;font-size:0.8rem;color:var(--ink-900);">Sin análisis todavía</div>
-                        <div style="margin-top:4px;font-size:0.66rem;">Elegí un template. Ejecutá el análisis para ver los quiebres.</div>
+                        <div style="margin-top:4px;font-size:0.66rem;">Elegí un template para ver los quiebres.</div>
                     </div>
                 }
                 else if (Rows.Count == 0)
@@ -247,56 +240,56 @@
             </div>
         </section>
 
-        <!-- ----- Derecha: Mapa + Timeline + Ventas diarias ----- -->
-        <aside class="qs-aside" style="flex:1.2;min-width:0;display:flex;flex-direction:column;gap:11px;overflow:hidden;">
-
-            <!-- Mapa de agotamiento (esquema de la máquina; los slots se colorean al vaciarse) -->
-            <section style="flex:1.3;min-height:0;display:flex;flex-direction:column;border:2px solid var(--ink-900);box-shadow:var(--shadow-card);background:var(--paper-0);overflow:hidden;">
-                <div style="flex-shrink:0;background:var(--ink-900);color:#fff;display:flex;justify-content:space-between;align-items:center;gap:8px;padding:0.45rem 0.8rem;">
-                    <div style="font-family:var(--font-mono);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;font-size:0.74rem;display:flex;align-items:center;gap:8px;"><i class="bi bi-diagram-3-fill"></i>Mapa de agotamiento</div>
-                    <div style="display:flex;align-items:center;gap:6px;">
-                        <span style="font-family:var(--font-mono);font-weight:700;font-size:0.54rem;letter-spacing:0.5px;background:rgba(255,255,255,0.14);border:1px solid rgba(255,255,255,0.4);padding:2px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px;">MÁQ @FocusMaqLabel</span>
-                        <button type="button" @onclick="OpenMap" title="Ver en grande con línea de tiempo" style="flex-shrink:0;display:inline-flex;align-items:center;gap:5px;background:#fff;color:var(--ink-900);border:2px solid var(--ink-900);cursor:pointer;font-family:var(--font-mono);font-weight:700;font-size:0.54rem;text-transform:uppercase;letter-spacing:0.5px;padding:3px 7px;"><i class="bi bi-arrows-fullscreen"></i>Timeline</button>
-                    </div>
+        <!-- ----- B · Mapa de agotamiento (columna propia, altura completa) ----- -->
+        <section class="qs-mapcol" style="flex:1.25;min-width:0;display:flex;flex-direction:column;border:2px solid var(--ink-900);box-shadow:var(--shadow-card);background:var(--paper-0);overflow:hidden;">
+            <div style="flex-shrink:0;background:var(--ink-900);color:#fff;display:flex;justify-content:space-between;align-items:center;gap:8px;padding:0.45rem 0.8rem;">
+                <div style="font-family:var(--font-mono);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;font-size:0.74rem;display:flex;align-items:center;gap:8px;"><i class="bi bi-diagram-3-fill"></i>Mapa de agotamiento</div>
+                <div style="display:flex;align-items:center;gap:6px;">
+                    <span style="font-family:var(--font-mono);font-weight:700;font-size:0.54rem;letter-spacing:0.5px;background:rgba(255,255,255,0.14);border:1px solid rgba(255,255,255,0.4);padding:2px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px;">MÁQ @FocusMaqLabel</span>
+                    <button type="button" @onclick="OpenMap" title="Ver en grande con línea de tiempo" style="flex-shrink:0;display:inline-flex;align-items:center;gap:5px;background:#fff;color:var(--ink-900);border:2px solid var(--ink-900);cursor:pointer;font-family:var(--font-mono);font-weight:700;font-size:0.54rem;text-transform:uppercase;letter-spacing:0.5px;padding:3px 7px;"><i class="bi bi-arrows-fullscreen"></i>Timeline</button>
                 </div>
-                @if (FocusSlots.Count == 0)
-                {
-                    <div style="flex:1;display:flex;align-items:center;justify-content:center;padding:16px;text-align:center;font-family:var(--font-mono);font-size:0.62rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.4px;">Sin slots para mapear</div>
-                }
-                else
-                {
-                    <div style="flex-shrink:0;padding:5px 10px 2px;font-family:var(--font-mono);font-size:0.55rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.4px;">@SchematicMeta</div>
-                    <div style="flex:1;min-height:0;overflow:auto;padding:4px 10px 8px;display:flex;flex-direction:column;gap:7px;">
-                        @foreach (var fl in SchematicFloors)
-                        {
-                            <div>
-                                <div style="font-family:var(--font-mono);font-weight:700;font-size:0.5rem;text-transform:uppercase;letter-spacing:0.6px;color:var(--text-muted);margin-bottom:3px;">@fl.Label</div>
-                                <div style="display:grid;grid-template-columns:repeat(10,1fr);gap:3px;">
-                                    @foreach (var s in fl.Slots)
-                                    {
-                                        <button type="button" class="qs-slot" title="@s.Num · @s.Prod · @s.Stock/@s.Cap" @onclick="() => _sel = s.Prod" style="position:relative;height:26px;border:1px solid var(--ink-900);background:var(--paper-0);cursor:pointer;padding:0;overflow:hidden;@(s.Selected ? "box-shadow:inset 0 0 0 2px var(--ink-900);" : "")">
-                                            <span style="position:absolute;left:0;right:0;bottom:0;height:@(s.FillPct)%;background:@s.Color;transition:height .2s ease;"></span>
-                                            @if (!string.IsNullOrEmpty(s.Badge))
-                                            {
-                                                <span style="position:absolute;top:1px;right:2px;font-family:var(--font-mono);font-weight:700;font-size:0.42rem;color:@(s.Light ? "#fff" : "var(--ink-900)");z-index:1;">@s.Badge</span>
-                                            }
-                                        </button>
-                                    }
-                                </div>
+            </div>
+            @if (FocusSlots.Count == 0)
+            {
+                <div style="flex:1;display:flex;align-items:center;justify-content:center;padding:16px;text-align:center;font-family:var(--font-mono);font-size:0.62rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.4px;">Sin slots para mapear</div>
+            }
+            else
+            {
+                <div style="flex:1;min-height:0;overflow:auto;padding:6px 10px 8px;display:flex;flex-direction:column;gap:6px;">
+                    @foreach (var fl in SchematicFloors)
+                    {
+                        <div style="flex:1;min-height:0;display:flex;flex-direction:column;">
+                            <div style="flex-shrink:0;font-family:var(--font-mono);font-weight:700;font-size:0.5rem;text-transform:uppercase;letter-spacing:0.6px;color:var(--text-muted);margin-bottom:3px;">@fl.Label</div>
+                            <div style="display:grid;grid-template-columns:repeat(10,1fr);gap:3px;">
+                                @foreach (var s in fl.Slots)
+                                {
+                                    <button type="button" class="qs-slot" title="@s.Num · @s.Prod · @s.Stock/@s.Cap" @onclick="() => _sel = s.Prod" style="position:relative;height:26px;border:1px solid var(--ink-900);background:var(--paper-0);cursor:pointer;padding:0;overflow:hidden;@(s.Selected ? "box-shadow:inset 0 0 0 2px var(--ink-900);" : "")">
+                                        <span style="position:absolute;left:0;right:0;bottom:0;height:@(s.FillPct)%;background:@s.Color;transition:height .2s ease;"></span>
+                                        @if (!string.IsNullOrEmpty(s.Badge))
+                                        {
+                                            <span style="position:absolute;top:1px;right:2px;font-family:var(--font-mono);font-weight:700;font-size:0.42rem;color:@(s.Light ? "#fff" : "var(--ink-900)");z-index:1;">@s.Badge</span>
+                                        }
+                                    </button>
+                                }
                             </div>
-                        }
-                    </div>
-                    <div style="flex-shrink:0;border-top:2px solid var(--ink-900);background:var(--paper-50);padding:4px 10px;display:flex;gap:9px;flex-wrap:wrap;font-family:var(--font-mono);font-size:0.5rem;text-transform:uppercase;letter-spacing:0.3px;color:var(--text-secondary);">
-                        <span style="display:inline-flex;align-items:center;gap:3px;"><span style="width:9px;height:9px;background:var(--signal-success);"></span>OK</span>
-                        <span style="display:inline-flex;align-items:center;gap:3px;"><span style="width:9px;height:9px;background:var(--signal-warning);"></span>Alerta</span>
-                        <span style="display:inline-flex;align-items:center;gap:3px;"><span style="width:9px;height:9px;background:var(--signal-danger);"></span>Crítico</span>
-                        <span style="display:inline-flex;align-items:center;gap:3px;"><span style="width:9px;height:9px;background:var(--ink-500);"></span>Dead</span>
-                    </div>
-                }
-            </section>
+                        </div>
+                    }
+                </div>
+                <div style="flex-shrink:0;border-top:2px solid var(--ink-900);background:var(--paper-50);padding:4px 10px;display:flex;gap:9px;flex-wrap:wrap;align-items:center;font-family:var(--font-mono);font-size:0.5rem;text-transform:uppercase;letter-spacing:0.3px;color:var(--text-secondary);">
+                    <span style="display:inline-flex;align-items:center;gap:3px;"><span style="width:9px;height:9px;background:var(--signal-success);"></span>OK</span>
+                    <span style="display:inline-flex;align-items:center;gap:3px;"><span style="width:9px;height:9px;background:var(--signal-warning);"></span>Alerta</span>
+                    <span style="display:inline-flex;align-items:center;gap:3px;"><span style="width:9px;height:9px;background:var(--signal-danger);"></span>Crítico</span>
+                    <span style="display:inline-flex;align-items:center;gap:3px;"><span style="width:9px;height:9px;background:var(--ink-500);"></span>Dead</span>
+                    <span style="margin-left:auto;font-weight:700;color:var(--text-muted);white-space:nowrap;">@SchematicMeta</span>
+                </div>
+            }
+        </section>
+
+        <!-- ----- C · Timeline + Ventas (columna, 2 apilados) ----- -->
+        <aside class="qs-aside" style="flex:1;min-width:0;display:flex;flex-direction:column;gap:11px;overflow:hidden;">
 
             <!-- Timeline de agotamiento -->
-            <section style="flex:0.85;min-height:0;display:flex;flex-direction:column;border:2px solid var(--ink-900);box-shadow:var(--shadow-card);background:var(--paper-0);overflow:hidden;">
+            <section style="flex:1;min-height:0;display:flex;flex-direction:column;border:2px solid var(--ink-900);box-shadow:var(--shadow-card);background:var(--paper-0);overflow:hidden;">
                 <div style="flex-shrink:0;background:var(--ink-900);color:#fff;display:flex;align-items:center;gap:8px;padding:0.45rem 0.8rem;font-family:var(--font-mono);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;font-size:0.74rem;"><i class="bi bi-clock-history"></i>Timeline de agotamiento</div>
                 <div style="flex:1;min-height:0;overflow:auto;padding:4px 0;">
                     @foreach (var t in Timeline)
@@ -317,7 +310,7 @@
             </section>
 
             <!-- Ventas diarias por producto -->
-            <section style="flex:1;min-height:0;display:flex;flex-direction:column;border:2px solid var(--ink-900);box-shadow:var(--shadow-card);background:var(--paper-0);overflow:hidden;">
+            <section style="flex:1.05;min-height:0;display:flex;flex-direction:column;border:2px solid var(--ink-900);box-shadow:var(--shadow-card);background:var(--paper-0);overflow:hidden;">
                 <div style="flex-shrink:0;background:var(--ink-900);color:#fff;display:flex;justify-content:space-between;align-items:center;gap:8px;padding:0.4rem 0.8rem;">
                     <div style="font-family:var(--font-mono);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;font-size:0.74rem;display:flex;align-items:center;gap:8px;"><i class="bi bi-graph-up"></i>Ventas diarias</div>
                     <div style="max-width:180px;">
@@ -352,7 +345,6 @@
             </section>
         </aside>
     </div>
-    </div>
 
     <!-- ===== Modal: Mapa de agotamiento con línea de tiempo ===== -->
     @if (mapOpen)
@@ -367,7 +359,7 @@
                 </div>
 
                 <!-- Esquema grande -->
-                <div style="flex:1;min-height:0;overflow:auto;padding:14px 18px;display:flex;flex-direction:column;gap:14px;background:var(--paper-50);">
+                <div style="flex:1;min-height:0;overflow:auto;padding:14px 18px;display:flex;flex-direction:column;gap:14px;background:var(--bg-canvas);">
                     @foreach (var fl in ModalFloors)
                     {
                         <div>
