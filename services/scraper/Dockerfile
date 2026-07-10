@@ -7,7 +7,7 @@ WORKDIR /app
 # Esto mantiene cacheados Chromium y las libs aunque cambie el código
 # Capa de dependencias — cambiada para incluir requests + cryptography
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir playwright fastapi uvicorn google-genai python-multipart pillow requests cryptography && \
+    pip install --no-cache-dir playwright fastapi uvicorn google-genai python-multipart pillow requests cryptography playwright-stealth && \
     playwright install chromium
 
 # Layer 2: Código — se invalida solo cuando tocás los scripts
