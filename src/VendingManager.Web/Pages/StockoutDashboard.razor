@@ -260,15 +260,17 @@
                     {
                         <div style="flex:1;min-height:0;display:flex;flex-direction:column;">
                             <div style="flex-shrink:0;font-family:var(--font-mono);font-weight:700;font-size:0.5rem;text-transform:uppercase;letter-spacing:0.6px;color:var(--text-muted);margin-bottom:3px;">@fl.Label</div>
-                            <div style="display:grid;grid-template-columns:repeat(10,1fr);gap:3px;">
+                            <div style="flex:1;min-height:0;display:grid;grid-template-columns:repeat(10,1fr);grid-auto-rows:1fr;gap:5px;">
                                 @foreach (var s in fl.Slots)
                                 {
-                                    <button type="button" class="qs-slot" title="@s.Num · @s.Prod · @s.Stock/@s.Cap" @onclick="() => _sel = s.Prod" style="position:relative;height:26px;border:1px solid var(--ink-900);background:var(--paper-0);cursor:pointer;padding:0;overflow:hidden;@(s.Selected ? "box-shadow:inset 0 0 0 2px var(--ink-900);" : "")">
-                                        <span style="position:absolute;left:0;right:0;bottom:0;height:@(s.FillPct)%;background:@s.Color;transition:height .2s ease;"></span>
+                                    <button type="button" class="qs-slot" title="@s.Num · @s.Prod · @s.Stock/@s.Cap" @onclick="() => _sel = s.Prod" style="position:relative;height:100%;min-height:30px;border:1px solid var(--ink-900);background:var(--paper-0);cursor:pointer;padding:0;overflow:hidden;@(s.Selected ? "box-shadow:inset 0 0 0 2px var(--ink-900);" : "")">
+                                        <span style="position:absolute;left:0;right:0;bottom:0;height:@(s.FillPct)%;background:@s.Color;transition:height .2s ease, background .2s ease;"></span>
+                                        <span style="position:absolute;top:3px;left:5px;font-family:var(--font-mono);font-weight:700;font-size:0.5rem;color:var(--ink-900);z-index:1;">@s.Num</span>
                                         @if (!string.IsNullOrEmpty(s.Badge))
                                         {
-                                            <span style="position:absolute;top:1px;right:2px;font-family:var(--font-mono);font-weight:700;font-size:0.42rem;color:@(s.Light ? "#fff" : "var(--ink-900)");z-index:1;">@s.Badge</span>
+                                            <span style="position:absolute;top:3px;right:4px;font-family:var(--font-mono);font-weight:700;font-size:0.5rem;line-height:1;color:@(s.Light ? "#fff" : "var(--ink-900)");z-index:1;">@s.Badge</span>
                                         }
+                                        <span style="position:absolute;left:5px;bottom:3px;font-family:var(--font-mono);font-weight:700;font-size:0.55rem;color:@(s.Light ? "#fff" : "var(--ink-900)");z-index:1;@(s.Light ? "text-shadow:0 1px 1px rgba(0,0,0,.3);" : "")">@s.Stock/@s.Cap</span>
                                     </button>
                                 }
                             </div>
