@@ -89,4 +89,102 @@ public class LastSyncTrackerTests
         readResults.Should().AllSatisfy(r =>
             r.Should().Be(expectedFinal, "all concurrent reads should see the last written value"));
     }
+
+    [Fact]
+    public void GetHealthStatus_Fresh_NoSyncEverRecorded_IsDegraded()
+    {
+        var tracker = CreateTracker();
+
+        var status = tracker.GetHealthStatus();
+
+        status.Should().Be(SyncHealthStatus.Degraded, "a fresh tracker has no successful sync baseline yet");
+    }
+
+    [Fact]
+    public void GetHealthStatus_HealthyRecentSync_BreakerClosed_IsHealthy()
+    {
+        var tracker = CreateTracker();
+        tracker.SetLastSync(DateTime.UtcNow.AddMinutes(-10));
+
+        var status = tracker.GetHealthStatus();
+
+        status.Should().Be(SyncHealthStatus.Healthy);
+    }
+
+    [Fact]
+    public void GetHealthStatus_StaleSync_BreakerClosed_IsDegraded()
+    {
+        var tracker = CreateTracker();
+        tracker.SetLastSync(DateTime.UtcNow.Subtract(LastSyncTracker.StalenessThreshold).AddMinutes(-1));
+
+        var status = tracker.GetHealthStatus();
+
+        status.Should().Be(SyncHealthStatus.Degraded, "last successful sync has aged past the staleness threshold");
+    }
+
+    [Fact]
+    public void GetHealthStatus_RecentSync_BreakerOpen_IsDegraded()
+    {
+        var tracker = CreateTracker();
+        tracker.SetLastSync(DateTime.UtcNow.AddMinutes(-1));
+        tracker.SaveBreakerSnapshot(new BreakerSnapshot
+        {
+            State = BreakerState.Open,
+            ConsecutiveFailures = 3,
+            CooldownUntil = DateTime.UtcNow.AddHours(24),
+            OpenCycleCount = 0
+        });
+
+        var status = tracker.GetHealthStatus();
+
+        status.Should().Be(SyncHealthStatus.Degraded, "breaker not Closed overrides a recent successful sync");
+    }
+
+    [Fact]
+    public void GetHealthStatus_DoesNotMutate_LastSuccessfulSyncTimestamp()
+    {
+        var tracker = CreateTracker();
+        var expected = DateTime.UtcNow.AddMinutes(-5);
+        tracker.SetLastSync(expected);
+        tracker.SaveBreakerSnapshot(new BreakerSnapshot { State = BreakerState.Open });
+
+        // Querying health (Degraded, due to Open breaker) must not touch the preserved timestamp.
+        tracker.GetHealthStatus().Should().Be(SyncHealthStatus.Degraded);
+
+        tracker.GetLastSync().Should().Be(expected, "GetHealthStatus must never overwrite LastSuccessfulSync");
+    }
+
+    [Fact]
+    public void GetBreakerSnapshot_DefaultsToClosed_WhenNothingPersistedYet()
+    {
+        var tracker = CreateTracker();
+
+        var snapshot = tracker.GetBreakerSnapshot();
+
+        snapshot.State.Should().Be(BreakerState.Closed);
+        snapshot.ConsecutiveFailures.Should().Be(0);
+        snapshot.CooldownUntil.Should().BeNull();
+        snapshot.OpenCycleCount.Should().Be(0);
+    }
+
+    [Fact]
+    public void SaveBreakerSnapshot_ThenGetBreakerSnapshot_ReturnsSameValues()
+    {
+        var tracker = CreateTracker();
+        var snapshot = new BreakerSnapshot
+        {
+            State = BreakerState.Degraded,
+            ConsecutiveFailures = 2,
+            CooldownUntil = null,
+            OpenCycleCount = 0
+        };
+
+        tracker.SaveBreakerSnapshot(snapshot);
+        var result = tracker.GetBreakerSnapshot();
+
+        result.State.Should().Be(BreakerState.Degraded);
+        result.ConsecutiveFailures.Should().Be(2);
+        result.CooldownUntil.Should().BeNull();
+        result.OpenCycleCount.Should().Be(0);
+    }
 }

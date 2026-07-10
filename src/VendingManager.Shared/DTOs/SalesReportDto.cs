@@ -4,6 +4,12 @@ namespace VendingManager.Shared.DTOs;
 
 public class SalesReportResponse
 {
+    /// <summary>Outcome status: "ok", "empty", "blocked", "error", or "timeout".</summary>
+    public string Status { get; set; } = "ok";
+
+    /// <summary>Human-readable detail when status is not ok.</summary>
+    public string? Reason { get; set; }
+
     public int Total { get; set; }
     public decimal TotalAmount { get; set; }
     public List<SalesReportRowDto> Rows { get; set; } = new();
