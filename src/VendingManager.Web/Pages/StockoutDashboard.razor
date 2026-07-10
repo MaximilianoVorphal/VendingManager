@@ -39,6 +39,13 @@
         .qs-kpistrip > * { flex: 1 1 210px !important; }
         .qs-cmd { gap: 10px !important; }
     }
+    /* Mobile (max-width 520px): body-based scroll — prevent flex:1 collapse */
+    @@media (max-width: 520px) {
+        .qs-page,
+        .qs-page [style*="flex:1"][style*="min-height:0"] {
+            flex: none !important;
+        }
+    }
 </style>
 
 <MobileShell>

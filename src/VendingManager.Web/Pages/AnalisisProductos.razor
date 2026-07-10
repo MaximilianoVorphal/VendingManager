@@ -41,6 +41,13 @@
     .ap-page :is(button, select, input):focus-visible {
         outline: none; box-shadow: inset 0 0 0 2px var(--ink-900);
     }
+    /* Mobile (max-width 520px): body-based scroll — prevent flex:1 collapse */
+    @@media (max-width: 520px) {
+        .ap-page,
+        .ap-page [style*="flex:1"][style*="min-height:0"] {
+            flex: none !important;
+        }
+    }
 </style>
 
 <MobileShell>
