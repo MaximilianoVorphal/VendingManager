@@ -474,17 +474,28 @@ namespace VendingManager.Web.Pages
                 d.ProductoNombre == SelName);
         }
 
-        // Agrupa los slots reales por bandeja (prefijo alfabético del número de slot).
-        private List<FloorVm> BuildFloors(Func<StockoutAnalysisDto, double> ratioFn) =>
-            FocusSlots
-                .GroupBy(d => TrayOf(d.NumeroSlot))
-                .OrderBy(g => g.Key)
-                .Select(g => new FloorVm(
-                    g.Key == "#" ? "Slots" : $"Bandeja {g.Key}",
-                    g.OrderBy(d => SlotNumSuffix(d.NumeroSlot))
-                     .Select(d => MakeSlot(d, ratioFn(d)))
-                     .ToList()))
+        // Layout tipo máquina real: se ordenan todos los slots (por bandeja y número)
+        // y se reparten en bandejas de tamaño fijo — la primera de 5, el resto de 10 —
+        // igual para toda máquina, replicando el esquema del template de diseño.
+        private List<FloorVm> BuildFloors(Func<StockoutAnalysisDto, double> ratioFn)
+        {
+            var ordered = FocusSlots
+                .OrderBy(d => TrayOf(d.NumeroSlot))
+                .ThenBy(d => SlotNumSuffix(d.NumeroSlot))
                 .ToList();
+
+            var floors = new List<FloorVm>();
+            for (int idx = 0, floor = 0; idx < ordered.Count; floor++)
+            {
+                int size = floor == 0 ? 5 : 10;
+                var slots = ordered.Skip(idx).Take(size)
+                    .Select(d => MakeSlot(d, ratioFn(d))).ToList();
+                var label = floor < 26 ? $"Bandeja {(char)('A' + floor)}" : $"Bandeja {floor + 1}";
+                floors.Add(new FloorVm(label, slots));
+                idx += size;
+            }
+            return floors;
+        }
 
         private double RatioToday(StockoutAnalysisDto d) =>
             d.EsDeadSlot ? 0 : (double)d.StockActual / SlotCap(d);
