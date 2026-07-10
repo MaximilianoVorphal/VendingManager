@@ -133,14 +133,14 @@
 
                 <div class="row g-2">
                     <div class="col-6 d-flex">
-                        <VmCard Style="height:100%;width:100%;" BodyStyle="padding:0.75rem 1rem;background:var(--bg-surface-inset);">
+                        <VmCard Style="height:100%;width:100%;" BodyStyle="padding:0.75rem 1rem;background:var(--bg-surface-inset);display:flex;flex-direction:column;">
                             <div class="d-flex align-items-center mb-3">
                                 <div class="bg-dark text-white fw-bold px-2 py-1 me-2">01</div>
                                 <label class="fw-bold text-uppercase text-dark mb-0">REPORTE OURVEND (.XLS)</label>
                             </div>
                             <p class="small text-muted mb-2 font-monospace">Archivo fuente: "Give-out record"</p>
 
-                            <div class="input-group">
+                            <div class="input-group mt-auto">
                                 <InputFile @key="InputKey" OnChange="SubirArchivoMaquina"
                                            class="form-control form-control-sm border-dark rounded-0" accept=".xls,.xlsx" />
                             </div>
@@ -148,14 +148,14 @@
                     </div>
 
                     <div class="col-6 d-flex pe-0">
-                        <VmCard Style="height:100%;width:100%;" BodyStyle="padding:0.75rem 1rem;background:var(--bg-surface-inset);">
+                        <VmCard Style="height:100%;width:100%;" BodyStyle="padding:0.75rem 1rem;background:var(--bg-surface-inset);display:flex;flex-direction:column;">
                             <div class="d-flex align-items-center mb-3">
                                 <div class="bg-dark text-white fw-bold px-2 py-1 me-2">02</div>
                                 <label class="fw-bold text-uppercase text-dark mb-0">CARTOLA TRANSBANK (.XLS/.CSV)</label>
                             </div>
                             <p class="small text-muted mb-2 font-monospace">Archivo fuente: "Transbank/Banco"</p>
 
-                            <div class="input-group">
+                            <div class="input-group mt-auto">
                                 <InputFile @key="InputKey" OnChange="SubirArchivoTransbank"
                                            class="form-control form-control-sm border-dark rounded-0" accept=".xls,.xlsx,.csv" />
                             </div>
