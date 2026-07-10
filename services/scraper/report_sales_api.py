@@ -630,6 +630,15 @@ async def fetch_sales_via_browser(
         """)
 
         try:
+            # ── 0. Navigate to login page to establish same-origin ──
+            if debug:
+                log("[browser] Navigating to login page...")
+            await page.goto(
+                f"{base}/Account/Login",
+                wait_until="domcontentloaded",
+                timeout=30000,
+            )
+
             # ── 1. Get RSA public key ──
             if debug:
                 log("[browser] Getting RSA public key...")
