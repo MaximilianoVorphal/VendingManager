@@ -134,6 +134,33 @@ public class PollScheduler
         return TimeZoneInfo.ConvertTimeToUtc(deferredLocal, _timeZone);
     }
 
+    /// <summary>
+    /// Computes the next UTC fire instant using <paramref name="intervalOverride"/> instead of the
+    /// scheduler's configured interval. Used by the polling loop when the circuit breaker is
+    /// Degraded and has computed a backoff duration that the caller must honour.
+    /// The window-boundary check and deferred-fire logic are the same as the standard overload.
+    /// </summary>
+    public DateTime ComputeNextFire(DateTime nowUtc, Random rng, TimeSpan intervalOverride)
+    {
+        ArgumentNullException.ThrowIfNull(rng);
+        if (nowUtc.Kind != DateTimeKind.Utc)
+        {
+            throw new ArgumentException("nowUtc must be expressed in UTC (DateTimeKind.Utc).", nameof(nowUtc));
+        }
+
+        var jitterOffset = NextJitter(rng);
+        var candidateUtc = nowUtc.Add(intervalOverride).Add(jitterOffset);
+        var candidateLocal = TimeZoneInfo.ConvertTimeFromUtc(candidateUtc, _timeZone);
+
+        if (FiresWithinWindow(candidateLocal))
+        {
+            return candidateUtc;
+        }
+
+        var deferredLocal = DeferToNextOpening(candidateLocal, rng);
+        return TimeZoneInfo.ConvertTimeToUtc(deferredLocal, _timeZone);
+    }
+
     private bool FiresWithinWindow(DateTime candidateLocal)
     {
         var timeOfDay = candidateLocal.TimeOfDay;

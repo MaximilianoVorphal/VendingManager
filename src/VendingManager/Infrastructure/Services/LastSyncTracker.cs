@@ -219,7 +219,8 @@ public class LastSyncTracker
                 State = state,
                 ConsecutiveFailures = consecutiveFailures,
                 CooldownUntil = cooldownUntil,
-                OpenCycleCount = openCycleCount
+                OpenCycleCount = openCycleCount,
+                LoadedFromDb = true
             }, true);
         }
         catch
