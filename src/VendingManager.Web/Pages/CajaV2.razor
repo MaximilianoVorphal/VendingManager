@@ -34,6 +34,13 @@
     .caja-page :is(button, select, input):focus-visible {
         outline: 2px solid var(--ink-900); outline-offset: 2px;
     }
+    /* Mobile (max-width 520px): body-based scroll — prevent flex:1 collapse */
+    @@media (max-width: 520px) {
+        .caja-page,
+        .caja-page [style*="flex:1"][style*="min-height:0"] {
+            flex: none !important;
+        }
+    }
 </style>
 
 <MobileShell>
