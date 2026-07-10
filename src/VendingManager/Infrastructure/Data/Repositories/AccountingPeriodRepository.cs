@@ -25,6 +25,7 @@ public class AccountingPeriodRepository(ApplicationDbContext context) : IAccount
             query = query.Where(p => p.FechaInicio <= hasta.Value);
 
         return await query
+            .AsNoTracking()
             .OrderByDescending(p => p.FechaInicio)
             .ToListAsync(ct);
     }
@@ -38,6 +39,8 @@ public class AccountingPeriodRepository(ApplicationDbContext context) : IAccount
     public async Task<AccountingPeriod?> GetFullByIdAsync(int id, CancellationToken ct = default)
     {
         return await context.AccountingPeriods
+            .AsNoTracking()
+            .AsSplitQuery()
             .Include(p => p.Transferencias)
                 .ThenInclude(t => t.Compras)
                     .ThenInclude(c => c.Detalles)
@@ -57,6 +60,13 @@ public class AccountingPeriodRepository(ApplicationDbContext context) : IAccount
 
     public async Task UpdateAsync(AccountingPeriod period, CancellationToken ct = default)
     {
+        // Entities loaded with AsNoTracking (O-03, O-04) are Detached from the
+        // ChangeTracker. When Update attaches the entire graph, it conflicts with
+        // any previously-tracked instance that shares a key (at any nesting level).
+        // Clear the tracker before calling Update to resolve all conflicts at once.
+        if (context.Entry(period).State == EntityState.Detached)
+            context.ChangeTracker.Clear();
+
         context.AccountingPeriods.Update(period);
         await context.SaveChangesAsync(ct);
     }
