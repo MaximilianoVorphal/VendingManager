@@ -1,0 +1,8 @@
+{
+  "total": 3,
+  "rows": [
+    {"Fecha": "2026-07-01", "Maquina": "M001", "Total": 15000, "Cantidad": 5},
+    {"Fecha": "2026-07-01", "Maquina": "M002", "Total": 8500, "Cantidad": 3},
+    {"Fecha": "2026-07-01", "Maquina": "M003", "Total": 22000, "Cantidad": 8}
+  ]
+}
