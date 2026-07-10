@@ -151,37 +151,53 @@ async def get_sales_report(
     machine_id: str = Query("", description="ID de máquina (vacío = todas)"),
 ):
     """
-    Devuelve ventas de Ourvend en JSON usando la API pura (sin Playwright).
-    Mismo flujo RSA + ListJson que report_sales_api.py.
+    Devuelve ventas de Ourvend en JSON usando el browser path (stealth
+    Playwright login + in-page fetch). La respuesta incluye un ``status``
+    field que permite al caller (``ScraperClient`` en .NET) distinguir
+    entre éxito, sin datos, bloqueo WAF, error y timeout.
 
-    Respuesta: { total, total_amount, rows: [{ machine_id, machine_name,
-    slot, pay_type, pay_label, price, result, machine_time, server_time, ... }] }
+    Respuesta (200): { status: "ok"|"empty", total, total_amount, rows }
+    Respuesta (503): { status: "blocked"|"error"|"timeout", reason }
     """
     try:
-        session = report_sales_api.create_session()
-        if not report_sales_api.login(session):
-            raise HTTPException(status_code=502, detail="No se pudo autenticar en Ourvend")
-
-        all_rows = report_sales_api.query_all_pages(
-            session,
+        data = await report_sales_api.fetch_sales_via_browser(
             start_date=start,
             end_date=end,
             machine_id=machine_id,
-            rows=2000,   # minimizar requests
-            delay=1.0,   # anti-baneo
+            rows=2000,
+            debug=False,
         )
 
-        formatted = [report_sales_api.format_row(r) for r in all_rows]
+        classification = report_sales_api.classify_response(data)
 
-        return {
-            "total": len(formatted),
-            "total_amount": sum(r.get("price", 0) or 0 for r in formatted),
-            "rows": formatted,
-        }
+        if classification in ("ok", "empty"):
+            rows = data.get("rows", [])
+            formatted = [report_sales_api.format_row(r) for r in rows]
+            return {
+                "status": classification,
+                "total": len(formatted),
+                "total_amount": sum(r.get("price", 0) or 0 for r in formatted),
+                "rows": formatted,
+            }
+        else:
+            reason = data.get("_reason", str(data)) if isinstance(data, dict) else str(data)
+            print(f"[API] Sales report classified as {classification}: {reason}")
+            raise HTTPException(
+                status_code=503,
+                detail={
+                    "status": classification,
+                    "reason": reason,
+                },
+            )
 
+    except HTTPException:
+        raise
     except Exception as e:
         print(f"[API] Error obteniendo ventas: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(
+            status_code=503,
+            detail={"status": "error", "reason": str(e)},
+        )
 
 
 @app.get("/health")
