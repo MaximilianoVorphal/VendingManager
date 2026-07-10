@@ -295,7 +295,7 @@
                     @foreach (var f in Filtros)
                     {
                         var on = _filter == f.Key;
-                        <button @onclick="() => _filter = f.Key" style="font-family:var(--font-mono);font-weight:700;font-size:0.64rem;text-transform:uppercase;letter-spacing:0.5px;padding:4px 9px;border:none;border-radius:0;cursor:pointer;background:@(on ? "var(--paper-0)" : "transparent");color:@(on ? "var(--ink-900)" : "var(--paper-0)");">@f.Label</button>
+                        <button @onclick="() => { _filter = f.Key; _cachedSections = null; _cachedSel = null; }" style="font-family:var(--font-mono);font-weight:700;font-size:0.64rem;text-transform:uppercase;letter-spacing:0.5px;padding:4px 9px;border:none;border-radius:0;cursor:pointer;background:@(on ? "var(--paper-0)" : "transparent");color:@(on ? "var(--ink-900)" : "var(--paper-0)");">@f.Label</button>
                     }
                 </div>
             </div>
@@ -1031,6 +1031,10 @@
     private AccountingPeriodFullDto? _periodo;
     private CancellationTokenSource? _loadCts;
 
+    // ── O-05: Memoized BuildSections / BuildSel ───────────────────────────────
+    private List<SectionVm>? _cachedSections;
+    private SelVm? _cachedSel;
+
     // Cache-busting tokens per document key ("t{id}"/"c{id}"). Bumped after a successful
     // image upload so the browser re-fetches the (otherwise unchanged) image URL instead
     // of serving the previous version from cache.
@@ -1095,9 +1099,12 @@
         _gastoMonto = ChileanAmountParser.TryParse(_gastoMontoText, out var v) ? v : 0m;
     }
 
-    // ── Construcción de secciones según el filtro ─────────────────────────────
+    // ── Construcción de secciones según el filtro (O-05: memoized) ────────────
     private List<SectionVm> BuildSections()
     {
+        if (_cachedSections is not null)
+            return _cachedSections;
+
         if (_periodo is null) return new();
 
         var filter = _filter;
@@ -1184,52 +1191,62 @@
             }
         }
 
+        _cachedSections = sections;
         return sections;
     }
 
-    // ── Panel derecho: documento seleccionado ─────────────────────────────────
+    // ── Panel derecho: documento seleccionado (O-05: memoized) ────────────────
     private SelVm BuildSel()
     {
+        if (_cachedSel is not null)
+            return _cachedSel;
+
         if (_periodo is null)
-            return new("—", "bi-image", "Sin datos", "—", "—", "—", "—", "—", "—", "$0", false, "—", false, false, null);
+            return CacheSel(new("—", "bi-image", "Sin datos", "—", "—", "—", "—", "—", "—", "$0", false, "—", false, false, null));
 
         // Check transferencias
         var t = _periodo.Transferencias.FirstOrDefault(x => x.Id == _selectedId);
         if (t is not null)
         {
-            return new("Transferencia", "bi-bank", "Comprobante transferencia",
+            return CacheSel(new("Transferencia", "bi-bank", "Comprobante transferencia",
                 t.Trabajador.ToUpperInvariant(), "Para", t.Trabajador, "Fecha", $"{t.Fecha:dd/MM/yyyy}",
                 "Transferencia", Fmt(t.Monto), true,
                 t.ComprobanteImagenPath ?? "No se eligió ningún archivo",
                 IsV($"t{t.Id}"), t.ComprobanteImagenPath is not null,
-                t.ComprobanteImagenPath is not null ? FotoUrl($"t{t.Id}", $"/api/contabilidad/transferencia/{t.Id}/comprobante") : null);
+                t.ComprobanteImagenPath is not null ? FotoUrl($"t{t.Id}", $"/api/contabilidad/transferencia/{t.Id}/comprobante") : null));
         }
 
         // Check compras (flattened)
         var c = _periodo.Transferencias.SelectMany(x => x.Compras).FirstOrDefault(x => x.Id == _selectedId);
         if (c is not null)
         {
-            return new("Compra", "bi-receipt", "Foto boleta",
+            return CacheSel(new("Compra", "bi-receipt", "Foto boleta",
                 (c.ProveedorCanonical ?? c.Proveedor).ToUpperInvariant(), "Nº documento", c.NumeroDocumento ?? "—", "Fecha", $"{c.FechaCompra:dd/MM/yyyy}",
                 c.TipoFactura, Fmt(-c.MontoTotal), false,
                 c.FacturaImagenPath ?? "No se eligió ningún archivo",
                 IsV($"c{c.Id}"), c.FacturaImagenPath is not null,
                 c.FacturaImagenPath is not null ? FotoUrl($"c{c.Id}", $"/api/compras/{c.Id}/factura") : null,
-                c.Id, c.ProveedorCanonical, c.ProveedorCatalogId, c.Proveedor);
+                c.Id, c.ProveedorCanonical, c.ProveedorCatalogId, c.Proveedor));
         }
 
         // Check gastos
         var g = _periodo.Gastos.FirstOrDefault(x => x.Id == _selectedId);
         if (g is not null)
         {
-            return new("Gasto", "bi-receipt", "Foto boleta",
+            return CacheSel(new("Gasto", "bi-receipt", "Foto boleta",
                 g.Descripcion.ToUpperInvariant(), "Tipo", g.Categoria, "Fecha", $"{g.Fecha:dd/MM/yyyy}",
                 g.Categoria, Fmt(-g.Monto), false,
                 g.ImagenPath ?? "No se eligió ningún archivo",
-                IsV($"g{g.Id}"), g.ImagenPath is not null, null);
+                IsV($"g{g.Id}"), g.ImagenPath is not null, null));
         }
 
-        return new("—", "bi-image", "Sin datos", "—", "—", "—", "—", "—", "—", "$0", false, "—", false, false, null);
+        return CacheSel(new("—", "bi-image", "Sin datos", "—", "—", "—", "—", "—", "—", "$0", false, "—", false, false, null));
+    }
+
+    private SelVm CacheSel(SelVm sel)
+    {
+        _cachedSel = sel;
+        return sel;
     }
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
@@ -1277,6 +1294,8 @@
         try
         {
             _periodo = await Http.GetFromJsonAsync<AccountingPeriodFullDto>($"api/contabilidad/periodos/{id}", ct);
+            _cachedSections = null;
+            _cachedSel = null;
             if (_periodo is not null)
             {
                 // Initialize verified state from DTO
@@ -1312,11 +1331,12 @@
             _loadCts?.Cancel();
             _loadCts = new CancellationTokenSource();
             var ct = _loadCts.Token;
+            _cachedSections = null;
+            _cachedSel = null;
+            _loading = true;
+            await InvokeAsync(StateHasChanged);
             try
             {
-                await Task.Delay(300, ct);
-                _loading = true;
-                await InvokeAsync(StateHasChanged);
                 await CargarPeriodoDetalle(id, ct);
             }
             catch (OperationCanceledException) { }
@@ -1339,6 +1359,8 @@
         var key = $"{kind[0]}{id}";
         var before = _verified.GetValueOrDefault(key);
         _verified[key] = true;
+        _cachedSections = null;
+        _cachedSel = null;
         _error = null;
         StateHasChanged();
 
@@ -1379,6 +1401,8 @@
         var key = $"{kind[0]}{id}";
         var before = _verified.GetValueOrDefault(key);
         _verified[key] = false;
+        _cachedSections = null;
+        _cachedSel = null;
         _error = null;
         StateHasChanged();
 
@@ -1483,6 +1507,8 @@
     private void SelectRow(int id)
     {
         _selectedId = id;
+        _cachedSections = null;
+        _cachedSel = null;
         _reasignarOpen = false; // cerrar el editor de proveedor al cambiar de documento
     }
 
@@ -1588,6 +1614,8 @@
     private void AutoAdvance()
     {
         if (_periodo is null) return;
+        _cachedSections = null;
+        _cachedSel = null;
 
         // Find next unverified transferencia
         var nextT = _periodo.Transferencias
