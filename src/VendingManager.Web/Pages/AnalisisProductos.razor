@@ -55,36 +55,47 @@
         /* ── 2. Legend: hide inline, show popover button ── */
         .ap-legend-inline { display: none !important; }
         .ap-legend-btn { display: inline-flex !important; align-items: center; gap: 4px; }
+        .ap-items-count { display: none !important; }
 
         /* ── 3. Totals: hide tfoot, show mobile band ── */
         .ap-tbl tfoot { display: none !important; }
         .ap-totals-mobile { display: flex !important; }
 
-        /* ── 4. Table overrides: reset accordion, restore real table ── */
-        .ap-tbl,
-        .ap-tbl thead,
-        .ap-tbl tbody,
-        .ap-tbl th,
-        .ap-tbl td,
-        .ap-tbl tr { display: revert; }
-        .ap-tbl { width: max-content; min-width: 100%; }
-        .ap-tbl thead { display: table-header-group !important; }
-        /* Sticky first column */
-        .ap-tbl td:first-child,
-        .ap-tbl th:first-child {
+        /* ── 4. Table overrides: kill the vm-accordion-table card transform
+              and restore a real HTML table. Selectors match vm-accordion-table's
+              specificity so we win the cascade without !important wars. ── */
+        .ap-tbl.vm-accordion-table,
+        .ap-tbl.vm-accordion-table thead,
+        .ap-tbl.vm-accordion-table tbody,
+        .ap-tbl.vm-accordion-table th,
+        .ap-tbl.vm-accordion-table td,
+        .ap-tbl.vm-accordion-table tr { display: revert-layer; }
+        .ap-tbl.vm-accordion-table thead { display: table-header-group !important; }
+        .ap-tbl.vm-accordion-table tbody tr { display: table-row !important; }
+        .ap-tbl.vm-accordion-table tbody tr > td { display: table-cell !important; padding: 6px 10px !important; }
+        .ap-tbl.vm-accordion-table tbody tr > td:first-child { display: table-cell !important; }
+        .ap-tbl.vm-accordion-table tbody tr > td[data-label]:not(:first-child)::before { content: none !important; }
+        .ap-tbl { width: max-content; min-width: 100%; border-collapse: collapse; }
+        /* Sticky first column (Producto) */
+        .ap-tbl.vm-accordion-table tbody tr > td:first-child,
+        .ap-tbl.vm-accordion-table thead th:first-child {
             position: sticky !important;
             left: 0;
             z-index: 2;
-            background: var(--paper-0);
-            box-shadow: 4px 0 6px -4px rgba(0,0,0,0.15);
+            background: var(--paper-0) !important;
+            box-shadow: 4px 0 6px -4px rgba(0,0,0,0.18);
         }
-        .ap-tbl th:first-child {
+        .ap-tbl.vm-accordion-table thead th:first-child {
             z-index: 4 !important;
             background: var(--ink-700) !important;
+            color: #fff !important;
         }
         /* Hide redundant columns in mobile */
         .ap-col-pct { display: none !important; }
         .ap-col-cumpct { display: none !important; }
+        /* Hide accent border that vm-accordion-table adds to body rows */
+        .ap-tbl.vm-accordion-table tbody tr { border: 0 !important; margin: 0 !important; padding: 0 !important; box-shadow: none !important; background: transparent !important; }
+        .ap-tbl.vm-accordion-table tbody tr > td:first-child { min-height: 0 !important; padding: 6px 10px !important; cursor: default !important; user-select: text !important; background: var(--paper-0) !important; color: var(--text-primary) !important; border-bottom: 1px solid var(--line-200) !important; }
 
         /* ── 5. Bottom sheet (filter drawer) ── */
         .ap-sheet__backdrop {
@@ -301,7 +312,7 @@
                     <button @onclick='() => _vista = "producto"' style="font-family:var(--font-mono);font-weight:700;font-size:0.64rem;text-transform:uppercase;letter-spacing:0.5px;padding:4px 10px;border:none;border-radius:0;cursor:pointer;background:@(_vista == "producto" ? "var(--paper-0)" : "transparent");color:@(_vista == "producto" ? "var(--ink-900)" : "#fff");">Producto</button>
                     <button @onclick='() => _vista = "categoria"' style="font-family:var(--font-mono);font-weight:700;font-size:0.64rem;text-transform:uppercase;letter-spacing:0.5px;padding:4px 10px;border:none;border-left:2px solid var(--paper-0);border-radius:0;cursor:pointer;background:@(_vista == "categoria" ? "var(--paper-0)" : "transparent");color:@(_vista == "categoria" ? "var(--ink-900)" : "#fff");">Categoría</button>
                 </div>
-                <span style="font-family:var(--font-mono);font-weight:700;font-size:0.7rem;text-transform:uppercase;border:1px solid rgba(255,255,255,0.55);color:#fff;padding:3px 9px;">@rows.Count ítems</span>
+                <span class="ap-items-count" style="font-family:var(--font-mono);font-weight:700;font-size:0.7rem;text-transform:uppercase;border:1px solid rgba(255,255,255,0.55);color:#fff;padding:3px 9px;">@rows.Count ítems</span>
                 <!-- Mobile: Legend popover trigger -->
                 <span class="ap-legend__anchor" style="position:relative;display:inline;">
                     <button class="ap-legend-btn" @onclick="() => _legendOpen = !_legendOpen"
