@@ -141,3 +141,87 @@ public class VentaDiariaDto
     public DateTime Fecha { get; set; }
     public int Cantidad { get; set; }
 }
+
+/// <summary>
+/// DTO ligero para la lista inicial del dashboard de stockout.
+/// Copia exacta de <see cref="StockoutAnalysisDto"/> sin la propiedad <see cref="StockoutAnalysisDto.FechasVentas"/>.
+/// Sigue el patrón de split-DTO probado en recarga-movil-performance.
+/// </summary>
+public class StockoutSlotDto
+{
+    // =============================================
+    // IDENTIFICACIÓN
+    // =============================================
+    public int MaquinaId { get; set; }
+    public string MaquinaNombre { get; set; } = string.Empty;
+    public int? ProductoId { get; set; }
+    public string ProductoNombre { get; set; } = string.Empty;
+    public string NumeroSlot { get; set; } = string.Empty;
+
+    // =============================================
+    // FECHAS CRÍTICAS
+    // =============================================
+    public DateTime? PrimeraVenta { get; set; }
+    public DateTime? UltimaVenta { get; set; }
+    public DateTime UltimaActividadMaquina { get; set; }
+    public DateTime FinReporte { get; set; }
+
+    // =============================================
+    // MÉTRICAS DE STOCKOUT
+    // =============================================
+    public bool PosibleQuiebre { get; set; }
+    public double HorasSinStock { get; set; }
+    public double DiasSinStock => HorasSinStock / 24.0;
+
+    // =============================================
+    // VELOCIDAD REAL
+    // =============================================
+    public int StockInicial { get; set; }
+    public int StockActual { get; set; }
+    public int CantidadVendida { get; set; }
+    public int FillPct { get; set; } = -1;
+    public decimal? DiasHastaStockout { get; set; }
+    public bool EsDeadSlot { get; set; }
+    public double HorasActivas { get; set; }
+    public decimal VelocidadPorHora { get; set; }
+    public decimal VelocidadDiaria => VelocidadPorHora * 24;
+
+    // =============================================
+    // COSTO DE OPORTUNIDAD
+    // =============================================
+    public decimal PrecioPromedioVenta { get; set; }
+    public decimal GananciaPromedio { get; set; }
+    public decimal DineroPerdidoEstimado { get; set; }
+    public decimal GananciaPerdidaEstimada { get; set; }
+
+    // =============================================
+    // HELPERS PARA UI
+    // =============================================
+    public string NivelAlerta => HorasSinStock switch
+    {
+        > 72 => "Crítico",
+        > 48 => "Alto",
+        > 24 => "Medio",
+        _ => "Normal"
+    };
+
+    public string ColorAlerta => NivelAlerta switch
+    {
+        "Crítico" => "bg-danger text-white",
+        "Alto" => "bg-warning text-dark",
+        "Medio" => "bg-info text-dark",
+        _ => "bg-light text-muted"
+    };
+}
+
+/// <summary>
+/// DTO para el timeline lazy de un slot específico.
+/// Devuelve las fechas de venta bajo demanda cuando el usuario interactúa con el scrubber.
+/// </summary>
+public class SlotTimelineDto
+{
+    public int MaquinaId { get; set; }
+    public string NumeroSlot { get; set; } = string.Empty;
+    public int? ProductoId { get; set; }
+    public List<DateTime> FechasVentas { get; set; } = new();
+}
