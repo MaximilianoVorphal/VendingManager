@@ -154,11 +154,11 @@
                     <thead style="position:sticky;top:0;z-index:2;">
                         <tr style="background:var(--ink-700);color:#fff;font-family:var(--font-mono);text-transform:uppercase;font-size:0.62rem;letter-spacing:0.5px;">
                             <th class="ap-th ap-sortable" @onclick='() => SortBy("prod")' style="text-align:left;padding:8px 12px;font-weight:700;background:var(--ink-700);">Producto@(Caret("prod"))</th>
+                            <th class="ap-th ap-sortable" @onclick='() => SortBy("pct")' style="text-align:right;padding:8px 12px;font-weight:700;background:var(--ink-700);">% Ind.@(Caret("pct"))</th>
                             <th class="ap-th ap-sortable" @onclick='() => SortBy("abc")' style="text-align:left;padding:8px 12px;font-weight:700;background:var(--ink-700);">ABC@(Caret("abc"))</th>
                             <th class="ap-th ap-sortable" @onclick='() => SortBy("tend")' style="text-align:left;padding:8px 12px;font-weight:700;background:var(--ink-700);">Tendencia@(Caret("tend"))</th>
                             <th class="ap-th ap-sortable" @onclick='() => SortBy("unid")' style="text-align:right;padding:8px 12px;font-weight:700;background:var(--ink-700);">Total Unid.@(Caret("unid"))</th>
                             <th class="ap-th ap-sortable" @onclick='() => SortBy("ing")' style="text-align:right;padding:8px 12px;font-weight:700;background:var(--ink-700);">Ingresos@(Caret("ing"))</th>
-                            <th class="ap-th ap-sortable" @onclick='() => SortBy("pct")' style="text-align:right;padding:8px 12px;font-weight:700;background:var(--ink-700);">% Ind.@(Caret("pct"))</th>
                             <th class="ap-th ap-sortable" @onclick='() => SortBy("gan")' style="text-align:right;padding:8px 12px;font-weight:700;background:var(--ink-700);">Ganancia@(Caret("gan"))</th>
                             <th class="ap-th ap-sortable" @onclick='() => SortBy("margen")' style="text-align:right;padding:8px 12px;font-weight:700;background:var(--ink-700);">Margen %@(Caret("margen"))</th>
                         </tr>
@@ -169,6 +169,7 @@
                             var margen = r.Ing != 0 ? (double)r.Gan / r.Ing * 100 : 0;
                             <tr class="ap-row @(r.Unknown ? "ap-row-unk" : "")" style="border-bottom:1px solid var(--line-200);">
                                 <td style="font-family:var(--font-sans);font-weight:600;font-size:0.84rem;text-transform:uppercase;letter-spacing:-0.2px;">@r.Prod</td>
+                                <td style="text-align:right;font-family:var(--font-mono);font-weight:700;font-size:0.8rem;color:var(--text-muted);">@r.Pct.ToString("F1", Inv)%</td>
                                 <td>
                                     <span style="display:inline-flex;align-items:center;gap:7px;">
                                         @{
@@ -198,7 +199,6 @@
                                 </td>
                                 <td style="text-align:right;font-family:var(--font-mono);font-weight:700;font-size:0.82rem;">@r.Unid.ToString("N0", Nfi)</td>
                                 <td style="text-align:right;font-family:var(--font-mono);font-weight:700;font-size:0.8rem;">@Fmt(r.Ing)</td>
-                                <td style="text-align:right;font-family:var(--font-mono);font-weight:700;font-size:0.8rem;color:var(--text-muted);">@r.Pct.ToString("F1", Inv)%</td>
                                 <td style="text-align:right;font-family:var(--font-mono);font-weight:700;font-size:0.8rem;">
                                     <span style="color:@(r.Gan >= 0 ? "var(--signal-success)" : "var(--signal-danger)");">@Fmt(r.Gan)</span>
                                 </td>
@@ -210,10 +210,9 @@
                     </tbody>
                     <tfoot style="position:sticky;bottom:0;z-index:2;">
                         <tr style="background:var(--ink-900);color:#fff;font-family:var(--font-mono);font-weight:700;text-transform:uppercase;font-size:0.74rem;letter-spacing:0.4px;">
-                            <td colspan="3" style="padding:9px 12px;">Totales · @rows.Count ítems</td>
+                            <td colspan="4" style="padding:9px 12px;">Totales · @rows.Count ítems</td>
                             <td style="text-align:right;padding:9px 12px;">@totUnid.ToString("N0", Nfi)</td>
                             <td style="text-align:right;padding:9px 12px;">@Fmt(totIng)</td>
-                            <td style="text-align:right;padding:9px 12px;color:var(--text-muted);">—</td>
                             <td style="text-align:right;padding:9px 12px;color:#5fd08a;">@Fmt(totGan)</td>
                             <td style="text-align:right;padding:9px 12px;">@totMargen.ToString("F1", Inv)%</td>
                         </tr>
