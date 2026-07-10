@@ -12,6 +12,7 @@ public class TemplateRecargaController_FotoTests
 {
     private readonly Mock<ITemplateRecargaService> _mockService;
     private readonly Mock<ITemplateRecargaLifecycleService> _mockLifecycle;
+    private readonly Mock<ITemplateRecargaAnalyticsService> _mockAnalytics;
     private readonly TemplateRecargaController _controller;
     private const int TemplateId = 1;
     private const int PeriodoId = 10;
@@ -20,7 +21,8 @@ public class TemplateRecargaController_FotoTests
     {
         _mockService = new Mock<ITemplateRecargaService>();
         _mockLifecycle = new Mock<ITemplateRecargaLifecycleService>();
-        _controller = new TemplateRecargaController(_mockService.Object, _mockLifecycle.Object);
+        _mockAnalytics = new Mock<ITemplateRecargaAnalyticsService>();
+        _controller = new TemplateRecargaController(_mockService.Object, _mockLifecycle.Object, _mockAnalytics.Object);
     }
 
     private static IFormFile CreateMockFormFile(byte[] content, string contentType, string fileName)

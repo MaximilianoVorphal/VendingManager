@@ -1042,8 +1042,7 @@ public class TemplateRecargaService : ITemplateRecargaService
                 PrecioPromedioVenta = Math.Round(precioPromedio, 0),
                 GananciaPromedio = Math.Round(gananciaPromedio, 0),
                 DineroPerdidoEstimado = Math.Round(dineroPerdido, 0),
-                GananciaPerdidaEstimada = Math.Round(gananciaPerdida, 0),
-                FechasVentas = ventasSlot.Select(v => v.FechaLocal).OrderBy(d => d).ToList()
+                GananciaPerdidaEstimada = Math.Round(gananciaPerdida, 0)
             });
         }
 
@@ -1064,8 +1063,7 @@ public class TemplateRecargaService : ITemplateRecargaService
                 DineroPerdidoEstimado = ventasPendientes.Sum(v => v.PrecioVenta),
                 GananciaPerdidaEstimada = 0,
                 FinReporte = fin,
-                UltimaActividadMaquina = ultimaActividadMaquina,
-                FechasVentas = new List<DateTime>()
+                UltimaActividadMaquina = ultimaActividadMaquina
             });
         }
 

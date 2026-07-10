@@ -12,13 +12,15 @@ public class TemplateRecargaController_LifecycleTests
 {
     private readonly Mock<ITemplateRecargaService> _mockFacade;
     private readonly Mock<ITemplateRecargaLifecycleService> _mockLifecycle;
+    private readonly Mock<ITemplateRecargaAnalyticsService> _mockAnalytics;
     private readonly TemplateRecargaController _controller;
 
     public TemplateRecargaController_LifecycleTests()
     {
         _mockFacade = new Mock<ITemplateRecargaService>();
         _mockLifecycle = new Mock<ITemplateRecargaLifecycleService>();
-        _controller = new TemplateRecargaController(_mockFacade.Object, _mockLifecycle.Object);
+        _mockAnalytics = new Mock<ITemplateRecargaAnalyticsService>();
+        _controller = new TemplateRecargaController(_mockFacade.Object, _mockLifecycle.Object, _mockAnalytics.Object);
     }
 
     private static TemplateRecargaDto MakeDto(int id, EstadoTemplate estado)
