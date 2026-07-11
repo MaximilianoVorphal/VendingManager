@@ -73,6 +73,10 @@
         if (item.Key == "recarga")
             return _currentPath == itemPath || _currentPath == "recarga-movil";
 
+        // "Conciliación" highlights for both desktop and mobile routes
+        if (item.Key == "contabilidad")
+            return _currentPath == itemPath || _currentPath == "conciliacion-movil";
+
         return _currentPath == itemPath;
     }
 
@@ -97,10 +101,13 @@
         if (_isMobile)
             _mobileOpen = false;
 
-        // "Templates Recarga" → mobile-friendly version on small screens
-        var href = item.Key == "recarga" && _isMobile
-            ? "/recarga-movil"
-            : item.Href;
+        // Mobile-friendly versions on small screens
+        var href = _isMobile switch
+        {
+            true when item.Key == "recarga" => "/recarga-movil",
+            true when item.Key == "contabilidad" => "/conciliacion-movil",
+            _ => item.Href
+        };
 
         if (item.Key != null && OnNavigate.HasDelegate)
             await OnNavigate.InvokeAsync(item.Key);
