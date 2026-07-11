@@ -570,6 +570,82 @@
 }
 
 /* =========================================================================
+   12b. PRODUCT SEARCH — full-screen selector with fixed top search bar
+        Source: .dc.html productSheet — the search input stays pinned at the
+        top so the on-screen keyboard never covers it, and results scroll
+        underneath (padding-bottom leaves room for the keyboard via --rm-kb).
+   ========================================================================= */
+.rm-productsearch {
+  position: absolute;
+  inset: 0;
+  z-index: var(--rm-z-sheet);
+  background: var(--paper-0);
+  display: flex;
+  flex-direction: column;
+  animation: rmSheet .22s ease-out;
+}
+
+/* Fixed search + scan row (never scrolls, keyboard can't hide it) */
+.rm-productsearch__searchbar {
+  flex-shrink: 0;
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line-200);
+  background: var(--paper-0);
+}
+
+/* Scrolling result list; --rm-kb reserves keyboard height when known */
+.rm-productsearch__results {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: calc(16px + var(--rm-kb, 0px));
+}
+
+/* Full-width result row separated by a hairline */
+.rm-productsearch__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  padding: 14px 16px;
+  border: none;
+  border-bottom: 1px solid var(--line-200);
+  background: var(--paper-0);
+  cursor: pointer;
+  min-height: 56px;
+}
+
+.rm-productsearch__name {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.rm-productsearch__meta {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.rm-productsearch__cap {
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  font-size: 0.66rem;
+}
+
+.rm-productsearch__price {
+  font-family: var(--font-mono);
+  font-weight: var(--fw-bold);
+  font-size: 0.82rem;
+}
+
+/* =========================================================================
    13. BOTTOM CTA (full-width primary button)
        Source: .dc.html lines 78, 106, 154-158
    ========================================================================= */

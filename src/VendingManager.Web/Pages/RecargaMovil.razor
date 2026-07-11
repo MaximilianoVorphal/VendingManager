@@ -52,53 +52,60 @@
             break;
     }
 
-    @* ── BOTTOM SHEET: Product Selector ──────────────────────────── *@
+    @* ── FULL-SCREEN: Product Selector ───────────────────────────── *@
+    @* Full-screen page with the search bar pinned to the top so the mobile
+       keyboard never hides it; results scroll underneath. Mirrors the
+       recarga-movil design template's productSheet. *@
     @if (_productSheetVisible)
     {
-        <div class="rm-sheet__backdrop" @onclick="() => CloseProductSheet()">
-            <div class="rm-sheet__panel" @onclick:stopPropagation="true">
-                <div class="rm-sheet__handle"></div>
-                <div class="rm-sheet__head">Seleccionar producto</div>
-
-                <div style="padding:0 12px 10px;display:flex;gap:8px;">
-                    <input class="rm-search" type="text"
-                           placeholder="Buscar producto..."
-                           value="@_productSearch"
-                           @oninput="OnProductSearchChanged" />
-                    <button class="rm-scan-btn" aria-label="Escanear producto"
-                            style="width:44px;height:44px;flex-shrink:0;border:2px solid var(--ink-900);
-                                   background:var(--ink-900);color:var(--paper-0);font-size:1.1rem;
-                                   cursor:pointer;display:flex;align-items:center;justify-content:center;">
-                        <i class="bi bi-upc-scan"></i>
-                    </button>
+        <div class="rm-productsearch">
+            <div class="rm-head--bar">
+                <button class="rm-iconbtn" aria-label="Volver"
+                        @onclick="() => CloseProductSheet()">
+                    <i class="bi bi-arrow-left"></i>
+                </button>
+                <div style="flex:1;min-width:0;">
+                    <span class="rm-eyebrow rm-eyebrow--muted">Elegir producto</span>
+                    <h2 class="rm-title--bar">
+                        Slot @(_editingSlot?.NumeroSlot.ToString() ?? "")
+                    </h2>
                 </div>
+            </div>
 
-                <div style="max-height:320px;overflow-y:auto;padding:0 12px 16px;
-                            display:flex;flex-direction:column;gap:4px;">
-                    @if (_filteredProducts.Count == 0)
+            <div class="rm-productsearch__searchbar">
+                <input class="rm-search" type="text"
+                       placeholder="Buscar producto…"
+                       value="@_productSearch"
+                       @oninput="OnProductSearchChanged" />
+                <button class="rm-scan-btn" aria-label="Escanear producto">
+                    <i class="bi bi-upc-scan"></i>
+                </button>
+            </div>
+
+            <div class="rm-productsearch__results">
+                @if (_filteredProducts.Count == 0)
+                {
+                    <div class="rm-empty" style="padding:40px 20px;">
+                        <p>Sin resultados para «@_productSearch»</p>
+                    </div>
+                }
+                else
+                {
+                    @foreach (var prod in _filteredProducts)
                     {
-                        <div class="rm-empty" style="padding:20px 0;">
-                            <p>Sin resultados</p>
-                        </div>
+                        <button class="rm-productsearch__row rm-press"
+                                @onclick="() => OnProductSelected(prod)">
+                            <span class="rm-productsearch__name">@prod.Nombre</span>
+                            <span class="rm-productsearch__meta">
+                                <small class="rm-productsearch__cap">cap @prod.StockBodega</small>
+                                @if (_showPrices)
+                                {
+                                    <span class="rm-productsearch__price">$@prod.PrecioVenta.ToString("N0")</span>
+                                }
+                            </span>
+                        </button>
                     }
-                    else
-                    {
-                        @foreach (var prod in _filteredProducts)
-                        {
-                            <button class="rm-row rm-press"
-                                    style="border-width:1px;padding:10px 12px;"
-                                    @onclick="() => OnProductSelected(prod)">
-                                <div style="flex:1;min-width:0;text-align:left;">
-                                    <div class="rm-row__label" style="font-size:0.82rem;">@prod.Nombre</div>
-                                    <small style="color:var(--text-muted);font-family:var(--font-mono);font-size:0.65rem;">
-                                        Cap. @prod.StockBodega · $@prod.PrecioVenta.ToString("N0")
-                                    </small>
-                                </div>
-                                <span class="rm-row__chev"><i class="bi bi-chevron-right"></i></span>
-                            </button>
-                        }
-                    }
-                </div>
+                }
             </div>
         </div>
     }
@@ -139,18 +146,41 @@
                 </div>
 
                 @* Product picker *@
+                @{
+                    var dockHasProduct = !string.IsNullOrEmpty(_editingSlot.ProductoNombre);
+                    var dockPrice = _productCatalog.FirstOrDefault(p => p.Id == _editingSlot.ProductoId)?.PrecioVenta;
+                }
                 <div class="rm-dock__product" style="padding:0 12px;">
                     <button class="rm-dock__picker" @onclick="async () => await OpenProductSheetAsync(_editingSlot)">
-                        <span style="font-family:var(--font-mono);font-weight:var(--fw-bold);
-                                     font-size:0.75rem;text-transform:uppercase;">
-                            @(!string.IsNullOrEmpty(_editingSlot.ProductoNombre) ? _editingSlot.ProductoNombre : "Elegir producto")
+                        @if (dockHasProduct)
+                        {
+                            <span style="font-family:var(--font-sans);font-weight:600;font-size:0.9rem;line-height:1.15;">
+                                @_editingSlot.ProductoNombre
+                            </span>
+                        }
+                        else
+                        {
+                            <span style="font-family:var(--font-sans);font-weight:600;font-size:0.9rem;color:#92400e;">
+                                — Elegir producto —
+                            </span>
+                        }
+                        <span style="display:flex;align-items:center;gap:9px;flex-shrink:0;">
+                            @if (_showPrices && dockPrice.HasValue)
+                            {
+                                <span style="font-family:var(--font-mono);font-weight:var(--fw-bold);font-size:0.78rem;">
+                                    $@dockPrice.Value.ToString("N0")
+                                </span>
+                            }
+                            <i class="bi bi-arrow-repeat" style="color:var(--ink-500);font-size:0.95rem;"></i>
                         </span>
-                        <i class="bi bi-search" style="color:var(--ink-500);font-size:0.85rem;"></i>
                     </button>
-                    <button class="rm-dock__clear" aria-label="Vaciar slot"
-                            @onclick="() => ClearEditingSlot()">
-                        <i class="bi bi-trash"></i>
-                    </button>
+                    @if (dockHasProduct)
+                    {
+                        <button class="rm-dock__clear" aria-label="Vaciar slot"
+                                @onclick="() => ClearEditingSlot()">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    }
                 </div>
 
                 @* Stepper *@
