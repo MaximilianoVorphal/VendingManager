@@ -10,6 +10,7 @@
 //   6. Helpers + IDisposable
 // =========================================================================
 
+using System.Globalization;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text;
@@ -987,9 +988,30 @@ public partial class RecargaMovil : ComponentBase, IDisposable
         if (string.IsNullOrWhiteSpace(search))
             return _productCatalog;
 
+        var normalizedSearch = StripDiacritics(search);
+
         return _productCatalog
-            .Where(p => p.Nombre.Contains(search, StringComparison.OrdinalIgnoreCase))
+            .Where(p => StripDiacritics(p.Nombre).Contains(normalizedSearch, StringComparison.OrdinalIgnoreCase))
             .ToList();
+    }
+
+    /// <summary>
+    /// Removes diacritics (tildes, accents) so that "limon" matches "Limón",
+    /// "cafe" matches "Café", etc. Does NOT modify the original casing.
+    /// </summary>
+    private static string StripDiacritics(string text)
+    {
+        var normalized = text.Normalize(NormalizationForm.FormD);
+        Span<char> buffer = stackalloc char[normalized.Length];
+        int idx = 0;
+
+        foreach (var c in normalized)
+        {
+            if (CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark)
+                buffer[idx++] = c;
+        }
+
+        return new string(buffer[..idx]).Normalize(NormalizationForm.FormC);
     }
 
     // ─── Slot Editor Dock ────────────────────────────────────────────────

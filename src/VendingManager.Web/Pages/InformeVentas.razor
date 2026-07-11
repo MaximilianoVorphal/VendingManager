@@ -27,6 +27,8 @@
     .iv-tbl td { padding: 8px 12px; }
     .iv-tbl.iv-compacta td { padding: 3px 12px; }
     .iv-row:hover { background: var(--paper-50) !important; }
+    /* Dense 2-line list is mobile-only; hidden on desktop where the table rules. */
+    .iv-list { display: none; }
     .iv-modal-back { animation: ivBack .15s ease-out; }
     .iv-modal { animation: ivFade .15s ease-out; }
     @@media (prefers-reduced-motion: reduce) {
@@ -76,11 +78,14 @@
             min-height: 0 !important;
             overflow: visible !important;
         }
-        /* Table wrapper: horizontal scroll for 8-column table on narrow
-           viewports. -webkit-overflow-scrolling enables momentum scroll on
-           iOS so the table feels native. */
-        .iv-body > section > div:last-child {
-            overflow-x: auto !important;
+        /* Mobile swaps the 8-column table for the dense 2-line list
+           (port of VentasMovil.dc.html): the table is unreachable with a
+           thumb on a 390px viewport, so we hide it and reveal .iv-list. */
+        .iv-table-wrap {
+            display: none !important;
+        }
+        .iv-list {
+            display: block !important;
             overflow-y: auto !important;
             -webkit-overflow-scrolling: touch;
         }
@@ -335,7 +340,7 @@
                 </div>
             </div>
 
-            <div style="flex:1;min-height:0;overflow:auto;">
+            <div class="iv-table-wrap" style="flex:1;min-height:0;overflow:auto;">
                 <table class="iv-tbl" style="width:100%;border-collapse:collapse;">
                     <thead style="position:sticky;top:0;z-index:2;">
                         <tr style="background:var(--ink-700);color:#fff;font-family:var(--font-mono);text-transform:uppercase;font-size:0.62rem;letter-spacing:0.5px;">
@@ -380,6 +385,30 @@
                         }
                     </tbody>
                 </table>
+                @if (FilteredOps.Count == 0)
+                {
+                    <div style="padding:2.5rem 1rem;text-align:center;font-family:var(--font-mono);font-size:0.78rem;color:var(--text-muted);text-transform:uppercase;">Sin datos en el rango_</div>
+                }
+            </div>
+
+            <!-- ===== Lista densa (móvil) — port de VentasMovil.dc.html ===== -->
+            <div class="iv-list" style="flex:1;min-height:0;">
+                @foreach (var o in FilteredOps)
+                {
+                    <div class="iv-row" @onclick="() => OpenDetail(o)" style="display:flex;align-items:stretch;border-bottom:1px solid var(--line-200);cursor:pointer;">
+                        <div style="width:4px;flex-shrink:0;background:@AccentOf(o.Estado);"></div>
+                        <div style="flex:1;min-width:0;padding:0.5rem 0.75rem 0.5rem 0.65rem;display:flex;flex-direction:column;gap:3px;">
+                            <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;">
+                                <span style="font-family:var(--font-sans);font-weight:600;font-size:0.82rem;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">@o.Prod</span>
+                                <span style="font-family:var(--font-mono);font-weight:700;font-size:0.82rem;flex-shrink:0;">@Fmt(o.Monto)</span>
+                            </div>
+                            <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;font-family:var(--font-mono);font-size:0.64rem;color:var(--text-muted);letter-spacing:0.3px;">
+                                <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;">@FechaCorta(o.Fecha) · U@o.Unidad · slot @o.Slot</span>
+                                <span style="flex-shrink:0;font-weight:700;color:@(o.Gan >= 0 ? "var(--signal-success)" : "var(--signal-danger)");">@FmtGan(o.Gan)</span>
+                            </div>
+                        </div>
+                    </div>
+                }
                 @if (FilteredOps.Count == 0)
                 {
                     <div style="padding:2.5rem 1rem;text-align:center;font-family:var(--font-mono);font-size:0.78rem;color:var(--text-muted);text-transform:uppercase;">Sin datos en el rango_</div>
@@ -602,6 +631,18 @@
     private static string FmtGan(decimal g) => (g >= 0 ? "$" : "-$") + Math.Abs(g).ToString("N0", Nfi);
 
     private int BarPct(decimal total) => MaxMaquinaTotal > 0 ? (int)Math.Round(total / MaxMaquinaTotal * 100) : 0;
+
+    // Accent color for the dense mobile list's left bar, keyed by estado.
+    private static string AccentOf(string estado) => estado switch
+    {
+        "CONF" => "var(--signal-success)",
+        "DIFF" => "var(--signal-danger)",
+        _ => "var(--signal-warning)",
+    };
+
+    // "dd/MM/yyyy HH:mm" -> "dd/MM HH:mm" for the compact list line.
+    private static string FechaCorta(string fecha) =>
+        fecha.Length >= 16 ? fecha[..5] + " " + fecha[11..] : fecha;
 
     private static string EstadoLabel(string estado) => estado switch
     {
