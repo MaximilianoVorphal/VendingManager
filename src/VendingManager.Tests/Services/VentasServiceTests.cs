@@ -32,12 +32,12 @@ public class VentasServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task GetProductosAsync_IncludesPrecioVenta()
+    public async Task GetProductosAsync_IncludesAllDtoFields()
     {
         // Arrange
-        _context.Productos.Add(new Producto { Id = 1, Nombre = "Snickers", PrecioVenta = 1200 });
-        _context.Productos.Add(new Producto { Id = 2, Nombre = "Coca Cola", PrecioVenta = 700 });
-        _context.Productos.Add(new Producto { Id = 3, Nombre = "Agua", PrecioVenta = 0 });
+        _context.Productos.Add(new Producto { Id = 1, Nombre = "Snickers", PrecioVenta = 1200, StockBodega = 42, CostoPromedio = 850 });
+        _context.Productos.Add(new Producto { Id = 2, Nombre = "Coca Cola", PrecioVenta = 700, StockBodega = 15, CostoPromedio = 500 });
+        _context.Productos.Add(new Producto { Id = 3, Nombre = "Agua", PrecioVenta = 0, StockBodega = 0, CostoPromedio = 300 });
         await _context.SaveChangesAsync();
 
         // Act
@@ -46,12 +46,18 @@ public class VentasServiceTests : IDisposable
         // Assert
         var snickers = result.First(p => p.Id == 1);
         snickers.PrecioVenta.Should().Be(1200);
+        snickers.StockBodega.Should().Be(42);
+        snickers.CostoPromedio.Should().Be(850);
 
         var coca = result.First(p => p.Id == 2);
         coca.PrecioVenta.Should().Be(700);
+        coca.StockBodega.Should().Be(15);
+        coca.CostoPromedio.Should().Be(500);
 
         var agua = result.First(p => p.Id == 3);
         agua.PrecioVenta.Should().Be(0);
+        agua.StockBodega.Should().Be(0);
+        agua.CostoPromedio.Should().Be(300);
     }
 
     [Fact]
