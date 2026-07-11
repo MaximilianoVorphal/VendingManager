@@ -182,6 +182,28 @@
             width: 100% !important;
             flex: none !important;
         }
+        /* Detail header filters: TODOS + Filtrar side-by-side on mobile
+           (override the inline flex-wrap:wrap that stacks them). */
+        .iv-detail-filters {
+            flex-wrap: nowrap !important;
+            width: 100% !important;
+        }
+        .iv-detail-filters > select {
+            flex: 0 0 auto !important;
+        }
+        .iv-detail-filters > div {
+            flex: 1 1 0 !important;
+            min-width: 0 !important;
+        }
+        .iv-detail-filters > div > input {
+            width: 100% !important;
+        }
+        /* Rail (Por máquina / Top productos block): restore the left border
+           that the 1080px breakpoint stripped when it moved the rail below. */
+        .iv-rail {
+            border-left: 2px solid var(--ink-900) !important;
+            border-top: none !important;
+        }
     }
     /* El título y su cursor parpadeante no deben poder seleccionarse. */
     .iv-page h1 { user-select: none; }
@@ -326,7 +348,7 @@
         <section style="flex:1;min-width:0;display:flex;flex-direction:column;border:2px solid var(--ink-900);box-shadow:var(--shadow-card);background:var(--paper-0);overflow:hidden;">
             <div style="flex-shrink:0;background:var(--ink-900);color:#fff;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:0.5rem 0.85rem;">
                 <div style="font-family:var(--font-mono);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;font-size:0.86rem;display:flex;align-items:center;gap:8px;"><i class="bi bi-table"></i>Detalle de operaciones <span style="color:rgba(255,255,255,0.55);font-weight:400;font-size:0.78rem;">@FilteredOps.Count ítems</span></div>
-                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                <div class="iv-detail-filters" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
                     <select @bind="_estado" style="border:2px solid var(--paper-0);background:var(--paper-0);color:var(--ink-900);font-family:var(--font-mono);font-weight:700;font-size:0.68rem;text-transform:uppercase;padding:4px 8px;border-radius:0;cursor:pointer;">
                         <option value="TODOS">Todos</option>
                         <option value="CONF">Confirmadas</option>
