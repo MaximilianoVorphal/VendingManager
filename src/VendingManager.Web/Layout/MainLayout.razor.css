@@ -99,7 +99,7 @@ main {
     /* rm-view (RecargaMovil) maneja su propio safe-area via 100dvh +
        env(safe-area-inset-bottom) en sus bottom bars. En combinación con
        el padding-bottom de --fullscreen se produce doble espacio abajo. */
-    .industrial-wrapper--fullscreen:has(.rm-view) {
+    .industrial-wrapper--fullscreen:has(.rm-view, .cm-page) {
         padding-bottom: 0;
     }
 
@@ -111,7 +111,7 @@ main {
     /* RecargaMovil (.rm-view) rellena vm-shell__main con flex:1 y maneja su
        propio safe-area en el bottombar. El padding-bottom de arriba dejaría
        un hueco entre el bottombar y el borde inferior del viewport. */
-    .vm-shell__main:has(.rm-view) {
+    .vm-shell__main:has(.rm-view, .cm-page) {
         padding-bottom: 0;
     }
 
@@ -128,22 +128,24 @@ main {
        table wrapper) must manage that in their own CSS with explicit
        height + overflow:auto on the scoped container.
 
-       RecargaMovil is excluded — it already has its own 100dvh-based mobile
-       layout system (vm-recarga-movil.css) and doesn't use MobileShell. */
-    .industrial-wrapper--fullscreen:not(:has(.rm-view)) {
+       RecargaMovil (.rm-view) and ConciliacionMovil (.cm-page) are excluded —
+       both are mobile-native app-shells (fixed 100dvh height, inner scroller,
+       pinned safe-area bottom bar) that manage their own layout and must NOT
+       be converted to body-scroll. */
+    .industrial-wrapper--fullscreen:not(:has(.rm-view, .cm-page)) {
         display: block;
     }
-    .industrial-wrapper--fullscreen:not(:has(.rm-view)) > main {
+    .industrial-wrapper--fullscreen:not(:has(.rm-view, .cm-page)) > main {
         display: block;
         flex: none;
         overflow-y: visible;
     }
-    .industrial-wrapper--fullscreen:not(:has(.rm-view)) .vm-shell {
+    .industrial-wrapper--fullscreen:not(:has(.rm-view, .cm-page)) .vm-shell {
         display: block;
         flex: none;
         overflow: visible;
     }
-    .industrial-wrapper--fullscreen:not(:has(.rm-view)) .vm-shell__main {
+    .industrial-wrapper--fullscreen:not(:has(.rm-view, .cm-page)) .vm-shell__main {
         display: block !important;
         flex: none !important;
         overflow: visible !important;
@@ -154,7 +156,7 @@ main {
        dead space. .vm-shell__main already has padding-bottom:
        calc(1rem + env(safe-area-inset-bottom)) = 16px on iPhone X,
        enough to keep content off the home indicator. */
-    .industrial-wrapper--fullscreen:not(:has(.rm-view)) {
+    .industrial-wrapper--fullscreen:not(:has(.rm-view, .cm-page)) {
         padding-bottom: env(safe-area-inset-bottom, 0px) !important;
     }
 }

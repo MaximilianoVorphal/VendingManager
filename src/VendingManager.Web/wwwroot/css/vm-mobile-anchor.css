@@ -92,9 +92,9 @@
        for height/overflow, producing unpredictable results at the
        boundary between the two stylesheets.
 
-       RecargaMovil (.rm-view) is excluded — it has its own 100dvh-based
-       mobile layout system and doesn't use MobileShell. */
-    .industrial-wrapper.industrial-wrapper--fullscreen:not(:has(.rm-view)) {
+       RecargaMovil (.rm-view) and ConciliacionMovil (.cm-page) are excluded —
+       both are mobile-native app-shells with their own 100dvh-based layout. */
+    .industrial-wrapper.industrial-wrapper--fullscreen:not(:has(.rm-view, .cm-page)) {
         height: auto !important;
         min-height: 100dvh !important;
         overflow: visible !important;
@@ -158,7 +158,7 @@
        env(safe-area-inset-bottom) en .rm-view__bottombar.
        El padding-bottom de este wrapper es redundante y crea
        doble espacio cuando está presente un .rm-view. */
-    .industrial-wrapper.industrial-wrapper:has(.rm-view) {
+    .industrial-wrapper.industrial-wrapper:has(.rm-view, .cm-page) {
         padding-bottom: 0 !important;
         /* Medido con Safari Web Inspector en iPhone real (viewport 739px con
            toolbar visible): 100dvh=739 (área realmente visible), pero
