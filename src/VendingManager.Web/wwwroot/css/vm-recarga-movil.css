@@ -81,14 +81,16 @@
 
 /* Raíz: viewport-height, centrado, max-width 520px, side borders */
 .rm-view {
-  height: 100vh;
-  /* iOS-safe: svh = small viewport height (altura CON las toolbars de
-     Safari visibles). Como .rm-view usa overflow:hidden y el scroll vive
-     adentro (.rm-view__scroll), el body nunca scrollea y Safari nunca
-     colapsa su chrome. Con 100dvh el shell se resolvía al viewport grande
-     (lvh) y el bottombar quedaba tapado por la toolbar inferior de Safari.
-     svh pinnea el shell al área visible real → el bottombar siempre entra. */
-  height: 100svh;
+  /* NO usar 100vh/100dvh/100svh acá: el shell vive DENTRO del chain flex
+     del MainLayout (.industrial-wrapper--fullscreen reserva 72px de
+     padding-top para la navbar fija). Si rm-view mide el viewport completo,
+     arranca debajo de esos 72px y sobra justo la altura de la navbar →
+     el bottombar cae debajo de la toolbar inferior de iOS Safari.
+     Solución: rellenar el espacio que el chain flex ya dejó (viewport −
+     navbar − safe-areas). El wrapper se ancla a 100svh en vm-mobile-anchor.css;
+     rm-view solo tiene que ocupar lo que le toca. */
+  flex: 1 1 auto;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   background: var(--bg-canvas);

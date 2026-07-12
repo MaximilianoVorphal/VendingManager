@@ -108,6 +108,13 @@ main {
         -webkit-overflow-scrolling: touch;
     }
 
+    /* RecargaMovil (.rm-view) rellena vm-shell__main con flex:1 y maneja su
+       propio safe-area en el bottombar. El padding-bottom de arriba dejaría
+       un hueco entre el bottombar y el borde inferior del viewport. */
+    .vm-shell__main:has(.rm-view) {
+        padding-bottom: 0;
+    }
+
     /* ── Mobile body-scroller for ALL fullscreen routes ──────────
        On mobile (≤760px) the fullscreen flex chain (100dvh + overflow:hidden
        on wrapper, main, vm-shell, vm-shell__main) is the wrong layout
