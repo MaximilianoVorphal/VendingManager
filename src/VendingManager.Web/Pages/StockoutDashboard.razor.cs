@@ -415,6 +415,7 @@ namespace VendingManager.Web.Pages
             {
                 const int days = 12;
                 var name = SelName;
+                var selP = SelP;
                 var fechas = (Datos ?? new())
                     .Where(d => d.ProductoNombre == name)
                     .SelectMany(d => d.FechasVentas)
@@ -423,13 +424,32 @@ namespace VendingManager.Web.Pages
                 var labels = new List<DateTime>();
                 for (int i = 0; i < days; i++) labels.Add(end.AddDays(-(days - 1 - i)));
                 var counts = labels.Select(day => fechas.Count(f => f.Date == day)).ToList();
+                
+                int velDia = selP != null ? (int)Math.Round(selP.VelocidadDiaria) : 0;
                 var maxV = Math.Max(counts.Count > 0 ? counts.Max() : 1, 1);
-                return counts.Select((v, i) => new BarVm(
-                    v == 0 ? "·" : v.ToString(),
-                    v == 0 ? 3 : Math.Max(6, (int)Math.Round((double)v / maxV * 100)),
-                    v == 0 ? "var(--signal-danger)" : "var(--ink-900)",
-                    v == 0 ? "rgba(220,53,69,0.08)" : "transparent",
-                    labels[i].Day.ToString("D2"))).ToList();
+                if (velDia > maxV) maxV = Math.Max(maxV, velDia);
+
+                return counts.Select((v, i) =>
+                {
+                    bool isQuiebre = selP?.UltimaVenta != null && labels[i].Date > selP.UltimaVenta.Value.Date;
+
+                    if (isQuiebre && v == 0 && velDia > 0)
+                    {
+                        return new BarVm(
+                            velDia.ToString(),
+                            Math.Max(6, (int)Math.Round((double)velDia / maxV * 100)),
+                            "var(--signal-danger)",
+                            "rgba(220,53,69,0.08)",
+                            labels[i].Day.ToString("D2"));
+                    }
+
+                    return new BarVm(
+                        v == 0 ? "·" : v.ToString(),
+                        v == 0 ? 3 : Math.Max(6, (int)Math.Round((double)v / maxV * 100)),
+                        v == 0 ? "var(--signal-danger)" : "var(--ink-900)",
+                        v == 0 ? "rgba(220,53,69,0.08)" : "transparent",
+                        labels[i].Day.ToString("D2"));
+                }).ToList();
             }
         }
 
