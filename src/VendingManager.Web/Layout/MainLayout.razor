@@ -4,7 +4,7 @@
 @using VendingManager.Web.Services
 
 <CascadingValue Value="this">
-    <div class="industrial-wrapper @(IsFullscreenRoute ? "industrial-wrapper--fullscreen" : "")">
+    <div class="industrial-wrapper @(IsFullscreenRoute ? "industrial-wrapper--fullscreen" : "") @(_navbarCollapsed ? "industrial-wrapper--navbar-collapsed" : "")">
         <AuthorizeView>
             <Authorized>
                 <VmNavbar Active="dashboard" Collapsed="@_navbarCollapsed" />
