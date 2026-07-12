@@ -53,6 +53,16 @@
        .vm-shell__main (overflow:auto on mobile) handle the scroll.
        Desktop layout is untouched.
        ============================================================ */
+
+    /* iOS Safari renders the date value inside ::-webkit-date-and-time-value,
+       which defaults to center-aligned — Android/Chrome left-aligns it, so the
+       value looked "shifted" only on iPhone. Force left alignment and drop the
+       pseudo-element's implicit margin so it matches the rest of the UI. */
+    .iv-filters-dates input[type="date"]::-webkit-date-and-time-value {
+        text-align: left;
+        margin: 0;
+    }
+
     @@media (max-width: 520px) {
         .iv-page {
             height: auto !important;
