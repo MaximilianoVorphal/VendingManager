@@ -48,6 +48,14 @@
             flex: none !important;
         }
 
+        /* El modelo de scroll por body (flex:none de arriba) le quita el tope de
+           altura al contenedor de la tabla, que crece hasta la altura total de su
+           contenido y se vuelve gigante con muchos productos. Capar a 55vh para
+           que el cuerpo scrollee internamente, igual que InformeVentas. */
+        .ap-tbl-scroll {
+            max-height: 55vh !important;
+        }
+
         /* ── 1. Filter bar: hide on mobile, show compact button ── */
         .ap-cmd-bar { display: none !important; }
         .ap-filter-btn { display: inline-flex !important; align-items: center; gap: 6px; }
@@ -366,7 +374,7 @@
         </div>
 
         <!-- Contenido: carga / error / vacío / tabla -->
-        <div style="flex:1;min-height:0;overflow:auto;">
+        <div class="ap-tbl-scroll" style="flex:1;min-height:0;overflow:auto;">
             @if (_cargando)
             {
                 <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0.8rem;padding:3rem 1rem;font-family:var(--font-mono);text-transform:uppercase;letter-spacing:2px;font-weight:700;color:var(--text-muted);">
