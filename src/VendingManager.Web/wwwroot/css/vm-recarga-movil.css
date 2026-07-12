@@ -117,14 +117,23 @@
 }
 
 /* Bottom bar fija — "Nueva carga", "Finalizar carga", dock.
-   No usar position:absolute: en iOS Safari, con un scroll sibling
-   (-webkit-overflow-scrolling: touch) el absolute se descuelga del
-   bottom durante el momentum scroll. Flex row dentro de la columna
-   .rm-view es la solución canónica y cross-browser. */
+   Solución: flex row natural dentro de la columna .rm-view.
+   Por qué NO position:sticky / position:absolute:
+   - absolute: en iOS Safari, con un scroll sibling
+     (-webkit-overflow-scrolling: touch) el absolute se descuelga del
+     bottom durante el momentum scroll.
+   - sticky: al sacarlo del flow normal, el .rm-view__scroll (flex:1)
+     ocupa el espacio completo del rm-view (incluyendo el área del
+     bottombar). El padding-bottom: 96px del scroll crea un hueco
+     visible entre el último card y el bottombar, especialmente
+     problemático en viewports donde los cards caben completos.
+   - flex: 0 0 auto: el bottombar es un flex item más del rm-view y
+     ocupa su espacio en el flow. El scroll (flex:1) se ajusta al
+     espacio restante. Resultado: el bottombar queda pegado al último
+     card sin huecos fantasma. Cross-browser sin quirks de iOS. */
 .rm-view__bottombar {
-  position: sticky;
-  bottom: 0;
-  z-index: 100;
+  flex: 0 0 auto;
+  z-index: 50;
   background: var(--paper-0);
   border-top: 3px solid var(--ink-900);
   padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
