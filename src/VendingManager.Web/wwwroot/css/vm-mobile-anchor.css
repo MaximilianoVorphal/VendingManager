@@ -170,6 +170,16 @@
            dvh no genera jank. */
         height: 100dvh !important;
     }
+
+    /* container-fluid aplica 12px de gutter lateral al <main> ignorando su
+       clase p-0 en este build (medido: main padL/padR = 12px). El app-shell
+       (rm-view/cm-page) maneja su propio ancho/centrado/bordes, así que el
+       gutter deja franjas grises a los lados del shell. Análogo a la regla
+       main:has(.rm-view) de vm-recarga-movil.css. */
+    .industrial-wrapper > main:has(.cm-page) {
+        overflow: hidden;
+        padding: 0 !important;
+    }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
