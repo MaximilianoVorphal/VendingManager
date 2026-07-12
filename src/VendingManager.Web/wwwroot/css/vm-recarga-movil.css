@@ -82,7 +82,13 @@
 /* Raíz: viewport-height, centrado, max-width 520px, side borders */
 .rm-view {
   height: 100vh;
-  height: 100dvh;
+  /* iOS-safe: svh = small viewport height (altura CON las toolbars de
+     Safari visibles). Como .rm-view usa overflow:hidden y el scroll vive
+     adentro (.rm-view__scroll), el body nunca scrollea y Safari nunca
+     colapsa su chrome. Con 100dvh el shell se resolvía al viewport grande
+     (lvh) y el bottombar quedaba tapado por la toolbar inferior de Safari.
+     svh pinnea el shell al área visible real → el bottombar siempre entra. */
+  height: 100svh;
   display: flex;
   flex-direction: column;
   background: var(--bg-canvas);

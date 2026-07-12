@@ -160,6 +160,11 @@
        doble espacio cuando está presente un .rm-view. */
     .industrial-wrapper.industrial-wrapper:has(.rm-view) {
         padding-bottom: 0 !important;
+        /* Mismo motivo que .rm-view: el wrapper que contiene el shell
+           mobile-native debe medir el viewport chico (svh), no el grande
+           (dvh/lvh). Con dvh el wrapper quedaba más alto que el área
+           visible y su borde inferior caía debajo de la toolbar de Safari. */
+        height: 100svh !important;
     }
 }
 
