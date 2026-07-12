@@ -39,12 +39,24 @@
         .qs-kpistrip > * { flex: 1 1 210px !important; }
         .qs-cmd { gap: 10px !important; }
     }
-    /* Mobile (max-width 520px): body-based scroll — prevent flex:1 collapse */
+    /* ===== Mobile (≤520px): swap the desktop command bar + 3-column body for a
+       card-based mobile UX (filters bottom-sheet, stacked KPIs, alert cards,
+       compact map, timeline list). Desktop markup is hidden, never removed. ===== */
+    .qs-mobile { display: none; }
+    .qsm-press:active { opacity: .72; }
+    .qsm-card:active { transform: scale(.99); }
+    @@keyframes qsmSheet { from { transform: translateY(100%); } to { transform: translateY(0); } }
+    .qsm-sheet { animation: qsmSheet .22s ease-out; }
+    @@media (prefers-reduced-motion: reduce) { .qsm-sheet { animation: none !important; } }
     @@media (max-width: 520px) {
+        /* body-based scroll — prevent flex:1 collapse on the shell */
         .qs-page,
         .qs-page [style*="flex:1"][style*="min-height:0"] {
             flex: none !important;
         }
+        .qs-cmd, .qs-kpistrip, .qs-body { display: none !important; }
+        .qs-mobile { display: flex !important; }
+        .qs-page { padding: 0.7rem 0.8rem 1.1rem !important; gap: 11px !important; }
     }
 </style>
 
@@ -354,6 +366,318 @@
             </section>
         </aside>
     </div>
+
+    <!-- ============================================================================
+         MOBILE (≤520px) — card-based port of templates/quiebres-de-stock-movil/
+         QuiebresDeStockMovil.dc.html. Reuses the same view-models as the desktop;
+         hidden on desktop via .qs-mobile { display:none }.
+         ============================================================================ -->
+    <div class="qs-mobile" style="display:none;flex-direction:column;gap:11px;">
+
+        <!-- Header -->
+        <div style="flex-shrink:0;border-bottom:3px solid var(--ink-900);padding-bottom:8px;">
+            <div style="display:inline-flex;align-items:center;gap:6px;background:var(--signal-danger);color:#fff;font-family:var(--font-mono);font-weight:700;font-size:0.56rem;letter-spacing:2px;padding:3px 9px;text-transform:uppercase;margin-bottom:7px;"><i class="bi bi-exclamation-triangle-fill" style="font-size:0.66rem;"></i>Gestión · Alertas</div>
+            <h1 style="margin:0;font-family:var(--font-mono);font-weight:700;text-transform:uppercase;letter-spacing:-0.5px;font-size:1.12rem;line-height:1;">Quiebres de Stock<span class="qs-cursor">_</span></h1>
+            <p style="margin:3px 0 0;font-family:var(--font-mono);font-size:0.56rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.4px;">Silencio de venta y costo de oportunidad</p>
+        </div>
+
+        <!-- Filtros (abre bottom-sheet) -->
+        <button type="button" @onclick="OpenFilter" class="qsm-press" style="flex-shrink:0;width:100%;display:inline-flex;justify-content:space-between;align-items:center;gap:10px;padding:0.6rem 0.85rem;border:2px solid var(--ink-900);background:var(--paper-50);font-family:var(--font-mono);font-weight:700;font-size:0.68rem;text-transform:uppercase;letter-spacing:0.4px;cursor:pointer;text-align:left;">
+            <span style="min-width:0;display:flex;align-items:center;gap:8px;"><i class="bi bi-sliders" style="flex-shrink:0;"></i><span style="min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">@FilterSummary</span></span>
+            <span style="flex-shrink:0;font-size:0.9rem;">▾</span>
+        </button>
+
+        <!-- KPIs apilados -->
+        <div style="flex-shrink:0;display:flex;flex-direction:column;gap:8px;">
+            <div style="display:flex;gap:8px;">
+                <div style="flex:1;min-width:0;display:flex;border:2px solid var(--ink-900);background:var(--tint-danger);overflow:hidden;">
+                    <span style="width:5px;flex-shrink:0;background:var(--signal-danger);"></span>
+                    <div style="flex:1;min-width:0;padding:0.55rem 0.7rem;">
+                        <div style="font-family:var(--font-mono);font-weight:700;font-size:0.56rem;text-transform:uppercase;letter-spacing:0.5px;">Alertas críticas</div>
+                        <div style="display:flex;align-items:baseline;gap:6px;margin-top:3px;">
+                            <span style="font-family:var(--font-sans);font-weight:700;font-size:1.7rem;letter-spacing:-1px;line-height:1;color:var(--signal-danger);">@KCritico</span>
+                            <span style="font-family:var(--font-mono);font-size:0.5rem;text-transform:uppercase;letter-spacing:0.3px;color:var(--text-muted);white-space:nowrap;">&gt;@(Umbral48)h</span>
+                        </div>
+                    </div>
+                </div>
+                <div style="flex:1;min-width:0;display:flex;border:2px solid var(--ink-900);background:var(--paper-0);overflow:hidden;">
+                    <span style="width:5px;flex-shrink:0;background:var(--signal-warning);"></span>
+                    <div style="flex:1;min-width:0;padding:0.55rem 0.7rem;">
+                        <div style="font-family:var(--font-mono);font-weight:700;font-size:0.56rem;text-transform:uppercase;letter-spacing:0.5px;">En alerta</div>
+                        <div style="display:flex;align-items:baseline;gap:6px;margin-top:3px;">
+                            <span style="font-family:var(--font-sans);font-weight:700;font-size:1.7rem;letter-spacing:-1px;line-height:1;color:var(--ink-900);">@KAlerta</span>
+                            <span style="font-family:var(--font-mono);font-size:0.5rem;text-transform:uppercase;letter-spacing:0.3px;color:var(--text-muted);white-space:nowrap;">/ @AnalizadosN</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div style="display:flex;border:2px solid var(--ink-900);background:var(--paper-0);overflow:hidden;">
+                <span style="width:5px;flex-shrink:0;background:var(--ink-900);"></span>
+                <div style="flex:1;min-width:0;padding:0.55rem 0.8rem;display:flex;align-items:center;justify-content:space-between;gap:10px;">
+                    <div style="min-width:0;">
+                        <div style="font-family:var(--font-mono);font-weight:700;font-size:0.58rem;text-transform:uppercase;letter-spacing:0.5px;">Ventas perdidas est.</div>
+                        <div style="font-family:var(--font-mono);font-size:0.52rem;text-transform:uppercase;letter-spacing:0.3px;color:var(--signal-success);margin-top:2px;">Ganancia est.: @KGanancia</div>
+                    </div>
+                    <div style="font-family:var(--font-sans);font-weight:700;font-size:1.5rem;letter-spacing:-1px;line-height:1;color:var(--signal-danger);flex-shrink:0;white-space:nowrap;">@KPerdido</div>
+                </div>
+            </div>
+            <div style="display:flex;border:2px solid var(--ink-900);background:var(--paper-0);overflow:hidden;">
+                <span style="width:5px;flex-shrink:0;background:var(--ink-500);"></span>
+                <div style="flex:1;min-width:0;padding:0.5rem 0.8rem;">
+                    <div style="font-family:var(--font-mono);font-weight:700;font-size:0.54rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);">Más crítico</div>
+                    <div style="font-family:var(--font-sans);font-weight:700;font-size:0.98rem;letter-spacing:-0.4px;line-height:1.05;margin:2px 0;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">@KWorstName</div>
+                    <div style="font-family:var(--font-mono);font-size:0.54rem;text-transform:uppercase;letter-spacing:0.3px;color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">@KWorstMeta</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dashboard de alertas (tarjetas) -->
+        <section style="flex-shrink:0;display:flex;flex-direction:column;border:2px solid var(--ink-900);background:var(--paper-0);overflow:hidden;">
+            <div style="flex-shrink:0;background:var(--ink-900);color:#fff;display:flex;justify-content:space-between;align-items:center;gap:8px;padding:0.5rem 0.8rem;">
+                <div style="font-family:var(--font-mono);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;font-size:0.76rem;display:flex;align-items:center;gap:8px;"><i class="bi bi-grid-3x3-gap-fill"></i>Alertas</div>
+                <span style="font-family:var(--font-mono);font-weight:700;font-size:0.6rem;border:1px solid rgba(255,255,255,0.5);padding:2px 8px;">@Rows.Count</span>
+            </div>
+
+            <!-- Chips -->
+            <div style="flex-shrink:0;display:flex;gap:6px;padding:8px 0.7rem;border-bottom:2px solid var(--ink-900);background:var(--paper-50);overflow-x:auto;-webkit-overflow-scrolling:touch;">
+                <button type="button" @onclick="() => _soloQuiebres = !_soloQuiebres" class="qsm-press" style="flex-shrink:0;font-family:var(--font-mono);font-weight:700;font-size:0.6rem;text-transform:uppercase;letter-spacing:0.4px;padding:5px 10px;border:2px solid var(--ink-900);cursor:pointer;white-space:nowrap;@(_soloQuiebres ? "background:var(--ink-900);color:#fff;" : "background:var(--paper-0);color:var(--ink-900);")">@if (_soloQuiebres){<i class="bi bi-check-lg" style="margin-right:4px;"></i>}Solo quiebres</button>
+                <button type="button" @onclick="() => _soloDead = !_soloDead" class="qsm-press" style="flex-shrink:0;font-family:var(--font-mono);font-weight:700;font-size:0.6rem;text-transform:uppercase;letter-spacing:0.4px;padding:5px 10px;border:2px solid var(--ink-900);cursor:pointer;white-space:nowrap;@(_soloDead ? "background:var(--ink-900);color:#fff;" : "background:var(--paper-0);color:var(--ink-900);")">@if (_soloDead){<i class="bi bi-check-lg" style="margin-right:4px;"></i>}Dead slots</button>
+                <button type="button" @onclick="() => _agrupar = !_agrupar" class="qsm-press" style="flex-shrink:0;font-family:var(--font-mono);font-weight:700;font-size:0.6rem;text-transform:uppercase;letter-spacing:0.4px;padding:5px 10px;border:2px solid var(--ink-900);cursor:pointer;white-space:nowrap;@(_agrupar ? "background:var(--ink-900);color:#fff;" : "background:var(--paper-0);color:var(--ink-900);")">@if (_agrupar){<i class="bi bi-check-lg" style="margin-right:4px;"></i>}Agrupar</button>
+            </div>
+
+            <!-- Lista -->
+            @if (Datos == null)
+            {
+                <div style="padding:30px 16px;text-align:center;font-family:var(--font-mono);color:var(--text-muted);">
+                    <i class="bi bi-radar" style="font-size:1.5rem;color:var(--ink-500);"></i>
+                    <div style="margin-top:8px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;font-size:0.78rem;color:var(--ink-900);">Sin análisis todavía</div>
+                    <div style="margin-top:4px;font-size:0.62rem;">Elegí un template en Filtros para ver los quiebres.</div>
+                </div>
+            }
+            else if (Rows.Count == 0)
+            {
+                <div style="padding:30px 16px;text-align:center;font-family:var(--font-mono);color:var(--text-muted);">
+                    <i class="bi bi-check-circle-fill" style="font-size:1.5rem;color:var(--signal-success);"></i>
+                    <div style="margin-top:8px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;font-size:0.78rem;color:var(--ink-900);">¡Todo en orden!</div>
+                    <div style="margin-top:4px;font-size:0.62rem;">Ningún producto cumple los filtros activos.</div>
+                </div>
+            }
+            else
+            {
+                <div style="display:flex;flex-direction:column;">
+                    @foreach (var r in Rows)
+                    {
+                        <button type="button" @onclick="() => OpenDetail(r)" class="qsm-card" style="text-align:left;width:100%;cursor:pointer;border:none;border-bottom:1px solid var(--line-200);background:var(--paper-0);padding:10px 0.8rem;display:flex;flex-direction:column;gap:8px;transition:transform .1s;">
+                            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:9px;">
+                                <div style="min-width:0;">
+                                    <div style="font-family:var(--font-sans);font-weight:700;font-size:0.9rem;text-transform:uppercase;letter-spacing:-0.3px;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">@r.Producto</div>
+                                    <div style="font-family:var(--font-mono);font-size:0.62rem;color:var(--text-muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">@r.MaqSlot · últ. @r.UltVenta</div>
+                                </div>
+                                @switch (r.Est)
+                                {
+                                    case "critico":
+                                        <span style="flex-shrink:0;background:var(--signal-danger);color:#fff;font-family:var(--font-mono);font-weight:700;font-size:0.54rem;text-transform:uppercase;letter-spacing:0.4px;padding:3px 7px;white-space:nowrap;">Crítico</span>
+                                        break;
+                                    case "alerta":
+                                        <span style="flex-shrink:0;background:var(--signal-warning);color:var(--ink-900);font-family:var(--font-mono);font-weight:700;font-size:0.54rem;text-transform:uppercase;letter-spacing:0.4px;padding:3px 7px;white-space:nowrap;">Alerta</span>
+                                        break;
+                                    case "dead":
+                                        <span style="flex-shrink:0;background:var(--ink-500);color:#fff;font-family:var(--font-mono);font-weight:700;font-size:0.54rem;text-transform:uppercase;letter-spacing:0.4px;padding:3px 7px;white-space:nowrap;">Dead slot</span>
+                                        break;
+                                }
+                            </div>
+                            <div style="display:flex;align-items:stretch;border:1px solid var(--line-200);">
+                                <div style="flex:1;padding:5px 8px;border-right:1px solid var(--line-200);">
+                                    <div style="font-family:var(--font-mono);font-weight:700;font-size:0.46rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);">Stock</div>
+                                    <div style="font-family:var(--font-mono);font-weight:700;font-size:0.76rem;"><span style="color:var(--signal-danger);">@r.Stock</span><span style="color:var(--text-muted);">/@r.Cap</span></div>
+                                </div>
+                                <div style="flex:1;padding:5px 8px;border-right:1px solid var(--line-200);">
+                                    <div style="font-family:var(--font-mono);font-weight:700;font-size:0.46rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);">Días</div>
+                                    <div style="font-family:var(--font-mono);font-weight:700;font-size:0.76rem;">@r.Dias</div>
+                                </div>
+                                <div style="flex:1;padding:5px 8px;border-right:1px solid var(--line-200);">
+                                    <div style="font-family:var(--font-mono);font-weight:700;font-size:0.46rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);">Vel/día</div>
+                                    <div style="font-family:var(--font-mono);font-weight:700;font-size:0.76rem;color:var(--text-secondary);">@r.Vel</div>
+                                </div>
+                                <div style="flex:1.15;padding:5px 8px;">
+                                    <div style="font-family:var(--font-mono);font-weight:700;font-size:0.46rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);">$ Perd.</div>
+                                    <div style="font-family:var(--font-mono);font-weight:700;font-size:0.76rem;color:var(--signal-danger);white-space:nowrap;">@r.Perdido</div>
+                                </div>
+                            </div>
+                        </button>
+                    }
+                </div>
+                <div style="flex-shrink:0;background:var(--ink-900);color:#fff;font-family:var(--font-mono);font-weight:700;text-transform:uppercase;font-size:0.62rem;letter-spacing:0.4px;display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 0.8rem;">
+                    <span>Total · @Rows.Count alertas</span>
+                    <span style="color:#ff5a67;">@KPerdido</span>
+                </div>
+            }
+        </section>
+
+        <!-- Mapa de agotamiento (compacto) -->
+        <section style="flex-shrink:0;display:flex;flex-direction:column;border:2px solid var(--ink-900);background:var(--paper-0);overflow:hidden;">
+            <div style="flex-shrink:0;background:var(--ink-900);color:#fff;display:flex;justify-content:space-between;align-items:center;gap:8px;padding:0.5rem 0.8rem;">
+                <div style="font-family:var(--font-mono);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;font-size:0.72rem;display:flex;align-items:center;gap:7px;min-width:0;"><i class="bi bi-diagram-3-fill"></i><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Mapa de agotamiento</span></div>
+                <span style="flex-shrink:0;font-family:var(--font-mono);font-weight:700;font-size:0.52rem;letter-spacing:0.5px;background:rgba(255,255,255,0.14);border:1px solid rgba(255,255,255,0.4);padding:2px 6px;white-space:nowrap;max-width:150px;overflow:hidden;text-overflow:ellipsis;">MÁQ @FocusMaqLabel</span>
+            </div>
+            @if (FocusSlots.Count == 0)
+            {
+                <div style="padding:22px 16px;text-align:center;font-family:var(--font-mono);font-size:0.62rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.4px;">Sin slots para mapear</div>
+            }
+            else
+            {
+                <div style="padding:8px 0.7rem;display:flex;flex-direction:column;gap:6px;">
+                    @foreach (var fl in SchematicFloors)
+                    {
+                        <div>
+                            <div style="font-family:var(--font-mono);font-weight:700;font-size:0.48rem;text-transform:uppercase;letter-spacing:0.6px;color:var(--text-muted);margin-bottom:3px;">@fl.Label</div>
+                            <div style="display:grid;grid-template-columns:repeat(10,1fr);gap:3px;">
+                                @foreach (var s in fl.Slots)
+                                {
+                                    <button type="button" class="qs-slot" title="@s.Num · @s.Prod · @s.Stock/@s.Cap" @onclick="() => _sel = s.Prod" style="position:relative;height:26px;border:1px solid var(--ink-900);background:var(--paper-0);cursor:pointer;padding:0;overflow:hidden;@(s.Selected ? "box-shadow:inset 0 0 0 2px var(--ink-900);" : "")">
+                                        <span style="position:absolute;left:0;right:0;bottom:0;height:@(s.FillPct)%;background:@s.Color;"></span>
+                                        @if (!string.IsNullOrEmpty(s.Badge))
+                                        {
+                                            <span style="position:absolute;top:1px;right:2px;font-family:var(--font-mono);font-weight:700;font-size:0.42rem;line-height:1;color:@(s.Light ? "#fff" : "var(--ink-900)");z-index:1;">@s.Badge</span>
+                                        }
+                                    </button>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+                <div style="flex-shrink:0;border-top:1px solid var(--line-200);background:var(--paper-50);padding:5px 0.7rem;display:flex;gap:9px;flex-wrap:wrap;align-items:center;font-family:var(--font-mono);font-size:0.48rem;text-transform:uppercase;letter-spacing:0.3px;color:var(--text-secondary);">
+                    <span style="display:inline-flex;align-items:center;gap:3px;"><span style="width:9px;height:9px;background:var(--signal-success);"></span>OK</span>
+                    <span style="display:inline-flex;align-items:center;gap:3px;"><span style="width:9px;height:9px;background:var(--signal-warning);"></span>Alerta</span>
+                    <span style="display:inline-flex;align-items:center;gap:3px;"><span style="width:9px;height:9px;background:var(--signal-danger);"></span>Crítico</span>
+                    <span style="display:inline-flex;align-items:center;gap:3px;"><span style="width:9px;height:9px;background:var(--ink-500);"></span>Dead</span>
+                    <span style="margin-left:auto;font-weight:700;color:var(--text-muted);white-space:nowrap;">@SchematicMeta</span>
+                </div>
+                <button type="button" @onclick="OpenMap" class="qsm-press" style="flex-shrink:0;width:100%;display:flex;align-items:center;justify-content:center;gap:8px;border:none;border-top:2px solid var(--ink-900);background:var(--ink-900);color:#fff;font-family:var(--font-mono);font-weight:700;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.5px;padding:11px;cursor:pointer;"><i class="bi bi-clock-history"></i>Ver línea de tiempo</button>
+            }
+        </section>
+
+        <!-- Timeline de agotamiento -->
+        <section style="flex-shrink:0;display:flex;flex-direction:column;border:2px solid var(--ink-900);background:var(--paper-0);overflow:hidden;">
+            <div style="flex-shrink:0;background:var(--ink-900);color:#fff;display:flex;align-items:center;gap:8px;padding:0.5rem 0.8rem;font-family:var(--font-mono);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;font-size:0.72rem;"><i class="bi bi-hourglass-split"></i>Timeline de agotamiento</div>
+            <div>
+                @foreach (var t in Timeline)
+                {
+                    <button type="button" @onclick="() => OpenDetailByName(t.Name)" class="qsm-card" style="text-align:left;width:100%;cursor:pointer;display:flex;align-items:center;gap:9px;padding:9px 0.8rem;border:none;border-bottom:1px solid var(--line-200);background:var(--paper-0);transition:transform .1s;">
+                        <span style="flex-shrink:0;width:19px;height:19px;background:var(--ink-900);color:#fff;font-family:var(--font-mono);font-weight:700;font-size:0.6rem;display:flex;align-items:center;justify-content:center;">@t.Rank</span>
+                        <div style="flex:1;min-width:0;">
+                            <div style="font-family:var(--font-sans);font-weight:700;font-size:0.78rem;text-transform:uppercase;letter-spacing:-0.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">@t.Name</div>
+                            <div style="height:6px;background:var(--line-200);margin-top:3px;overflow:hidden;"><div style="height:100%;width:@(t.Pct)%;background:@t.Color;"></div></div>
+                        </div>
+                        <div style="flex-shrink:0;text-align:right;font-family:var(--font-mono);">
+                            <div style="font-family:var(--font-mono);font-weight:700;font-size:0.78rem;line-height:1;color:@t.Color;">@t.Dias d</div>
+                            <div style="font-size:0.52rem;color:var(--text-muted);text-transform:uppercase;">@t.MaqText</div>
+                        </div>
+                    </button>
+                }
+            </div>
+        </section>
+    </div>
+
+    <!-- ===== Detail sheet (producto: stats + ventas diarias) ===== -->
+    @if (_detailOpen && _selRow is { } sr)
+    {
+        <div @onclick="CloseDetail" style="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:2400;display:flex;align-items:flex-end;">
+            <div @onclick:stopPropagation="true" class="qsm-sheet" style="width:100%;max-height:92%;overflow-y:auto;background:var(--paper-0);border-top:3px solid var(--ink-900);">
+                <div style="display:flex;justify-content:center;padding:9px 0 4px;"><span style="width:42px;height:4px;background:var(--line-200);border-radius:2px;"></span></div>
+
+                <div style="padding:4px 16px 12px;border-bottom:2px solid var(--ink-900);">
+                    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
+                        <div style="min-width:0;">
+                            <div style="font-family:var(--font-sans);font-weight:700;font-size:1.08rem;text-transform:uppercase;letter-spacing:-0.4px;line-height:1.1;">@sr.Producto</div>
+                            <div style="font-family:var(--font-mono);font-size:0.6rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.3px;margin-top:3px;">@sr.MaqSlot · últ. @sr.UltVenta</div>
+                        </div>
+                        <button type="button" @onclick="CloseDetail" aria-label="Cerrar" class="qsm-press" style="flex-shrink:0;width:34px;height:34px;border:2px solid var(--ink-900);background:var(--paper-0);cursor:pointer;font-size:0.95rem;display:flex;align-items:center;justify-content:center;"><i class="bi bi-x-lg"></i></button>
+                    </div>
+                </div>
+
+                <div style="display:flex;border-bottom:2px solid var(--ink-900);">
+                    <div style="flex:1;padding:9px 10px;border-right:1px solid var(--line-200);">
+                        <div style="font-family:var(--font-mono);font-weight:700;font-size:0.48rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);">Stock</div>
+                        <div style="font-family:var(--font-sans);font-weight:700;font-size:1.05rem;letter-spacing:-0.5px;line-height:1.1;"><span style="color:var(--signal-danger);">@sr.Stock</span><span style="color:var(--text-muted);font-size:0.8rem;">/@sr.Cap</span></div>
+                    </div>
+                    <div style="flex:1;padding:9px 10px;border-right:1px solid var(--line-200);">
+                        <div style="font-family:var(--font-mono);font-weight:700;font-size:0.48rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);">Días sin venta</div>
+                        <div style="font-family:var(--font-sans);font-weight:700;font-size:1.05rem;letter-spacing:-0.5px;line-height:1.1;color:var(--signal-danger);">@sr.Dias</div>
+                    </div>
+                    <div style="flex:1;padding:9px 10px;border-right:1px solid var(--line-200);">
+                        <div style="font-family:var(--font-mono);font-weight:700;font-size:0.48rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);">Vel/día</div>
+                        <div style="font-family:var(--font-sans);font-weight:700;font-size:1.05rem;letter-spacing:-0.5px;line-height:1.1;">@sr.Vel</div>
+                    </div>
+                    <div style="flex:1.2;padding:9px 10px;background:var(--tint-danger);">
+                        <div style="font-family:var(--font-mono);font-weight:700;font-size:0.48rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);">$ Perdido</div>
+                        <div style="font-family:var(--font-sans);font-weight:700;font-size:1.05rem;letter-spacing:-0.5px;line-height:1.1;color:var(--signal-danger);white-space:nowrap;">@sr.Perdido</div>
+                    </div>
+                </div>
+
+                <div style="padding:12px 16px 8px;">
+                    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;">
+                        <span style="font-family:var(--font-mono);font-weight:700;font-size:0.66rem;text-transform:uppercase;letter-spacing:0.5px;display:flex;align-items:center;gap:6px;"><i class="bi bi-graph-up"></i>Ventas diarias</span>
+                        <span style="font-family:var(--font-mono);font-size:0.54rem;color:var(--text-muted);text-transform:uppercase;">@SelMeta</span>
+                    </div>
+                    <div style="height:120px;display:flex;align-items:flex-end;gap:3px;">
+                        @foreach (var b in Bars)
+                        {
+                            <div style="flex:1;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;background:@b.ColBg;">
+                                <span style="font-family:var(--font-mono);font-size:0.46rem;color:var(--text-muted);line-height:1;margin-bottom:2px;">@b.Val</span>
+                                <div style="width:78%;height:@(b.Hpct)%;min-height:2px;background:@b.Col;"></div>
+                            </div>
+                        }
+                    </div>
+                    <div style="display:flex;gap:3px;margin-top:3px;">
+                        @foreach (var b in Bars)
+                        {
+                            <span style="flex:1;text-align:center;font-family:var(--font-mono);font-size:0.46rem;color:var(--text-muted);">@b.Day</span>
+                        }
+                    </div>
+                </div>
+
+                <div style="border-top:2px solid var(--ink-900);background:var(--paper-50);padding:9px 16px;display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:0.6rem;text-transform:uppercase;letter-spacing:0.3px;">
+                    <span style="color:var(--text-muted);">Quiebre: <strong style="color:var(--signal-danger);">@sr.Dias d</strong> sin venta</span>
+                    <span style="color:var(--text-muted);">Pérdida: <strong style="color:var(--ink-900);">@sr.Perdido</strong></span>
+                </div>
+
+                <div style="padding:12px 16px calc(14px + env(safe-area-inset-bottom));">
+                    <button type="button" @onclick="CloseDetail" class="qsm-press" style="width:100%;height:48px;display:flex;align-items:center;justify-content:center;gap:8px;border:2px solid var(--ink-900);background:var(--ink-900);color:#fff;font-family:var(--font-mono);font-weight:700;text-transform:uppercase;font-size:0.76rem;letter-spacing:0.5px;cursor:pointer;"><i class="bi bi-check2"></i>Entendido</button>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- ===== Filter sheet ===== -->
+    @if (_filterOpen)
+    {
+        <div @onclick="CloseFilter" style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:2400;display:flex;align-items:flex-end;">
+            <div @onclick:stopPropagation="true" class="qsm-sheet" style="width:100%;max-height:88%;overflow-y:auto;background:var(--paper-0);border-top:3px solid var(--ink-900);font-family:var(--font-mono);">
+                <div style="display:flex;justify-content:center;padding:9px 0 4px;"><span style="width:42px;height:4px;background:var(--line-200);border-radius:2px;"></span></div>
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 16px 12px;font-weight:700;text-transform:uppercase;font-size:0.82rem;letter-spacing:0.4px;">
+                    <span style="display:flex;align-items:center;gap:8px;"><i class="bi bi-sliders"></i>Filtros</span>
+                    <button type="button" @onclick="CloseFilter" class="qsm-press" style="font-family:var(--font-mono);font-size:0.68rem;font-weight:700;text-transform:uppercase;background:none;border:2px solid var(--ink-900);padding:5px 11px;cursor:pointer;">Cerrar</button>
+                </div>
+
+                <div style="padding:0 16px calc(14px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:0.7rem;">
+                    <label style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);margin-bottom:-0.4rem;">Template de recarga</label>
+                    <VmSelect Value="@_template" Options="TemplateOptions" ValueChanged="@((string v) => _template = v)" />
+
+                    <label style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);margin-bottom:-0.4rem;">Máquina</label>
+                    <VmSelect Value="@_maquina" Options="MaquinaOptions" ValueChanged="@((string v) => _maquina = v)" />
+
+                    <label style="font-size:0.62rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);margin-bottom:-0.4rem;">Umbral de silencio (horas)</label>
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <input type="number" min="1" value="@_umbral" @onchange="OnUmbralChanged" style="flex:1;font-family:var(--font-mono);font-size:0.95rem;font-weight:700;border:2px solid var(--ink-900);border-radius:0;padding:0.55rem 0.6rem;background:var(--paper-0);outline:none;" />
+                        <span style="font-family:var(--font-mono);font-size:0.6rem;text-transform:uppercase;letter-spacing:0.4px;color:var(--text-muted);white-space:nowrap;">@UmbralDiasLabel</span>
+                    </div>
+
+                    <button type="button" @onclick="CloseFilter" class="qsm-press" style="font-family:var(--font-mono);font-weight:700;font-size:0.82rem;text-transform:uppercase;letter-spacing:0.5px;width:100%;padding:0.8rem;border:2px solid var(--ink-900);background:var(--ink-900);color:var(--paper-0);cursor:pointer;margin-top:0.3rem;"><i class="bi bi-check2" style="margin-right:6px;"></i>Aplicar</button>
+                </div>
+            </div>
+        </div>
+    }
 
     <!-- ===== Modal: Mapa de agotamiento con línea de tiempo ===== -->
     @if (mapOpen)

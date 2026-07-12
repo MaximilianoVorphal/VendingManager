@@ -184,6 +184,43 @@ namespace VendingManager.Web.Pages
         private bool verAgrupado = true;
         private string? _sel;
 
+        // ============================================================================
+        // Mobile-only UX state (@media ≤520px): bottom-sheets + tapped-row detail.
+        // Desktop never sets these; only the mobile markup drives them. No business
+        // logic here — the sheets reuse the exact same view-models as the desktop.
+        // ============================================================================
+        private bool _filterOpen;
+        private bool _detailOpen;
+        private RowVm? _selRow;
+        private void OpenFilter() => _filterOpen = true;
+        private void CloseFilter() => _filterOpen = false;
+        private void OpenDetail(RowVm r) { _sel = r.Producto; _selRow = r; _detailOpen = true; }
+        private void OpenDetailByName(string name)
+        {
+            _sel = name;
+            var r = Rows.FirstOrDefault(x => x.Producto == name);
+            if (r != null) { _selRow = r; _detailOpen = true; }
+        }
+        private void CloseDetail() => _detailOpen = false;
+
+        private string FilterSummary
+        {
+            get
+            {
+                var tpl = TemplateSeleccionado <= 0
+                    ? "Sin template"
+                    : (TemplateOptions.FirstOrDefault(o => o.Value == _template)?.Label ?? "Template");
+                var maq = _maquina == "0"
+                    ? "Todas las máquinas"
+                    : (MaquinaOptions.FirstOrDefault(o => o.Value == _maquina)?.Label ?? "Máquina");
+                return $"{tpl} · {maq} · {_umbral}h";
+            }
+        }
+        private string UmbralDiasLabel
+        {
+            get { var d = Math.Max(1, (int)Math.Round(_umbral / 24.0)); return $"≈ {d} día{(d > 1 ? "s" : "")}"; }
+        }
+
         // Bridge the v3 toggles/selects onto the existing wired filter state so they drive
         // the real DatosFiltrados / DatosAgrupados pipeline.
         private bool _soloDead { get => soloDeadSlots; set => soloDeadSlots = value; }
