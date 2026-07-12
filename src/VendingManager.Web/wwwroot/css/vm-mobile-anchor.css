@@ -185,8 +185,9 @@
        toolbar de iOS Safari se colapsa al scrollear (el viewport crece antes de
        que dvh actualice). Pintarlo blanco para que ese asomo combine con la
        barra inferior blanca (--paper-0) en vez de mostrar gris. Solo móvil y
-       solo en la ruta de conciliación (:has(.cm-page)). */
-    body:has(.cm-page) {
+       solo en las rutas de shell propio: conciliación (.cm-page) y recarga
+       móvil (.rm-view). */
+    body:has(.cm-page, .rm-view) {
         background: var(--paper-0);
     }
 }
