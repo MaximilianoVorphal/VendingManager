@@ -87,7 +87,8 @@
      arranca debajo de esos 72px y sobra justo la altura de la navbar →
      el bottombar cae debajo de la toolbar inferior de iOS Safari.
      Solución: rellenar el espacio que el chain flex ya dejó (viewport −
-     navbar − safe-areas). El wrapper se ancla a 100svh en vm-mobile-anchor.css;
+     navbar − safe-areas). El wrapper se ancla a 100dvh en vm-mobile-anchor.css
+     (dvh, no svh: medido en iPhone real, svh colapsa al viewport grande);
      rm-view solo tiene que ocupar lo que le toca. */
   flex: 1 1 auto;
   min-height: 0;
