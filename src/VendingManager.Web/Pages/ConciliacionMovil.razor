@@ -180,7 +180,7 @@
             }
         </div>
 
-        <div style="position:absolute;left:0;right:0;bottom:0;background:var(--paper-0);border-top:3px solid var(--ink-900);padding:10px 16px calc(10px + env(safe-area-inset-bottom));">
+        <div style="background:var(--paper-0);border-top:3px solid var(--ink-900);padding:10px 16px calc(10px + env(safe-area-inset-bottom));">
             <button class="cm-press" @onclick="OpenNewRendicionSheet"
                     style="width:100%;height:52px;display:flex;align-items:center;justify-content:center;gap:9px;border:2px solid var(--ink-900);background:var(--ink-900);color:#fff;font-family:var(--font-mono);font-weight:700;text-transform:uppercase;font-size:0.82rem;letter-spacing:1px;cursor:pointer;border-radius:0;">
                 <i class="bi bi-plus-lg"></i>Nueva rendición
@@ -308,7 +308,7 @@
             </div>
 
             @* barra inferior: saldo + nota de cierre en escritorio *@
-            <div style="position:absolute;left:0;right:0;bottom:0;background:var(--paper-0);border-top:3px solid var(--ink-900);padding:9px 14px calc(9px + env(safe-area-inset-bottom));display:flex;align-items:center;gap:12px;">
+            <div style="background:var(--paper-0);border-top:3px solid var(--ink-900);padding:9px 14px calc(9px + env(safe-area-inset-bottom));display:flex;align-items:center;gap:12px;">
                 <div style="min-width:0;">
                     <div style="font-family:var(--font-mono);font-weight:700;font-size:0.52rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);">Saldo a devolver</div>
                     <div style="font-family:var(--font-sans);font-weight:700;font-size:1.35rem;letter-spacing:-1px;line-height:1;">@Fmt(Saldo)</div>
@@ -559,7 +559,7 @@
 
             @if (_ocrState == OcrState.Done)
             {
-                <div style="position:absolute;left:0;right:0;bottom:0;max-width:520px;margin:0 auto;background:var(--paper-0);border-top:3px solid var(--ink-900);padding:10px 14px calc(10px + env(safe-area-inset-bottom));">
+                <div style="background:var(--paper-0);border-top:3px solid var(--ink-900);padding:10px 14px calc(10px + env(safe-area-inset-bottom));">
                     <button class="cm-press" disabled="@_ocrSaving" @onclick="SaveNueva"
                             style="width:100%;height:52px;display:flex;align-items:center;justify-content:center;gap:9px;border:2px solid var(--ink-900);background:@(_ocrSaving ? "var(--line-200)" : "var(--ink-900)");color:@(_ocrSaving ? "var(--text-muted)" : "#fff");font-family:var(--font-mono);font-weight:700;text-transform:uppercase;font-size:0.8rem;letter-spacing:.5px;cursor:@(_ocrSaving ? "not-allowed" : "pointer");border-radius:0;"><i class="bi bi-check2-circle"></i>@(_ocrSaving ? "Registrando…" : "Agregar y registrar en Compras")</button>
                 </div>

@@ -276,13 +276,13 @@
             <VmSelect Label="Unidad" Value="_unit" Options="UnitOptions" ValueChanged="@((string v) => { _unit = v; _ = OnFilterChanged(); })" />
         </div>
         <div class="iv-filters-dates" style="display:flex;gap:14px;">
-            <div style="display:flex;flex-direction:column;gap:0.35rem;">
+            <div style="display:flex;flex-direction:column;gap:0.35rem;min-width:0;">
                 <label style="font-family:var(--font-mono);font-size:0.66rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Desde</label>
-                <input type="date" value="@_desde" @onchange="e => { _desde = e.Value?.ToString() ?? _desde; _ = OnFilterChanged(); }" style="font-family:var(--font-mono);font-size:0.8rem;font-weight:700;border:2px solid var(--ink-900);border-radius:0;background:var(--paper-0);padding:0.45rem 0.6rem;outline:none;width:100%;" />
+                <input type="date" value="@_desde" @onchange="e => { _desde = e.Value?.ToString() ?? _desde; _ = OnFilterChanged(); }" style="font-family:var(--font-mono);font-size:0.8rem;font-weight:700;border:2px solid var(--ink-900);border-radius:0;background:var(--paper-0);padding:0.45rem 0.6rem;outline:none;width:100%;box-sizing:border-box;max-width:100%;min-width:0;" />
             </div>
-            <div style="display:flex;flex-direction:column;gap:0.35rem;">
+            <div style="display:flex;flex-direction:column;gap:0.35rem;min-width:0;">
                 <label style="font-family:var(--font-mono);font-size:0.66rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Hasta</label>
-                <input type="date" value="@_hasta" @onchange="e => { _hasta = e.Value?.ToString() ?? _hasta; _ = OnFilterChanged(); }" style="font-family:var(--font-mono);font-size:0.8rem;font-weight:700;border:2px solid var(--ink-900);border-radius:0;background:var(--paper-0);padding:0.45rem 0.6rem;outline:none;width:100%;" />
+                <input type="date" value="@_hasta" @onchange="e => { _hasta = e.Value?.ToString() ?? _hasta; _ = OnFilterChanged(); }" style="font-family:var(--font-mono);font-size:0.8rem;font-weight:700;border:2px solid var(--ink-900);border-radius:0;background:var(--paper-0);padding:0.45rem 0.6rem;outline:none;width:100%;box-sizing:border-box;max-width:100%;min-width:0;" />
             </div>
         </div>
     </div>
