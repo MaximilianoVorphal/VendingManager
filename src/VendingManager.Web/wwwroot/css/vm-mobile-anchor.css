@@ -153,6 +153,14 @@
         padding-left: env(safe-area-inset-left, 0px);
         padding-right: env(safe-area-inset-right, 0px);
     }
+
+    /* rm-view (RecargaMovil) maneja su propio safe-area via
+       env(safe-area-inset-bottom) en .rm-view__bottombar.
+       El padding-bottom de este wrapper es redundante y crea
+       doble espacio cuando está presente un .rm-view. */
+    .industrial-wrapper.industrial-wrapper:has(.rm-view) {
+        padding-bottom: 0 !important;
+    }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

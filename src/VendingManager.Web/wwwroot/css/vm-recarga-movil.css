@@ -122,7 +122,9 @@
    bottom durante el momentum scroll. Flex row dentro de la columna
    .rm-view es la solución canónica y cross-browser. */
 .rm-view__bottombar {
-  flex: 0 0 auto;
+  position: sticky;
+  bottom: 0;
+  z-index: 100;
   background: var(--paper-0);
   border-top: 3px solid var(--ink-900);
   padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
