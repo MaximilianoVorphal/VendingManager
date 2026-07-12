@@ -161,6 +161,16 @@
             flex: 1 1 0 !important;
             min-width: 0 !important;
         }
+        /* iOS Safari keeps a large native intrinsic width on date inputs and
+           ignores width/min-width until -webkit-appearance is removed, so the
+           box overflowed past the right edge. Stripping the native appearance
+           lets it honor the flex sizing (the tap-to-open picker still works). */
+        .iv-filters-dates input[type="date"] {
+            -webkit-appearance: none !important;
+            appearance: none !important;
+            width: 100% !important;
+            min-width: 0 !important;
+        }
         /* Header actions: stack the three command buttons full-width so
            they fit a 390px viewport. The 160px inline width on VmButton
            must be overridden with !important (inline style trumps normal
