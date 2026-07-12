@@ -4,16 +4,15 @@ using System.Reflection;
 using VendingManager.Shared.DTOs;
 
 /// <summary>
-/// Tests for StockoutSlotDto — the lightweight DTO without FechasVentas.
-/// Verifies it has all StockoutAnalysisDto properties except FechasVentas.
+/// Tests for StockoutSlotDto — mirrors every StockoutAnalysisDto property, including
+/// FechasVentas, which the template analysis now populates eagerly so the Ventas Diarias
+/// chart represents the template's sales without depending on the lazy timeline endpoint.
 /// Follows the same reflection pattern as TemplateRecargaListItemDtoTests.
 /// </summary>
 public class StockoutSlotDtoTests
 {
-    private static readonly HashSet<string> ExcludedProperties = ["FechasVentas"];
-
     [Fact]
-    public void StockoutSlotDto_HasAllStockoutAnalysisPropertiesExceptFechasVentas()
+    public void StockoutSlotDto_HasAllStockoutAnalysisProperties()
     {
         var sourceProps = typeof(StockoutAnalysisDto)
             .GetProperties(BindingFlags.Public | BindingFlags.Instance)
@@ -25,22 +24,20 @@ public class StockoutSlotDtoTests
             .Select(p => p.Name)
             .ToHashSet();
 
-        // Every property in StockoutAnalysisDto (except excluded) must exist in StockoutSlotDto
+        // Every property in StockoutAnalysisDto must exist in StockoutSlotDto
         foreach (var prop in sourceProps)
         {
-            if (ExcludedProperties.Contains(prop)) continue;
-
             targetProps.Should().Contain(prop,
-                $"StockoutSlotDto should inherit property '{prop}' from StockoutAnalysisDto");
+                $"StockoutSlotDto should mirror property '{prop}' from StockoutAnalysisDto");
         }
     }
 
     [Fact]
-    public void StockoutSlotDto_DoesNotContainFechasVentas()
+    public void StockoutSlotDto_ContainsFechasVentas()
     {
         var props = typeof(StockoutSlotDto).GetProperties(BindingFlags.Public | BindingFlags.Instance);
         var fechasVentas = props.FirstOrDefault(p => p.Name == "FechasVentas");
-        fechasVentas.Should().BeNull("StockoutSlotDto should not have FechasVentas — it is a lightweight DTO");
+        fechasVentas.Should().NotBeNull("StockoutSlotDto captures the template-period sale dates for the chart");
     }
 
     [Fact]

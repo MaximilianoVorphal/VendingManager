@@ -413,16 +413,23 @@ namespace VendingManager.Web.Pages
         {
             get
             {
-                const int days = 12;
                 var name = SelName;
                 var selP = SelP;
                 var fechas = (Datos ?? new())
                     .Where(d => d.ProductoNombre == name)
                     .SelectMany(d => d.FechasVentas)
                     .ToList();
+                // Ventana = período real del template (FechaInicio→FechaFin, inclusive).
+                // Si el período excede maxDays barras legibles, se muestran los últimos
+                // maxDays días hasta el fin del período.
+                const int maxDays = 31;
                 var end = FechaFin.Date;
+                var start = FechaInicio.Date;
+                int span = Math.Max(1, (int)(end - start).TotalDays + 1);
+                int days = Math.Min(span, maxDays);
+                var first = span <= maxDays ? start : end.AddDays(-(days - 1));
                 var labels = new List<DateTime>();
-                for (int i = 0; i < days; i++) labels.Add(end.AddDays(-(days - 1 - i)));
+                for (int i = 0; i < days; i++) labels.Add(first.AddDays(i));
                 var counts = labels.Select(day => fechas.Count(f => f.Date == day)).ToList();
                 
                 int velDia = selP != null ? (int)Math.Round(selP.VelocidadDiaria) : 0;
@@ -728,7 +735,8 @@ namespace VendingManager.Web.Pages
                 string url = $"api/TemplateRecarga/{TemplateSeleccionado}/analyze?umbralHoras={UmbralHoras}";
                 var slotDtos = await Http.GetFromJsonAsync<List<StockoutSlotDto>>(url);
 
-                // Map StockoutSlotDto → local StockoutAnalysisDto (no FechasVentas in initial load)
+                // Map StockoutSlotDto → local StockoutAnalysisDto. FechasVentas ahora viene
+                // poblado desde el análisis eager (ventas del período del template).
                 var todosLosDatos = slotDtos?.Select(s => new StockoutAnalysisDto
                 {
                     MaquinaId = s.MaquinaId,
@@ -740,6 +748,7 @@ namespace VendingManager.Web.Pages
                     UltimaVenta = s.UltimaVenta,
                     UltimaActividadMaquina = s.UltimaActividadMaquina,
                     FinReporte = s.FinReporte,
+                    FechasVentas = s.FechasVentas,
                     PosibleQuiebre = s.PosibleQuiebre,
                     HorasSinStock = s.HorasSinStock,
                     StockInicial = s.StockInicial,

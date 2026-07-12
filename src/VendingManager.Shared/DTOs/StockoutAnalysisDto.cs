@@ -166,6 +166,13 @@ public class StockoutSlotDto
     public DateTime UltimaActividadMaquina { get; set; }
     public DateTime FinReporte { get; set; }
 
+    /// <summary>
+    /// Fechas de las ventas del período del template. Se popula en el análisis eager
+    /// (AnalizarMaquinaEnPeriodo) para que el gráfico de Ventas Diarias represente
+    /// exactamente las ventas del template sin depender del timeline lazy.
+    /// </summary>
+    public List<DateTime> FechasVentas { get; set; } = new();
+
     // =============================================
     // MÉTRICAS DE STOCKOUT
     // =============================================
