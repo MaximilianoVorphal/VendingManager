@@ -466,6 +466,7 @@ public class TemplateRecargaAnalyticsService : ITemplateRecargaAnalyticsService
                 UltimaVenta = ultimaVenta,
                 UltimaActividadMaquina = ultimaActividadMaquina,
                 FinReporte = fin,
+                FechasVentas = ventasSlot.Select(v => v.FechaLocal).ToList(),
                 PosibleQuiebre = posibleQuiebre,
                 HorasSinStock = horasSinStock,
                 StockInicial = cantidadInicial,
