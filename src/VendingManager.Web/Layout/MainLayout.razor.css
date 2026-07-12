@@ -96,6 +96,14 @@ main {
         overflow-x: hidden; /* evita scroll horizontal por drawer fixed/transformed fuera del viewport */
     }
 
+    /* Cuando una página hija colapsa la navbar (CollapseNavbar → display:none),
+       soltamos la reserva de 72px y dejamos solo la safe-area del notch, para
+       que el shell (rm-view/cm-page) gane esa altura. Se restaura al volver a
+       la lista (ExpandNavbar) o al abandonar la página (Dispose). */
+    .industrial-wrapper--navbar-collapsed {
+        padding-top: env(safe-area-inset-top, 0px) !important;
+    }
+
     /* rm-view (RecargaMovil) maneja su propio safe-area via 100dvh +
        env(safe-area-inset-bottom) en sus bottom bars. En combinación con
        el padding-bottom de --fullscreen se produce doble espacio abajo. */

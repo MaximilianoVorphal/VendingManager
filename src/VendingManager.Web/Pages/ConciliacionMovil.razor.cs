@@ -31,6 +31,7 @@ using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.Extensions.Logging;
 using VendingManager.Shared.DTOs;
 using VendingManager.Shared.Enums;
+using VendingManager.Web.Layout;
 
 namespace VendingManager.Web.Pages;
 
@@ -38,7 +39,23 @@ public partial class ConciliacionMovil : ComponentBase, IDisposable
 {
     // ─── View state machine ──────────────────────────────────────────────
     private enum View { List, Overview, AddBoleta, Comprobante }
-    private View _view = View.List;
+
+    // Navbar visible only on the List; every detail/work view collapses it to
+    // reclaim its ~72px of vertical space on mobile (see MainLayout.CollapseNavbar).
+    private View _viewState = View.List;
+    private View _view
+    {
+        get => _viewState;
+        set
+        {
+            if (_viewState == value) return;
+            _viewState = value;
+            if (value == View.List) Layout?.ExpandNavbar();
+            else Layout?.CollapseNavbar();
+        }
+    }
+
+    [CascadingParameter] public MainLayout? Layout { get; set; }
 
     private enum BoletaKind { Compra, Gasto }
     private enum AddTab { Pool, Nueva }
@@ -857,6 +874,11 @@ public partial class ConciliacionMovil : ComponentBase, IDisposable
     {
         if (_disposed) return;
         _disposed = true;
+
+        // Restore the navbar when leaving the page — a detail view may have
+        // collapsed it, and the next page would otherwise render without one.
+        Layout?.ExpandNavbar();
+
         _cts.Cancel();
         _cts.Dispose();
         _toastTimer?.Dispose();
