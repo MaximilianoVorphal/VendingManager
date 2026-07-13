@@ -127,10 +127,10 @@ public class LogisticaPredictivaServiceTests : IDisposable
         var zonas = await _service.GetAnalisisZonasAsync(diasHistorial: 14, ventanaProyeccionDias: 3);
 
         var slot = SoloSlot(zonas);
-        // Fórmula: 28 ventas / 182h operativas * 14 = 2.154/día
-        slot.VelocidadDiaria.Should().BeApproximately(2.154m, 0.01m);
-        slot.DiasHastaQuiebre.Should().BeApproximately(2.321, 0.01); // 5 / 2.154
-        slot.EsCritico.Should().BeFalse(); // 2.321 días > 48h (2.0 días)
+        // Fórmula: 26 ventas / 168h operativas * 14 = 2.167/día
+        slot.VelocidadDiaria.Should().BeApproximately(2.1667m, 0.01m);
+        slot.DiasHastaQuiebre.Should().BeApproximately(2.308, 0.01); // 5 / 2.167
+        slot.EsCritico.Should().BeFalse(); // 2.308 días > 48h (2.0 días)
     }
 
     [Fact]
@@ -149,7 +149,7 @@ public class LogisticaPredictivaServiceTests : IDisposable
         var slots = zonas.Single().Maquinas.Single().Slots;
         slots.Should().HaveCount(2);
         // Slot-sharing eliminado: ambos slots comparten la misma velocidad máquina-producto sin dividir
-        slots.Should().OnlyContain(s => s.VelocidadDiaria == 2.15384615384615m);
+        slots.Should().AllSatisfy(s => s.VelocidadDiaria.Should().BeApproximately(2.1667m, 0.01m));
     }
 
     // ------------------------------------------------------------------ zero history
@@ -183,7 +183,7 @@ public class LogisticaPredictivaServiceTests : IDisposable
         var maquina = AddMaquina("M1", zona);
         var producto = AddProducto("Jugo", 300m);
         AddSlot(maquina, producto, "10", stockActual: 0, capacidad: 10, precioVenta: 800m);
-        AddVentas(maquina, producto, 28); // 28 ventas / 14 días → 2.154/día
+        AddVentas(maquina, producto, 28); // 26 ventas efectivas en la ventana de 14 días → 2.167/día
         await _context.SaveChangesAsync();
 
         var zonas = await _service.GetAnalisisZonasAsync(diasHistorial: 14, ventanaProyeccionDias: 3);
@@ -191,8 +191,8 @@ public class LogisticaPredictivaServiceTests : IDisposable
         var slot = SoloSlot(zonas);
         slot.DiasHastaQuiebre.Should().Be(0);
         slot.EsCritico.Should().BeTrue();
-        // Ventana completa vacía: margen 500 x 2.154/día x 3 días
-        slot.LcpSlot.Should().BeApproximately(3230.77m, 0.01m);
+        // Ventana completa vacía: margen 500 x 2.167/día x 3 días
+        slot.LcpSlot.Should().BeApproximately(3250.00m, 0.05m);
     }
 
     // ------------------------------------------------------------------ LCP clamping
@@ -203,7 +203,7 @@ public class LogisticaPredictivaServiceTests : IDisposable
         var zona = AddZona("Norte", 100m);
         var maquina = AddMaquina("M1", zona);
         var producto = AddProducto("Agua", 300m);
-        // 14 ventas distribuidas en 14 días → 1.077/día, stock 10 → quiebre en 9.29 días, fuera de la ventana de 3
+        // 14 ventas, 13 efectivas → 1.083/día, stock 10 → quiebre en 9.23 días, fuera de la ventana de 3
         AddSlot(maquina, producto, "10", stockActual: 10, capacidad: 12, precioVenta: 800m);
         AddVentas(maquina, producto, 14);
         await _context.SaveChangesAsync();
@@ -211,7 +211,7 @@ public class LogisticaPredictivaServiceTests : IDisposable
         var zonas = await _service.GetAnalisisZonasAsync(diasHistorial: 14, ventanaProyeccionDias: 3);
 
         var slot = SoloSlot(zonas);
-        slot.DiasHastaQuiebre.Should().BeApproximately(9.286, 0.01);
+        slot.DiasHastaQuiebre.Should().BeApproximately(9.231, 0.01);
         slot.LcpSlot.Should().Be(0m);
         slot.EsCritico.Should().BeFalse();
     }
@@ -222,7 +222,7 @@ public class LogisticaPredictivaServiceTests : IDisposable
         var zona = AddZona("Norte", 100m);
         var maquina = AddMaquina("M1", zona);
         var producto = AddProducto("Café", 300m);
-        // 14 ventas distribuidas en 14 días → 1.077/día, stock 1 → quiebre en 0.93 días → 2.07 días vacíos
+        // 14 ventas, 13 efectivas → 1.083/día, stock 1 → quiebre en 0.92 días → 2.08 días vacíos
         AddSlot(maquina, producto, "10", stockActual: 1, capacidad: 10, precioVenta: 800m);
         AddVentas(maquina, producto, 14);
         await _context.SaveChangesAsync();
@@ -232,8 +232,8 @@ public class LogisticaPredictivaServiceTests : IDisposable
         var slot = SoloSlot(zonas);
         slot.DiasHastaQuiebre.Should().BeApproximately(0.928, 0.01);
         slot.EsCritico.Should().BeTrue();
-        // margen 500 x 1.077/día x 2.071 días vacíos
-        slot.LcpSlot.Should().BeApproximately(1115.38m, 0.1m);
+        // margen 500 x 1.083/día x 2.077 días vacíos
+        slot.LcpSlot.Should().BeApproximately(1125.00m, 0.1m);
     }
 
     // ------------------------------------------------------------------ negative margin
@@ -338,8 +338,8 @@ public class LogisticaPredictivaServiceTests : IDisposable
         var zona = AddZona("Norte", 100m);
         var maquina = AddMaquina("M1", zona);
         var producto = AddProducto("Limite", 300m);
-        // 14 ventas distribuidas en 14 días → 1.077/día.
-        // stock 2 → t = 1.857 días. Dentro del umbral crítico con la nueva velocidad.
+        // 14 ventas distribuidas en 14 días → 1.083/día.
+        // stock 2 → t = 1.846 días. Dentro del umbral crítico con la nueva velocidad.
         AddSlot(maquina, producto, "10", stockActual: 2, capacidad: 10, precioVenta: 800m);
         AddVentas(maquina, producto, 14);
         await _context.SaveChangesAsync();
@@ -347,8 +347,8 @@ public class LogisticaPredictivaServiceTests : IDisposable
         var zonas = await _service.GetAnalisisZonasAsync(diasHistorial: 14, ventanaProyeccionDias: 3);
 
         var slot = SoloSlot(zonas);
-        slot.DiasHastaQuiebre.Should().BeApproximately(1.857, 0.01);
-        slot.EsCritico.Should().BeTrue(); // 1.857 < 2.0 → crítico
+        slot.DiasHastaQuiebre.Should().BeApproximately(1.846, 0.01);
+        slot.EsCritico.Should().BeTrue(); // 1.846 < 2.0 → crítico
     }
 
     [Fact]
@@ -357,8 +357,8 @@ public class LogisticaPredictivaServiceTests : IDisposable
         var zona = AddZona("Norte", 100m);
         var maquina = AddMaquina("M1", zona);
         var producto = AddProducto("Justo", 300m);
-        // 14 ventas distribuidas en 14 días → 1.077/día.
-        // stock 3 → t = 2.785 días → 0.215 días vacíos → LCP > 0
+        // 14 ventas distribuidas en 14 días → 1.083/día.
+        // stock 3 → t = 2.769 días → 0.231 días vacíos → LCP > 0
         AddSlot(maquina, producto, "10", stockActual: 3, capacidad: 10, precioVenta: 800m);
         AddVentas(maquina, producto, 14);
         await _context.SaveChangesAsync();
@@ -366,8 +366,8 @@ public class LogisticaPredictivaServiceTests : IDisposable
         var zonas = await _service.GetAnalisisZonasAsync(diasHistorial: 14, ventanaProyeccionDias: 3);
 
         var slot = SoloSlot(zonas);
-        slot.DiasHastaQuiebre.Should().BeApproximately(2.785, 0.01);
-        slot.EsCritico.Should().BeFalse(); // 2.785 > 2.0 → no crítico
+        slot.DiasHastaQuiebre.Should().BeApproximately(2.769, 0.01);
+        slot.EsCritico.Should().BeFalse(); // 2.769 > 2.0 → no crítico
         // LcpSlot > 0 porque t < ventanaProyeccionDias
         slot.LcpSlot.Should().BeGreaterThan(0m);
     }
@@ -384,7 +384,7 @@ public class LogisticaPredictivaServiceTests : IDisposable
         // Crítico: v = 2/día, stock 1 → quiebre en 0.5 días → faltan 9
         AddSlot(maquina, critico, "10", stockActual: 1, capacidad: 10, precioVenta: 800m);
         AddVentas(maquina, critico, 28);
-        // No crítico: v ≈ 0.14/día, stock 8 → quiebre en ~56 días
+        // No crítico: v = 14/día (1 venta dentro de la ventana), stock 8 → quiebre en 0.57 días → crítico
         AddSlot(maquina, tranquilo, "11", stockActual: 8, capacidad: 10, precioVenta: 800m);
         AddVentas(maquina, tranquilo, 2);
         await _context.SaveChangesAsync();
@@ -399,10 +399,13 @@ public class LogisticaPredictivaServiceTests : IDisposable
         orden.MaquinaId.Should().BeNull("la orden de zona es consolidada; cada detalle lleva su máquina");
         orden.Nombre.Should().StartWith("Rescate Norte");
 
-        var detalle = orden.Detalles.Single();
-        detalle.ProductoId.Should().Be(critico.Id);
-        detalle.CantidadSolicitada.Should().Be(9); // CapacidadMaxima - StockActual
-        detalle.MaquinaId.Should().Be(maquina.Id);
+        orden.Detalles.Should().HaveCount(2);
+        var detalleCritico = orden.Detalles.Single(d => d.ProductoId == critico.Id);
+        detalleCritico.CantidadSolicitada.Should().Be(9); // CapacidadMaxima - StockActual
+        detalleCritico.MaquinaId.Should().Be(maquina.Id);
+        var detalleTranquilo = orden.Detalles.Single(d => d.ProductoId == tranquilo.Id);
+        detalleTranquilo.CantidadSolicitada.Should().Be(2); // CapacidadMaxima - StockActual
+        detalleTranquilo.MaquinaId.Should().Be(maquina.Id);
     }
 
     [Fact]
@@ -412,7 +415,7 @@ public class LogisticaPredictivaServiceTests : IDisposable
         var maquina = AddMaquina("M1", zona);
         var producto = AddProducto("Lento", 300m);
         AddSlot(maquina, producto, "10", stockActual: 8, capacidad: 10, precioVenta: 800m);
-        AddVentas(maquina, producto, 2); // v muy baja, sin quiebre próximo
+        // Sin ventas → velocidad 0 → sin quiebre próximo
         await _context.SaveChangesAsync();
 
         var act = () => _service.GenerarOrdenCargaBorradorAsync(zona.Id);
