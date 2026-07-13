@@ -1,0 +1,149 @@
+@page "/optimizador-rutas"
+@attribute [Authorize]
+
+@* =============================================================================
+   Optimizador de Rutas — logística predictiva por zona.
+   Panel de zonas (semáforo Rentable/Pérdida según LCP total vs costo base de
+   viaje) + detalle de rescate de la zona seleccionada (slots con proyección de
+   quiebre y lucro cesante). Data real vía HttpClient contra
+   api/LogisticaPredictiva (mismo patrón que el resto de las páginas).
+   ============================================================================= *@
+
+<PageTitle>Optimizador de Rutas</PageTitle>
+
+<style>
+    .or-card { cursor: pointer; transition: transform .12s, box-shadow .12s; }
+    .or-card:hover { transform: translateY(-1px); }
+    .or-row:hover td { background: var(--paper-50); }
+    .or-critico td { background: var(--tint-danger, #fdecec) !important; }
+</style>
+
+<div class="or-page" style="flex:1;min-height:0;display:flex;flex-direction:column;overflow:auto;padding:0.7rem 1.3rem 1rem;gap:10px;">
+
+    <!-- ===== Barra de comando ===== -->
+    <div style="flex-shrink:0;border:2px solid var(--ink-900);background:var(--paper-50);box-shadow:var(--shadow-card);padding:0.45rem 0.85rem;display:flex;gap:16px;align-items:center;flex-wrap:wrap;">
+        <h1 style="margin:0;font-family:var(--font-mono);font-weight:700;text-transform:uppercase;letter-spacing:-1px;font-size:1.12rem;line-height:1;display:flex;align-items:center;gap:8px;white-space:nowrap;">
+            <i class="bi bi-signpost-split-fill" style="color:var(--signal-warning);font-size:1rem;"></i>Optimizador de Rutas
+        </h1>
+
+        <span style="width:2px;align-self:stretch;background:var(--ink-900);opacity:0.14;flex-shrink:0;"></span>
+
+        <div style="display:flex;align-items:center;gap:8px;">
+            <label style="font-family:var(--font-mono);font-size:0.6rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-secondary);white-space:nowrap;">Historial (días)</label>
+            <input type="number" min="1" @bind="DiasHistorial" style="width:64px;font-family:var(--font-mono);font-size:0.85rem;font-weight:700;border:2px solid var(--ink-900);border-radius:0;background:var(--paper-0);padding:0.38rem 0.5rem;outline:none;" />
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+            <label style="font-family:var(--font-mono);font-size:0.6rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-secondary);white-space:nowrap;">Proyección (días)</label>
+            <input type="number" min="1" @bind="VentanaDias" style="width:64px;font-family:var(--font-mono);font-size:0.85rem;font-weight:700;border:2px solid var(--ink-900);border-radius:0;background:var(--paper-0);padding:0.38rem 0.5rem;outline:none;" />
+        </div>
+        <button type="button" @onclick="Cargar" disabled="@Cargando"
+                style="border:2px solid var(--ink-900);border-radius:0;background:var(--ink-900);color:var(--paper-0);font-family:var(--font-mono);font-weight:700;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.5px;padding:0.45rem 0.9rem;cursor:pointer;">
+            <i class="bi bi-arrow-clockwise" style="margin-right:5px;"></i>@(Cargando ? "Analizando…" : "Analizar")
+        </button>
+    </div>
+
+    @if (!string.IsNullOrEmpty(Mensaje))
+    {
+        <div style="flex-shrink:0;border:2px solid @(MensajeEsError ? "var(--signal-danger)" : "var(--signal-success)");background:@(MensajeEsError ? "#fff0f1" : "#eefaf1");color:@(MensajeEsError ? "var(--signal-danger)" : "var(--signal-success)");font-family:var(--font-mono);font-weight:700;font-size:0.68rem;text-transform:uppercase;letter-spacing:0.4px;padding:0.5rem 0.8rem;display:flex;align-items:center;gap:8px;">
+            <i class="bi @(MensajeEsError ? "bi-exclamation-octagon-fill" : "bi-check-circle-fill")"></i><span>@Mensaje</span>
+        </div>
+    }
+
+    @if (Zonas == null && Cargando)
+    {
+        <div style="font-family:var(--font-mono);font-size:0.8rem;color:var(--text-muted);padding:1rem;">Cargando análisis…</div>
+    }
+    else if (Zonas != null && Zonas.Count == 0)
+    {
+        <div style="font-family:var(--font-mono);font-size:0.8rem;color:var(--text-muted);padding:1rem;">No hay máquinas con slots configurados.</div>
+    }
+    else if (Zonas != null)
+    {
+        <!-- ===== Panel de Zonas ===== -->
+        <div style="flex-shrink:0;display:flex;gap:10px;flex-wrap:wrap;">
+            @foreach (var zona in Zonas)
+            {
+                var rentable = zona.EsRentableViajar;
+                var seleccionada = ReferenceEquals(zona, ZonaSeleccionada);
+                <div class="or-card" @onclick="() => SeleccionarZona(zona)"
+                     style="flex:1 1 240px;max-width:340px;display:flex;border:2px solid var(--ink-900);background:var(--paper-0);box-shadow:@(seleccionada ? "var(--shadow-card)" : "none");outline:@(seleccionada ? "3px solid var(--ink-900)" : "none");overflow:hidden;">
+                    <span style="width:6px;flex-shrink:0;background:@(rentable ? "var(--signal-success)" : "var(--signal-danger)");"></span>
+                    <div style="flex:1;min-width:0;padding:0.6rem 0.8rem;display:flex;flex-direction:column;gap:5px;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+                            <div style="font-family:var(--font-mono);font-weight:700;font-size:0.8rem;text-transform:uppercase;letter-spacing:0.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">@zona.ZonaNombre</div>
+                            <span style="flex-shrink:0;font-family:var(--font-mono);font-weight:700;font-size:0.56rem;text-transform:uppercase;letter-spacing:0.5px;padding:2px 7px;color:#fff;background:@(rentable ? "var(--signal-success)" : "var(--signal-danger)");">
+                                @(rentable ? "Rentable — Viajar" : "Pérdida — Esperar")
+                            </span>
+                        </div>
+                        <div style="display:flex;gap:12px;font-family:var(--font-mono);font-size:0.62rem;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.3px;">
+                            <span>Viaje @Money(zona.CostoBaseViaje)</span>
+                            <span>LCP <b style="color:var(--ink-900);">@Money(zona.LcpTotal)</b></span>
+                            <span>Δ <b style="color:@(zona.LcpTotal - zona.CostoBaseViaje > 0 ? "var(--signal-success)" : "var(--signal-danger)");">@DeltaTexto(zona)</b></span>
+                        </div>
+                        <div style="font-family:var(--font-mono);font-size:0.58rem;color:var(--text-muted);text-transform:uppercase;">
+                            @zona.Maquinas.Count máq. · @CriticosDe(zona) slots críticos
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <!-- ===== Detalle de Rescate ===== -->
+        @if (ZonaSeleccionada != null)
+        {
+            <div style="border:2px solid var(--ink-900);background:var(--paper-0);box-shadow:var(--shadow-card);display:flex;flex-direction:column;">
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:0.55rem 0.85rem;border-bottom:2px solid var(--ink-900);background:var(--paper-50);">
+                    <div style="font-family:var(--font-mono);font-weight:700;font-size:0.8rem;text-transform:uppercase;letter-spacing:0.5px;">
+                        Detalle de Rescate — @ZonaSeleccionada.ZonaNombre
+                    </div>
+                    <button type="button" @onclick="() => GenerarOrden(ZonaSeleccionada)"
+                            disabled="@(Generando || CriticosDe(ZonaSeleccionada) == 0)"
+                            style="border:2px solid var(--ink-900);border-radius:0;font-family:var(--font-mono);font-weight:700;font-size:0.68rem;text-transform:uppercase;letter-spacing:0.5px;padding:0.45rem 0.9rem;cursor:@(Generando || CriticosDe(ZonaSeleccionada) == 0 ? "not-allowed" : "pointer");background:@(Generando || CriticosDe(ZonaSeleccionada) == 0 ? "var(--paper-50)" : "var(--signal-danger)");color:@(Generando || CriticosDe(ZonaSeleccionada) == 0 ? "var(--text-muted)" : "#fff");">
+                        <i class="bi bi-truck" style="margin-right:5px;"></i>@(Generando ? "Generando…" : "Generar Orden de Carga")
+                    </button>
+                </div>
+
+                <div style="overflow-x:auto;">
+                    <table style="width:100%;border-collapse:collapse;font-family:var(--font-mono);font-size:0.72rem;">
+                        <thead>
+                            <tr style="background:var(--paper-50);">
+                                <th style="text-align:left;padding:0.45rem 0.7rem;text-transform:uppercase;font-size:0.58rem;letter-spacing:0.5px;border-bottom:2px solid var(--ink-900);">Producto</th>
+                                <th style="text-align:left;padding:0.45rem 0.7rem;text-transform:uppercase;font-size:0.58rem;letter-spacing:0.5px;border-bottom:2px solid var(--ink-900);">Máquina / Slot</th>
+                                <th style="text-align:right;padding:0.45rem 0.7rem;text-transform:uppercase;font-size:0.58rem;letter-spacing:0.5px;border-bottom:2px solid var(--ink-900);">Stock</th>
+                                <th style="text-align:right;padding:0.45rem 0.7rem;text-transform:uppercase;font-size:0.58rem;letter-spacing:0.5px;border-bottom:2px solid var(--ink-900);">Cap.</th>
+                                <th style="text-align:right;padding:0.45rem 0.7rem;text-transform:uppercase;font-size:0.58rem;letter-spacing:0.5px;border-bottom:2px solid var(--ink-900);">Faltan</th>
+                                <th style="text-align:right;padding:0.45rem 0.7rem;text-transform:uppercase;font-size:0.58rem;letter-spacing:0.5px;border-bottom:2px solid var(--ink-900);">Vel./día</th>
+                                <th style="text-align:right;padding:0.45rem 0.7rem;text-transform:uppercase;font-size:0.58rem;letter-spacing:0.5px;border-bottom:2px solid var(--ink-900);">Días a quiebre</th>
+                                <th style="text-align:right;padding:0.45rem 0.7rem;text-transform:uppercase;font-size:0.58rem;letter-spacing:0.5px;border-bottom:2px solid var(--ink-900);">LCP</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var maquina in ZonaSeleccionada.Maquinas)
+                            {
+                                @foreach (var slot in maquina.Slots.OrderByDescending(s => s.LcpSlot))
+                                {
+                                    <tr class="or-row @(slot.EsCritico ? "or-critico" : "")">
+                                        <td style="padding:0.4rem 0.7rem;border-bottom:1px solid var(--paper-100, #eee);">
+                                            @if (slot.EsCritico)
+                                            {
+                                                <i class="bi bi-exclamation-triangle-fill" style="color:var(--signal-danger);margin-right:5px;"></i>
+                                            }
+                                            @slot.ProductoNombre
+                                        </td>
+                                        <td style="padding:0.4rem 0.7rem;border-bottom:1px solid var(--paper-100, #eee);color:var(--text-secondary);">@maquina.MaquinaNombre · @slot.NumeroSlot</td>
+                                        <td style="padding:0.4rem 0.7rem;text-align:right;border-bottom:1px solid var(--paper-100, #eee);">@slot.StockActual</td>
+                                        <td style="padding:0.4rem 0.7rem;text-align:right;border-bottom:1px solid var(--paper-100, #eee);">@slot.CapacidadMaxima</td>
+                                        <td style="padding:0.4rem 0.7rem;text-align:right;border-bottom:1px solid var(--paper-100, #eee);font-weight:700;">@slot.UnidadesFaltantes</td>
+                                        <td style="padding:0.4rem 0.7rem;text-align:right;border-bottom:1px solid var(--paper-100, #eee);">@slot.VelocidadDiaria.ToString("0.0")</td>
+                                        <td style="padding:0.4rem 0.7rem;text-align:right;border-bottom:1px solid var(--paper-100, #eee);color:@(slot.EsCritico ? "var(--signal-danger)" : "inherit");font-weight:@(slot.EsCritico ? "700" : "400");">@FmtDias(slot.DiasHastaQuiebre)</td>
+                                        <td style="padding:0.4rem 0.7rem;text-align:right;border-bottom:1px solid var(--paper-100, #eee);">@(slot.LcpSlot > 0 ? Money(slot.LcpSlot) : "—")</td>
+                                    </tr>
+                                }
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        }
+    }
+</div>

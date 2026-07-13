@@ -14,6 +14,9 @@ public class Maquina
     // Identificador del Excel de TRANSBANK (Ej: "SIV01099")
     public string CodigoTerminalPos { get; set; } = string.Empty;
 
+    // Zona logística para optimización de rutas (opcional)
+    public int? ZonaLogisticaId { get; set; }
+    public ZonaLogistica? Zona { get; set; }
     // Relación con los slots configurados
     public List<ConfiguracionSlot> Slots { get; set; } = new();
 }

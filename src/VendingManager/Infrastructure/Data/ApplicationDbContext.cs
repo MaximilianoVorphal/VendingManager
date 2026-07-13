@@ -45,6 +45,7 @@ namespace VendingManager.Infrastructure.Data
         public DbSet<ProveedorCatalog> ProveedorCatalog { get; set; } = null!;
         public DbSet<ProveedorAlias> ProveedorAlias { get; set; } = null!;
         public DbSet<ProveedorCatalogHistory> ProveedorCatalogHistory { get; set; } = null!;
+        public DbSet<ZonaLogistica> ZonasLogisticas { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -262,6 +263,34 @@ namespace VendingManager.Infrastructure.Data
                 .WithMany()
                 .HasForeignKey(c => c.ProveedorCatalogId)
                 .OnDelete(DeleteBehavior.SetNull);
+<<<<<<< HEAD
+=======
+
+            // DepreciacionMaquina: decimal precision for money amounts
+            modelBuilder.Entity<DepreciacionMaquina>(e =>
+            {
+                e.Property(d => d.ValorAdquisicion).HasColumnType("decimal(18,2)");
+                e.Property(d => d.ValorResidual).HasColumnType("decimal(18,2)");
+            });
+
+            // MovimientoCaja -> Maquina: nullable FK, no navigation property
+            modelBuilder.Entity<MovimientoCaja>()
+                .HasOne<Maquina>()
+                .WithMany()
+                .HasForeignKey(m => m.MaquinaId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            // ZonaLogistica: costo base como decimal (dinero)
+            modelBuilder.Entity<ZonaLogistica>()
+                .Property(z => z.CostoBaseViaje).HasColumnType("decimal(18,2)");
+
+            // Maquina -> ZonaLogistica: FK nullable, si la zona se elimina la máquina queda sin zona
+            modelBuilder.Entity<Maquina>()
+                .HasOne(m => m.Zona)
+                .WithMany()
+                .HasForeignKey(m => m.ZonaLogisticaId)
+                .OnDelete(DeleteBehavior.SetNull);
+>>>>>>> d60068f (feat(logistica): predictive stockout and route optimization module by zone)
         }
     }
 }
