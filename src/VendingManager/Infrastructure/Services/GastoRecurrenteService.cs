@@ -135,7 +135,8 @@ public class GastoRecurrenteService : IGastoRecurrenteService
             Monto = -Math.Abs(montoFinal), // Siempre negativo (es gasto)
             Tipo = "GASTO",
             Categoria = gasto.Categoria,
-            GastoRecurrenteId = gastoRecurrenteId
+            GastoRecurrenteId = gastoRecurrenteId,
+            MaquinaId = gasto.MaquinaId  // Propagate per-machine attribution
         };
 
         _context.MovimientosCaja.Add(movimiento);

@@ -267,6 +267,12 @@ public class SalesAnalyticsService : ISalesAnalyticsService
             }
 
             decimal gastosOperativos = 0;
+            decimal gastosFijos = 0;
+            decimal gastosVariables = 0;
+            decimal depreciacionPeriodo = 0;
+            decimal ebitda;
+            decimal margenBruto = ingresosVentas - costoVentas;
+
             if (maquinaId == 0)
             {
                 // Categorías operacionales — mismo criterio que CajaBusinessService.GetResumenAsync
@@ -287,17 +293,170 @@ public class SalesAnalyticsService : ISalesAnalyticsService
                     .SumAsync(m => m.Monto);
 
                 gastosOperativos = Math.Abs(gastosOperativos);
+                // Fleet-level: no per-machine breakdown
+                ebitda = (ingresosVentas - costoVentas) - gastosOperativos;
+            }
+            else
+            {
+                // Per-machine branch (maquinaId > 0):
+                // OPEX = direct per-machine costs + prorated fleet share
+                (gastosFijos, gastosVariables) = await CalcularOpexPorMaquinaAsync(maquinaId, inicioAjustado, finAjustado);
+                gastosOperativos = gastosFijos + gastosVariables;
+
+                // Depreciation prorated by operational days
+                depreciacionPeriodo = await CalcularDepreciacionAsync(maquinaId, inicioAjustado, finAjustado);
+
+                ebitda = margenBruto - gastosOperativos - depreciacionPeriodo;
             }
 
             return new InformeFinancieroDto
             {
                 VentasTotales = ingresosVentas,
                 CostoVentas = costoVentas,
-                MargenBruto = ingresosVentas - costoVentas,
+                MargenBruto = margenBruto,
                 GastosOperativos = gastosOperativos,
-                UtilidadNeta = (ingresosVentas - costoVentas) - gastosOperativos,
-                MargenPorcentaje = ingresosVentas > 0 ? ((ingresosVentas - costoVentas) / ingresosVentas) * 100 : 0
+                UtilidadNeta = ebitda,
+                MargenPorcentaje = ingresosVentas > 0 ? (margenBruto / ingresosVentas) * 100 : 0,
+                GastosFijos = gastosFijos,
+                GastosVariables = gastosVariables,
+                DepreciacionPeriodo = depreciacionPeriodo,
+                Ebitda = ebitda
             };
+        }
+
+        /// <summary>
+        /// Counts operational days for a machine within a date range, prorated by
+        /// FechaInstalacion and FechaBaja. Round UP: any partial day counts as 1.
+        /// Formula: max(0, (min(FechaBaja ?? fin, fin) - max(FechaInstalacion, inicio)).Days + 1)
+        /// </summary>
+        internal static int ContarDiasOperativos(Maquina maquina, DateTime inicio, DateTime fin)
+        {
+            DateTime effectiveStart = maquina.FechaInstalacion > inicio ? maquina.FechaInstalacion : inicio;
+            DateTime effectiveEnd = maquina.FechaBaja.HasValue && maquina.FechaBaja.Value < fin
+                ? maquina.FechaBaja.Value
+                : fin;
+
+            if (effectiveStart > effectiveEnd)
+                return 0;
+
+            return (effectiveEnd - effectiveStart).Days + 1;
+        }
+
+        /// <summary>
+        /// Calculates depreciation for a single machine over a date range.
+        /// Daily rate = (ValorAdquisicion - ValorResidual) / VidaUtilMeses / 30.4167.
+        /// Returns Σ (dailyRate × operationalDays) for each active DepreciacionMaquina row.
+        /// Returns 0 if machine has 0 operational days or no DepreciacionMaquina rows.
+        /// </summary>
+        internal async Task<decimal> CalcularDepreciacionAsync(int maquinaId, DateTime inicio, DateTime fin)
+        {
+            var maquina = await _context.Maquinas
+                .FirstOrDefaultAsync(m => m.Id == maquinaId);
+            if (maquina == null)
+                return 0;
+
+            var depreciaciones = await _context.DepreciacionesMaquina
+                .Where(d => d.MaquinaId == maquinaId && d.Activo)
+                .ToListAsync();
+
+            if (depreciaciones.Count == 0)
+                return 0;
+
+            int diasOperativos = ContarDiasOperativos(maquina, inicio, fin);
+            if (diasOperativos == 0)
+                return 0;
+
+            decimal total = 0;
+            foreach (var d in depreciaciones)
+            {
+                decimal dailyRate = (d.ValorAdquisicion - d.ValorResidual) / d.VidaUtilMeses / 30.4167m;
+                total += dailyRate * diasOperativos;
+            }
+            return total;
+        }
+
+        /// <summary>
+        /// Calculates OPEX attributed to a single machine: direct per-machine costs
+        /// + prorated fleet share. Returns (gastosFijos, gastosVariables).
+        ///
+        /// Categories match CajaBusinessService.GetResumenAsync lines 88-98:
+        ///   Fixed:  INFRA, ARRIENDO_POS, INTERNET, COMISIONES, SUELDOS, GASTOS GENERALES, OTROS, SERVICIOS
+        ///   Variable: LOGISTICA, PEAJES, INSUMOS, MANTENCION
+        ///
+        /// Excluded (non-operational): MERCADERIA, MERMA, GENERAL, LOTES, APORTE_CAPITAL, APORTE
+        ///
+        /// Fleet proration: fleetOpex × (thisMachineOpDays / totalFleetOpDays).
+        /// If totalFleetOpDays == 0, fleet share is 0 (safe division guard).
+        /// </summary>
+        internal async Task<(decimal gastosFijos, decimal gastosVariables)> CalcularOpexPorMaquinaAsync(
+            int maquinaId, DateTime inicio, DateTime fin)
+        {
+            // Category classification — same arrays as CajaBusinessService lines 88-98
+            var categoriasVariables = new[] { "LOGISTICA", "PEAJES", "INSUMOS", "MANTENCION" };
+            var categoriasFijas = new[] { "INFRA", "ARRIENDO_POS", "INTERNET", "COMISIONES", "SUELDOS", "GASTOS GENERALES", "OTROS", "SERVICIOS" };
+            var categoriasOperacionales = categoriasFijas.Concat(categoriasVariables).ToArray();
+
+            // Excluded from operational OPEX (same pattern as CajaBusinessService)
+            var categoriasExcluidas = new[] { "MERCADERIA", "MERMA", "GENERAL", "LOTES", "APORTE_CAPITAL", "APORTE" };
+
+            // --- Direct per-machine OPEX ---
+            var directQuery = _context.MovimientosCaja
+                .Where(m => m.MaquinaId == maquinaId
+                         && m.Fecha >= inicio
+                         && m.Fecha <= fin
+                         && m.Monto < 0
+                         && categoriasOperacionales.Contains(m.Categoria));
+
+            decimal gastosFijosDirect = Math.Abs(await directQuery
+                .Where(m => categoriasFijas.Contains(m.Categoria))
+                .SumAsync(m => m.Monto));
+            decimal gastosVariablesDirect = Math.Abs(await directQuery
+                .Where(m => categoriasVariables.Contains(m.Categoria))
+                .SumAsync(m => m.Monto));
+
+            // --- Fleet-level OPEX (MaquinaId IS NULL) ---
+            var fleetOpexQuery = _context.MovimientosCaja
+                .Where(m => m.MaquinaId == null
+                         && m.Fecha >= inicio
+                         && m.Fecha <= fin
+                         && m.Monto < 0
+                         && categoriasOperacionales.Contains(m.Categoria));
+
+            decimal fleetOpexFijos = Math.Abs(await fleetOpexQuery
+                .Where(m => categoriasFijas.Contains(m.Categoria))
+                .SumAsync(m => m.Monto));
+            decimal fleetOpexVariables = Math.Abs(await fleetOpexQuery
+                .Where(m => categoriasVariables.Contains(m.Categoria))
+                .SumAsync(m => m.Monto));
+
+            // --- Fleet proration by operational days ---
+            var todasLasMaquinas = await _context.Maquinas.ToListAsync();
+            var targetMaquina = todasLasMaquinas.FirstOrDefault(m => m.Id == maquinaId);
+
+            int thisMachineOpDays = targetMaquina != null
+                ? ContarDiasOperativos(targetMaquina, inicio, fin)
+                : 0;
+
+            int totalFleetOpDays = todasLasMaquinas
+                .Sum(m => ContarDiasOperativos(m, inicio, fin));
+
+            decimal factorProrrateo;
+            if (totalFleetOpDays == 0 || thisMachineOpDays == 0)
+            {
+                factorProrrateo = 0;
+            }
+            else
+            {
+                factorProrrateo = (decimal)thisMachineOpDays / totalFleetOpDays;
+            }
+
+            decimal gastosFijosProrrateados = fleetOpexFijos * factorProrrateo;
+            decimal gastosVariablesProrrateados = fleetOpexVariables * factorProrrateo;
+
+            decimal gastosFijos = gastosFijosDirect + gastosFijosProrrateados;
+            decimal gastosVariables = gastosVariablesDirect + gastosVariablesProrrateados;
+
+            return (gastosFijos, gastosVariables);
         }
 
         public async Task<(byte[] content, string fileName)> ExportarReporteAsync(DateTime inicio, DateTime fin, int maquinaId, bool includePhantom = false, int? templateId = null)
