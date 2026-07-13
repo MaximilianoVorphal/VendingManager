@@ -1,0 +1,383 @@
+@page "/admin/zonas"
+@using Microsoft.AspNetCore.Authorization
+@using VendingManager.Shared.DTOs
+@using VendingManager.Shared.Constants
+@using VendingManager.Web.Components.Mobile
+@attribute [Authorize(Roles = Roles.Admin)]
+@inject HttpClient Http
+@inject NavigationManager Navigation
+
+<PageTitle>ZONAS LOGÍSTICAS</PageTitle>
+
+<MobileShell>
+
+<div class="industrial-wrapper container-fluid px-4 mt-4">
+    <div class="row align-items-center mb-4 border-bottom border-3 border-dark pb-3 g-3">
+        <div class="col-md-8 col-12">
+            <h2 class="m-0 fw-bold text-uppercase" style="letter-spacing: -1px; color: #333;">
+                <i class="bi bi-geo-alt me-2"></i>ZONAS LOGÍSTICAS
+            </h2>
+            <small class="text-muted fw-bold">GESTIÓN DE ZONAS LOGÍSTICAS</small>
+        </div>
+        <div class="col-md-4 col-12 text-md-end">
+            <button class="btn btn-dark rounded-0 fw-bold shadow-sm" @onclick="AbrirModalNuevo">
+                <i class="bi bi-plus-lg me-1"></i>NUEVA ZONA
+            </button>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(Error))
+    {
+        <div class="alert alert-danger border-dark rounded-0 fw-bold mb-4 shadow-sm fade show">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i> @Error
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(MensajeExito))
+    {
+        <div class="alert alert-success border-dark rounded-0 fw-bold mb-4 shadow-sm fade show">
+            <i class="bi bi-check-circle-fill me-2"></i> @MensajeExito
+        </div>
+    }
+
+    @if (Cargando)
+    {
+        <div class="text-center my-5">
+            <div class="spinner-border text-dark" role="status"></div>
+            <p class="mt-2 fw-bold">Cargando zonas...</p>
+        </div>
+    }
+    else
+    {
+        <!-- SEARCH BAR -->
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <div class="input-group">
+                    <span class="input-group-text bg-white border-dark rounded-0"><i class="bi bi-search"></i></span>
+                    <input type="text" class="form-control border-dark rounded-0 shadow-sm"
+                           placeholder="Buscar zona..." @bind="SearchTerm" @bind:event="oninput" />
+                </div>
+            </div>
+            <div class="col-md-6 text-md-end pt-2 pt-md-0">
+                <span class="fw-bold small text-muted">@FilteredZonas.Count() de @Zonas.Count registros</span>
+            </div>
+        </div>
+
+        <div class="card border-2 border-dark rounded-0 shadow">
+            <div class="card-header bg-dark text-white rounded-0 fw-bold d-flex justify-content-between align-items-center">
+                <span>ZONAS LOGÍSTICAS</span>
+                <span class="badge bg-light text-dark">@Zonas.Count REGISTROS</span>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover table-bordered border-dark m-0 align-middle vm-accordion-table">
+                    <thead class="bg-secondary text-white text-uppercase small font-monospace fw-bold">
+                        <tr>
+                            <th>NOMBRE</th>
+                            <th class="text-center">COSTO BASE VIAJE</th>
+                            <th class="text-center" style="width: 120px;">ACCIONES</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white fw-bold" style="font-size: 0.85rem;">
+                        @if (!FilteredZonas.Any())
+                        {
+                            <tr>
+                                <td colspan="3" class="text-center p-4 text-muted">
+                                    @(string.IsNullOrWhiteSpace(SearchTerm) ? "No hay zonas registradas." : $"Sin resultados para \"{SearchTerm}\".")
+                                </td>
+                            </tr>
+                        }
+                        else
+                        {
+                            @foreach (var z in FilteredZonas)
+                            {
+                                <tr>
+                                    <td>@z.Nombre</td>
+                                    <td class="text-center">@FormatCurrency(z.CostoBaseViaje)</td>
+                                    <td class="text-center">
+                                        <div class="d-flex justify-content-center gap-1">
+                                            <button class="btn btn-sm btn-outline-dark rounded-0 fw-bold" title="Editar" @onclick="() => AbrirModalEditar(z)">
+                                                <i class="bi bi-pencil-square"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-danger rounded-0 fw-bold" title="Eliminar" @onclick="() => ConfirmarEliminar(z)">
+                                                <i class="bi bi-trash-fill"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+</div>
+
+@* ─── MODAL CREAR / EDITAR ─── *@
+@if (MostrarModal)
+{
+    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5); z-index: 1060; position: fixed; top: 0; left: 0; width: 100%; height: 100%;">
+        <div class="modal-dialog modal-dialog-centered" style="z-index: 1061;">
+            <div class="modal-content rounded-0 border-2 border-dark shadow-lg">
+                <div class="modal-header @(Editando ? "bg-warning text-dark" : "bg-dark text-white") rounded-0 border-bottom border-dark">
+                    <h5 class="modal-title fw-bold">
+                        <i class="bi @(Editando ? "bi-pencil-square" : "bi-plus-circle") me-2"></i>
+                        @(Editando ? "EDITAR ZONA" : "NUEVA ZONA")
+                    </h5>
+                    <button type="button" class="btn-close @(Editando ? "" : "btn-close-white")" @onclick="CerrarModal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-muted">NOMBRE *</label>
+                        <input type="text" class="form-control border-dark rounded-0"
+                               @bind="FormNombre" @bind:event="oninput"
+                               placeholder="Nombre de la zona" maxlength="200" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-muted">COSTO BASE VIAJE ($)</label>
+                        <input type="number" class="form-control border-dark rounded-0"
+                               @bind="FormCostoBaseViaje" @bind:event="oninput"
+                               placeholder="0" step="0.01" min="0" />
+                    </div>
+                    @if (!string.IsNullOrEmpty(Error))
+                    {
+                        <div class="alert alert-danger border-dark rounded-0 fw-bold py-2 mb-0 small fade show">
+                            <i class="bi bi-exclamation-triangle-fill me-1"></i> @Error
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer bg-light rounded-0">
+                    <button type="button" class="btn btn-outline-dark rounded-0 fw-bold" @onclick="CerrarModal">CANCELAR</button>
+                    <button type="button" class="btn btn-dark rounded-0 fw-bold px-4" @onclick="GuardarZona" disabled="@Guardando">
+                        @if (Guardando)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                            <span>GUARDANDO...</span>
+                        }
+                        else
+                        {
+                            <i class="bi bi-save-fill me-2"></i>
+                            <span>GUARDAR</span>
+                        }
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@* ─── MODAL CONFIRMAR ELIMINAR ─── *@
+@if (ZonaAEliminar != null)
+{
+    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5); z-index: 1060; position: fixed; top: 0; left: 0; width: 100%; height: 100%;">
+        <div class="modal-dialog modal-dialog-centered" style="z-index: 1061;">
+            <div class="modal-content rounded-0 border-2 border-dark shadow-lg">
+                <div class="modal-header bg-danger text-white rounded-0 border-bottom border-dark">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-exclamation-triangle-fill me-2"></i>ELIMINAR ZONA</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="() => ZonaAEliminar = null"></button>
+                </div>
+                <div class="modal-body p-4 text-center">
+                    <p class="fs-5 fw-bold">¿Eliminar <span class="text-danger">@ZonaAEliminar.Nombre</span>?</p>
+                    <p class="text-danger small fw-bold">
+                        <i class="bi bi-exclamation-circle-fill me-1"></i>
+                        Las máquinas asignadas a esta zona quedarán sin zona. ¿Desea continuar?
+                    </p>
+                </div>
+                <div class="modal-footer bg-light rounded-0">
+                    <button type="button" class="btn btn-outline-dark rounded-0 fw-bold" @onclick="() => ZonaAEliminar = null">CANCELAR</button>
+                    <button type="button" class="btn btn-danger rounded-0 fw-bold px-4" @onclick="EliminarZona" disabled="@Eliminando">
+                        @if (Eliminando)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                        }
+                        SÍ, ELIMINAR
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+</MobileShell>
+
+@code {
+    private List<ZonaLogisticaDto> Zonas = new();
+    private bool Cargando = true;
+    private string? Error;
+    private string? MensajeExito;
+    private string SearchTerm = "";
+
+    private IEnumerable<ZonaLogisticaDto> FilteredZonas
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(SearchTerm)) return Zonas;
+            var term = SearchTerm.ToLower();
+            return Zonas.Where(z =>
+                z.Nombre.ToLower().Contains(term));
+        }
+    }
+
+    // Modal state
+    private bool MostrarModal;
+    private bool Editando;
+    private bool Guardando;
+    private string FormNombre = "";
+    private decimal FormCostoBaseViaje;
+    private int? EditandoId;
+
+    // Delete state
+    private ZonaLogisticaDto? ZonaAEliminar;
+    private bool Eliminando;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarDatos();
+    }
+
+    private async Task CargarDatos()
+    {
+        try
+        {
+            Cargando = true;
+            Error = null;
+
+            var list = await Http.GetFromJsonAsync<List<ZonaLogisticaDto>>("api/zonas-logisticas");
+            Zonas = list?.OrderBy(z => z.Nombre).ToList() ?? new();
+        }
+        catch (Exception ex)
+        {
+            Error = "Error al cargar: " + ex.Message;
+        }
+        finally
+        {
+            Cargando = false;
+        }
+    }
+
+    private void AbrirModalNuevo()
+    {
+        Editando = false;
+        EditandoId = null;
+        FormNombre = "";
+        FormCostoBaseViaje = 0;
+        MostrarModal = true;
+        Error = null;
+        MensajeExito = null;
+    }
+
+    private void AbrirModalEditar(ZonaLogisticaDto z)
+    {
+        Editando = true;
+        EditandoId = z.Id;
+        FormNombre = z.Nombre;
+        FormCostoBaseViaje = z.CostoBaseViaje;
+        MostrarModal = true;
+        Error = null;
+        MensajeExito = null;
+    }
+
+    private void CerrarModal()
+    {
+        MostrarModal = false;
+    }
+
+    private async Task GuardarZona()
+    {
+        if (string.IsNullOrWhiteSpace(FormNombre))
+        {
+            Error = "El nombre de la zona es obligatorio.";
+            return;
+        }
+
+        Guardando = true;
+        Error = null;
+        MensajeExito = null;
+
+        try
+        {
+            HttpResponseMessage response;
+            if (Editando && EditandoId.HasValue)
+            {
+                var dto = new ActualizarZonaRequestDto { Nombre = FormNombre.Trim(), CostoBaseViaje = FormCostoBaseViaje };
+                response = await Http.PutAsJsonAsync($"api/zonas-logisticas/{EditandoId.Value}", dto);
+            }
+            else
+            {
+                var dto = new CrearZonaRequestDto { Nombre = FormNombre.Trim(), CostoBaseViaje = FormCostoBaseViaje };
+                response = await Http.PostAsJsonAsync("api/zonas-logisticas", dto);
+            }
+
+            if (response.IsSuccessStatusCode)
+            {
+                MensajeExito = Editando ? "Zona actualizada." : "Zona creada.";
+                CerrarModal();
+                await CargarDatos();
+            }
+            else if (response.StatusCode == System.Net.HttpStatusCode.Conflict)
+            {
+                Error = "Ya existe una zona con ese nombre.";
+            }
+            else
+            {
+                var errorBody = await response.Content.ReadAsStringAsync();
+                Error = $"Error: {errorBody}";
+            }
+        }
+        catch (Exception ex)
+        {
+            Error = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            Guardando = false;
+        }
+    }
+
+    private void ConfirmarEliminar(ZonaLogisticaDto z)
+    {
+        ZonaAEliminar = z;
+        Error = null;
+        MensajeExito = null;
+    }
+
+    private async Task EliminarZona()
+    {
+        if (ZonaAEliminar == null) return;
+
+        Eliminando = true;
+        try
+        {
+            var response = await Http.DeleteAsync($"api/zonas-logisticas/{ZonaAEliminar.Id}");
+            if (response.IsSuccessStatusCode)
+            {
+                MensajeExito = $"Zona \"{ZonaAEliminar.Nombre}\" eliminada.";
+                ZonaAEliminar = null;
+                await CargarDatos();
+            }
+            else if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                Error = "La zona ya no existe.";
+                ZonaAEliminar = null;
+                await CargarDatos();
+            }
+            else
+            {
+                Error = "Error al eliminar: " + await response.Content.ReadAsStringAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            Error = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            Eliminando = false;
+        }
+    }
+
+    private static string FormatCurrency(decimal value)
+    {
+        return "$" + value.ToString("N0", new System.Globalization.NumberFormatInfo { NumberGroupSeparator = ".", NumberDecimalDigits = 0 });
+    }
+}
