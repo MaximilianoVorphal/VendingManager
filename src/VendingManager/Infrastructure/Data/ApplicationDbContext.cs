@@ -280,9 +280,15 @@ namespace VendingManager.Infrastructure.Data
                 .HasForeignKey(m => m.MaquinaId)
                 .OnDelete(DeleteBehavior.SetNull);
 
-            // ZonaLogistica: costo base como decimal (dinero)
+            // ZonaLogistica: costo base como decimal (dinero) + seed data
             modelBuilder.Entity<ZonaLogistica>()
                 .Property(z => z.CostoBaseViaje).HasColumnType("decimal(18,2)");
+
+            modelBuilder.Entity<ZonaLogistica>().HasData(
+                new ZonaLogistica { Id = 1, Nombre = "Zona Norte", CostoBaseViaje = 25000m },
+                new ZonaLogistica { Id = 2, Nombre = "Zona Centro", CostoBaseViaje = 15000m },
+                new ZonaLogistica { Id = 3, Nombre = "Zona Sur", CostoBaseViaje = 20000m }
+            );
 
             // Maquina -> ZonaLogistica: FK nullable, si la zona se elimina la máquina queda sin zona
             modelBuilder.Entity<Maquina>()
