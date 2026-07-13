@@ -14,8 +14,9 @@ namespace VendingManager.Migrations
                 name: "FK_ConfiguracionSlots_Productos_ProductoId",
                 table: "ConfiguracionSlots");
 
-            migrationBuilder.DropTable(
-                name: "Users");
+            // NOTA: DropTable("Users") fue removido — era un bug generado por
+            // EF Core que eliminaba la tabla Users sin motivo, rompiendo la
+            // cadena de migraciones posterior (FixUserSchema, etc.).
 
             migrationBuilder.AlterColumn<int>(
                 name: "ProductoId",
@@ -50,20 +51,8 @@ namespace VendingManager.Migrations
                 oldType: "int",
                 oldNullable: true);
 
-            migrationBuilder.CreateTable(
-                name: "Users",
-                columns: table => new
-                {
-                    Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    PasswordHash = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    Role = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    Username = table.Column<string>(type: "nvarchar(max)", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_Users", x => x.Id);
-                });
+            // NOTA: CreateTable("Users") fue removido del Down porque el Up
+            // ya no dropea la tabla.
 
             migrationBuilder.AddForeignKey(
                 name: "FK_ConfiguracionSlots_Productos_ProductoId",
