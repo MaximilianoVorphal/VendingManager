@@ -9,6 +9,7 @@ using VendingManager.Core.Domain;
 using VendingManager.Core.Entities;
 using VendingManager.Core.Interfaces;
 using VendingManager.Infrastructure.Data;
+using VendingManager.Shared;
 using VendingManager.Shared.DTOs;
 using VendingManager.Shared.Enums;
 
@@ -750,7 +751,7 @@ public class ContabilidadService : IContabilidadService
         var gastosByPeriodo = await _context.MovimientosCaja
             .Where(g => g.Tipo == "GASTO" && g.Rendicion != null
                 && g.Rendicion.Transferencias.Any(t => t.PeriodoId != null && periodIds.Contains(t.PeriodoId!.Value))
-                && !CategoriasEstructurales.Contains(g.Categoria ?? string.Empty))
+                && !CategoriasGasto.Estructurales.Contains(g.Categoria ?? string.Empty))
             .GroupBy(g => g.Rendicion!.Transferencias
                 .Where(t => t.PeriodoId != null && periodIds.Contains(t.PeriodoId!.Value))
                 .Select(t => t.PeriodoId!.Value)
@@ -869,7 +870,7 @@ public class ContabilidadService : IContabilidadService
         var totalGastos = period.Transferencias
             .Where(t => t.Rendicion != null)
             .SelectMany(t => t.Rendicion!.Gastos)
-            .Where(EsGastoReal)
+            .Where(m => CategoriasGasto.EsGastoOperativoReal(m.Categoria))
             .DistinctBy(g => g.Id)
             .Sum(g => Math.Abs(g.Monto));
         // Query Devoluciones directly to avoid nav-property inclusion edge cases
@@ -1031,7 +1032,7 @@ public class ContabilidadService : IContabilidadService
                 var periodoTotalGastos = period.Transferencias
                     .Where(t => t.Rendicion != null)
                     .SelectMany(t => t.Rendicion!.Gastos)
-                    .Where(EsGastoReal)
+                    .Where(m => CategoriasGasto.EsGastoOperativoReal(m.Categoria))
                     .DistinctBy(g => g.Id)
                     .Sum(g => Math.Abs(g.Monto));
                 var periodoDiferencia = periodoTotalTransferido - periodoTotalCompras - periodoTotalGastos;
@@ -1071,7 +1072,7 @@ public class ContabilidadService : IContabilidadService
                 var rendTotalCompras = rendicion.Transferencias
                     .SelectMany(t => t.Compras)
                     .Sum(c => c.MontoTotal);
-                var rendTotalGastos = rendicion.Gastos?.Where(EsGastoReal).Sum(g => Math.Abs(g.Monto)) ?? 0m;
+                var rendTotalGastos = rendicion.Gastos?.Where(m => CategoriasGasto.EsGastoOperativoReal(m.Categoria)).Sum(g => Math.Abs(g.Monto)) ?? 0m;
                 var rendDiferencia = rendTotalTransferido - rendTotalCompras - rendTotalGastos;
                 var rendDevuelto = await _context.Devoluciones
                     .Where(d => d.RendicionId == request.RendicionId.Value)
@@ -1173,7 +1174,7 @@ public class ContabilidadService : IContabilidadService
             TotalGastos = p.Transferencias
                 .Where(t => t.PeriodoId != null && t.Rendicion != null)
                 .SelectMany(t => t.Rendicion!.Gastos)
-                .Where(EsGastoReal)
+                .Where(m => CategoriasGasto.EsGastoOperativoReal(m.Categoria))
                 .Sum(g => Math.Abs(g.Monto))
         }).ToList();
 
@@ -1238,7 +1239,7 @@ public class ContabilidadService : IContabilidadService
             .SelectMany(p => p.Transferencias
                 .Where(t => t.PeriodoId != null && t.Rendicion != null))
             .SelectMany(t => t.Rendicion!.Gastos)
-            .Where(EsGastoReal)
+            .Where(m => CategoriasGasto.EsGastoOperativoReal(m.Categoria))
             .Sum(g => Math.Abs(g.Monto));
 
         // Saldo inicial: balance from periods before the first loaded period.
@@ -1343,22 +1344,6 @@ public class ContabilidadService : IContabilidadService
         };
     }
 
-    /// <summary>
-    /// Categorías de MovimientoCaja que son movimientos estructurales de capital (no gastos reales).
-    /// Se excluyen de los totales y de la lista de gastos de la rendición.
-    /// RETIRO_CAPITAL se mantiene aquí para compatibilidad con datos anteriores a la migración
-    /// RemoveRetiroCapitalFromCaja; ya no se crean nuevos movimientos de ese tipo.
-    /// </summary>
-    private static readonly HashSet<string> CategoriasEstructurales = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "RETIRO_CAPITAL",
-        "DEVOLUCION_RENDICION"
-    };
-
-    /// <summary>True si el movimiento es un gasto real del fondo (no un movimiento estructural de capital).</summary>
-    private static bool EsGastoReal(MovimientoCaja m) =>
-        !CategoriasEstructurales.Contains(m.Categoria ?? string.Empty);
-
     private static MovimientoCajaDto MapToMovimientoDto(MovimientoCaja m)
     {
         return new MovimientoCajaDto
@@ -1387,7 +1372,7 @@ public class ContabilidadService : IContabilidadService
         var totalGastos = p.Transferencias?
             .Where(t => t.Rendicion != null)
             .SelectMany(t => t.Rendicion!.Gastos)
-            .Where(EsGastoReal)
+            .Where(m => CategoriasGasto.EsGastoOperativoReal(m.Categoria))
             .Sum(g => Math.Abs(g.Monto)) ?? 0;
 
         return new AccountingPeriodDto
@@ -1456,7 +1441,7 @@ public class ContabilidadService : IContabilidadService
         var gastos = p.Transferencias?
             .Where(t => t.Rendicion != null)
             .SelectMany(t => t.Rendicion!.Gastos)
-            .Where(EsGastoReal)
+            .Where(m => CategoriasGasto.EsGastoOperativoReal(m.Categoria))
             .Select(g => new MovimientoCajaDto
             {
                 Id = g.Id,

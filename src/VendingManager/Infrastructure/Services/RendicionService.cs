@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using VendingManager.Core.Entities;
 using VendingManager.Core.Interfaces;
 using VendingManager.Infrastructure.Data;
+using VendingManager.Shared;
 using VendingManager.Shared.DTOs;
 using VendingManager.Shared.Enums;
 
@@ -247,7 +248,7 @@ public class RendicionService : IRendicionService
             .SelectMany(t => t.Compras)
             .Sum(c => c.MontoTotal);
         var totalGastos = rendicion.Gastos
-            .Where(g => g.Tipo == "GASTO")
+            .Where(g => g.Tipo == "GASTO" && !CategoriasGasto.Estructurales.Contains(g.Categoria ?? string.Empty))
             .Sum(g => Math.Abs(g.Monto));
         var diferencia = transferido - totalCompras - totalGastos;
 

@@ -5,6 +5,7 @@ using System.IO;
 using VendingManager.Core.Configuration;
 using VendingManager.Core.Entities;
 using VendingManager.Core.Interfaces;
+using VendingManager.Shared;
 using VendingManager.Shared.DTOs;
 
 namespace VendingManager.Infrastructure.Services
@@ -115,7 +116,7 @@ namespace VendingManager.Infrastructure.Services
             }
             else
             {
-                if (mov.Tipo == "GASTO" || mov.Tipo == "RETIRO")
+                if ((mov.Tipo == "GASTO" && CategoriasGasto.EsGastoOperativoReal(mov.Categoria)) || mov.Tipo == "RETIRO")
                 {
                     if (mov.Monto > 0) mov.Monto = -mov.Monto;
                 }
@@ -160,7 +161,7 @@ namespace VendingManager.Infrastructure.Services
         public async Task<List<MovimientoCaja>> GetGastosNoVinculadosAsync(DateTime? fechaDesde = null, DateTime? fechaHasta = null)
         {
             var query = _context.MovimientosCaja
-                .Where(m => m.Tipo == "GASTO" && m.RendicionId == null);
+                .Where(m => m.Tipo == "GASTO" && m.RendicionId == null && !CategoriasGasto.Estructurales.Contains(m.Categoria));
 
             if (fechaDesde.HasValue)
                 query = query.Where(m => m.Fecha >= fechaDesde.Value);

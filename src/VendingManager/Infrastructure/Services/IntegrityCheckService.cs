@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using VendingManager.Core.Interfaces;
 using VendingManager.Infrastructure.Data;
+using VendingManager.Shared;
 using VendingManager.Shared.DTOs;
 using VendingManager.Shared.Enums;
 
@@ -9,13 +10,6 @@ namespace VendingManager.Infrastructure.Services;
 public class IntegrityCheckService : IIntegrityCheckService
 {
     private readonly ApplicationDbContext _context;
-
-    // Categorías estructurales que no son gastos reales (refleja ContabilidadService.EsGastoReal)
-    private static readonly HashSet<string> CategoriasEstructurales = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "RETIRO_CAPITAL",
-        "DEVOLUCION_RENDICION"
-    };
 
     public IntegrityCheckService(ApplicationDbContext context)
     {
@@ -174,7 +168,7 @@ public class IntegrityCheckService : IIntegrityCheckService
             var totalTransferido = r.Transferencias.Sum(t => t.Monto);
             var totalCompras = r.Transferencias.SelectMany(t => t.Compras).Sum(c => c.MontoTotal);
             var totalGastos = r.Gastos
-                .Where(EsGastoReal)
+                .Where(m => CategoriasGasto.EsGastoOperativoReal(m.Categoria))
                 .Sum(g => Math.Abs(g.Monto));
             var devuelto = devolucionesByRendicion.GetValueOrDefault(r.Id, 0m);
             var saldoADevolver = totalTransferido - totalCompras - totalGastos - devuelto;
@@ -262,7 +256,7 @@ public class IntegrityCheckService : IIntegrityCheckService
             var totalTransferido = r.Transferencias.Sum(t => t.Monto);
             var totalCompras = r.Transferencias.SelectMany(t => t.Compras).Sum(c => c.MontoTotal);
             var totalGastos = r.Gastos
-                .Where(EsGastoReal)
+                .Where(m => CategoriasGasto.EsGastoOperativoReal(m.Categoria))
                 .Sum(g => Math.Abs(g.Monto));
             var devuelto = devolucionesByRendicion.GetValueOrDefault(r.Id, 0m);
             var saldoADevolver = totalTransferido - totalCompras - totalGastos - devuelto;
@@ -283,7 +277,4 @@ public class IntegrityCheckService : IIntegrityCheckService
 
         return result;
     }
-
-    private static bool EsGastoReal(MovimientoCaja m) =>
-        !CategoriasEstructurales.Contains(m.Categoria ?? string.Empty);
 }
