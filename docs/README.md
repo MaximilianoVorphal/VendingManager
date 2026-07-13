@@ -1,21 +1,28 @@
-# Documentación Viva — VendingManager
+# Documentación — VendingManager
 
-Documentación por **dominio de negocio**, basada en el estado actual del código. Cada archivo sigue la
-misma estructura: Resumen de Negocio → Entidades Clave → Reglas de Negocio → Flujo Técnico.
+Documentación completa del sistema, organizada por dominio de negocio y área técnica.
 
-## Índice de dominios
+---
+
+## 📖 Dominios de Negocio
 
 | # | Documento | De qué trata |
-| --- | --- | --- |
-| 1 | [Pipeline de Ingesta](./1-pipeline-ingesta.md) | Scraping automatizado de OurVend, polling cada ~2h, circuit breaker, importación y deduplicación de ventas. |
-| 2 | [Inteligencia Financiera](./2-inteligencia-financiera.md) | Costo promedio ponderado, márgenes/utilidad, períodos contables, OCR de facturas. |
-| 3 | [Logística Predictiva](./3-logistica-predictiva.md) | Velocidad de vaciado, detección de quiebres, sugerencias de compra, rentabilidad por zona. |
-| 4 | [Operación en Terreno: Cargas y Recargas](./4-operacion-terreno-recargas.md) | Órdenes de carga (estado BORRADOR), templates de recarga, OCR fotográfico de planillas. |
-| 5 | [Caja y Rendiciones](./5-caja-rendiciones.md) | Transferencias a trabajadores, conciliación, compuerta de cierre de rendición. |
-| 6 | [Auditoría e Integridad](./6-auditoria-integridad.md) | Rastro de auditoría EF, historial por entidad, chequeos de integridad, roles. |
+|---|-----------|-------------|
+| 01 | [Ingesta de Ventas](./01-ingesta-ventas.md) | Scraping automatizado de OurVend, circuit breaker, importación y deduplicación de ventas |
+| 02 | [Finanzas](./02-finanzas.md) | Costo promedio ponderado, márgenes, períodos contables, OCR de facturas |
+| 03 | [Logística Predictiva](./03-logistica.md) | Velocidad de vaciado, detección de quiebres, sugerencias de compra, rentabilidad por zona |
+| 04 | [Operación en Terreno](./04-operacion-terreno.md) | Órdenes de carga, templates de recarga, OCR fotográfico de planillas |
+| 05 | [Caja y Rendiciones](./05-caja-rendiciones.md) | Transferencias, conciliación, cierre de períodos contables |
+| 06 | [Auditoría e Integridad](./06-auditoria.md) | Trazabilidad automática, historial por entidad, chequeos de integridad, roles |
 
-## Contexto arquitectónico
+---
 
-Para el diagrama C4 y la visión general de la arquitectura (Blazor Server + WASM + microservicio Python),
-ver [`architecture/overview.md`](./architecture/overview.md). Los ADR históricos están en
-[`architecture/decisions/`](./architecture/decisions/).
+## 🏗️ Documentación Técnica
+
+| Documento | Contenido |
+|-----------|----------|
+| [Arquitectura](./arquitectura.md) | Visión general, diagramas C4, capas, patrones de diseño, stack tecnológico |
+| [API Reference](./api.md) | Catálogo completo de endpoints REST con 19 controladores |
+| [Modelo de Datos](./entidades.md) | Entidades, relaciones, tablas históricas, decisiones de modelado |
+| [Guía de Desarrollo](./desarrollo.md) | Setup local, estructura del proyecto, convenciones, testing |
+| [Guía de Despliegue](./despliegue.md) | Docker, entornos, health checks, variables de entorno |

@@ -132,10 +132,12 @@ La app corre en `http://localhost:8080`. Las migraciones de base de datos se apl
 
 ## 📚 Documentación
 
-- 📖 [Documentación por Dominio de Negocio](docs/README.md) — 6 documentos que cubren cada área del sistema
-- 🏗️ [Manual Técnico](docs/manual-tecnico.md) — Arquitectura, API reference, desarrollo, despliegue
-- 💡 [Decisiones de Arquitectura](docs/architecture/decisions/) — Registro histórico de ADRs
-- ⚙️ [Guía de Setup](docs/development/setup.md) — Configuración local paso a paso
+- 📖 [Dominios de Negocio](docs/README.md) — 6 documentos que cubren cada área del sistema
+- 🏗️ [Arquitectura](docs/arquitectura.md) — Diagramas C4, capas, patrones de diseño
+- 🔌 [API Reference](docs/api.md) — Catálogo completo de endpoints REST
+- 🗄️ [Modelo de Datos](docs/entidades.md) — Entidades, relaciones y decisiones de modelado
+- ⚙️ [Guía de Desarrollo](docs/desarrollo.md) — Setup, convenciones y testing
+- 🚀 [Guía de Despliegue](docs/despliegue.md) — Docker, entornos y health checks
 
 ---
 
