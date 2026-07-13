@@ -9,7 +9,7 @@ namespace VendingManager.Controllers;
 
 [Authorize]
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/zonas-logisticas")]
 public class ZonasLogisticasController(ApplicationDbContext context) : ControllerBase
 {
     /// <summary>
