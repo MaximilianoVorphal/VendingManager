@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using VendingManager.Core.Domain;
 using VendingManager.Core.Entities;
 using VendingManager.Core.Interfaces;
 using VendingManager.Infrastructure.Data;
@@ -95,17 +96,10 @@ public class CompraService : ICompraService
                 var producto = await _context.Productos.FindAsync(detalle.ProductoId.Value);
                 if (producto != null)
                 {
-                    // CPP = ((Stock Actual * Costo Promedio Actual) + (Nueva Cant. * Nuevo Costo)) / (Stock Actual + Nueva Cant.)
-                    decimal valorInventarioActual = producto.StockBodega * producto.CostoPromedio;
-                    decimal valorNuevaTransaccion = detalle.Cantidad * detalle.CostoUnitario;
-                    
-                    int nuevoStockTotal = producto.StockBodega + detalle.Cantidad;
-                    
-                    if (nuevoStockTotal > 0)
-                    {
-                        producto.CostoPromedio = (valorInventarioActual + valorNuevaTransaccion) / nuevoStockTotal;
-                    }
-                    
+                    producto.CostoPromedio = CalculadoraCostos.ApplyPurchase(
+                        producto.StockBodega, producto.CostoPromedio,
+                        detalle.Cantidad, detalle.CostoUnitario,
+                        out int nuevoStockTotal);
                     producto.StockBodega = nuevoStockTotal;
                     _context.Productos.Update(producto);
                 }
@@ -258,11 +252,10 @@ public class CompraService : ICompraService
                     var producto = await _context.Productos.FindAsync(detalle.ProductoId.Value);
                     if (producto != null)
                     {
-                        decimal valorInventarioActual = producto.StockBodega * producto.CostoPromedio;
-                        decimal valorNuevaTransaccion = detalle.Cantidad * detalle.CostoUnitario;
-                        int nuevoStockTotal = producto.StockBodega + detalle.Cantidad;
-                        if (nuevoStockTotal > 0)
-                            producto.CostoPromedio = (valorInventarioActual + valorNuevaTransaccion) / nuevoStockTotal;
+                        producto.CostoPromedio = CalculadoraCostos.ApplyPurchase(
+                            producto.StockBodega, producto.CostoPromedio,
+                            detalle.Cantidad, detalle.CostoUnitario,
+                            out int nuevoStockTotal);
                         producto.StockBodega = nuevoStockTotal;
                         _context.Productos.Update(producto);
                     }
@@ -413,21 +406,11 @@ public class CompraService : ICompraService
                 var producto = await _context.Productos.FindAsync(detalle.ProductoId.Value);
                 if (producto != null)
                 {
-                    decimal valorTotalActual = producto.StockBodega * producto.CostoPromedio;
-                    decimal valorARestar = detalle.Cantidad * detalle.CostoUnitario;
-                    int nuevoStock = producto.StockBodega - detalle.Cantidad;
-
-                    if (nuevoStock > 0)
-                    {
-                        // Nueva valoración = (Valor Total - Valor de esta compra) / Nuevo Stock
-                        producto.CostoPromedio = Math.Max(0, (valorTotalActual - valorARestar) / nuevoStock);
-                        producto.StockBodega = nuevoStock;
-                    }
-                    else
-                    {
-                        producto.StockBodega = 0;
-                        producto.CostoPromedio = 0;
-                    }
+                    producto.CostoPromedio = CalculadoraCostos.RevertPurchase(
+                        producto.StockBodega, producto.CostoPromedio,
+                        detalle.Cantidad, detalle.CostoUnitario,
+                        out int nuevoStock);
+                    producto.StockBodega = nuevoStock;
                     _context.Productos.Update(producto);
                 }
             }
@@ -615,12 +598,10 @@ public class CompraService : ICompraService
                         productosAfectados.Add(producto.Id);
 
                         // CPP recalculation
-                        decimal valorActual = producto.StockBodega * producto.CostoPromedio;
-                        decimal valorNuevo = detalle.Cantidad * detalle.CostoUnitario;
-                        int nuevoStock = producto.StockBodega + detalle.Cantidad;
-
-                        if (nuevoStock > 0)
-                            producto.CostoPromedio = (valorActual + valorNuevo) / nuevoStock;
+                        producto.CostoPromedio = CalculadoraCostos.ApplyPurchase(
+                            producto.StockBodega, producto.CostoPromedio,
+                            detalle.Cantidad, detalle.CostoUnitario,
+                            out int nuevoStock);
                         producto.StockBodega = nuevoStock;
 
                         // Close open ProductoCosto for this product

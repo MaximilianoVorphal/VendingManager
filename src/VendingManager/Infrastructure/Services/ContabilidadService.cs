@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 using VendingManager.Core.Configuration;
+using VendingManager.Core.Domain;
 using VendingManager.Core.Entities;
 using VendingManager.Core.Interfaces;
 using VendingManager.Infrastructure.Data;
@@ -224,13 +225,10 @@ public class ContabilidadService : IContabilidadService
                 var producto = await _context.Productos.FindAsync(new object[] { detalle.ProductoId!.Value }, ct);
                 if (producto != null)
                 {
-                    decimal valorInventarioActual = producto.StockBodega * producto.CostoPromedio;
-                    decimal valorNuevaTransaccion = detalle.Cantidad * detalle.CostoUnitario;
-                    int nuevoStockTotal = producto.StockBodega + detalle.Cantidad;
-
-                    if (nuevoStockTotal > 0)
-                        producto.CostoPromedio = (valorInventarioActual + valorNuevaTransaccion) / nuevoStockTotal;
-
+                    producto.CostoPromedio = CalculadoraCostos.ApplyPurchase(
+                        producto.StockBodega, producto.CostoPromedio,
+                        detalle.Cantidad, detalle.CostoUnitario,
+                        out int nuevoStockTotal);
                     producto.StockBodega = nuevoStockTotal;
                     _context.Productos.Update(producto);
                 }
