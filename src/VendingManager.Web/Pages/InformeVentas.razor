@@ -359,6 +359,26 @@
             <span style="font-family:var(--font-sans);font-weight:700;font-size:1.85rem;letter-spacing:-1px;line-height:1;color:var(--ink-900);">@PendienteFmt</span>
             <small style="font-family:var(--font-mono);font-size:0.66rem;color:var(--text-muted);text-transform:uppercase;">Efectivo aún no arqueado</small>
         </div>
+
+        <!-- Gastos operativos -->
+        <div style="border:2px solid var(--ink-900);background:var(--paper-0);padding:0.8rem 0.95rem;display:flex;flex-direction:column;gap:0.4rem;">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+                <span style="font-family:var(--font-mono);font-weight:700;font-size:0.66rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-secondary);">Gastos operativos</span>
+                <span style="font-family:var(--font-mono);font-weight:700;font-size:0.6rem;text-transform:uppercase;background:var(--signal-danger);color:#fff;padding:2px 7px;">Fijos + Variables</span>
+            </div>
+            <span style="font-family:var(--font-sans);font-weight:700;font-size:1.85rem;letter-spacing:-1px;line-height:1;color:var(--signal-danger);">@GastosOperativosFmt</span>
+            <small style="font-family:var(--font-mono);font-size:0.66rem;color:var(--text-muted);text-transform:uppercase;">Fijo: @GastosFijosFmt · Variable: @GastosVariablesFmt</small>
+        </div>
+
+        <!-- EBITDA -->
+        <div style="border:2px solid var(--ink-900);background:var(--ink-900);padding:0.8rem 0.95rem;display:flex;flex-direction:column;gap:0.4rem;">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+                <span style="font-family:var(--font-mono);font-weight:700;font-size:0.66rem;text-transform:uppercase;letter-spacing:0.5px;color:rgba(255,255,255,0.72);">EBITDA</span>
+                <span style="font-family:var(--font-mono);font-weight:700;font-size:0.6rem;text-transform:uppercase;border:1px solid rgba(255,255,255,0.55);color:#fff;padding:2px 7px;">Resultado oper.</span>
+            </div>
+            <span style="font-family:var(--font-sans);font-weight:700;font-size:1.85rem;letter-spacing:-1px;line-height:1;color:#fff;">@EbitdaFmt</span>
+            <small style="font-family:var(--font-mono);font-size:0.66rem;color:rgba(255,255,255,0.5);text-transform:uppercase;">Depreciación: @DepreciacionFmt</small>
+        </div>
     </div>
 
     <!-- ===== Cuerpo: tabla + panel de análisis ===== -->
@@ -666,6 +686,13 @@
     private string TxCount => _reporte is not null ? _reporte.TotalVentas.ToString("N0", Nfi) : "0";
     private string PendienteFmt => _reporte is not null ? Fmt(_reporte.MontoPendiente) : "$0";
     private int MaxMaquinaTotal => MaquinasGrouped.Any() ? (int)MaquinasGrouped.Max(m => m.Total) : 1;
+
+    // ── EBITDA KPI bindings ────────────────────────────────────────────────────
+    private string GastosOperativosFmt => _financiero is not null ? Fmt(_financiero.GastosFijos + _financiero.GastosVariables) : "$0";
+    private string GastosFijosFmt => _financiero is not null ? Fmt(_financiero.GastosFijos) : "$0";
+    private string GastosVariablesFmt => _financiero is not null ? Fmt(_financiero.GastosVariables) : "$0";
+    private string EbitdaFmt => _financiero is not null ? Fmt(_financiero.Ebitda) : "$0";
+    private string DepreciacionFmt => _financiero is not null ? Fmt(_financiero.DepreciacionPeriodo) : "$0";
 
     // ── Formato de moneda (es-CL: punto como separador de miles) ──────────────
     private static readonly NumberFormatInfo Nfi = new() { NumberGroupSeparator = ".", NumberDecimalDigits = 0 };

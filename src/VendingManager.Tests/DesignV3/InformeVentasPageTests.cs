@@ -714,6 +714,73 @@ public class InformeVentasPageTests : TestContext
         requestsAfter.Should().Be(requestsBefore, "disposed component should not make more polling requests");
     }
 
+    // ── WU-6: EBITDA KPI cards ─────────────────────────────────────────────────
+
+    [Fact]
+    public void EbitdaKpiCards_Render_WhenFinancieroHasData()
+    {
+        var cut = RenderComponent<InformeVentas>();
+
+        cut.WaitForAssertion(() =>
+        {
+            _mockHandler.Requests.Should().Contain(r => r.Contains("informe-financiero"));
+        });
+
+        // EBITDA card (dark background)
+        cut.Markup.Should().Contain("EBITDA");
+        cut.Markup.Should().Contain("$140.840"); // Ebitda = 140840
+
+        // Gastos operativos card
+        cut.Markup.Should().Contain("Gastos operativos");
+        cut.Markup.Should().Contain("$330.000"); // GastosFijos + GastosVariables = 250000 + 80000 = 330000
+    }
+
+    [Fact]
+    public void EbitdaKpiCards_ShowDepreciacionBreakdown()
+    {
+        var cut = RenderComponent<InformeVentas>();
+
+        cut.WaitForAssertion(() =>
+        {
+            _mockHandler.Requests.Should().Contain(r => r.Contains("informe-financiero"));
+        });
+
+        cut.Markup.Should().Contain("$98.630"); // DepreciacionPeriodo = 98630
+        cut.Markup.Should().Contain("Depreciación:");
+    }
+
+    [Fact]
+    public void EbitdaKpiCards_ShowFijosVariablesBreakdown()
+    {
+        var cut = RenderComponent<InformeVentas>();
+
+        cut.WaitForAssertion(() =>
+        {
+            _mockHandler.Requests.Should().Contain(r => r.Contains("informe-financiero"));
+        });
+
+        cut.Markup.Should().Contain("Fijo:");
+        cut.Markup.Should().Contain("Variable:");
+        cut.Markup.Should().Contain("$250.000"); // GastosFijos
+        cut.Markup.Should().Contain("$80.000");  // GastosVariables
+    }
+
+    [Fact]
+    public void EbitdaKpiCards_RenderZeroState_WhenFinancieroNull()
+    {
+        _mockHandler.InformeFinancieroNull = true;
+        var cut = RenderComponent<InformeVentas>();
+
+        cut.WaitForAssertion(() =>
+        {
+            _mockHandler.Requests.Should().Contain(r => r.Contains("informe-financiero"));
+        });
+
+        // All values should show $0
+        cut.Markup.Should().Contain("EBITDA");
+        cut.Markup.Should().Contain("$0");
+    }
+
     // ── Mock handler ───────────────────────────────────────────────────────────
 
     private class InformeVentasMockHandler : HttpMessageHandler
@@ -736,6 +803,9 @@ public class InformeVentasPageTests : TestContext
 
         // Last-sync behavior
         public DateTime? LastSyncResponseValue { get; set; }
+
+        // Zero-state testing
+        public bool InformeFinancieroNull { get; set; }
 
         protected override async Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request, CancellationToken cancellationToken)
@@ -837,15 +907,26 @@ public class InformeVentasPageTests : TestContext
             }
             else if (url.Contains("informe-financiero"))
             {
-                json = JsonSerializer.Serialize(new
+                if (InformeFinancieroNull)
                 {
-                    VentasTotales = 1237360m,
-                    CostoVentas = 667890m,
-                    MargenBruto = 569470m,
-                    GastosOperativos = 0m,
-                    UtilidadNeta = 1234567m,
-                    MargenPorcentaje = 46.0m
-                });
+                    json = "null";
+                }
+                else
+                {
+                    json = JsonSerializer.Serialize(new
+                    {
+                        VentasTotales = 1237360m,
+                        CostoVentas = 667890m,
+                        MargenBruto = 569470m,
+                        GastosOperativos = 0m,
+                        UtilidadNeta = 1234567m,
+                        MargenPorcentaje = 46.0m,
+                        GastosFijos = 250000m,
+                        GastosVariables = 80000m,
+                        DepreciacionPeriodo = 98630m,
+                        Ebitda = 140840m
+                    });
+                }
             }
             else if (url.Contains("analisis-productos"))
             {
