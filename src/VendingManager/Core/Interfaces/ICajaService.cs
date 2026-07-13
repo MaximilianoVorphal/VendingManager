@@ -4,7 +4,7 @@ namespace VendingManager.Core.Interfaces
 {
     public interface ICajaService
     {
-        Task<CajaResumenDto> GetResumenAsync(int month, int year);
+        Task<CajaResumenDto> GetResumenAsync(int month, int year, int? maquinaId = null);
         Task<List<MovimientoCaja>> GetMovimientosAsync(int month, int year);
         Task RegistrarMovimientoAsync(MovimientoCaja mov);
         Task<(byte[] content, string fileName)> ExportarCajaAsync(int month, int year);

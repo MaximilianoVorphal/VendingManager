@@ -18,6 +18,7 @@
         public decimal GastosVariables { get; set; } // [NEW] Logistica
         public decimal GastosFijos { get; set; }     // [NEW] Estructurales
         public decimal UtilidadOperacional { get; set; } // [NEW] EBITDA
+        public decimal DepreciacionPeriodo { get; set; } // Per-machine depreciation
         public decimal UtilidadNeta { get; set; }    // Real Net
         public bool IsLocked { get; set; }
 

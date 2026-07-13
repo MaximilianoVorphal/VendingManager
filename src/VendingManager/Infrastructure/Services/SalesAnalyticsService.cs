@@ -369,6 +369,7 @@ public class SalesAnalyticsService : ISalesAnalyticsService
             decimal total = 0;
             foreach (var d in depreciaciones)
             {
+                if (d.VidaUtilMeses <= 0) continue;
                 decimal dailyRate = (d.ValorAdquisicion - d.ValorResidual) / d.VidaUtilMeses / 30.4167m;
                 total += dailyRate * diasOperativos;
             }

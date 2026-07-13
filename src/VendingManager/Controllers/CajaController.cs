@@ -8,11 +8,11 @@ namespace VendingManager.Web.Controllers
     public class CajaController(ICajaService cajaService, Core.Interfaces.IInventarioService inventarioService, Core.Interfaces.IAuditService auditService) : ControllerBase
     {
         [HttpGet("resumen")]
-        public async Task<ActionResult<CajaResumenDto>> GetResumen([FromQuery] int? month, [FromQuery] int? year)
+        public async Task<ActionResult<CajaResumenDto>> GetResumen([FromQuery] int? month, [FromQuery] int? year, [FromQuery] int? maquinaId)
         {
             int targetMonth = month ?? DateTime.Now.Month;
             int targetYear = year ?? DateTime.Now.Year;
-            return await cajaService.GetResumenAsync(targetMonth, targetYear);
+            return await cajaService.GetResumenAsync(targetMonth, targetYear, maquinaId);
         }
 
         [HttpGet("movimientos")]

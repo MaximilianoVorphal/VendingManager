@@ -2,6 +2,7 @@ namespace VendingManager.Tests.Services;
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 using Moq;
 using VendingManager.Core.Configuration;
@@ -18,6 +19,9 @@ public class CajaServiceTests : IDisposable
     private readonly Mock<IInformesService> _mockInformesService;
     private readonly Mock<IExcelExportService> _mockExcelExport;
     private readonly IOptions<VendingConfig> _config;
+    private readonly IOptions<AnalyticsThresholds> _thresholds;
+    private readonly IMemoryCache _cache;
+    private readonly SalesAnalyticsService _salesAnalytics;
     private readonly CajaService _cajaService;
 
     public CajaServiceTests()
@@ -28,6 +32,7 @@ public class CajaServiceTests : IDisposable
         _mockEnvironment.Setup(e => e.ContentRootPath).Returns("/tmp");
         _mockInformesService = new Mock<IInformesService>();
         _mockExcelExport = new Mock<IExcelExportService>();
+        _cache = new MemoryCache(new MemoryCacheOptions());
 
         var vendingConfig = new VendingConfig
         {
@@ -37,10 +42,13 @@ public class CajaServiceTests : IDisposable
             RotacionUmbralCritico = 7
         };
         _config = Options.Create(vendingConfig);
+        _thresholds = Options.Create(AnalyticsThresholds.Default);
+
+        _salesAnalytics = new SalesAnalyticsService(_context, _mockExcelExport.Object, _cache, _thresholds, _config);
 
         var ventaRepo = new VentaRepository(_context);
         var maquinaRepo = new MaquinaRepository(_context);
-        var business = new CajaBusinessService(_context, ventaRepo, maquinaRepo, _mockExcelExport.Object, _config);
+        var business = new CajaBusinessService(_context, ventaRepo, maquinaRepo, _mockExcelExport.Object, _config, _salesAnalytics);
 
         _cajaService = new CajaService(_context, _mockEnvironment.Object, _mockInformesService.Object, _config, _mockExcelExport.Object, business);
     }
@@ -48,6 +56,7 @@ public class CajaServiceTests : IDisposable
     public void Dispose()
     {
         _context.Dispose();
+        _cache.Dispose();
     }
 
     [Fact]
@@ -105,6 +114,7 @@ public class CajaServiceTests : IDisposable
         result.CantidadVentasTransbank.Should().Be(1);
         result.UtilidadTotal.Should().Be(300m);
         result.UtilidadNeta.Should().Be(300m);
+        result.DepreciacionPeriodo.Should().Be(0m);
         result.IsLocked.Should().BeFalse();
     }
 
@@ -170,6 +180,7 @@ public class CajaServiceTests : IDisposable
         result.CantidadVentasTransbank.Should().Be(1);
         result.UtilidadTotal.Should().Be(200m);     // IngresosVentas(300) - TotalCostoVenta(100)
         result.UtilidadNeta.Should().Be(50m);      // UtilidadTotal(200) - GastosOperativos(150)
+        result.DepreciacionPeriodo.Should().Be(0m);
         result.IsLocked.Should().BeFalse();
     }
 
@@ -214,6 +225,7 @@ public class CajaServiceTests : IDisposable
         result.UtilidadTotal.Should().Be(0m);
         result.UtilidadNeta.Should().Be(0m);
         result.UtilidadOperacional.Should().Be(0m);
+        result.DepreciacionPeriodo.Should().Be(0m);
         result.IsLocked.Should().BeFalse();
     }
 
@@ -270,6 +282,156 @@ public class CajaServiceTests : IDisposable
         result.UtilidadTotal.Should().Be(3600m);   // 6000 - 2400
         result.UtilidadNeta.Should().Be(3600m);    // No gastos
         result.UtilidadOperacional.Should().Be(3600m);
+        result.DepreciacionPeriodo.Should().Be(0m);
         result.IsLocked.Should().BeFalse();
+    }
+
+    // ── Per-machine tests ──────────────────────────────────────────────────
+
+    [Fact]
+    public async Task GetResumenAsync_PerMachine_WithActiveDepreciacion_ReturnsPositiveDepreciacionPeriodo()
+    {
+        // Arrange — machine 5 with active depreciation + a sale in July 2026
+        var maquina = TestDataHelpers.CreateMaquina(id: 5, nombre: "Máquina 5");
+        maquina.FechaInstalacion = new DateTime(2026, 1, 1);
+        _context.Maquinas.Add(maquina);
+
+        var dep = new DepreciacionMaquina
+        {
+            MaquinaId = 5,
+            Descripcion = "CAPEX máquina 5",
+            ValorAdquisicion = 10000m,
+            ValorResidual = 1000m,
+            VidaUtilMeses = 60,
+            FechaAdquisicion = new DateTime(2026, 1, 1),
+            MetodoDepreciacion = "LINEAL",
+            Activo = true
+        };
+        _context.DepreciacionesMaquina.Add(dep);
+
+        var venta = TestDataHelpers.CreateVenta(
+            fechaLocal: new DateTime(2026, 7, 15),
+            precioVenta: 500m,
+            costoVenta: 200m,
+            pagado: true,
+            maquinaId: 5);
+        venta.FechaHora = new DateTime(2026, 7, 15);
+        venta.FechaLocal = new DateTime(2026, 7, 15);
+        _context.Ventas.Add(venta);
+
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _cajaService.GetResumenAsync(7, 2026, 5);
+
+        // Assert
+        result.Should().NotBeNull();
+        result.DepreciacionPeriodo.Should().BeGreaterThan(0);
+        result.IngresosVentas.Should().Be(500m);
+        result.TotalCostoVenta.Should().Be(200m);
+        result.UtilidadOperacional.Should().BeLessThan(300m); // depreciation reduces EBITDA
+    }
+
+    [Fact]
+    public async Task GetResumenAsync_PerMachine_NoDepreciacionRows_ReturnsZeroDepreciacion()
+    {
+        // Arrange — machine 8 has no DepreciacionMaquina rows
+        var maquina = TestDataHelpers.CreateMaquina(id: 8, nombre: "Máquina 8");
+        maquina.FechaInstalacion = new DateTime(2026, 1, 1);
+        _context.Maquinas.Add(maquina);
+
+        var venta = TestDataHelpers.CreateVenta(
+            fechaLocal: new DateTime(2026, 7, 15),
+            precioVenta: 500m,
+            costoVenta: 200m,
+            pagado: true,
+            maquinaId: 8);
+        venta.FechaHora = new DateTime(2026, 7, 15);
+        venta.FechaLocal = new DateTime(2026, 7, 15);
+        _context.Ventas.Add(venta);
+
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _cajaService.GetResumenAsync(7, 2026, 8);
+
+        // Assert
+        result.Should().NotBeNull();
+        result.DepreciacionPeriodo.Should().Be(0m);
+        result.IngresosVentas.Should().Be(500m);
+    }
+
+    [Fact]
+    public async Task GetResumenAsync_PerMachine_InactiveMachineBaja_ReturnsZeroDepreciacion()
+    {
+        // Arrange — machine 8 had FechaBaja before July 2026
+        var maquina = TestDataHelpers.CreateMaquina(id: 8, nombre: "Máquina 8");
+        maquina.FechaInstalacion = new DateTime(2026, 1, 1);
+        maquina.FechaBaja = new DateTime(2026, 6, 15); // baja before July
+        _context.Maquinas.Add(maquina);
+
+        var dep = new DepreciacionMaquina
+        {
+            MaquinaId = 8,
+            Descripcion = "CAPEX máquina 8",
+            ValorAdquisicion = 10000m,
+            ValorResidual = 1000m,
+            VidaUtilMeses = 60,
+            FechaAdquisicion = new DateTime(2026, 1, 1),
+            MetodoDepreciacion = "LINEAL",
+            Activo = true
+        };
+        _context.DepreciacionesMaquina.Add(dep);
+
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _cajaService.GetResumenAsync(7, 2026, 8);
+
+        // Assert — machine was baja before July, so 0 operational days → 0 depreciation
+        result.Should().NotBeNull();
+        result.DepreciacionPeriodo.Should().Be(0m);
+    }
+
+    [Fact]
+    public async Task GetResumenAsync_PerMachine_ZeroVidaUtilMeses_SkipsDepreciacion()
+    {
+        // Arrange — machine 9 with VidaUtilMeses=0 (invalid data), should not crash
+        var maquina = TestDataHelpers.CreateMaquina(id: 9, nombre: "Máquina 9");
+        maquina.FechaInstalacion = new DateTime(2026, 1, 1);
+        _context.Maquinas.Add(maquina);
+
+        var dep = new DepreciacionMaquina
+        {
+            MaquinaId = 9,
+            Descripcion = "CAPEX máquina 9",
+            ValorAdquisicion = 10000m,
+            ValorResidual = 1000m,
+            VidaUtilMeses = 0, // Zero — guard should skip
+            FechaAdquisicion = new DateTime(2026, 1, 1),
+            MetodoDepreciacion = "LINEAL",
+            Activo = true
+        };
+        _context.DepreciacionesMaquina.Add(dep);
+
+        var venta = TestDataHelpers.CreateVenta(
+            fechaLocal: new DateTime(2026, 7, 15),
+            precioVenta: 300m,
+            costoVenta: 100m,
+            pagado: true,
+            maquinaId: 9);
+        venta.FechaHora = new DateTime(2026, 7, 15);
+        venta.FechaLocal = new DateTime(2026, 7, 15);
+        _context.Ventas.Add(venta);
+
+        await _context.SaveChangesAsync();
+
+        // Act — must not throw DivideByZeroException
+        var result = await _cajaService.GetResumenAsync(7, 2026, 9);
+
+        // Assert
+        result.Should().NotBeNull();
+        result.DepreciacionPeriodo.Should().Be(0m);
+        result.IngresosVentas.Should().Be(300m);
     }
 }

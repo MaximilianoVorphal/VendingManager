@@ -395,7 +395,16 @@
         <div class="caja-panel" style="position:absolute;top:0;right:0;height:100%;width:min(640px,96vw);background:var(--bg-surface-inset);border-left:2px solid var(--ink-900);box-shadow:-6px 0 0 rgba(0,0,0,0.12);display:flex;flex-direction:column;" @onclick:stopPropagation="true">
             <div style="flex-shrink:0;background:var(--ink-900);color:#fff;display:flex;justify-content:space-between;align-items:center;padding:0.75rem 1rem;font-family:var(--font-mono);font-weight:700;text-transform:uppercase;letter-spacing:1px;">
                 <span style="display:flex;align-items:center;gap:9px;"><i class="bi bi-graph-up-arrow"></i>Estado de Resultados · @MesLabel</span>
-                <span style="cursor:pointer;font-size:1.4rem;line-height:1;" @onclick="() => _pnlOpen = false">×</span>
+                <span style="display:flex;align-items:center;gap:6px;">
+                    <select @bind="_selectedMaquinaId" @bind:after="OnMaquinaChanged" style="font-family:var(--font-mono);font-size:0.68rem;padding:3px 6px;text-transform:uppercase;background:rgba(255,255,255,0.12);color:#fff;border:1px solid rgba(255,255,255,0.25);border-radius:3px;">
+                        <option value="0">Todas las máquinas</option>
+                        @foreach (var m in _maquinas)
+                        {
+                            <option value="@m.Id">@m.Nombre</option>
+                        }
+                    </select>
+                    <span style="cursor:pointer;font-size:1.4rem;line-height:1;" @onclick="() => _pnlOpen = false">×</span>
+                </span>
             </div>
 
             <div style="flex:1;min-height:0;overflow:auto;padding:1.1rem;display:flex;flex-direction:column;gap:1rem;">
@@ -511,6 +520,15 @@
                     </div>
                 </div>
 
+                <!-- Depreciación del período (per-machine only) -->
+                @if (Resumen.DepreciacionPeriodo > 0)
+                {
+                    <div style="border:2px solid var(--ink-900);background:var(--paper-0);display:flex;justify-content:space-between;align-items:center;padding:0.7rem 0.85rem;">
+                        <span style="font-family:var(--font-mono);font-weight:700;text-transform:uppercase;letter-spacing:0.5px;font-size:0.84rem;">(-) Depreciación del período</span>
+                        <span style="font-family:var(--font-mono);font-weight:700;color:var(--signal-danger);">@MoneyNeg(Resumen.DepreciacionPeriodo)</span>
+                    </div>
+                }
+
                 <!-- Utilidad operacional -->
                 <div style="background:var(--ink-900);color:#fff;padding:1rem 1.1rem;display:flex;justify-content:space-between;align-items:flex-end;gap:12px;">
                     <div>
@@ -565,6 +583,8 @@
     private List<GastoPendienteDto> Pendientes = new();
     private List<MovimientoCaja> MovimientosGastos = new();
     private ValorizacionStockData? Valorizacion;
+    private List<MaquinaOption> _maquinas = new();
+    private int _selectedMaquinaId;
 
     // ── Formulario de alta ──────────────────────────────────────────────────────
     private MovimientoCaja Nuevo = new() { Tipo = "GASTO", Categoria = "MERCADERIA" };
@@ -635,6 +655,7 @@
     }
 
     private record Opt(string Value, string Label);
+    private record MaquinaOption(int Id, string Nombre);
 
     private IEnumerable<Opt> CategoriaOptions => Nuevo.Tipo switch
     {
@@ -689,6 +710,7 @@
     {
         ErrorCarga = "";
         var query = $"?month={SelectedDate.Month}&year={SelectedDate.Year}";
+        if (_selectedMaquinaId > 0) query += $"&maquinaId={_selectedMaquinaId}";
         try
         {
             Resumen = await Http.GetFromJsonAsync<CajaResumenDto>($"api/caja/resumen{query}");
@@ -958,8 +980,23 @@
     // ── Drawer estado de resultados ───────────────────────────────────────────
     private async Task AbrirResultados()
     {
+        await CargarMaquinas();
         _pnlOpen = true;
         await CargarDatosResultados();
+    }
+
+    private async Task OnMaquinaChanged()
+    {
+        await CargarDatos();
+    }
+
+    private async Task CargarMaquinas()
+    {
+        try
+        {
+            _maquinas = await Http.GetFromJsonAsync<List<MaquinaOption>>("api/maquinas") ?? new();
+        }
+        catch { _maquinas = new(); }
     }
 
     // ── DTOs (idénticos a Pages/Caja.razor) ───────────────────────────────────
@@ -977,6 +1014,7 @@
         public decimal GastosVariables { get; set; }
         public decimal GastosFijos { get; set; }
         public decimal UtilidadOperacional { get; set; }
+        public decimal DepreciacionPeriodo { get; set; }
         public decimal SueldoEsperado { get; set; }
         public decimal UtilidadNeta { get; set; }
         public decimal CostoTransbank { get; set; }
@@ -998,6 +1036,7 @@
         public int? OrdenCargaId { get; set; }
         public int? CompraId { get; set; }
         public int? GastoRecurrenteId { get; set; }
+        public int? MaquinaId { get; set; }
     }
 
     public class UploadResult { public string? Path { get; set; } }

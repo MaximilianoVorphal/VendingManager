@@ -781,6 +781,27 @@ public class InformeVentasPageTests : TestContext
         cut.Markup.Should().Contain("$0");
     }
 
+    [Fact]
+    public void EbitdaKpiCards_FleetLevel_IncludesMaquinaIdZero_AndRendersFleetKpis()
+    {
+        var cut = RenderComponent<InformeVentas>();
+
+        cut.WaitForAssertion(() =>
+        {
+            _mockHandler.Requests.Should().Contain(r => r.Contains("informe-financiero"));
+        });
+
+        // Fleet-level: maquinaId=0 in the URL
+        var financieroRequest = _mockHandler.Requests.First(r => r.Contains("informe-financiero"));
+        financieroRequest.Should().Contain("maquinaId=0");
+
+        // Fleet-level KPIs render with multi-machine values (mock returns fleet data)
+        cut.Markup.Should().Contain("EBITDA");
+        cut.Markup.Should().Contain("$140.840");
+        cut.Markup.Should().Contain("Gastos operativos");
+        cut.Markup.Should().Contain("$330.000");
+    }
+
     // ── Mock handler ───────────────────────────────────────────────────────────
 
     private class InformeVentasMockHandler : HttpMessageHandler

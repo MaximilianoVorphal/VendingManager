@@ -19,30 +19,35 @@ public class CajaBusinessService
     private readonly IMaquinaRepository _maquinaRepository;
     private readonly IExcelExportService _excelExportService;
     private readonly IOptions<VendingConfig> _config;
+    private readonly SalesAnalyticsService _salesAnalytics;
 
     public CajaBusinessService(
         ApplicationDbContext context,
         IVentaRepository ventaRepository,
         IMaquinaRepository maquinaRepository,
         IExcelExportService excelExportService,
-        IOptions<VendingConfig> config)
+        IOptions<VendingConfig> config,
+        SalesAnalyticsService salesAnalytics)
     {
         _context = context;
         _ventaRepository = ventaRepository;
         _maquinaRepository = maquinaRepository;
         _excelExportService = excelExportService;
         _config = config;
+        _salesAnalytics = salesAnalytics;
     }
 
     /// <summary>
     /// Calcula el resumen financiero completo para un mes/año dado.
+    /// Cuando maquinaId es null, devuelve el resumen consolidado de flota (comportamiento actual).
+    /// Cuando maquinaId > 0, devuelve el P&L específico de esa máquina (ingresos, costo, OPEX por máquina, depreciación).
     /// </summary>
-    public async Task<CajaResumenDto> GetResumenAsync(int month, int year)
+    public async Task<CajaResumenDto> GetResumenAsync(int month, int year, int? maquinaId = null)
     {
         DateTime startOfMonth = new DateTime(year, month, 1);
         DateTime endOfMonth = startOfMonth.AddMonths(1).AddSeconds(-1);
 
-        // 1. SALDO ANTERIOR
+        // 1. SALDO ANTERIOR — always fleet-level (bank balance)
         var prevIngresosVentas = await _ventaRepository.SumPrecioVentaPaidInRangeAsync(
             _config.Value.CajaStartDate, startOfMonth.AddSeconds(-1));
 
@@ -52,66 +57,116 @@ public class CajaBusinessService
 
         decimal saldoAnterior = prevIngresosVentas + prevMovimientos;
 
-        // 2. MOVIMIENTOS DEL MES
-        var monthIngresosVentas = await _ventaRepository.SumPrecioVentaPaidInRangeAsync(startOfMonth, endOfMonth);
+        // 2. MONTH-LEVEL — fleet vs per-machine branch
+        decimal monthIngresosVentas, monthCostoVenta, mermasAbs, gastosMercaderiaAbs;
+        decimal gastosVariablesAbs, gastosFijosAbs, totalGastosOps;
+        decimal monthGastos, monthAportes, utilidadOperacional, utilidadNetaReal;
+        decimal depreciacionPeriodo = 0;
+        bool isLocked = IsMonthLockedStatic(month, year);
 
-        var monthGastos = await _context.MovimientosCaja
-            .Where(m => m.Fecha >= startOfMonth && m.Fecha <= endOfMonth && m.Fecha >= _config.Value.CajaStartDate && m.Monto < 0)
-            .SumAsync(m => m.Monto);
+        if (maquinaId > 0)
+        {
+            // ── PER-MACHINE BRANCH ──────────────────────────────────────────
+            int mid = maquinaId.Value;
 
-        var monthAportes = await _context.MovimientosCaja
-            .Where(m => m.Fecha >= startOfMonth && m.Fecha <= endOfMonth && m.Fecha >= _config.Value.CajaStartDate && m.Monto > 0)
-            .SumAsync(m => m.Monto);
+            // Ingresos por venta (filtered by MaquinaId)
+            monthIngresosVentas = await _context.Ventas
+                .Where(v => v.Pagado && v.FechaHora >= startOfMonth && v.FechaHora <= endOfMonth && v.MaquinaId == mid)
+                .SumAsync(v => v.PrecioVenta);
 
-        // 3. UTILIDAD (PrecioVenta - CostoVenta)
-        var monthPrecioSum = await _ventaRepository.SumPrecioVentaPaidInRangeAsync(startOfMonth, endOfMonth);
-        var monthCostoSum = await _ventaRepository.SumCostoVentaPaidInRangeAsync(startOfMonth, endOfMonth);
-        var monthUtilidad = monthPrecioSum - monthCostoSum;
+            // Costo de venta (filtered by MaquinaId)
+            monthCostoVenta = await _context.Ventas
+                .Where(v => v.Pagado && v.FechaHora >= startOfMonth && v.FechaHora <= endOfMonth && v.MaquinaId == mid)
+                .SumAsync(v => v.CostoVenta);
 
-        // 4. GASTOS MERCADERIA (Categoria "MERCADERIA")
-        var monthGastosMercaderia = await _context.MovimientosCaja
-            .Where(m => m.Fecha >= startOfMonth && m.Fecha <= endOfMonth && m.Fecha >= _config.Value.CajaStartDate && m.Monto < 0 && m.Categoria == "MERCADERIA")
-            .SumAsync(m => m.Monto);
+            // Mermas (filtered by MaquinaId)
+            var monthMermas = await _context.MovimientosCaja
+                .Where(m => m.Fecha >= startOfMonth && m.Fecha <= endOfMonth && m.Fecha >= _config.Value.CajaStartDate
+                         && m.Monto < 0 && m.Categoria == "MERMA" && m.MaquinaId == mid)
+                .SumAsync(m => m.Monto);
+            mermasAbs = Math.Abs(monthMermas);
 
-        // COSTO DE VENTA
-        var monthCostoVenta = monthCostoSum;
+            // Gastos Mercaderia (filtered by MaquinaId)
+            var monthGastosMercaderia = await _context.MovimientosCaja
+                .Where(m => m.Fecha >= startOfMonth && m.Fecha <= endOfMonth && m.Fecha >= _config.Value.CajaStartDate
+                         && m.Monto < 0 && m.Categoria == "MERCADERIA" && m.MaquinaId == mid)
+                .SumAsync(m => m.Monto);
+            gastosMercaderiaAbs = Math.Abs(monthGastosMercaderia);
 
-        // MERMAS (Categoria "MERMA")
-        var monthMermas = await _context.MovimientosCaja
-            .Where(m => m.Fecha >= startOfMonth && m.Fecha <= endOfMonth && m.Fecha >= _config.Value.CajaStartDate && m.Monto < 0 && m.Categoria == "MERMA")
-            .SumAsync(m => m.Monto);
-        decimal mermasAbs = Math.Abs(monthMermas);
+            // OPEX per-machine (uses fleet proration for shared costs)
+            (gastosFijosAbs, gastosVariablesAbs) = await _salesAnalytics.CalcularOpexPorMaquinaAsync(mid, startOfMonth, endOfMonth);
+            totalGastosOps = gastosVariablesAbs + gastosFijosAbs;
 
-        decimal gastosMercaderiaAbs = Math.Abs(monthGastosMercaderia);
+            // Depreciation
+            depreciacionPeriodo = await _salesAnalytics.CalcularDepreciacionAsync(mid, startOfMonth, endOfMonth);
 
-        // GASTOS VARIABLES (Logística)
-        var categoriesVariables = new[] { "LOGISTICA", "PEAJES", "INSUMOS", "MANTENCION" };
-        var monthGastosVariables = await _context.MovimientosCaja
-             .Where(m => m.Fecha >= startOfMonth && m.Fecha <= endOfMonth && m.Fecha >= _config.Value.CajaStartDate && m.Monto < 0 && categoriesVariables.Contains(m.Categoria))
-             .SumAsync(m => m.Monto);
-        decimal gastosVariablesAbs = Math.Abs(monthGastosVariables);
+            // All expenses/income (filtered by MaquinaId)
+            monthGastos = await _context.MovimientosCaja
+                .Where(m => m.Fecha >= startOfMonth && m.Fecha <= endOfMonth && m.Fecha >= _config.Value.CajaStartDate
+                         && m.Monto < 0 && m.MaquinaId == mid)
+                .SumAsync(m => m.Monto);
 
-        // GASTOS FIJOS (Estructurales)
-        var categoriesFijos = new[] { "INFRA", "ARRIENDO_POS", "INTERNET", "COMISIONES", "SUELDOS", "GASTOS GENERALES", "OTROS", "SERVICIOS" };
-         var monthGastosFijos = await _context.MovimientosCaja
-             .Where(m => m.Fecha >= startOfMonth && m.Fecha <= endOfMonth && m.Fecha >= _config.Value.CajaStartDate && m.Monto < 0 && categoriesFijos.Contains(m.Categoria))
-             .SumAsync(m => m.Monto);
-        decimal gastosFijosAbs = Math.Abs(monthGastosFijos);
+            monthAportes = await _context.MovimientosCaja
+                .Where(m => m.Fecha >= startOfMonth && m.Fecha <= endOfMonth && m.Fecha >= _config.Value.CajaStartDate
+                         && m.Monto > 0 && m.MaquinaId == mid)
+                .SumAsync(m => m.Monto);
 
-        // UTILIDAD OPERACIONAL (EBITDA)
-        decimal ventasNetas = monthIngresosVentas - mermasAbs;
-        decimal margenBruto = (monthIngresosVentas - monthCostoVenta);
-        decimal totalGastosOps = gastosVariablesAbs + gastosFijosAbs;
-        decimal utilidadOperacional = margenBruto - mermasAbs - totalGastosOps;
-        decimal utilidadNetaReal = utilidadOperacional;
+            // EBITDA
+            decimal margenBruto = monthIngresosVentas - monthCostoVenta;
+            utilidadOperacional = margenBruto - mermasAbs - totalGastosOps - depreciacionPeriodo;
+            utilidadNetaReal = utilidadOperacional;
+        }
+        else
+        {
+            // ── FLEET-LEVEL BRANCH (unchanged) ─────────────────────────────
+            monthIngresosVentas = await _ventaRepository.SumPrecioVentaPaidInRangeAsync(startOfMonth, endOfMonth);
 
-        // TRANSBANK (Estimado)
+            monthGastos = await _context.MovimientosCaja
+                .Where(m => m.Fecha >= startOfMonth && m.Fecha <= endOfMonth && m.Fecha >= _config.Value.CajaStartDate && m.Monto < 0)
+                .SumAsync(m => m.Monto);
+
+            monthAportes = await _context.MovimientosCaja
+                .Where(m => m.Fecha >= startOfMonth && m.Fecha <= endOfMonth && m.Fecha >= _config.Value.CajaStartDate && m.Monto > 0)
+                .SumAsync(m => m.Monto);
+
+            var monthCostoSum = await _ventaRepository.SumCostoVentaPaidInRangeAsync(startOfMonth, endOfMonth);
+            monthCostoVenta = monthCostoSum;
+
+            var monthGastosMercaderia = await _context.MovimientosCaja
+                .Where(m => m.Fecha >= startOfMonth && m.Fecha <= endOfMonth && m.Fecha >= _config.Value.CajaStartDate && m.Monto < 0 && m.Categoria == "MERCADERIA")
+                .SumAsync(m => m.Monto);
+
+            var monthMermas = await _context.MovimientosCaja
+                .Where(m => m.Fecha >= startOfMonth && m.Fecha <= endOfMonth && m.Fecha >= _config.Value.CajaStartDate && m.Monto < 0 && m.Categoria == "MERMA")
+                .SumAsync(m => m.Monto);
+            mermasAbs = Math.Abs(monthMermas);
+            gastosMercaderiaAbs = Math.Abs(monthGastosMercaderia);
+
+            var categoriesVariables = new[] { "LOGISTICA", "PEAJES", "INSUMOS", "MANTENCION" };
+            var monthGastosVariables = await _context.MovimientosCaja
+                 .Where(m => m.Fecha >= startOfMonth && m.Fecha <= endOfMonth && m.Fecha >= _config.Value.CajaStartDate && m.Monto < 0 && categoriesVariables.Contains(m.Categoria))
+                 .SumAsync(m => m.Monto);
+            gastosVariablesAbs = Math.Abs(monthGastosVariables);
+
+            var categoriesFijos = new[] { "INFRA", "ARRIENDO_POS", "INTERNET", "COMISIONES", "SUELDOS", "GASTOS GENERALES", "OTROS", "SERVICIOS" };
+            var monthGastosFijos = await _context.MovimientosCaja
+                 .Where(m => m.Fecha >= startOfMonth && m.Fecha <= endOfMonth && m.Fecha >= _config.Value.CajaStartDate && m.Monto < 0 && categoriesFijos.Contains(m.Categoria))
+                 .SumAsync(m => m.Monto);
+            gastosFijosAbs = Math.Abs(monthGastosFijos);
+
+            totalGastosOps = gastosVariablesAbs + gastosFijosAbs;
+
+            decimal margenBruto = monthIngresosVentas - monthCostoVenta;
+            utilidadOperacional = margenBruto - mermasAbs - totalGastosOps;
+            utilidadNetaReal = utilidadOperacional;
+        }
+
+        // 3. TRANSBANK — fleet-level (not per-machine in this iteration)
         var excludedOrdenIds = new[] { "TB-EXTRA", "TB-SIN-VENTA" };
         var cantVentasTB = await _ventaRepository.CountPaidInRangeExcludingAsync(startOfMonth, endOfMonth, excludedOrdenIds);
         decimal costoTransbank = cantVentasTB * _config.Value.TransbankFee;
 
-        // Verificación de IsLocked usando método estático de CajaService
-        bool isLocked = IsMonthLockedStatic(month, year);
+        decimal margenBrutoFinal = monthIngresosVentas - monthCostoVenta;
 
         return new CajaResumenDto
         {
@@ -120,13 +175,14 @@ public class CajaBusinessService
             GastosOperativos = totalGastosOps,
             AportesExtra = monthAportes,
             SaldoFinal = saldoAnterior + monthIngresosVentas + monthAportes + monthGastos,
-            UtilidadTotal = margenBruto,
+            UtilidadTotal = margenBrutoFinal,
             GastosMercaderia = gastosMercaderiaAbs,
             TotalCostoVenta = monthCostoVenta,
             Mermas = mermasAbs,
             GastosVariables = gastosVariablesAbs,
             GastosFijos = gastosFijosAbs,
             UtilidadOperacional = utilidadOperacional,
+            DepreciacionPeriodo = depreciacionPeriodo,
             UtilidadNeta = utilidadNetaReal,
             CantidadVentasTransbank = cantVentasTB,
             CostoTransbank = costoTransbank,

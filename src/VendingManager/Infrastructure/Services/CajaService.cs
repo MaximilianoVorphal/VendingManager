@@ -70,9 +70,9 @@ namespace VendingManager.Infrastructure.Services
             }
         }
 
-        public async Task<CajaResumenDto> GetResumenAsync(int month, int year)
+        public async Task<CajaResumenDto> GetResumenAsync(int month, int year, int? maquinaId = null)
         {
-            return await _business.GetResumenAsync(month, year);
+            return await _business.GetResumenAsync(month, year, maquinaId);
         }
 
         public async Task<List<MovimientoCaja>> GetMovimientosAsync(int month, int year)
