@@ -1,6 +1,7 @@
 ﻿@page "/maquinas"
 @using Microsoft.AspNetCore.Authorization
 @using VendingManager.Shared.Constants
+@using VendingManager.Shared.DTOs
 @using VendingManager.Web.Components.Mobile
 @attribute [Authorize(Roles = Roles.Admin)]
 @inject HttpClient Http
@@ -194,6 +195,23 @@
                                 <InputText @bind-Value="maquinaActual.CodigoTerminalPos" class="form-control rounded-0 border-dark font-monospace" />
                                 <div class="form-text small">Código exacto del terminal Transbank.</div>
                             </div>
+
+                            <div class="col-12"><hr class="text-muted" /></div>
+
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold small">ZONA LOGÍSTICA</label>
+                                <InputSelect @bind-Value="maquinaActual.ZonaLogisticaId" class="form-select rounded-0 border-dark">
+                                    <option value="">Sin zona</option>
+                                    @if (ZonasDisponibles != null)
+                                    {
+                                        @foreach (var zona in ZonasDisponibles)
+                                        {
+                                            <option value="@zona.Id">@zona.Nombre</option>
+                                        }
+                                    }
+                                </InputSelect>
+                                <div class="form-text small">Zona para optimización de rutas (opcional).</div>
+                            </div>
                         </div>
 
                         <div class="modal-footer bg-light rounded-0 mt-4 px-0 pb-0 pt-3 border-top border-dark">
@@ -216,6 +234,9 @@
 
     // Filtro de búsqueda
     private string SearchTerm = "";
+
+    // Zonas disponibles para el selector en el formulario
+    private List<ZonaLogisticaDto>? ZonasDisponibles;
 
     [SupplyParameterFromForm]
     public Maquina? maquinaActual { get; set; }
@@ -248,11 +269,17 @@
     protected override async Task OnInitializedAsync()
     {
         await CargarMaquinas();
+        await CargarZonas();
     }
 
     private async Task CargarMaquinas()
     {
         listaMaquinas = await Http.GetFromJsonAsync<List<Maquina>>("api/Maquinas");
+    }
+
+    private async Task CargarZonas()
+    {
+        ZonasDisponibles = await Http.GetFromJsonAsync<List<ZonaLogisticaDto>>("api/zonas-logisticas");
     }
 
     private async Task AbrirModal(Maquina? maquina)
@@ -272,7 +299,8 @@
                 Nombre = maquina.Nombre,
                 Ubicacion = maquina.Ubicacion,
                 IdInternoMaquina = maquina.IdInternoMaquina,
-                CodigoTerminalPos = maquina.CodigoTerminalPos
+                CodigoTerminalPos = maquina.CodigoTerminalPos,
+                ZonaLogisticaId = maquina.ZonaLogisticaId
             };
         }
         MostrarModal = true;
@@ -337,6 +365,7 @@
         public string Ubicacion { get; set; } = string.Empty;
         public string IdInternoMaquina { get; set; } = string.Empty;
         public string CodigoTerminalPos { get; set; } = string.Empty;
+        public int? ZonaLogisticaId { get; set; }
     }
 }
 </MobileShell>
