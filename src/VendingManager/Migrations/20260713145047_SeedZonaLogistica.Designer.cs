@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using VendingManager.Infrastructure.Data;
 
@@ -11,9 +12,11 @@ using VendingManager.Infrastructure.Data;
 namespace VendingManager.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260713145047_SeedZonaLogistica")]
+    partial class SeedZonaLogistica
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -320,6 +323,114 @@ namespace VendingManager.Migrations
                     b.ToTable("ConfiguracionSlotsHistory");
                 });
 
+            modelBuilder.Entity("VendingManager.Core.Entities.DepreciacionMaquina", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Activo")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Descripcion")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime>("FechaAdquisicion")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("FechaCreacion")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("MaquinaId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("MetodoDepreciacion")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<decimal>("ValorAdquisicion")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("ValorResidual")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("VidaUtilMeses")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("DepreciacionesMaquina");
+                });
+
+            modelBuilder.Entity("VendingManager.Core.Entities.DepreciacionMaquinaHistory", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("Activo")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("AfterJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("BeforeJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Descripcion")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("EntityId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("FechaAdquisicion")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("FechaCreacion")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("MaquinaId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("MetodoDepreciacion")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime>("Timestamp")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Usuario")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal>("ValorAdquisicion")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("ValorResidual")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("VidaUtilMeses")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("DepreciacionesMaquinaHistory");
+                });
+
             modelBuilder.Entity("VendingManager.Core.Entities.DetalleCompra", b =>
                 {
                     b.Property<int>("Id")
@@ -599,6 +710,12 @@ namespace VendingManager.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<DateTime?>("FechaBaja")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("FechaInstalacion")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("IdInternoMaquina")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -701,6 +818,9 @@ namespace VendingManager.Migrations
                     b.Property<string>("ImagenPath")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<int?>("MaquinaId")
+                        .HasColumnType("int");
+
                     b.Property<decimal>("Monto")
                         .HasColumnType("decimal(18,2)");
 
@@ -722,6 +842,8 @@ namespace VendingManager.Migrations
                         .HasColumnType("nvarchar(200)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("MaquinaId");
 
                     b.HasIndex("RendicionId");
 
@@ -771,6 +893,9 @@ namespace VendingManager.Migrations
 
                     b.Property<string>("ImagenPath")
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("MaquinaId")
+                        .HasColumnType("int");
 
                     b.Property<decimal>("Monto")
                         .HasColumnType("decimal(18,2)");
@@ -1804,6 +1929,11 @@ namespace VendingManager.Migrations
 
             modelBuilder.Entity("VendingManager.Core.Entities.MovimientoCaja", b =>
                 {
+                    b.HasOne("VendingManager.Core.Entities.Maquina", null)
+                        .WithMany()
+                        .HasForeignKey("MaquinaId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("VendingManager.Core.Entities.Rendicion", "Rendicion")
                         .WithMany("Gastos")
                         .HasForeignKey("RendicionId")
