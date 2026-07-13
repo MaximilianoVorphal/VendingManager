@@ -3,11 +3,18 @@ namespace VendingManager.Shared;
 /// <summary>
 /// Single source of truth for gasto classification.
 ///
-/// ESTABLECIDO POR: SDD consolidacion-financiera, Unit 2 (clasificacion-gastos).
+/// ESTABLECIDO POR: SDD consolidacion-financiera, Unit 2 (clasificacion-gastos) + Unit 3 (P&amp;L).
 ///
 /// Estructurales — movimientos de capital que NO son gastos operativos reales.
 ///   RETIRO_CAPITAL: pre-migration compat (migration RemoveRetiroCapitalFromCaja).
 ///   DEVOLUCION_RENDICION: devolución al trabajador de saldo no usado.
+///
+/// Variables — gastos asociados a la operación logística diaria.
+/// Fijos — gastos estructurales recurrentes (infraestructura, personal, comisiones).
+/// Operacionales = Variables ∪ Fijos — el conjunto completo de gastos operativos.
+///
+/// CalcularUtilidadOperacional() — fórmula unificada para CajaBusinessService y
+///   SalesAnalyticsService: margenBruto - mermasAbs - totalGastosOps.
 ///
 /// EsGastoOperativoReal() — extensión in-memory (NO traducible a SQL) para
 ///   objetos materializados. Para LINQ-to-Entities usar el set directamente:
@@ -35,4 +42,36 @@ public static class CategoriasGasto
     /// </summary>
     public static bool EsGastoOperativoReal(string? categoria) =>
         !Estructurales.Contains(categoria ?? string.Empty);
+
+    // ── P&amp;L buckets (Unit 3) ───────────────────────────────────────────
+
+    /// <summary>Gastos variables: logística operativa diaria.</summary>
+    public static readonly IReadOnlySet<string> Variables =
+        new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "LOGISTICA", "PEAJES", "INSUMOS", "MANTENCION"
+        };
+
+    /// <summary>Gastos fijos: infraestructura, personal, comisiones.</summary>
+    public static readonly IReadOnlySet<string> Fijos =
+        new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "INFRA", "ARRIENDO_POS", "INTERNET", "COMISIONES",
+            "SUELDOS", "GASTOS GENERALES", "OTROS", "SERVICIOS"
+        };
+
+    /// <summary>Variables ∪ Fijos — el conjunto completo de categorías operacionales.</summary>
+    public static readonly IReadOnlySet<string> Operacionales =
+        new HashSet<string>(Variables.Concat(Fijos), StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Fórmula unificada de utilidad operacional para CajaBusinessService y
+    /// SalesAnalyticsService. Las mermas se restan del margen bruto, consistente
+    /// con CajaBusinessService:105.
+    /// </summary>
+    public static decimal CalcularUtilidadOperacional(
+        decimal margenBruto,
+        decimal mermasAbs,
+        decimal totalGastosOps) =>
+        margenBruto - mermasAbs - totalGastosOps;
 }

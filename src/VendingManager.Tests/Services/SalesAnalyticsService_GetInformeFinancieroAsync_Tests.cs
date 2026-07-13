@@ -298,7 +298,7 @@ public class SalesAnalyticsService_GetInformeFinancieroAsync_Tests : IDisposable
         result.CostoVentas.Should().Be(1500m,     "600+900");
         result.MargenBruto.Should().Be(3500m,     "5000-1500");
         result.GastosOperativos.Should().Be(500m, "Solo LOGISTICA(200) + INFRA(300); MERCADERIA/MERMA/GENERAL excluidos");
-        result.UtilidadNeta.Should().Be(3000m,    "3500-500");
+        result.UtilidadNeta.Should().Be(2950m,    "3500-50(mermas)-500(gastos) — mermas subtracted via unified formula");
         result.MargenPorcentaje.Should().Be(70m,  "(3500/5000)*100=70%");
     }
 

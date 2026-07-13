@@ -3,6 +3,7 @@ using Microsoft.Extensions.Options;
 using VendingManager.Core.Configuration;
 using VendingManager.Core.Entities;
 using VendingManager.Core.Interfaces;
+using VendingManager.Shared;
 using VendingManager.Shared.DTOs;
 
 namespace VendingManager.Infrastructure.Services;
@@ -85,24 +86,22 @@ public class CajaBusinessService
         decimal gastosMercaderiaAbs = Math.Abs(monthGastosMercaderia);
 
         // GASTOS VARIABLES (Logística)
-        var categoriesVariables = new[] { "LOGISTICA", "PEAJES", "INSUMOS", "MANTENCION" };
         var monthGastosVariables = await _context.MovimientosCaja
-             .Where(m => m.Fecha >= startOfMonth && m.Fecha <= endOfMonth && m.Fecha >= _config.Value.CajaStartDate && m.Monto < 0 && categoriesVariables.Contains(m.Categoria))
+             .Where(m => m.Fecha >= startOfMonth && m.Fecha <= endOfMonth && m.Fecha >= _config.Value.CajaStartDate && m.Monto < 0 && CategoriasGasto.Variables.Contains(m.Categoria))
              .SumAsync(m => m.Monto);
         decimal gastosVariablesAbs = Math.Abs(monthGastosVariables);
 
         // GASTOS FIJOS (Estructurales)
-        var categoriesFijos = new[] { "INFRA", "ARRIENDO_POS", "INTERNET", "COMISIONES", "SUELDOS", "GASTOS GENERALES", "OTROS", "SERVICIOS" };
          var monthGastosFijos = await _context.MovimientosCaja
-             .Where(m => m.Fecha >= startOfMonth && m.Fecha <= endOfMonth && m.Fecha >= _config.Value.CajaStartDate && m.Monto < 0 && categoriesFijos.Contains(m.Categoria))
+             .Where(m => m.Fecha >= startOfMonth && m.Fecha <= endOfMonth && m.Fecha >= _config.Value.CajaStartDate && m.Monto < 0 && CategoriasGasto.Fijos.Contains(m.Categoria))
              .SumAsync(m => m.Monto);
         decimal gastosFijosAbs = Math.Abs(monthGastosFijos);
 
-        // UTILIDAD OPERACIONAL (EBITDA)
+        // UTILIDAD OPERACIONAL
         decimal ventasNetas = monthIngresosVentas - mermasAbs;
         decimal margenBruto = (monthIngresosVentas - monthCostoVenta);
         decimal totalGastosOps = gastosVariablesAbs + gastosFijosAbs;
-        decimal utilidadOperacional = margenBruto - mermasAbs - totalGastosOps;
+        decimal utilidadOperacional = CategoriasGasto.CalcularUtilidadOperacional(margenBruto, mermasAbs, totalGastosOps);
         decimal utilidadNetaReal = utilidadOperacional;
 
         // TRANSBANK (Estimado)

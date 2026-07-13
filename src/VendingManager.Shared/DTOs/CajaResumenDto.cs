@@ -17,7 +17,7 @@
         public decimal Mermas { get; set; }          // [NEW]
         public decimal GastosVariables { get; set; } // [NEW] Logistica
         public decimal GastosFijos { get; set; }     // [NEW] Estructurales
-        public decimal UtilidadOperacional { get; set; } // [NEW] EBITDA
+        public decimal UtilidadOperacional { get; set; } // Unificado por SDD consolidacion-financiera
         public decimal UtilidadNeta { get; set; }    // Real Net
         public bool IsLocked { get; set; }
 

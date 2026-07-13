@@ -11,6 +11,7 @@ using VendingManager.Core.Configuration;
 using VendingManager.Core.Entities;
 using VendingManager.Core.Interfaces;
 using VendingManager.Infrastructure.Data;
+using VendingManager.Shared;
 using VendingManager.Shared.DTOs;
 
 namespace VendingManager.Infrastructure.Services
@@ -267,26 +268,30 @@ public class SalesAnalyticsService : ISalesAnalyticsService
             }
 
             decimal gastosOperativos = 0;
+            decimal mermasAbs = 0;
             if (maquinaId == 0)
             {
-                // Categorías operacionales — mismo criterio que CajaBusinessService.GetResumenAsync
-                // (líneas 88-98). GENERAL / MERCADERIA / MERMA / LOTES / APORTE NO son operacionales.
-                var categoriasOperacionales = new[]
-                {
-                    "LOGISTICA", "PEAJES", "INSUMOS", "MANTENCION",
-                    "INFRA", "ARRIENDO_POS", "INTERNET", "COMISIONES",
-                    "SUELDOS", "GASTOS GENERALES", "OTROS", "SERVICIOS"
-                };
-
+                // Categorías operacionales via CategoriasGasto.Operacionales —
+                // single source of truth, shared with CajaBusinessService.
                 gastosOperativos = await _context.MovimientosCaja
                     .Where(m => m.Fecha >= _config.CajaStartDate
                              && m.Fecha >= inicioAjustado
                              && m.Fecha <= finAjustado
                              && m.Monto < 0
-                             && categoriasOperacionales.Contains(m.Categoria))
+                             && CategoriasGasto.Operacionales.Contains(m.Categoria))
                     .SumAsync(m => m.Monto);
 
                 gastosOperativos = Math.Abs(gastosOperativos);
+
+                // Mermas — same as CajaBusinessService:86
+                var monthMermas = await _context.MovimientosCaja
+                    .Where(m => m.Fecha >= _config.CajaStartDate
+                             && m.Fecha >= inicioAjustado
+                             && m.Fecha <= finAjustado
+                             && m.Monto < 0
+                             && m.Categoria == "MERMA")
+                    .SumAsync(m => m.Monto);
+                mermasAbs = Math.Abs(monthMermas);
             }
 
             return new InformeFinancieroDto
@@ -295,7 +300,8 @@ public class SalesAnalyticsService : ISalesAnalyticsService
                 CostoVentas = costoVentas,
                 MargenBruto = ingresosVentas - costoVentas,
                 GastosOperativos = gastosOperativos,
-                UtilidadNeta = (ingresosVentas - costoVentas) - gastosOperativos,
+                UtilidadNeta = CategoriasGasto.CalcularUtilidadOperacional(
+                    ingresosVentas - costoVentas, mermasAbs, gastosOperativos),
                 MargenPorcentaje = ingresosVentas > 0 ? ((ingresosVentas - costoVentas) / ingresosVentas) * 100 : 0
             };
         }
