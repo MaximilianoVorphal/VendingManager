@@ -131,6 +131,7 @@ builder.Services.AddScoped<ICajaService, CajaService>();
 builder.Services.AddScoped<CajaBusinessService>();
 builder.Services.AddScoped<IVentasService, VentasService>();
 builder.Services.AddScoped<ISalesAnalyticsService, SalesAnalyticsService>();
+builder.Services.AddScoped<SalesAnalyticsService>();
 builder.Services.AddScoped<IPurchasingService, PurchasingService>();
 builder.Services.AddScoped<IInventarioService, InventarioService>();
 builder.Services.AddScoped<IMaquinaService, MaquinaService>();
