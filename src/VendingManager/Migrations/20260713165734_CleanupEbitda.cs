@@ -11,38 +11,39 @@ namespace VendingManager.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            // Drop FK + index created by CapExEbitdaPerMachine
-            migrationBuilder.DropForeignKey(
-                name: "FK_MovimientosCaja_Maquinas_MaquinaId",
-                table: "MovimientosCaja");
+            // Esta migración hace cleanup de objetos que fueron creados por migraciones
+            // intermedias (CapEx/EBITDA) que ya no existen en el modelo. Usamos SQL crudo
+            // con IF EXISTS para que sea idempotente: no falla si los objetos nunca existieron
+            // (fresh DB) ni si ya existen (DB con historia de migraciones aplicadas).
 
-            migrationBuilder.DropIndex(
-                name: "IX_MovimientosCaja_MaquinaId",
-                table: "MovimientosCaja");
+            migrationBuilder.Sql(@"
+                -- Drop FK + index created by CapExEbitdaPerMachine (if they exist)
+                IF EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_MovimientosCaja_Maquinas_MaquinaId' AND parent_object_id = OBJECT_ID('MovimientosCaja'))
+                    ALTER TABLE [MovimientosCaja] DROP CONSTRAINT [FK_MovimientosCaja_Maquinas_MaquinaId];
 
-            // Drop EBITDA tables
-            migrationBuilder.DropTable(
-                name: "DepreciacionesMaquina");
+                IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_MovimientosCaja_MaquinaId' AND object_id = OBJECT_ID('MovimientosCaja'))
+                    DROP INDEX [IX_MovimientosCaja_MaquinaId] ON [MovimientosCaja];
 
-            migrationBuilder.DropTable(
-                name: "DepreciacionesMaquinaHistory");
+                -- Drop EBITDA tables (if they exist)
+                IF EXISTS (SELECT 1 FROM sys.tables WHERE name = 'DepreciacionesMaquina')
+                    DROP TABLE [DepreciacionesMaquina];
 
-            // Drop EBITDA columns
-            migrationBuilder.DropColumn(
-                name: "MaquinaId",
-                table: "MovimientosCajaHistory");
+                IF EXISTS (SELECT 1 FROM sys.tables WHERE name = 'DepreciacionesMaquinaHistory')
+                    DROP TABLE [DepreciacionesMaquinaHistory];
 
-            migrationBuilder.DropColumn(
-                name: "MaquinaId",
-                table: "MovimientosCaja");
+                -- Drop EBITDA columns (if they exist)
+                IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('MovimientosCajaHistory') AND name = 'MaquinaId')
+                    ALTER TABLE [MovimientosCajaHistory] DROP COLUMN [MaquinaId];
 
-            migrationBuilder.DropColumn(
-                name: "FechaBaja",
-                table: "Maquinas");
+                IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('MovimientosCaja') AND name = 'MaquinaId')
+                    ALTER TABLE [MovimientosCaja] DROP COLUMN [MaquinaId];
 
-            migrationBuilder.DropColumn(
-                name: "FechaInstalacion",
-                table: "Maquinas");
+                IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Maquinas') AND name = 'FechaBaja')
+                    ALTER TABLE [Maquinas] DROP COLUMN [FechaBaja];
+
+                IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Maquinas') AND name = 'FechaInstalacion')
+                    ALTER TABLE [Maquinas] DROP COLUMN [FechaInstalacion];
+            ");
         }
 
         /// <inheritdoc />
