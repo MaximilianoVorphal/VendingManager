@@ -78,7 +78,7 @@ public class StockoutSlotDtoTests
         dto.PrimeraVenta.Should().Be(new DateTime(2025, 1, 1));
         dto.GananciaPerdidaEstimada.Should().Be(18000m);
         dto.NivelAlerta.Should().Be("Crítico");
-        dto.DiasSinStock.Should().BeApproximately(3.042, 0.001);
+        dto.DiasSinStock.Should().BeApproximately(73.0 / 14.0, 0.001);
     }
 
     [Fact]
@@ -90,8 +90,8 @@ public class StockoutSlotDtoTests
             VelocidadPorHora = 2.5m
         };
 
-        dto.DiasSinStock.Should().BeApproximately(2.083, 0.001);
-        dto.VelocidadDiaria.Should().Be(60m);
+        dto.DiasSinStock.Should().BeApproximately(50.0 / 14.0, 0.001);
+        dto.VelocidadDiaria.Should().Be(35m); // 2.5 * 14
         dto.NivelAlerta.Should().Be("Alto");
         dto.ColorAlerta.Should().Be("bg-warning text-dark");
     }

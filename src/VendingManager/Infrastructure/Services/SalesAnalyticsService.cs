@@ -13,6 +13,7 @@ using VendingManager.Core.Interfaces;
 using VendingManager.Infrastructure.Data;
 using VendingManager.Shared;
 using VendingManager.Shared.DTOs;
+using VendingManager.Shared.Helpers;
 
 namespace VendingManager.Infrastructure.Services
 {
@@ -515,7 +516,7 @@ public class SalesAnalyticsService : ISalesAnalyticsService
         }
 
         public async Task<List<StockoutAnalysisDto>> GetStockoutAnalysisAsync(
-            DateTime inicio, DateTime fin, int maquinaId, double umbralHorasSilencio = 24)
+            DateTime inicio, DateTime fin, int maquinaId, double umbralHorasSilencio = 14)
         {
             DateTime finAjustado = fin.Date.AddDays(1).AddTicks(-1);
             DateTime inicioAjustado = inicio.Date;
@@ -598,14 +599,14 @@ public class SalesAnalyticsService : ISalesAnalyticsService
                     v.CostoVenta > 0 ? v.CostoVenta : (v.Producto?.CostoPromedio ?? 0));
                 var gananciaPromedio = precioPromedio - costoPromedio;
 
-                var horasDiferencia = (ultimaActividadMaquina - ultimaVenta).TotalHours;
+                var horasDiferencia = HorarioOperativoHelper.HorasEnRangoOperativo(ultimaVenta, ultimaActividadMaquina);
                 var posibleQuiebre = horasDiferencia > umbralHorasSilencio;
 
                 var fechaReferencia = posibleQuiebre ? ultimaActividadMaquina : finAjustado;
-                var horasSinStock = (fechaReferencia - ultimaVenta).TotalHours;
+                var horasSinStock = HorarioOperativoHelper.HorasEnRangoOperativo(ultimaVenta, fechaReferencia);
                 if (horasSinStock < 0) horasSinStock = 0;
 
-                var horasActivas = (ultimaVenta - inicio).TotalHours;
+                var horasActivas = HorarioOperativoHelper.HorasEnRangoOperativo(inicio, ultimaVenta);
                 if (horasActivas < 1) horasActivas = 1;
 
                 var velocidadPorHora = cantidad / (decimal)horasActivas;

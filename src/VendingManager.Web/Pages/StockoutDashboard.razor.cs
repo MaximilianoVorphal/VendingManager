@@ -1095,7 +1095,7 @@ namespace VendingManager.Web.Pages
 
             public bool PosibleQuiebre { get; set; }
             public double HorasSinStock { get; set; }
-            public double DiasSinStock => HorasSinStock / 24.0;
+            public double DiasSinStock => HorasSinStock / 14.0;
 
             public int StockInicial { get; set; }
             public int StockActual { get; set; }
@@ -1105,7 +1105,7 @@ namespace VendingManager.Web.Pages
             public bool EsDeadSlot { get; set; }
             public double HorasActivas { get; set; }
             public decimal VelocidadPorHora { get; set; }
-            public decimal VelocidadDiaria => VelocidadPorHora * 24;
+            public decimal VelocidadDiaria => VelocidadPorHora * VendingManager.Shared.Helpers.HorarioOperativoHelper.HorasOperativasPorDia;
 
             public decimal PrecioPromedioVenta { get; set; }
             public decimal GananciaPromedio { get; set; }
@@ -1168,7 +1168,7 @@ namespace VendingManager.Web.Pages
             public DateTime? PrimeraVenta { get; set; }
             public DateTime? UltimaVenta { get; set; }
             public double HorasSinStock { get; set; }
-            public double DiasSinStock => HorasSinStock / 24.0;
+            public double DiasSinStock => HorasSinStock / 14.0;
             public decimal DineroPerdidoEstimado { get; set; }
             public decimal GananciaPerdidaEstimada { get; set; }
             public decimal VelocidadDiaria { get; set; }

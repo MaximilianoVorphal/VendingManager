@@ -11,6 +11,12 @@ public static class HorarioOperativoHelper
     public const int FinOperativo = 22;
 
     /// <summary>
+    /// Operative hours per day: 8:00–22:00 = 14 hours.
+    /// Used by stockout analysis for velocity/day conversion.
+    /// </summary>
+    public const int HorasOperativasPorDia = FinOperativo - InicioOperativo; // 14
+
+    /// <summary>
     /// Returns total hours in the [8:00, 22:00) window between <paramref name="desde"/>
     /// and <paramref name="hasta"/>. Returns 0 when <paramref name="hasta"/> is not after
     /// <paramref name="desde"/>.

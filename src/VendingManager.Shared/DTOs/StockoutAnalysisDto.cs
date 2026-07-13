@@ -42,8 +42,8 @@ public class StockoutAnalysisDto
     /// <summary>Horas desde última venta hasta fin del periodo (o última actividad máquina)</summary>
     public double HorasSinStock { get; set; }
 
-    /// <summary>Días sin stock (calculado)</summary>
-    public double DiasSinStock => HorasSinStock / 24.0;
+    /// <summary>Días sin stock (calculado sobre 14h operativas)</summary>
+    public double DiasSinStock => HorasSinStock / 14.0;
 
     // =============================================
     // VELOCIDAD REAL (basada en horas activas, NO días calendario)
@@ -72,8 +72,8 @@ public class StockoutAnalysisDto
     /// <summary>Unidades vendidas por hora (Cantidad / HorasActivas)</summary>
     public decimal VelocidadPorHora { get; set; }
 
-    /// <summary>Unidades vendidas por día (VelocidadPorHora * 24)</summary>
-    public decimal VelocidadDiaria => VelocidadPorHora * 24;
+    /// <summary>Unidades vendidas por día (VelocidadPorHora * 14h operativas)</summary>
+    public decimal VelocidadDiaria => VelocidadPorHora * 14;
 
     // =============================================
     // COSTO DE OPORTUNIDAD
@@ -178,7 +178,7 @@ public class StockoutSlotDto
     // =============================================
     public bool PosibleQuiebre { get; set; }
     public double HorasSinStock { get; set; }
-    public double DiasSinStock => HorasSinStock / 24.0;
+    public double DiasSinStock => HorasSinStock / 14.0;
 
     // =============================================
     // VELOCIDAD REAL
@@ -191,7 +191,7 @@ public class StockoutSlotDto
     public bool EsDeadSlot { get; set; }
     public double HorasActivas { get; set; }
     public decimal VelocidadPorHora { get; set; }
-    public decimal VelocidadDiaria => VelocidadPorHora * 24;
+    public decimal VelocidadDiaria => VelocidadPorHora * 14;
 
     // =============================================
     // COSTO DE OPORTUNIDAD
