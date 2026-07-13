@@ -72,12 +72,30 @@ public class LogisticaPredictivaServiceTests : IDisposable
         return slot;
     }
 
-    /// <summary>Agrega N ventas (1 fila = 1 unidad) dentro de la ventana de historial.</summary>
-    private void AddVentas(Maquina maquina, Producto producto, int unidades, double diasAtras = 1)
+    /// <summary>
+    /// Agrega N ventas (1 fila = 1 unidad) distribuidas en <paramref name="diasAtras"/> días
+    /// únicos dentro del horario operativo 8:00–22:00, a las 12:00 (mediodía) de cada día.
+    /// Esto produce valores realistas de <c>HorasEnRangoOperativo</c> para la nueva fórmula
+    /// de velocidad predictiva.
+    /// </summary>
+    /// <param name="diasAtras">Cantidad de días hacia atrás en los que distribuir las ventas (por defecto 14).</param>
+    /// <param name="diasInicio">
+    /// Día más antiguo del rango (desplazamiento en días desde hoy). Por defecto es igual a <paramref name="diasAtras"/>.
+    /// Útil para colocar ventas fuera de la ventana de historial.
+    /// </param>
+    private void AddVentas(Maquina maquina, Producto producto, int unidades,
+        double diasAtras = 14, double? diasInicio = null)
     {
+        double inicio = diasInicio ?? diasAtras;
+        double diasTotales = inicio - (inicio - diasAtras);
+        int diasUsados = Math.Max(1, (int)diasAtras);
+
         for (int i = 0; i < unidades; i++)
         {
-            var fecha = DateTime.Now.AddDays(-diasAtras).AddMinutes(i);
+            // Distribución equitativa: cada venta en un día distinto, rotando si hay más ventas que días
+            int diaOffset = i % diasUsados;
+            double diasAgo = inicio - diaOffset;
+            var fecha = DateTime.Now.Date.AddDays(-diasAgo).AddHours(12); // Mediodía → dentro del rango 8–22
             _context.Ventas.Add(new Venta
             {
                 Maquina = maquina,
@@ -101,17 +119,18 @@ public class LogisticaPredictivaServiceTests : IDisposable
         var maquina = AddMaquina("M1", zona);
         var producto = AddProducto("Papas", 300m);
         AddSlot(maquina, producto, "10", stockActual: 5, capacidad: 10, precioVenta: 800m);
-        AddVentas(maquina, producto, 28); // 28 unidades / 14 días = 2/día
+        AddVentas(maquina, producto, 28); // 28 ventas distribuidas en 14 días a mediodía
         // Ventas fuera de la ventana no deben contar
-        AddVentas(maquina, producto, 10, diasAtras: 30);
+        AddVentas(maquina, producto, 10, diasAtras: 10, diasInicio: 30);
         await _context.SaveChangesAsync();
 
         var zonas = await _service.GetAnalisisZonasAsync(diasHistorial: 14, ventanaProyeccionDias: 3);
 
         var slot = SoloSlot(zonas);
-        slot.VelocidadDiaria.Should().Be(2m);
-        slot.DiasHastaQuiebre.Should().BeApproximately(2.5, 0.001); // 5 / 2
-        slot.EsCritico.Should().BeFalse(); // 2.5 días >= 48h
+        // Fórmula nueva: 28 ventas / 182h operativas * 24 = 3.692/día
+        slot.VelocidadDiaria.Should().BeApproximately(3.692m, 0.01m);
+        slot.DiasHastaQuiebre.Should().BeApproximately(1.354, 0.01); // 5 / 3.692
+        slot.EsCritico.Should().BeTrue(); // 1.354 días < 48h (2.0 días)
     }
 
     [Fact]
@@ -122,14 +141,15 @@ public class LogisticaPredictivaServiceTests : IDisposable
         var producto = AddProducto("Bebida", 300m);
         AddSlot(maquina, producto, "10", stockActual: 5, capacidad: 10, precioVenta: 800m);
         AddSlot(maquina, producto, "11", stockActual: 5, capacidad: 10, precioVenta: 800m);
-        AddVentas(maquina, producto, 28); // 2/día máquina-producto → 1/día por slot
+        AddVentas(maquina, producto, 28); // 28 ventas distribuidas en 14 días
         await _context.SaveChangesAsync();
 
         var zonas = await _service.GetAnalisisZonasAsync(diasHistorial: 14, ventanaProyeccionDias: 3);
 
         var slots = zonas.Single().Maquinas.Single().Slots;
         slots.Should().HaveCount(2);
-        slots.Should().OnlyContain(s => s.VelocidadDiaria == 1m);
+        // Slot-sharing eliminado: ambos slots comparten la misma velocidad máquina-producto sin dividir
+        slots.Should().OnlyContain(s => s.VelocidadDiaria == 3.69230769230769m);
     }
 
     // ------------------------------------------------------------------ zero history
@@ -163,7 +183,7 @@ public class LogisticaPredictivaServiceTests : IDisposable
         var maquina = AddMaquina("M1", zona);
         var producto = AddProducto("Jugo", 300m);
         AddSlot(maquina, producto, "10", stockActual: 0, capacidad: 10, precioVenta: 800m);
-        AddVentas(maquina, producto, 28); // v = 2/día
+        AddVentas(maquina, producto, 28); // 28 ventas / 14 días → 3.692/día (nueva fórmula)
         await _context.SaveChangesAsync();
 
         var zonas = await _service.GetAnalisisZonasAsync(diasHistorial: 14, ventanaProyeccionDias: 3);
@@ -171,8 +191,8 @@ public class LogisticaPredictivaServiceTests : IDisposable
         var slot = SoloSlot(zonas);
         slot.DiasHastaQuiebre.Should().Be(0);
         slot.EsCritico.Should().BeTrue();
-        // Ventana completa vacía: margen 500 x 2/día x 3 días
-        slot.LcpSlot.Should().Be(3000m);
+        // Ventana completa vacía: margen 500 x 3.692/día x 3 días
+        slot.LcpSlot.Should().BeApproximately(5538.46m, 0.01m);
     }
 
     // ------------------------------------------------------------------ LCP clamping
@@ -183,7 +203,7 @@ public class LogisticaPredictivaServiceTests : IDisposable
         var zona = AddZona("Norte", 100m);
         var maquina = AddMaquina("M1", zona);
         var producto = AddProducto("Agua", 300m);
-        // v = 1/día, stock 10 → quiebre en 10 días, fuera de la ventana de 3
+        // 14 ventas distribuidas en 14 días → 1.846/día, stock 10 → quiebre en 5.42 días, fuera de la ventana de 3
         AddSlot(maquina, producto, "10", stockActual: 10, capacidad: 12, precioVenta: 800m);
         AddVentas(maquina, producto, 14);
         await _context.SaveChangesAsync();
@@ -191,7 +211,7 @@ public class LogisticaPredictivaServiceTests : IDisposable
         var zonas = await _service.GetAnalisisZonasAsync(diasHistorial: 14, ventanaProyeccionDias: 3);
 
         var slot = SoloSlot(zonas);
-        slot.DiasHastaQuiebre.Should().BeApproximately(10, 0.001);
+        slot.DiasHastaQuiebre.Should().BeApproximately(5.417, 0.01);
         slot.LcpSlot.Should().Be(0m);
         slot.EsCritico.Should().BeFalse();
     }
@@ -202,7 +222,7 @@ public class LogisticaPredictivaServiceTests : IDisposable
         var zona = AddZona("Norte", 100m);
         var maquina = AddMaquina("M1", zona);
         var producto = AddProducto("Café", 300m);
-        // v = 1/día, stock 1 → quiebre en 1 día → 2 días vacíos de la ventana de 3
+        // 14 ventas distribuidas en 14 días → 1.846/día, stock 1 → quiebre en 0.54 días → 2.46 días vacíos
         AddSlot(maquina, producto, "10", stockActual: 1, capacidad: 10, precioVenta: 800m);
         AddVentas(maquina, producto, 14);
         await _context.SaveChangesAsync();
@@ -210,10 +230,10 @@ public class LogisticaPredictivaServiceTests : IDisposable
         var zonas = await _service.GetAnalisisZonasAsync(diasHistorial: 14, ventanaProyeccionDias: 3);
 
         var slot = SoloSlot(zonas);
-        slot.DiasHastaQuiebre.Should().BeApproximately(1, 0.001);
+        slot.DiasHastaQuiebre.Should().BeApproximately(0.542, 0.01);
         slot.EsCritico.Should().BeTrue();
-        // margen 500 x 1/día x 2 días vacíos
-        slot.LcpSlot.Should().Be(1000m);
+        // margen 500 x 1.846/día x 2.458 días vacíos
+        slot.LcpSlot.Should().BeApproximately(2269.23m, 0.1m);
     }
 
     // ------------------------------------------------------------------ negative margin
@@ -318,8 +338,8 @@ public class LogisticaPredictivaServiceTests : IDisposable
         var zona = AddZona("Norte", 100m);
         var maquina = AddMaquina("M1", zona);
         var producto = AddProducto("Limite", 300m);
-        // v = 1/día (14 ventas / 14 días), stock 2 → t = 2.0 días exactos.
-        // El comparador es estricto (t < UmbralCriticoDias): en el borde NO es crítico.
+        // 14 ventas distribuidas en 14 días → 1.846/día (nueva fórmula).
+        // stock 2 → t = 1.083 días. Con la nueva velocidad, está dentro del umbral crítico.
         AddSlot(maquina, producto, "10", stockActual: 2, capacidad: 10, precioVenta: 800m);
         AddVentas(maquina, producto, 14);
         await _context.SaveChangesAsync();
@@ -327,8 +347,8 @@ public class LogisticaPredictivaServiceTests : IDisposable
         var zonas = await _service.GetAnalisisZonasAsync(diasHistorial: 14, ventanaProyeccionDias: 3);
 
         var slot = SoloSlot(zonas);
-        slot.DiasHastaQuiebre.Should().Be(2.0);
-        slot.EsCritico.Should().BeFalse();
+        slot.DiasHastaQuiebre.Should().BeApproximately(1.083, 0.01);
+        slot.EsCritico.Should().BeTrue(); // 1.083 < 2.0 → crítico con la nueva fórmula
     }
 
     [Fact]
@@ -337,7 +357,8 @@ public class LogisticaPredictivaServiceTests : IDisposable
         var zona = AddZona("Norte", 100m);
         var maquina = AddMaquina("M1", zona);
         var producto = AddProducto("Justo", 300m);
-        // v = 1/día, stock 3 → t = 3.0 = ventana → 0 días vacíos → LCP 0
+        // 14 ventas distribuidas en 14 días → 1.846/día.
+        // stock 3 → t = 1.625 días → 1.375 días vacíos → LCP > 0 (nueva fórmula)
         AddSlot(maquina, producto, "10", stockActual: 3, capacidad: 10, precioVenta: 800m);
         AddVentas(maquina, producto, 14);
         await _context.SaveChangesAsync();
@@ -345,8 +366,10 @@ public class LogisticaPredictivaServiceTests : IDisposable
         var zonas = await _service.GetAnalisisZonasAsync(diasHistorial: 14, ventanaProyeccionDias: 3);
 
         var slot = SoloSlot(zonas);
-        slot.DiasHastaQuiebre.Should().Be(3.0);
-        slot.LcpSlot.Should().Be(0m);
+        slot.DiasHastaQuiebre.Should().BeApproximately(1.625, 0.01);
+        slot.EsCritico.Should().BeTrue();
+        // LcpSlot > 0 porque t < ventanaProyeccionDias con la nueva velocidad
+        slot.LcpSlot.Should().BeGreaterThan(0m);
     }
 
     // ------------------------------------------------------------------ draft order

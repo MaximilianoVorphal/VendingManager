@@ -5,6 +5,7 @@ using VendingManager.Core.Entities;
 using VendingManager.Core.Interfaces;
 using VendingManager.Infrastructure.Data;
 using VendingManager.Shared.Enums;
+using VendingManager.Shared.Helpers;
 
 namespace VendingManager.Infrastructure.Services;
 
@@ -380,36 +381,7 @@ public class TemplateRecargaAnalyticsService : ITemplateRecargaAnalyticsService
     /// Used to avoid diluting velocity and loss calculations with overnight dead hours.
     /// </summary>
     private static double HorasEnRangoOperativo(DateTime desde, DateTime hasta)
-    {
-        if (hasta <= desde) return 0;
-
-        double total = 0;
-        var cursor = desde;
-
-        while (cursor < hasta)
-        {
-            int hour = cursor.Hour;
-
-            if (hour >= 8 && hour < 22)
-            {
-                var endOfHour = cursor.Date.AddHours(hour + 1);
-                if (hour == 21) endOfHour = cursor.Date.AddHours(22);
-                var segmentEnd = endOfHour < hasta ? endOfHour : hasta;
-                total += (segmentEnd - cursor).TotalHours;
-                cursor = segmentEnd;
-            }
-            else if (hour < 8)
-            {
-                cursor = cursor.Date.AddHours(8);
-            }
-            else
-            {
-                cursor = cursor.Date.AddDays(1).AddHours(8);
-            }
-        }
-
-        return total;
-    }
+        => HorarioOperativoHelper.HorasEnRangoOperativo(desde, hasta);
 
     private async Task<DateTime> GetEndDateForPeriodoAsync(
         int maquinaId,
