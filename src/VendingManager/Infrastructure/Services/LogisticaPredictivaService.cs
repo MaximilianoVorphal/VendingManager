@@ -3,6 +3,7 @@ using VendingManager.Core.Entities;
 using VendingManager.Core.Interfaces;
 using VendingManager.Infrastructure.Data;
 using VendingManager.Shared.DTOs;
+using VendingManager.Shared.Helpers;
 
 namespace VendingManager.Infrastructure.Services
 {
@@ -40,17 +41,34 @@ namespace VendingManager.Infrastructure.Services
                 .Where(s => s.ProductoId != null && s.Producto != null)
                 .ToListAsync();
 
-            // Unidades vendidas por (máquina, producto) en la ventana de historial.
+            // Unidades vendidas por (máquina, producto) en la ventana de historial,
+            // excluyendo órdenes sintéticas TB y horas fuera del rango operativo 8–22.
             // Cada fila de Venta representa una unidad.
             var ventas = await context.Ventas
-                .Where(v => v.FechaLocal >= desde && v.ProductoId != null)
+                .Where(v => v.FechaLocal >= desde
+                    && v.ProductoId != null
+                    && v.IdOrdenMaquina != "TB-EXTRA"
+                    && v.IdOrdenMaquina != "TB-SIN-VENTA"
+                    && v.FechaLocal.Hour >= 8
+                    && v.FechaLocal.Hour < 22)
                 .GroupBy(v => new { v.MaquinaId, v.ProductoId })
-                .Select(g => new { g.Key.MaquinaId, g.Key.ProductoId, Unidades = g.Count() })
+                .Select(g => new
+                {
+                    g.Key.MaquinaId,
+                    g.Key.ProductoId,
+                    Unidades = g.Count(),
+                    PrimeraVenta = g.Min(v => v.FechaLocal),
+                    UltimaVenta = g.Max(v => v.FechaLocal)
+                })
                 .ToListAsync();
 
             var unidadesVendidas = ventas.ToDictionary(
                 x => (x.MaquinaId, ProductoId: x.ProductoId!.Value),
                 x => x.Unidades);
+
+            var ventasFechas = ventas.ToDictionary(
+                x => (x.MaquinaId, ProductoId: x.ProductoId!.Value),
+                x => (PrimeraVenta: (DateTime?)x.PrimeraVenta, UltimaVenta: (DateTime?)x.UltimaVenta));
 
             var zonas = slots
                 .GroupBy(s => s.Maquina.ZonaLogisticaId)
@@ -62,19 +80,18 @@ namespace VendingManager.Infrastructure.Services
                         .GroupBy(s => s.Maquina)
                         .Select(maqGroup =>
                         {
-                            // Cantidad de slots que comparten producto dentro de la máquina,
-                            // para repartir la velocidad máquina-producto en partes iguales.
-                            var slotsPorProducto = maqGroup
-                                .GroupBy(s => s.ProductoId!.Value)
-                                .ToDictionary(g => g.Key, g => g.Count());
-
                             var slotDtos = maqGroup
-                                .Select(s => BuildSlotDto(
-                                    s,
-                                    unidadesVendidas.GetValueOrDefault((maqGroup.Key.Id, s.ProductoId!.Value)),
-                                    slotsPorProducto[s.ProductoId!.Value],
-                                    diasHistorial,
-                                    ventanaProyeccionDias))
+                                .Select(s =>
+                                {
+                                    var fechas = ventasFechas.GetValueOrDefault((maqGroup.Key.Id, s.ProductoId!.Value));
+                                    return BuildSlotDto(
+                                        s,
+                                        unidadesVendidas.GetValueOrDefault((maqGroup.Key.Id, s.ProductoId!.Value)),
+                                        diasHistorial,
+                                        ventanaProyeccionDias,
+                                        fechas.PrimeraVenta,
+                                        fechas.UltimaVenta);
+                                })
                                 .ToList();
 
                             return new LogisticaMaquinaDto
@@ -113,15 +130,26 @@ namespace VendingManager.Infrastructure.Services
         private static LogisticaSlotDto BuildSlotDto(
             ConfiguracionSlot slot,
             int unidadesVendidasMaquinaProducto,
-            int slotsConMismoProducto,
             int diasHistorial,
-            int ventanaProyeccionDias)
+            int ventanaProyeccionDias,
+            DateTime? primeraVenta,
+            DateTime? ultimaVenta)
         {
-            // Velocidad máquina-producto repartida en partes iguales entre los slots
-            // que comparten el producto (ver doc del método público).
-            decimal velocidad = slotsConMismoProducto > 0
-                ? (decimal)unidadesVendidasMaquinaProducto / diasHistorial / slotsConMismoProducto
-                : 0m;
+            // Velocidad predictiva corregida: ventas por hora operativa × 24h.
+            // Ya no se divide por slotsConMismoProducto (slot-sharing eliminado).
+            decimal velocidad;
+            if (primeraVenta.HasValue && ultimaVenta.HasValue && unidadesVendidasMaquinaProducto > 0)
+            {
+                double horasActivas = HorarioOperativoHelper.HorasEnRangoOperativo(
+                    primeraVenta.Value, ultimaVenta.Value);
+                if (horasActivas < 1) horasActivas = 1; // Guard para ventanas sub-hora
+                double velocidadPorHora = unidadesVendidasMaquinaProducto / horasActivas;
+                velocidad = (decimal)(velocidadPorHora * 24);
+            }
+            else
+            {
+                velocidad = 0m;
+            }
 
             decimal margen = Math.Max(0m, slot.PrecioVenta - (slot.Producto?.CostoPromedio ?? 0m));
 
