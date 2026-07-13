@@ -14,6 +14,12 @@ public class Maquina
     // Identificador del Excel de TRANSBANK (Ej: "SIV01099")
     public string CodigoTerminalPos { get; set; } = string.Empty;
 
+    // Fechas operativas para prorrateo de depreciación
+    public DateTime FechaInstalacion { get; set; }
+
+    /// <summary>Nullable — active machines have null. Set when the machine is retired.</summary>
+    public DateTime? FechaBaja { get; set; }
+
     // Relación con los slots configurados
     public List<ConfiguracionSlot> Slots { get; set; } = new();
 }

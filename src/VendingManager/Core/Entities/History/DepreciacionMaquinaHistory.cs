@@ -4,9 +4,9 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace VendingManager.Core.Entities;
 
 /// <summary>
-/// Entidad history para MovimientoCaja. Refleja las columnas más los campos de auditoría.
+/// Entidad history para DepreciacionMaquina. Refleja las columnas más los campos de auditoría.
 /// </summary>
-public class MovimientoCajaHistory
+public class DepreciacionMaquinaHistory
 {
     [Key]
     public int Id { get; set; }
@@ -22,22 +22,28 @@ public class MovimientoCajaHistory
     public DateTime Timestamp { get; set; }
     public string Usuario { get; set; } = string.Empty;
 
-    // --- MovimientoCaja base columns ---
-    public DateTime Fecha { get; set; }
+    // --- DepreciacionMaquina base columns ---
+    public int MaquinaId { get; set; }
 
     [Required]
+    [MaxLength(200)]
     public string Descripcion { get; set; } = string.Empty;
 
     [Column(TypeName = "decimal(18,2)")]
-    public decimal Monto { get; set; }
+    public decimal ValorAdquisicion { get; set; }
 
-    public string Tipo { get; set; } = "GASTO";
-    public string Categoria { get; set; } = "GENERAL";
-    public string? ImagenPath { get; set; }
-    public int? ProductoId { get; set; }
-    public int Cantidad { get; set; }
-    public int? OrdenCargaId { get; set; }
-    public int? CompraId { get; set; }
-    public int? GastoRecurrenteId { get; set; }
-    public int? MaquinaId { get; set; }
+    [Column(TypeName = "decimal(18,2)")]
+    public decimal ValorResidual { get; set; }
+
+    public int VidaUtilMeses { get; set; }
+
+    public DateTime FechaAdquisicion { get; set; }
+
+    [Required]
+    [MaxLength(50)]
+    public string MetodoDepreciacion { get; set; } = "LINEAL";
+
+    public bool Activo { get; set; }
+
+    public DateTime FechaCreacion { get; set; }
 }

@@ -46,7 +46,8 @@ public class AuditSaveChangesInterceptor : SaveChangesInterceptor
         { "User", "UserHistory" },
         { "Transferencia", "TransferenciaHistory" },
         { "Rendicion", "RendicionHistory" },
-        { "ProveedorCatalog", "ProveedorCatalogHistory" }
+        { "ProveedorCatalog", "ProveedorCatalogHistory" },
+        { "DepreciacionMaquina", "DepreciacionMaquinaHistory" }
     };
 
     public override ValueTask<InterceptionResult<int>> SavingChangesAsync(

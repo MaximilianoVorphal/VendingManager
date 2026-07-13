@@ -45,6 +45,8 @@ namespace VendingManager.Infrastructure.Data
         public DbSet<ProveedorCatalog> ProveedorCatalog { get; set; } = null!;
         public DbSet<ProveedorAlias> ProveedorAlias { get; set; } = null!;
         public DbSet<ProveedorCatalogHistory> ProveedorCatalogHistory { get; set; } = null!;
+        public DbSet<DepreciacionMaquina> DepreciacionesMaquina { get; set; } = null!;
+        public DbSet<DepreciacionMaquinaHistory> DepreciacionesMaquinaHistory { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -261,6 +263,20 @@ namespace VendingManager.Infrastructure.Data
                 .HasOne(c => c.ProveedorCatalog)
                 .WithMany()
                 .HasForeignKey(c => c.ProveedorCatalogId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            // DepreciacionMaquina: decimal precision for money amounts
+            modelBuilder.Entity<DepreciacionMaquina>(e =>
+            {
+                e.Property(d => d.ValorAdquisicion).HasColumnType("decimal(18,2)");
+                e.Property(d => d.ValorResidual).HasColumnType("decimal(18,2)");
+            });
+
+            // MovimientoCaja -> Maquina: nullable FK, no navigation property
+            modelBuilder.Entity<MovimientoCaja>()
+                .HasOne<Maquina>()
+                .WithMany()
+                .HasForeignKey(m => m.MaquinaId)
                 .OnDelete(DeleteBehavior.SetNull);
         }
     }
