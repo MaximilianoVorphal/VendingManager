@@ -205,32 +205,6 @@ using (var scope = app.Services.CreateScope())
     {
         var context = services.GetRequiredService<VendingManager.Infrastructure.Data.ApplicationDbContext>();
         context.Database.Migrate();
-
-        // Crear usuario admin por defecto si no existe ningún usuario
-        // Esto evita el deadlock: sin usuarios no se puede hacer login, y sin login
-        // no se pueden crear usuarios (UsersController requiere rol Admin).
-        if (!context.Users.Any())
-        {
-            var seedPassword = Environment.GetEnvironmentVariable("SEED_ADMIN_PASSWORD");
-            var passwordToUse = !string.IsNullOrEmpty(seedPassword) ? seedPassword : "admin";
-
-            if (string.IsNullOrEmpty(seedPassword) && !app.Environment.IsDevelopment())
-            {
-                var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
-                logger.LogWarning(
-                    "SEED_ADMIN_PASSWORD no está configurada. Se usará la contraseña por defecto. " +
-                    "Configure la variable de entorno SEED_ADMIN_PASSWORD en producción.");
-            }
-
-            var adminUser = new VendingManager.Core.Entities.User
-            {
-                Username = "admin",
-                PasswordHash = BCrypt.Net.BCrypt.HashPassword(passwordToUse),
-                Role = Roles.Admin
-            };
-            context.Users.Add(adminUser);
-            context.SaveChanges();
-        }
     }
     catch (Exception ex)
     {
