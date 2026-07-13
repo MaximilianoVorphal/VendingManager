@@ -47,10 +47,12 @@ El valor: reemplaza el "cuaderno del chofer" por un control con estados, verific
 ```
 Transferido   = Σ Transferencia.Monto
 TotalCompras  = Σ Compra.MontoTotal
-TotalGastos   = Σ |MovimientoCaja.Monto|   (solo Tipo == "GASTO")
+TotalGastos   = Σ |MovimientoCaja.Monto|   (solo Tipo == "GASTO", excluyendo categorías estructurales vía CategoriasGasto.Estructurales.Contains)
 Diferencia    = Transferido − TotalCompras − TotalGastos
 SaldoADevolver = Diferencia − Devuelto      (suma de Devoluciones)
 ```
+
+> **Nota:** las categorías estructurales (`RETIRO_CAPITAL`, `DEVOLUCION_RENDICION`) se excluyen del total de gastos mediante el set compartido `CategoriasGasto.Estructurales` en `Shared/`. Esto alinea los totales de rendición con los chequeos de integridad (ver `6-auditoria-integridad.md`). ✅ Ajustado en consolidacion-financiera (jul 2026).
 
 ### 3.3 Compuerta de cierre (`CerrarAsync`, `RendicionService.cs:73-140`)
 
@@ -86,6 +88,6 @@ SaldoADevolver = Diferencia − Devuelto      (suma de Devoluciones)
 ## 5. Riesgos y Deuda Técnica Conocida
 
 - **Lógica de cierre duplicada** entre `RendicionService.CerrarAsync` y `ContabilidadService.ClosePeriodoAsync` (`:87`) — deben mantenerse en sync manualmente.
-- **Dos definiciones divergentes de "gasto real":** `RendicionService.GetResumenAsync` cuenta gastos por `Tipo == "GASTO"`, mientras `IntegrityCheckService` filtra por exclusión de categorías estructurales (`EsGastoReal`, excluye `RETIRO_CAPITAL` y `DEVOLUCION_RENDICION`). Son criterios distintos sobre los mismos datos (ver `6-auditoria-integridad.md`).
+- ✅ **Resuelto — Divergencia de "gasto real" corregida:** desde consolidacion-financiera (jul 2026), `RendicionService.GetResumenAsync` también excluye categorías estructurales vía `CategoriasGasto.Estructurales`, alineado con `IntegrityCheckService`.
 - **`TASK-10`** comentado sobre el cableado de `Devuelto` (`RendicionService.cs:254`).
 - La convención de signo de `MovimientoCaja` (positivo entra, negativo sale) se asume consistente en todas las rutas; no hay validación central.

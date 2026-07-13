@@ -60,9 +60,9 @@ Corren sobre la data de conciliación y devuelven **solo los resultados no vací
 SaldoADevolver = Transferido − Compras − Gastos − Devuelto
 ```
 
-donde **los gastos excluyen categorías estructurales** `RETIRO_CAPITAL` y `DEVOLUCION_RENDICION` (`EsGastoReal`, `:14-18,287-288`).
+donde **los gastos excluyen categorías estructurales** `RETIRO_CAPITAL` y `DEVOLUCION_RENDICION` (vía el set compartido `CategoriasGasto.Estructurales` en `Shared/`, antes duplicado privadamente en `IntegrityCheckService.cs`).
 
-> **⚠️ Inconsistencia real:** esta definición de "gasto" **difiere** de `RendicionService.GetResumenAsync`, que usa `Tipo == "GASTO"`. Dos criterios distintos de "gasto real" sobre los mismos datos — puede producir saldos que no coinciden entre la vista de rendición y el chequeo de integridad. Documentado también en `5-caja-rendiciones.md`.
+> ✅ **Inconsistencia resuelta (consolidacion-financiera, jul 2026):** `RendicionService.GetResumenAsync` ahora usa el mismo set compartido `CategoriasGasto.Estructurales`, alineando los criterios de gasto entre integridad y rendición. Ver `5-caja-rendiciones.md`.
 
 Severidad: enum `CheckSeverity` (`Error`/`Warn`/`Info`).
 
@@ -83,6 +83,6 @@ Solo **dos roles**: `Roles.Admin = "Admin"`, `Roles.User = "User"` (`Roles.cs`).
 ## 5. Riesgos y Deuda Técnica Conocida
 
 - **Escritura de historial por reflexión es frágil:** depende de `Type.GetType` por nombre (`AuditSaveChangesInterceptor.cs:83,183`). Renombrar una entidad o mover su namespace rompe el mapeo silenciosamente.
-- **Dos definiciones divergentes de "gasto real"** (integridad vs rendición) — inconsistencia analítica real (§3.2).
+- ✅ **Resuelto — Divergencia de "gasto real" corregida** (consolidacion-financiera, jul 2026): ambos servicios usan `CategoriasGasto.Estructurales` como única fuente.
 - **`IsMonthLockedStatic`** en `CajaBusinessService.cs:191-197` está cableado a `return false` ("Actualmente deshabilitado") — lógica de candado muerta. El único candado real de inmutabilidad son los períodos `Cerrado`.
 - **Rastro de auditoría solo captura props escalares** (no navegaciones/colecciones) — cambios en relaciones pueden no quedar reflejados en `BeforeJson`/`AfterJson`.

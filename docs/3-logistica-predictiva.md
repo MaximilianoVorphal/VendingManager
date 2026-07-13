@@ -92,14 +92,17 @@ Zonas ordenadas por `LcpTotal − CostoBaseViaje` descendente.
 
 ### 3.4 Detección de quiebre de stock — DOS métodos distintos
 
-**Método A — inferencia por silencio (`SalesAnalyticsService.GetStockoutAnalysisAsync`, `:511-716`):**
+**Método A — inferencia por silencio (`SalesAnalyticsService.GetStockoutAnalysisAsync`):**
 
-- `umbralHorasSilencio` default = **24** (`:512`).
+- `umbralHorasSilencio` default = **14 horas operativas** (~24h de reloj).
 - Por máquina: `ultimaActividad` = última venta de la máquina.
-- Por (máquina, producto): `horasDiferencia = (ultimaActividadMaquina − ultimaVentaProducto).TotalHours`; **`posibleQuiebre = horasDiferencia > 24`** (`:595-596`) — se infiere quiebre cuando un producto dejó de vender >24h antes de la última actividad de la máquina.
-- **Usa horas de reloj crudas (÷24), NO el helper operativo**: `VelocidadDiaria = VelocidadPorHora × 24` (`StockoutAnalysisDto.cs:76`).
+- Por (máquina, producto): `horasDiferencia = HorasEnRangoOperativo(ultimaVentaProducto, ultimaActividadMaquina)`; **`posibleQuiebre = horasDiferencia > 14`** — se infiere quiebre cuando un producto dejó de vender >14h operativas antes de la última actividad de la máquina.
+- **Usa el helper operativo (14h/día)**: `VelocidadDiaria = VelocidadPorHora × HorasOperativasPorDia (14)`; `DiasSinStock = HorasSinStock / 14`.
+- **Horas activas** calculadas con `HorasEnRangoOperativo(primeraVenta, ultimaVenta)`, excluyendo horas nocturnas (22:00–08:00).
 - Pérdida: `dineroPerdido = velocidadPorHora × horasSinStock × precioPromedio`.
-- Dead slots (`:670-709`): slots configurados con producto pero **sin ventas** en el período → `EsDeadSlot = true`, `PosibleQuiebre = StockActual <= StockMinimo`.
+- Dead slots: slots configurados con producto pero **sin ventas** en el período → `EsDeadSlot = true`, `PosibleQuiebre = StockActual <= StockMinimo`.
+
+> **Cambio visible (consolidacion-financiera, jul 2026):** antes usaba horas de reloj (24h/día), umbral=24h y `VelocidadDiaria × 24`. Ahora usa horas operativas (14h/día), umbral=14h y `VelocidadDiaria × 14`. Esto cambia métricas reportadas (dineroPerdido, velocidad, DiasHastaStockout) — intencional. Ver ADR-013.
 
 **Método B — inferencia por depleción de snapshot (`TemplateRecargaAnalyticsService.AnalizarMaquinaEnPeriodo`, `:408-579`):**
 
@@ -171,7 +174,7 @@ Umbrales `RotacionAlta=1.0`, `RotacionMedia=0.2`, `MargenAlto=0.50` desde `Analy
   - `AnalisisProductos.razor` **sin `@attribute [Authorize]`**, a diferencia de las otras páginas del dominio.
   - `InventarioController.SubirCatalogo` (`:12`) **sin `[HttpPost]`** (la clase sí es `[Authorize]`).
 - **Dos métodos de detección de quiebre** (A silencio ÷24 reloj vs B snapshot mezclando ×14 operativo) con regímenes de horas inconsistentes — documentado en comentarios pero es una divergencia analítica real.
-- **`VelocidadDiaria => × 24`** aplicado a una tasa que en la vía template ya es base-14 (posible sobre-estimación de velocidad diaria).
+- ✅ **Resuelto (consolidacion-financiera, jul 2026):** la vía silencio (`SalesAnalyticsService.GetStockoutAnalysisAsync`) ahora también usa base-14. Ya no hay mezcla de regímenes — ambas vías operan sobre horas operativas (14h/día).
 - **Supuestos hardcodeados:**
   - Ventana operativa **08:00–22:00 / 14h** hardcodeada en el helper **y** duplicada como literal en dos servicios — no hay horario por-máquina pese a que el docstring de `TemplateRecarga` lo insinúa.
   - `UmbralCriticoDias = 2.0` y el `<= 2` de stock-crítico template son literales.
