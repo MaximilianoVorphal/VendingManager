@@ -1,7 +1,7 @@
 # 6 — Auditoría e Integridad de Datos
 
 > Documentación viva. Refleja el estado del código a la fecha del último commit revisado.
-> Documento adicional (plataforma transversal). Combina auditoría, historial por entidad y
+> Documento de plataforma transversal. Combina auditoría, historial por entidad y
 > chequeos de integridad, porque juntos forman la red de seguridad de los datos financieros.
 
 ---
@@ -33,26 +33,26 @@ El valor: si algo no cuadra, el sistema lo señala **antes** de que el contador 
 
 ---
 
-## 3. Reglas de Negocio y Supuestos (CRÍTICO)
+## 3. Reglas de Negocio y Supuestos
 
-### 3.1 Rastro de auditoría automático (`AuditSaveChangesInterceptor.cs`)
+### 3.1 Rastro de auditoría automático
 
-- Es un `SaveChangesInterceptor` de EF Core: captura **cada** entidad Added/Modified/Deleted en la tabla `Auditoria` con snapshots escalares `BeforeJson`/`AfterJson` y el `Usuario` resuelto (username de `HttpContext`, si no `"system"`) (`:96-147,275-285`).
-- Aparte, un **`HistoryTypeMap` de exactamente 12 entidades** escribe filas de historial dedicadas vía reflexión (`:36-50`): `Compra, Producto, Maquina, Venta, MovimientoCaja, ConfiguracionSlot, GastoRecurrente, OrdenCarga, User, Transferencia, Rendicion, ProveedorCatalog`.
-- Las filas de historial se construyen **reflexivamente**, copiando las props escalares del snapshot de dominio (`:187-229`). Entidades `History/` correspondientes bajo `Core/Entities/History/` más `TransferenciaHistory`/`RendicionHistory` en el nivel superior. Migración `20260505193727_CreateHistoryTables`.
+- Interceptor de EF Core que captura **cada** entidad Added/Modified/Deleted en la tabla `Auditoria` con snapshots `BeforeJson`/`AfterJson` y el `Usuario` resuelto (username de `HttpContext`, o `"system"` si no hay contexto).
+- Un `HistoryTypeMap` de **12 entidades** escribe filas de historial dedicadas: `Compra, Producto, Maquina, Venta, MovimientoCaja, ConfiguracionSlot, GastoRecurrente, OrdenCarga, User, Transferencia, Rendicion, ProveedorCatalog`.
+- Las filas de historial replican las propiedades del snapshot de dominio. Entidades `History/` correspondientes bajo `Core/Entities/History/`.
 
-### 3.2 Los 6 chequeos de integridad (`IntegrityCheckService.cs:25-38`)
+### 3.2 Los 6 chequeos de integridad
 
 Corren sobre la data de conciliación y devuelven **solo los resultados no vacíos**:
 
 | ID | Severidad | Regla |
 | --- | --- | --- |
-| **3A** | Error | Transferencia sobre-asignada: `Σ Compras.MontoTotal > Transferencia.Monto` (`:44-76`). |
-| **3B** | Warn | Compras huérfanas (`TransferenciaId == null`) (`:82-107`). |
-| **3C** | Info | Transferencias `Conciliado` sin compras (`:113-139`). |
-| **7A** | Error | Rendición `Cerrada` con `SaldoADevolver != 0` (`:145-197`). |
-| **7B** | Warn | Transferencia cruzada (`RendicionId` **Y** `PeriodoId` no-null) (`:203-228`). |
-| **7C** | Error | Rendición `Abierta` con `SaldoADevolver < 0` (`:234-285`). |
+| **3A** | Error | Transferencia sobre-asignada: `Σ Compras.MontoTotal > Transferencia.Monto`. |
+| **3B** | Warn | Compras huérfanas (`TransferenciaId == null`). |
+| **3C** | Info | Transferencias `Conciliado` sin compras. |
+| **7A** | Error | Rendición `Cerrada` con `SaldoADevolver != 0`. |
+| **7B** | Warn | Transferencia cruzada (`RendicionId` **Y** `PeriodoId` no-null). |
+| **7C** | Error | Rendición `Abierta` con `SaldoADevolver < 0`. |
 
 **Definición de saldo en integridad:**
 
@@ -60,15 +60,13 @@ Corren sobre la data de conciliación y devuelven **solo los resultados no vací
 SaldoADevolver = Transferido − Compras − Gastos − Devuelto
 ```
 
-donde **los gastos excluyen categorías estructurales** `RETIRO_CAPITAL` y `DEVOLUCION_RENDICION` (vía el set compartido `CategoriasGasto.Estructurales` en `Shared/`, antes duplicado privadamente en `IntegrityCheckService.cs`).
-
-> ✅ **Inconsistencia resuelta (consolidacion-financiera, jul 2026):** `RendicionService.GetResumenAsync` ahora usa el mismo set compartido `CategoriasGasto.Estructurales`, alineando los criterios de gasto entre integridad y rendición. Ver `5-caja-rendiciones.md`.
+Los gastos excluyen categorías estructurales (`RETIRO_CAPITAL`, `DEVOLUCION_RENDICION`) vía el catálogo central `CategoriasGasto.Estructurales`, compartido entre el motor de integridad y el de rendiciones.
 
 Severidad: enum `CheckSeverity` (`Error`/`Warn`/`Info`).
 
 ### 3.3 Autenticación y roles
 
-Solo **dos roles**: `Roles.Admin = "Admin"`, `Roles.User = "User"` (`Roles.cs`). Autenticación por cookie vía `CookieAuthenticationStateProvider`, `AccountController`, `RedirectToLogin.razor`. Superficie pequeña — no amerita documento propio, se documenta aquí como sección de plataforma.
+Solo **dos roles**: `Admin` y `User`. Autenticación por cookie vía `CookieAuthenticationStateProvider`, `AccountController`, `RedirectToLogin.razor`. Superficie pequeña — se documenta aquí como sección de plataforma.
 
 ---
 
@@ -77,12 +75,3 @@ Solo **dos roles**: `Roles.Admin = "Admin"`, `Roles.User = "User"` (`Roles.cs`).
 **Componentes:** `AuditSaveChangesInterceptor` (registrado en el pipeline de EF), `AuditService`, `IntegrityCheckService`.
 
 **Controlador/UI:** los resultados de integridad se exponen vía el controlador correspondiente y se presentan en la UI de conciliación/contabilidad. El rastro de auditoría e historial es transparente (se escribe en cada `SaveChanges`, sin acción del usuario).
-
----
-
-## 5. Riesgos y Deuda Técnica Conocida
-
-- **Escritura de historial por reflexión es frágil:** depende de `Type.GetType` por nombre (`AuditSaveChangesInterceptor.cs:83,183`). Renombrar una entidad o mover su namespace rompe el mapeo silenciosamente.
-- ✅ **Resuelto — Divergencia de "gasto real" corregida** (consolidacion-financiera, jul 2026): ambos servicios usan `CategoriasGasto.Estructurales` como única fuente.
-- **`IsMonthLockedStatic`** en `CajaBusinessService.cs:191-197` está cableado a `return false` ("Actualmente deshabilitado") — lógica de candado muerta. El único candado real de inmutabilidad son los períodos `Cerrado`.
-- **Rastro de auditoría solo captura props escalares** (no navegaciones/colecciones) — cambios en relaciones pueden no quedar reflejados en `BeforeJson`/`AfterJson`.

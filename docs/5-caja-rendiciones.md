@@ -1,8 +1,8 @@
 # 5 — Caja y Rendiciones
 
 > Documentación viva. Refleja el estado del código a la fecha del último commit revisado.
-> Documento adicional. Alcance acotado: cubre el ciclo de **rendición/transferencia** (dinero
-> entregado a trabajadores y su conciliación). El P&L / "EBITDA" de `CajaBusinessService`
+> Alcance acotado: cubre el ciclo de **rendición/transferencia** (dinero
+> entregado a trabajadores y su conciliación). El P&L de `CajaBusinessService`
 > pertenece a `2-inteligencia-financiera.md`, no a este documento.
 
 ---
@@ -30,46 +30,44 @@ El valor: reemplaza el "cuaderno del chofer" por un control con estados, verific
 
 ---
 
-## 3. Reglas de Negocio y Supuestos (CRÍTICO)
+## 3. Reglas de Negocio y Supuestos
 
 ### 3.1 Máquinas de estados
 
-**`RendicionEstado`:** `Abierta(0)` → `Cerrada(1)`. `Cerrada` bloquea **toda** mutación (`RendicionService.cs:61-62,213-214`).
+**`RendicionEstado`:** `Abierta(0)` → `Cerrada(1)`. `Cerrada` bloquea **toda** mutación.
 
 **`TransferenciaEstado`:** `Pendiente(0)` → `EnUso(1)` → `Conciliado(2)` (terminal). Auto-transiciones:
 
-- Vincular la primera compra: `Pendiente → EnUso` (`RendicionService.cs:160-164`).
-- Desvincular la última compra: `EnUso → Pendiente` (`:188-197`).
-- `Conciliado` bloquea vincular nuevas compras (`:152-153`) y cualquier edición (`TransferenciaService.cs:51-52`).
+- Vincular la primera compra: `Pendiente → EnUso`.
+- Desvincular la última compra: `EnUso → Pendiente`.
+- `Conciliado` bloquea vincular nuevas compras y cualquier edición.
 
-### 3.2 Fórmula de conciliación (`RendicionService.cs:245-267`)
+### 3.2 Fórmula de conciliación
 
 ```
 Transferido   = Σ Transferencia.Monto
 TotalCompras  = Σ Compra.MontoTotal
-TotalGastos   = Σ |MovimientoCaja.Monto|   (solo Tipo == "GASTO", excluyendo categorías estructurales vía CategoriasGasto.Estructurales.Contains)
+TotalGastos   = Σ |MovimientoCaja.Monto|   (solo Tipo == "GASTO", excluyendo categorías estructurales)
 Diferencia    = Transferido − TotalCompras − TotalGastos
 SaldoADevolver = Diferencia − Devuelto      (suma de Devoluciones)
 ```
 
-> **Nota:** las categorías estructurales (`RETIRO_CAPITAL`, `DEVOLUCION_RENDICION`) se excluyen del total de gastos mediante el set compartido `CategoriasGasto.Estructurales` en `Shared/`. Esto alinea los totales de rendición con los chequeos de integridad (ver `6-auditoria-integridad.md`). ✅ Ajustado en consolidacion-financiera (jul 2026).
+Las categorías estructurales (como `RETIRO_CAPITAL`, `DEVOLUCION_RENDICION`) se excluyen del total de gastos mediante el catálogo central `CategoriasGasto.Estructurales`, compartido con los chequeos de integridad.
 
-### 3.3 Compuerta de cierre (`CerrarAsync`, `RendicionService.cs:73-140`)
+### 3.3 Compuerta de cierre
 
-4 precondiciones secuenciales, todas deben pasar antes de flipear a `Cerrada`:
+4 precondiciones secuenciales antes de cerrar a `Cerrada`:
 
-1. Todas las Transferencias vinculadas `Verificada` (si no, error de conteo).
-2. Todas las Compras vinculadas `Verificada`.
+1. Todas las Transferencias vinculadas deben estar `Verificada`.
+2. Todas las Compras vinculadas deben estar `Verificada`.
 3. `SaldoADevolver == 0` (si no, "Registrá una devolución antes de cerrar").
 4. Toda transferencia con `Estado == Conciliado`.
 
-`Verificada` es `false` por defecto; las filas históricas quedaron explícitamente sin verificar post-migración (`Transferencia.cs:65`).
+`Verificada` es `false` por defecto.
 
-> Esta compuerta es descrita en el código como "espejo de `ContabilidadService.ClosePeriodoAsync`" (`:87`) — **lógica duplicada entre dos servicios** (riesgo de consistencia).
+### 3.4 Subida de comprobante
 
-### 3.4 Subida de comprobante (`TransferenciaService.SaveComprobanteImagenAsync`, `:105-141`)
-
-- Máximo **5 MB** (`5 * 1024 * 1024`).
+- Máximo **5 MB**.
 - Extensiones permitidas: `.jpg`, `.jpeg`, `.png`, `.pdf`.
 - Almacenado en `/uploads/transferencias/{Guid}.ext`; el archivo previo se elimina.
 
@@ -82,12 +80,3 @@ SaldoADevolver = Diferencia − Devuelto      (suma de Devoluciones)
 **Páginas Blazor:** `Conciliacion.razor`, `ConciliacionMovil.razor`, `Caja.razor`, `CajaV2.razor`.
 
 **Nota de alcance:** la **conciliación global** (`ConciliacionGlobalDto`, `ContabilidadService.GetConciliacionGlobal` / `ContabilidadController`) es cierre de período contable, distinto del saldo por-rendición; pertenece a `2-inteligencia-financiera.md`.
-
----
-
-## 5. Riesgos y Deuda Técnica Conocida
-
-- **Lógica de cierre duplicada** entre `RendicionService.CerrarAsync` y `ContabilidadService.ClosePeriodoAsync` (`:87`) — deben mantenerse en sync manualmente.
-- ✅ **Resuelto — Divergencia de "gasto real" corregida:** desde consolidacion-financiera (jul 2026), `RendicionService.GetResumenAsync` también excluye categorías estructurales vía `CategoriasGasto.Estructurales`, alineado con `IntegrityCheckService`.
-- **`TASK-10`** comentado sobre el cableado de `Devuelto` (`RendicionService.cs:254`).
-- La convención de signo de `MovimientoCaja` (positivo entra, negativo sale) se asume consistente en todas las rutas; no hay validación central.
