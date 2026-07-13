@@ -12,6 +12,7 @@ WORKDIR /src
 
 # Copy csproj files for Restore
 COPY ["VendingManager/VendingManager.csproj", "VendingManager/"]
+COPY ["VendingManager.Web/VendingManager.Web.csproj", "VendingManager.Web/"]
 COPY ["VendingManager.Shared/VendingManager.Shared.csproj", "VendingManager.Shared/"]
 
 # Restore dependencies (cache mount evita redescargar NuGet si la cache local existe)
