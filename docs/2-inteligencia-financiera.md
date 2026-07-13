@@ -1,0 +1,170 @@
+# 2 — Inteligencia Financiera
+
+> Documentación viva. Refleja el estado del código a la fecha del último commit revisado.
+> No inventa reglas: cada valor hardcodeado y cada divergencia entre implementaciones está señalada.
+
+---
+
+## 1. Resumen de Negocio
+
+Este módulo responde la pregunta que le importa al gerente: **¿estamos ganando plata, cuánto, y de dónde sale o se fuga?**
+
+Toma tres flujos de dinero y los reconcilia:
+
+1. **Ingresos** — lo que venden las máquinas (viene del pipeline de ingesta).
+2. **Costo de la mercadería** — cuánto costó lo que se vendió, usando costo promedio ponderado.
+3. **Gastos** — compras a proveedores (facturas), gastos recurrentes (arriendo, internet, sueldos), peajes, comisiones, mermas.
+
+Con eso arma el estado de resultado: **margen bruto** (ingresos − costo) y **utilidad operacional** (margen − gastos). Además digitaliza facturas de proveedores por foto (OCR con IA) para que cargar una compra sea sacar una foto, no tipear línea por línea, y mantiene un **cierre de período contable** que "congela" un mes una vez cuadrado para que nadie edite el pasado.
+
+El valor: reemplaza la planilla Excel manual del contador por un sistema que calcula el resultado en vivo, con trazabilidad de cada peso hasta su factura o transferencia de origen.
+
+> **⚠️ Importante para el gerente:** el sistema **NO calcula depreciación de máquinas ni prorrateo de activos**. Esa funcionalidad (EBITDA con vida útil de activos) fue **eliminada** del sistema (ver §6). Lo que hoy se muestra etiquetado "EBITDA" es en realidad la utilidad operacional **sin** ningún término de depreciación.
+
+---
+
+## 2. Entidades Clave (Data Model)
+
+| Entidad | Rol | Notas |
+| --- | --- | --- |
+| **Compra** | Factura de proveedor. | `Estado` (`PAGADA`/`PENDIENTE`, default `PAGADA`), `TipoFactura` (`MERCADERIA`/`GASTO_GENERAL`). FKs nullable a `TransferenciaId`, `ProveedorCatalogId` (null = pendiente de asignar). |
+| **DetalleCompra** | Línea de una factura. | `Cantidad`, `CostoUnitario`, `Subtotal` (`decimal(18,2)`), `Ean`/`Sku` (aprendizaje OCR). |
+| **ProductoCosto** | Ledger temporal de costos. | `Costo`, `FechaDesde`, `FechaHasta?` (null = fila vigente/abierta). |
+| **GastoRecurrente** | Plantilla de gasto mensual. | `MontoEstimado`, `Categoria` (default `INTERNET`), `Activo`, `MaquinaId?` (null = global). |
+| **MovimientoCaja** | Asiento del libro de caja. | Convención de signo: **positivo = entra, negativo = sale**. FKs a `OrdenCargaId`, `CompraId`, `GastoRecurrenteId`, `RendicionId`. |
+| **AccountingPeriod** | Período contable (mes). | `Estado` (`Abierto=0`/`Cerrado=1`, terminal). |
+| **Devolucion** | Devolución de saldo. | `Monto` siempre positivo; postea un `MovimientoCaja` inverso. |
+| **Informe** | Archivo de reporte subido (blob). | Sin lógica financiera; solo CRUD de archivos. |
+
+**Relaciones clave:** `Compra → Transferencia → AccountingPeriod` (una compra se ancla a un período **indirectamente** vía la transferencia que la pagó). `Compra → DetalleCompra` (1-N). Cada compra pagada genera un `MovimientoCaja` y actualiza `Producto.CostoPromedio` + una fila `ProductoCosto`.
+
+---
+
+## 3. Reglas de Negocio y Supuestos (CRÍTICO)
+
+### 3.1 Costo de producto = Promedio Ponderado (CPP), NO FIFO
+
+Fórmula, citada de `CompraService.cs:98-106`:
+
+```
+CPP = ((StockActual × CostoPromedioActual) + (NuevaCantidad × NuevoCosto))
+      / (StockActual + NuevaCantidad)
+```
+
+- Solo se aplica cuando `nuevoStockTotal > 0` y la línea no es `EsPendiente`.
+- La fórmula está **duplicada en 4 lugares** (`CompraService.cs:98-106,261-265,618-623`, `ContabilidadService.cs:227-232`) — riesgo de drift.
+- Reversión al editar/eliminar (`RevertirImpactoInventario`, `:406-435`): `CostoPromedio = Math.Max(0, (valorTotalActual − valorARestar) / nuevoStock)`; si `nuevoStock ≤ 0` → stock y costo se resetean a 0.
+
+**`ProductoCosto`** es un ledger temporal paralelo: en cada compra se cierra la fila abierta (`FechaHasta = FechaCompra`) y se inserta una nueva abierta con `Costo = CostoUnitario` (`CompraService.cs:122-143`). Se usa para consultar el costo a una fecha puntual en analítica. Lookup en `ProductoCostoExtensions.GetCostoAtAsync` (`:12`): fila donde `FechaDesde <= fecha && (FechaHasta == null || FechaHasta > fecha)`, ordenada `FechaDesde DESC`; si no hay, el caller cae a `CostoPromedio`.
+
+> `RecalcularCostosHistoricosAsync` (`VentasService.cs:63`) está marcado **`[Obsolete]`** ("deprecated. Use ProductoCosto-based sync instead") pero sigue en el binario.
+
+### 3.2 Depreciación / prorrateo: NO EXISTE
+
+No hay lógica de `prorrate` / `deprecia` / `amortiz` en `GastoRecurrenteService` ni `ContabilidadService` (grep limpio fuera de migraciones). Los gastos recurrentes se contabilizan **por monto completo del mes, no prorrateados** (ver §3.5). Ver §6 para la eliminación de EBITDA.
+
+### 3.3 Márgenes / utilidad — DOS implementaciones independientes
+
+Existen **dos motores de resultado** que no comparten fuente de verdad:
+
+**A) `SalesAnalyticsService.GetInformeFinancieroAsync`** (`:239-301`) → `InformeFinancieroDto`:
+
+```
+MargenBruto       = ingresosVentas − costoVentas
+UtilidadNeta      = (ingresosVentas − costoVentas) − gastosOperativos
+MargenPorcentaje  = ingresos > 0 ? ((ingresos − costo) / ingresos) × 100 : 0
+```
+
+- Costo por venta: `v.CostoVenta`, con fallback a `v.Producto.CostoPromedio` si es 0.
+- Excluye ventas fantasma `TB-EXTRA` / `TB-SIN-VENTA`; solo cuenta ventas `Pagado`.
+- `gastosOperativos` solo se computa cuando `maquinaId == 0`; lista de categorías operacionales **hardcodeada** (`:274-279`): `LOGISTICA, PEAJES, INSUMOS, MANTENCION, INFRA, ARRIENDO_POS, INTERNET, COMISIONES, SUELDOS, GASTOS GENERALES, OTROS, SERVICIOS`. Filtra por `Fecha >= CajaStartDate` y `Monto < 0`.
+
+**B) `CajaBusinessService.GetResumenAsync`** (`:40-135`) → `CajaResumenDto`:
+
+```
+margenBruto          = monthIngresosVentas − monthCostoVenta
+utilidadOperacional  = margenBruto − mermasAbs − totalGastosOps   ← etiquetado "EBITDA"
+utilidadNetaReal     = utilidadOperacional
+costoTransbank       = cantVentasTB × TransbankFee   (fee default 80)
+```
+
+- Buckets de categoría hardcodeados: variables `{LOGISTICA, PEAJES, INSUMOS, MANTENCION}`, fijos `{INFRA, ARRIENDO_POS, INTERNET, COMISIONES, SUELDOS, GASTOS GENERALES, OTROS, SERVICIOS}`, más `MERCADERIA` y `MERMA`.
+- **Bloqueo de mes muerto:** `IsMonthLockedStatic` calcula un `lockDate` pero **siempre `return false`** ("Actualmente deshabilitado", `:197`). El único candado real es el cierre de período.
+
+> Las listas de categorías de A y B están **duplicadas** y un comentario (`SalesAnalyticsService.cs:272`) reconoce que deben mantenerse en sync manualmente.
+
+### 3.4 Ciclo de período contable (`AccountingPeriodEstado`: `Abierto=0`, `Cerrado=1`)
+
+`ClosePeriodoAsync` (`ContabilidadService.cs:839-914`) — 3 compuertas secuenciales antes de cerrar:
+
+1. Todas las Transferencias `Verificada` (`:850-856`).
+2. Todas las Compras `Verificada` (`:859-866`).
+3. `saldoADevolver == 0`, donde `diferencia = totalTransferido − totalCompras − totalGastos` y `saldoADevolver = diferencia − devuelto` (`:869-887`).
+4. Auto-concilia transferencias con ítems vinculados y luego exige que todas estén `Conciliado` (`:890-910`).
+
+`Cerrado` es terminal y de solo lectura: bloquea edición de compras, gastos y el propio período (`:591,654,827`).
+
+### 3.5 Gastos recurrentes — manual, mensual, monto completo (`GastoRecurrenteService.cs`)
+
+- `GetPendientesDelMesAsync(mes, año)` (`:66`) lista gastos activos que **aún no** tienen un `MovimientoCaja` con ese `GastoRecurrenteId` en el mes.
+- `AplicarGastoAsync` (`:112`) evita duplicados por mes, luego postea **un** `MovimientoCaja`: `Monto = −Math.Abs(montoReal ?? MontoEstimado)`, `Tipo="GASTO"`, `Categoria = gasto.Categoria`, con fecha del día actual acotada al fin de mes.
+- **Sin reparto entre meses, sin calendario de depreciación.** Vinculación a máquina vía `MaquinaId?` opcional (global si null).
+
+### 3.6 Compras y OCR de facturas
+
+- **Estados de Compra** son strings libres (`PAGADA`/`PENDIENTE`), no enum. Va a caja cuando `Estado == "PAGADA" && PagadaCaja` (`CompraService.cs:167`).
+- **Resolución de categoría** (`ResolverCategoriaMovimiento`, `:757-778`): `MERCADERIA` → `"MERCADERIA"`; si no, `SubcategoriaGasto` explícita; si no, **inferencia por palabra clave del proveedor** (frágil): bencina/copec/shell/petro → `LOGISTICA`; peaje/autopista/tag/costanera/vespucio → `PEAJES`; default `GASTOS GENERALES`.
+- **OCR** (`FacturaOcrService.cs:28`): postea la imagen a `{ScraperServiceUrl}/api/ocr/invoice`. EAN validado 8–13 dígitos. División por pack cuando `ProductoEAN.PackSize > 1`.
+  - Python (`gemini_ocr.py`): modelo **`gemini-3-flash-preview`**, thinking `HIGH`. El prompt **hardcodea reglas tributarias chilenas**: IVA **19%**, ILA **18%** (azucaradas) / **10%** (zero/light); invariante `costo_unitario = neto × 1.19` (`:60,67-68,85`). Combustible → ítem único sin desglose.
+  - **El lado .NET nunca valida ni recomputa impuestos: confía en la salida de Gemini.**
+- **Match de proveedor** (`ProveedorMatchingService.MatchAsync`, `:35`): exacto por alias (conf 1.0) → exacto canónico normalizado (conf 1.0) → fuzzy tokenizado. Umbral default **0.6**. `ProveedorAlias` con clave normalizada única indexada; `ProveedorCatalog` es el canónico curado por el dueño.
+- **Devoluciones** (`RegistrarDevolucionAsync`, `:986-1137`): una por período/rendición abierto; `Monto > 0`; no puede exceder el saldo disponible; postea `MovimientoCaja` inverso con `Tipo="APORTE"`, `Categoria="DEVOLUCION_RENDICION"`. `DEVOLUCION_RENDICION` y el legacy `RETIRO_CAPITAL` son **categorías estructurales** excluidas de los totales de gasto (`:1354-1362`).
+
+---
+
+## 4. Flujo Técnico
+
+**Servicios:**
+
+- `ContabilidadService` — orquesta transferencias, cuadres, compras/gastos vinculados, períodos, verificación, devoluciones y la grilla de conciliación global (`GetConciliacionGlobalAsync`, `:1141`).
+- `CompraService` — registro de compras + impacto en inventario/costo (CPP + `ProductoCosto`).
+- `SalesAnalyticsService` — motor de informe financiero A y analítica de productos (clasificación ABC 80/95, estrella/joya/cacho por `AnalyticsThresholds`).
+- `CajaBusinessService` — motor de resumen de caja B (margen, "EBITDA", fee Transbank).
+- `GastoRecurrenteService` — aplicación mensual de gastos recurrentes.
+- `FacturaOcrService` — puente al OCR Python.
+- `ProveedorMatchingService` — matching de proveedores.
+- `InformesService` — CRUD de archivos de reporte (sin matemática).
+
+**Controladores** (todos `[Authorize]` salvo el señalado en §6): `CajaController`, `ComprasController` (+ rol admin), `ContabilidadController`, `GastoRecurrenteController` (+ `Roles="Admin"` en mutaciones), `ProveedoresController` (+ `Policy="RequireAdmin"`), `VentasController`.
+
+**Páginas Blazor** (`src/VendingManager.Web/Pages`):
+
+- `InformeVentas.razor` → `/informe-ventas` (KPIs Utilidad/Margen).
+- `CajaV2.razor` → `/caja` + `/caja-v2` (Margen bruto, "Resultado operacional (EBITDA)" en `:517`, utilidad operacional/neta). `Caja.razor` → `/caja-legacy`.
+- `Compras.razor` → `/compras`; `NuevaCompra.razor` → `/compras/nueva`; `EditarCompra.razor` → `/compras/editar/{Id}`.
+- `PurchaseReport.razor` → `/informe-compras`.
+- `AnalisisProductos.razor` → `/analisis-productos`.
+- `Conciliacion.razor` → `/contabilidad` (+ `ConciliacionMovil.razor`).
+- `Admin/Proveedores.razor` → `/admin/proveedores`.
+- La UI de GastoRecurrente vive dentro de `CajaV2.razor` / `Caja.razor` (sin página propia).
+
+---
+
+## 5. Configuración (`VendingConfig.cs`)
+
+Defaults hardcodeados relevantes: `CajaStartDate = 2026-01-01` (`:5`), `TransbankFee = 80` (`:7`), `PeriodCacheDurationMinutes = 5` (`:36`). Umbral de matching 0.6; ABC 80/95; Levenshtein 2/3.
+
+---
+
+## 6. Riesgos y Deuda Técnica Conocida
+
+- **EBITDA / depreciación ELIMINADO (Fase diferida).** La migración `20260713165734_CleanupEbitda` (la más reciente, 13-jul-2026) dropeó las tablas `DepreciacionesMaquina` y `DepreciacionesMaquinaHistory`, la columna `MovimientosCaja.MaquinaId` (+ FK/índice) y las columnas `Maquinas.FechaBaja` / `FechaInstalacion`. Los campos del modelo de depreciación (`ValorAdquisicion`, `ValorResidual`, `VidaUtilMeses`, `FechaAdquisicion`, `MetodoDepreciacion`) **ya no existen en código vivo**. **Lo que queda** es solo la etiqueta cosmética "EBITDA" en `CajaBusinessService.cs:101` y `CajaV2.razor:517`, sobre un valor calculado **sin** término de depreciación.
+- **`InformesController` SIN `[Authorize]`** (`:11-13`): sus endpoints de descarga/subida de reportes financieros están **sin autenticar**, a diferencia de todos los demás controladores financieros.
+- **Dos motores de utilidad/margen** (`SalesAnalyticsService` vs `CajaBusinessService`) con distinto alcance de gastos y sin fuente de verdad compartida.
+- **Fórmula CPP duplicada en 4 lugares** y **listas de categorías duplicadas** entre servicios (drift si se editan por separado).
+- **Impuestos hardcodeados solo en el prompt Python** (IVA 19%, ILA 18%/10%); .NET confía sin recomputar.
+- **Bloqueo de mes muerto:** `IsMonthLockedStatic` siempre devuelve `false`; los períodos cerrados son la única inmutabilidad real.
+- **Método obsoleto aún embarcado:** `RecalcularCostosHistoricosAsync` (`VentasService.cs:63`).
+- **Inferencia de categoría por keyword del proveedor** (`CompraService.cs:769-775`) es matching de strings frágil.
+- **Concurrencia:** solo `ActualizarMontoTransferenciaAsync` maneja `DbUpdateConcurrencyException` (`:561`); otras rutas de mutación no.
+- **Sin leasing/intereses:** no hay marcadores "Fase 2 / leasing / interés" en el código (grep limpio). Nunca se implementó; lo más cercano fue el modelo de depreciación ya eliminado.
