@@ -20,6 +20,10 @@ public class Maquina
     /// <summary>Nullable — active machines have null. Set when the machine is retired.</summary>
     public DateTime? FechaBaja { get; set; }
 
+    // Zona logística para optimización de rutas (opcional)
+    public int? ZonaLogisticaId { get; set; }
+    public ZonaLogistica? Zona { get; set; }
+
     // Relación con los slots configurados
     public List<ConfiguracionSlot> Slots { get; set; } = new();
 }

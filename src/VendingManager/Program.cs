@@ -136,6 +136,7 @@ builder.Services.AddScoped<IInventarioService, InventarioService>();
 builder.Services.AddScoped<IMaquinaService, MaquinaService>();
 builder.Services.AddScoped<IInformesService, InformesService>();
 builder.Services.AddScoped<VendingManager.Core.Interfaces.IOrdenCargaService, OrdenCargaService>();
+builder.Services.AddScoped<ILogisticaPredictivaService, LogisticaPredictivaService>();
 builder.Services.AddScoped<ITemplateRecargaService, TemplateRecargaService>();
 builder.Services.AddScoped<ITemplateRecargaLifecycleService, TemplateRecargaLifecycleService>();
 builder.Services.AddScoped<ITemplateRecargaAnalyticsService, TemplateRecargaAnalyticsService>();

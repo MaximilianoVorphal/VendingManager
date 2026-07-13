@@ -47,6 +47,7 @@ namespace VendingManager.Infrastructure.Data
         public DbSet<ProveedorCatalogHistory> ProveedorCatalogHistory { get; set; } = null!;
         public DbSet<DepreciacionMaquina> DepreciacionesMaquina { get; set; } = null!;
         public DbSet<DepreciacionMaquinaHistory> DepreciacionesMaquinaHistory { get; set; } = null!;
+        public DbSet<ZonaLogistica> ZonasLogisticas { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -277,6 +278,17 @@ namespace VendingManager.Infrastructure.Data
                 .HasOne<Maquina>()
                 .WithMany()
                 .HasForeignKey(m => m.MaquinaId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            // ZonaLogistica: costo base como decimal (dinero)
+            modelBuilder.Entity<ZonaLogistica>()
+                .Property(z => z.CostoBaseViaje).HasColumnType("decimal(18,2)");
+
+            // Maquina -> ZonaLogistica: FK nullable, si la zona se elimina la máquina queda sin zona
+            modelBuilder.Entity<Maquina>()
+                .HasOne(m => m.Zona)
+                .WithMany()
+                .HasForeignKey(m => m.ZonaLogisticaId)
                 .OnDelete(DeleteBehavior.SetNull);
         }
     }
