@@ -356,6 +356,34 @@ namespace VendingManager.Web.Pages
             }
         }
 
+        private async Task ConfirmarBorrador(OrdenCargaDto orden)
+        {
+            try
+            {
+                var resp = await Http.PostAsync($"api/OrdenCarga/{orden.Id}/confirmar", null);
+                if (resp.IsSuccessStatusCode)
+                {
+                    Mensaje = $"Orden #{orden.Id} confirmada. Stock descontado.";
+                    AlertClass = "alert-success";
+                    // Refresh the current view
+                    if (MaquinaActualId > 0)
+                        await CargarDatos();
+                    else
+                        await CargarHistorialGlobal();
+                }
+                else
+                {
+                    Mensaje = "Error al confirmar: " + await resp.Content.ReadAsStringAsync();
+                    AlertClass = "alert-danger";
+                }
+            }
+            catch (Exception ex)
+            {
+                Mensaje = "Error crítico: " + ex.Message;
+                AlertClass = "alert-danger";
+            }
+        }
+
         private async Task ConfirmarFinalizacion()
         {
             if (OrdenSeleccionada == null) return;

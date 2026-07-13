@@ -17,5 +17,7 @@ namespace VendingManager.Core.Interfaces
         
         Task<bool> ActualizarNombreOrdenAsync(int ordenId, string nuevoNombre);
         Task<bool> ActualizarOrdenAsync(int ordenId, ActualizarOrdenRequestDto dto);
+        Task<OrdenCargaDto> CrearOrdenBorradorAsync(CrearOrdenDto dto);
+        Task<OrdenCargaDto> ConfirmarOrdenAsync(int ordenId);
     }
 }
