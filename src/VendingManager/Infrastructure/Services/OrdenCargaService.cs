@@ -40,7 +40,8 @@ namespace VendingManager.Infrastructure.Services
                     throw new Exception($"Stock insuficiente para '{producto.Nombre}'. Disponible: {producto.StockBodega}, Solicitado: {item.Cantidad}");
                 }
 
-                producto.StockBodega -= item.Cantidad;
+                if (!dto.IgnorarStock)
+                    producto.StockBodega -= item.Cantidad;
 
                 int? itemMaquinaId = item.MaquinaId;
                 if (!itemMaquinaId.HasValue && orden.MaquinaId.HasValue)
@@ -289,6 +290,97 @@ namespace VendingManager.Infrastructure.Services
 
             await context.SaveChangesAsync();
             return true;
+        }
+
+        public async Task<OrdenCargaDto> CrearOrdenBorradorAsync(CrearOrdenDto dto)
+        {
+            // 1. Validate Machine (Only if not global)
+            Maquina? maquina = null;
+            if (dto.MaquinaId.HasValue && dto.MaquinaId.Value > 0)
+            {
+                maquina = await context.Maquinas.FindAsync(dto.MaquinaId);
+                if (maquina == null) throw new Exception("Máquina no encontrada.");
+            }
+
+            // 2. Create Order Entity as BORRADOR
+            var orden = new OrdenCarga
+            {
+                MaquinaId = (dto.MaquinaId.HasValue && dto.MaquinaId.Value > 0) ? dto.MaquinaId : null,
+                Nombre = dto.Nombre,
+                FechaCreacion = dto.Fecha ?? DateTime.Now,
+                Estado = "BORRADOR"
+            };
+
+            // 3. Process Items — NO stock validation, NO stock deduction
+            foreach (var item in dto.Items)
+            {
+                if (item.Cantidad <= 0) continue;
+
+                var producto = await context.Productos.FindAsync(item.ProductoId);
+                if (producto == null) continue;
+
+                int? itemMaquinaId = item.MaquinaId;
+                if (!itemMaquinaId.HasValue && orden.MaquinaId.HasValue)
+                {
+                    itemMaquinaId = orden.MaquinaId;
+                }
+
+                orden.Detalles.Add(new DetalleOrdenCarga
+                {
+                    ProductoId = producto.Id,
+                    ProductoNombre = producto.Nombre,
+                    CantidadSolicitada = item.Cantidad,
+                    CantidadRetornada = 0,
+                    CostoUnitario = producto.CostoPromedio,
+                    MaquinaId = itemMaquinaId
+                });
+            }
+
+            context.OrdenesCarga.Add(orden);
+            await context.SaveChangesAsync();
+
+            return MapToDto(orden, maquina?.Nombre ?? "RUTA GLOBAL", maquina?.IdInternoMaquina ?? "");
+        }
+
+        public async Task<OrdenCargaDto> ConfirmarOrdenAsync(int ordenId)
+        {
+            var orden = await context.OrdenesCarga
+                .Include(o => o.Detalles)
+                .FirstOrDefaultAsync(o => o.Id == ordenId);
+
+            if (orden == null) throw new Exception("Orden no encontrada.");
+
+            if (orden.Estado != "BORRADOR")
+                throw new InvalidOperationException("La orden no está en estado BORRADOR.");
+
+            // Validate and deduct stock for each detail
+            foreach (var detalle in orden.Detalles)
+            {
+                var producto = await context.Productos.FindAsync(detalle.ProductoId);
+                if (producto == null) continue;
+
+                if (producto.StockBodega < detalle.CantidadSolicitada)
+                    throw new Exception($"Stock insuficiente para '{producto.Nombre}'. Disponible: {producto.StockBodega}, Solicitado: {detalle.CantidadSolicitada}");
+
+                producto.StockBodega -= detalle.CantidadSolicitada;
+            }
+
+            orden.Estado = "PENDIENTE";
+            await context.SaveChangesAsync();
+
+            string maquinaName = "RUTA GLOBAL";
+            string idInternoMaquina = "";
+            if (orden.MaquinaId.HasValue)
+            {
+                var maquina = await context.Maquinas
+                    .Where(m => m.Id == orden.MaquinaId.Value)
+                    .Select(m => new { m.Nombre, m.IdInternoMaquina })
+                    .FirstOrDefaultAsync();
+                maquinaName = maquina?.Nombre ?? "Desconocida";
+                idInternoMaquina = maquina?.IdInternoMaquina ?? "";
+            }
+
+            return MapToDto(orden, maquinaName, idInternoMaquina);
         }
 
         private OrdenCargaDto MapToDto(OrdenCarga orden, string maquinaNombre, string idInternoMaquina)

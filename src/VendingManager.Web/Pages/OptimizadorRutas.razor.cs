@@ -72,7 +72,7 @@ namespace VendingManager.Web.Pages
                 if (resp.IsSuccessStatusCode)
                 {
                     var ordenId = await resp.Content.ReadFromJsonAsync<int>();
-                    Mensaje = $"Orden de carga #{ordenId} generada para {zona.ZonaNombre}. Inventario descontado.";
+                    Mensaje = $"Orden de carga #{ordenId} generada como borrador para {zona.ZonaNombre}. Revisá y confirmá en Cargas.";
                     MensajeEsError = false;
                 }
                 else

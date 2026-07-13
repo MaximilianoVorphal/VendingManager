@@ -395,7 +395,7 @@ public class LogisticaPredictivaServiceTests : IDisposable
             .Include(o => o.Detalles)
             .SingleAsync(o => o.Id == ordenId);
 
-        orden.Estado.Should().Be("PENDIENTE");
+        orden.Estado.Should().Be("BORRADOR");
         orden.MaquinaId.Should().BeNull("la orden de zona es consolidada; cada detalle lleva su máquina");
         orden.Nombre.Should().StartWith("Rescate Norte");
 
@@ -434,7 +434,7 @@ public class LogisticaPredictivaServiceTests : IDisposable
         var orden = await _context.OrdenesCarga
             .Include(o => o.Detalles)
             .SingleAsync(o => o.Id == ordenId);
-        orden.Estado.Should().Be("PENDIENTE");
+        orden.Estado.Should().Be("BORRADOR");
         orden.Detalles.Single().CantidadSolicitada.Should().Be(10);
     }
 }

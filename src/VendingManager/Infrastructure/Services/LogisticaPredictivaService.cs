@@ -211,7 +211,7 @@ namespace VendingManager.Infrastructure.Services
             if (items.Count == 0)
                 throw new InvalidOperationException($"No hay slots críticos en '{zona.ZonaNombre}'.");
 
-            var orden = await ordenCargaService.CrearOrdenAsync(new CrearOrdenDto
+            var orden = await ordenCargaService.CrearOrdenBorradorAsync(new CrearOrdenDto
             {
                 Nombre = $"Rescate {zona.ZonaNombre} {DateTime.Now:dd/MM/yyyy}",
                 MaquinaId = null, // Orden consolidada de la zona

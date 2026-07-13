@@ -13,7 +13,7 @@ namespace VendingManager.Core.Entities
         public DateTime? FechaFinalizacion { get; set; }
 
         [Required]
-        public string Estado { get; set; } = "PENDIENTE"; // PENDIENTE, FINALIZADA
+        public string Estado { get; set; } = "PENDIENTE"; // BORRADOR, PENDIENTE, FINALIZADA
 
         public string? Nombre { get; set; } // Opcional, nombre de la ruta/orden
 

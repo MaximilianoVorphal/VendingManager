@@ -122,6 +122,24 @@ namespace VendingManager.Controllers
             }
         }
 
+        [HttpPost("{id}/confirmar")]
+        public async Task<ActionResult<OrdenCargaDto>> Confirmar(int id)
+        {
+            try
+            {
+                var orden = await service.ConfirmarOrdenAsync(id);
+                return Ok(orden);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                return NotFound(ex.Message);
+            }
+        }
+
         /// <summary>
         /// OCR endpoint: receives a refill list photo, extracts slot+quantity pairs via OCR,
         /// performs fuzzy matching against the machine's slots, and returns matched results.
