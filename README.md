@@ -15,7 +15,7 @@
 
 Gestionar un negocio de vending sin sistema es un caos: las ventas se anotan en papel, los costos se calculan en Excel, y la trazabilidad del dinero que entra y sale se pierde entre planillas. Cuando un trabajador rinde cuentas, no hay forma de conciliar rápido, y al cierre del mes nunca tenés certeza de si ganaste o perdiste.
 
-**VendingManager automatiza todo ese proceso.** Conecta cada venta de cada máquina con tu caja, tu inventario y tus gastos, y te da _en tiempo real_ los números que importan. Además, **todas las noches el sistema sincroniza automáticamente las máquinas** con el portal OurVend — cero trabajo manual, cero olvidos.
+**VendingManager automatiza todo ese proceso.** Conecta cada venta de cada máquina con tu caja, tu inventario y tus gastos, y te da _en tiempo real_ los números que importan. Además, **el sistema sincroniza automáticamente las máquinas** con el portal OurVend durante todo el día — cero trabajo manual, cero olvidos.
 
 El resultado: sabés exactamente cuánto ganó el negocio cada mes, con costos precisos porque el sistema guarda el valor de cada producto al momento exacto de cada venta. Sin planillas, sin errores, sin depender de la memoria de nadie.
 
@@ -37,7 +37,7 @@ El resultado: sabés exactamente cuánto ganó el negocio cada mes, con costos p
 
 ## ⚡ Funcionalidades Principales
 
-- 📡 **Sincronización Automática** — El sistema ingresa diariamente al portal OurVend, descarga los reportes de venta de todas las máquinas y los procesa. Detecta duplicados automáticamente y reintenta si hay fallos.
+- 📡 **Sincronización Automática** — El sistema consulta el portal OurVend cada ~2 horas dentro del horario comercial, descarga las ventas de todas las máquinas y las procesa. Detecta duplicados automáticamente, y un _circuit breaker_ con backoff progresivo protege el acceso ante fallos o bloqueos del portal.
 
 - 🤖 **OCR con Inteligencia Artificial** — Sacale una foto a la factura del proveedor o a la lista de carga manuscrita. Google Gemini extrae proveedor, productos, cantidades y precios en segundos. El sistema además reconoce códigos EAN y los asocia a tu catálogo automáticamente.
 
@@ -57,38 +57,28 @@ El resultado: sabés exactamente cuánto ganó el negocio cada mes, con costos p
 
 ## 🏗️ Arquitectura
 
-```
-┌──────────────────────────────────────────────────────────────┐
-│                    VendingManager System                      │
-│                                                               │
-│  ┌──────────────────┐    ┌──────────────────────────────┐    │
-│  │ Blazor WebAssembly │───▶│  ASP.NET Core Web API         │    │
-│  │ (Frontend SPA)     │    │  Clean Architecture           │    │
-│  └──────────────────┘    │  Controllers → Services → EF    │    │
-│                          └───────────┬──────────────────┘    │
-│                                      │                        │
-│                          ┌───────────▼──────────────────┐    │
-│                          │  SQL Server 2022             │    │
-│                          │  (VendingDB)                  │    │
-│                          └──────────────────────────────┘    │
-│                                                               │
-│  ┌──────────────────────────────────────────────────────┐    │
-│  │  Python Scraper Service (FastAPI + Playwright)        │    │
-│  │  Extracción OurVend + OCR facturas + OCR recarga     │    │
-│  └──────────────────────────────────────────────────────┘    │
-│                                                               │
-│  ┌──────────────────────────────────────────────────────┐    │
-│  │  AutomatedReportService (Background Worker)           │    │
-│  │  Sincronización diaria automática                     │    │
-│  └──────────────────────────────────────────────────────┘    │
-└──────────────────────────────────────────────────────────────┘
-         │                                      │
-         ▼                                      ▼
-┌─────────────────┐                  ┌─────────────────────┐
-│   Usuario        │                  │  Google Gemini API   │
-│   (Navegador)    │                  │  (OCR de facturas    │
-└─────────────────┘                  │   y fotos de recarga) │
-                                     └─────────────────────┘
+```mermaid
+flowchart TB
+    Usuario["👤 Usuario (Navegador)"]
+
+    subgraph VM["VendingManager System"]
+        Frontend["Blazor WebAssembly<br/>(Frontend SPA)"]
+        API["ASP.NET Core Web API<br/>Clean Architecture<br/>Controllers → Services → EF Core"]
+        DB[("SQL Server 2022<br/>VendingDB")]
+        Worker["AutomatedReportService<br/>(Background Worker)<br/>Polling automático + circuit breaker"]
+        Scraper["Python Scraper Service<br/>(FastAPI + Playwright)<br/>Extracción OurVend + OCR"]
+    end
+
+    OurVend["🌐 Portal OurVend"]
+    Gemini["🤖 Google Gemini API<br/>(OCR de facturas y planillas)"]
+
+    Usuario --> Frontend
+    Frontend --> API
+    API --> DB
+    Worker --> Scraper
+    Worker --> DB
+    Scraper --> OurVend
+    Scraper --> Gemini
 ```
 
 ### Patrones de Diseño
@@ -107,26 +97,42 @@ El resultado: sabés exactamente cuánto ganó el negocio cada mes, con costos p
 
 | Métrica | Valor |
 |---------|-------|
-| Pantallas | 24 |
-| Endpoints API | 100+ |
-| Entidades | 21 |
-| Tests automatizados | 300+ |
-| Tablas de auditoría | 11 |
+| Pantallas | 27 |
+| Endpoints API | 160+ |
+| Controladores | 19 |
+| Entidades de negocio | 26 |
+| Tablas de historial (auditoría) | 12 |
+| Tests automatizados | 900+ |
 | Entornos Docker | 3 (dev, test, prod) |
-| Controladores | 15 |
 
 ---
 
 ## 🚀 Quick Start
 
+Requisitos: Docker.
+
 ```bash
-# Requisitos: Docker
 git clone https://github.com/MaximilianoVorphal/VendingManager.git
 cd VendingManager
+
+# Crear el archivo .env que usa Docker Compose
+cat > .env << 'EOF'
+MSSQL_SA_PASSWORD=ChangeMe@Password!2026
+OURVEND_USER=
+OURVEND_PASS=
+GEMINI_API_KEY=
+EOF
+
 docker-compose up -d
 ```
 
-La app corre en `http://localhost:8080`. Las migraciones de base de datos se aplican automáticamente.
+La app corre en `http://localhost:8080`. Las migraciones de base de datos se aplican automáticamente e incluyen un usuario inicial:
+
+| Usuario | Contraseña |
+|---------|------------|
+| `admin` | `admin` |
+
+> Las credenciales de OurVend y la clave de Gemini son opcionales: sin ellas la app funciona completa, solo que sin sincronización automática de ventas ni OCR.
 
 ---
 

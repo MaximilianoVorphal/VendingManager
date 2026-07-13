@@ -2,6 +2,15 @@
 
 Documentación completa del sistema, organizada por dominio de negocio y área técnica.
 
+## 🧭 ¿Por dónde empezar?
+
+| Si querés... | Empezá por |
+|--------------|-----------|
+| Entender qué hace el sistema y por qué | [README principal](../README.md) y luego los dominios de negocio (01 → 06) |
+| Evaluar el diseño técnico | [Arquitectura](./arquitectura.md) → [Modelo de Datos](./entidades.md) |
+| Levantar el proyecto y correrlo | Quick Start del [README](../README.md#-quick-start) → [Guía de Desarrollo](./desarrollo.md) |
+| Explorar la API REST | [API Reference](./api.md) |
+
 ---
 
 ## 📖 Dominios de Negocio
