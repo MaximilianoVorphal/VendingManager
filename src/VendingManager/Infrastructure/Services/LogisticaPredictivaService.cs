@@ -135,7 +135,7 @@ namespace VendingManager.Infrastructure.Services
             DateTime? primeraVenta,
             DateTime? ultimaVenta)
         {
-            // Velocidad predictiva corregida: ventas por hora operativa × 24h.
+            // Velocidad predictiva corregida: ventas por hora operativa × 14h (horario 8:00-22:00).
             // Ya no se divide por slotsConMismoProducto (slot-sharing eliminado).
             decimal velocidad;
             if (primeraVenta.HasValue && ultimaVenta.HasValue && unidadesVendidasMaquinaProducto > 0)
@@ -144,7 +144,7 @@ namespace VendingManager.Infrastructure.Services
                     primeraVenta.Value, ultimaVenta.Value);
                 if (horasActivas < 1) horasActivas = 1; // Guard para ventanas sub-hora
                 double velocidadPorHora = unidadesVendidasMaquinaProducto / horasActivas;
-                velocidad = (decimal)(velocidadPorHora * 24);
+                velocidad = (decimal)(velocidadPorHora * 14);
             }
             else
             {
