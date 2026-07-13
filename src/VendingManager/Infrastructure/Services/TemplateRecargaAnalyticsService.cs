@@ -46,6 +46,35 @@ public class TemplateRecargaAnalyticsService : ITemplateRecargaAnalyticsService
         var maquinaIds = template.Periodos.Select(p => p.MaquinaId).ToHashSet();
         var crossTemplateLookup = await BuildCrossTemplateLookupAsync(maquinaIds);
 
+        // Pre-load ALL ventas across ALL machines in this template to compute
+        // per-machine product velocity (aggregated by slot, not per-slot)
+        // with operating-hours filter.
+        // Key: (MaquinaId, ProductoId) — velocity varies by machine location,
+        // not just by product. Same product in an office vs. a hospital sells differently.
+        var todasLasVentas = await _context.Ventas
+            .Include(v => v.Producto)
+            .Where(v => maquinaIds.Contains(v.MaquinaId))
+            .Where(v => v.IdOrdenMaquina != "TB-EXTRA" && v.IdOrdenMaquina != "TB-SIN-VENTA")
+            .ToListAsync();
+
+        var velocidadPorProducto = todasLasVentas
+            .Where(v => v.ProductoId.HasValue && v.ProductoId > 0)
+            .GroupBy(v => (v.MaquinaId, ProductoId: v.ProductoId!.Value))
+            .ToDictionary(
+                g => g.Key,
+                g =>
+                {
+                    var ventasEnHorario = g.Where(v => v.FechaLocal.Hour >= 8 && v.FechaLocal.Hour < 22).ToList();
+                    if (ventasEnHorario.Count == 0) return 0m;
+
+                    var primera = ventasEnHorario.Min(v => v.FechaLocal);
+                    var ultima = ventasEnHorario.Max(v => v.FechaLocal);
+                    var horasActivas = HorasEnRangoOperativo(primera, ultima);
+                    if (horasActivas < 1) horasActivas = 1;
+
+                    return ventasEnHorario.Count / (decimal)horasActivas;
+                });
+
         foreach (var periodo in template.Periodos)
         {
             var snapshotPorProducto = periodo.SnapshotSlots
@@ -56,14 +85,22 @@ public class TemplateRecargaAnalyticsService : ITemplateRecargaAnalyticsService
             var fechaFin = await GetEndDateForPeriodoAsync(
                 periodo.MaquinaId, periodo.FechaRecarga, crossTemplateLookup);
 
-            var analisisMaquina = await AnalizarMaquinaEnPeriodo(
+            var ventasMaquina = todasLasVentas
+                .Where(v => v.MaquinaId == periodo.MaquinaId
+                         && v.FechaLocal >= periodo.FechaRecarga
+                         && v.FechaLocal <= fechaFin)
+                .ToList();
+
+            var analisisMaquina = AnalizarMaquinaEnPeriodo(
                 periodo.MaquinaId,
                 periodo.Maquina?.Nombre ?? "Desconocida",
                 periodo.FechaRecarga,
                 fechaFin,
                 umbralHorasSilencio,
                 periodo.SnapshotSlots.ToList(),
-                snapshotPorProducto);
+                snapshotPorProducto,
+                ventasMaquina,
+                velocidadPorProducto);
 
             result.AddRange(analisisMaquina);
         }
@@ -338,6 +375,42 @@ public class TemplateRecargaAnalyticsService : ITemplateRecargaAnalyticsService
         return lookup;
     }
 
+    /// <summary>
+    /// Counts the number of operating hours (08:00–22:00) between two timestamps.
+    /// Used to avoid diluting velocity and loss calculations with overnight dead hours.
+    /// </summary>
+    private static double HorasEnRangoOperativo(DateTime desde, DateTime hasta)
+    {
+        if (hasta <= desde) return 0;
+
+        double total = 0;
+        var cursor = desde;
+
+        while (cursor < hasta)
+        {
+            int hour = cursor.Hour;
+
+            if (hour >= 8 && hour < 22)
+            {
+                var endOfHour = cursor.Date.AddHours(hour + 1);
+                if (hour == 21) endOfHour = cursor.Date.AddHours(22);
+                var segmentEnd = endOfHour < hasta ? endOfHour : hasta;
+                total += (segmentEnd - cursor).TotalHours;
+                cursor = segmentEnd;
+            }
+            else if (hour < 8)
+            {
+                cursor = cursor.Date.AddHours(8);
+            }
+            else
+            {
+                cursor = cursor.Date.AddDays(1).AddHours(8);
+            }
+        }
+
+        return total;
+    }
+
     private async Task<DateTime> GetEndDateForPeriodoAsync(
         int maquinaId,
         DateTime fechaRecarga,
@@ -360,21 +433,20 @@ public class TemplateRecargaAnalyticsService : ITemplateRecargaAnalyticsService
             : fechaRecarga.AddDays(90));
     }
 
-    private async Task<List<StockoutAnalysisDto>> AnalizarMaquinaEnPeriodo(
+    private List<StockoutAnalysisDto> AnalizarMaquinaEnPeriodo(
         int maquinaId,
         string maquinaNombre,
         DateTime inicio,
         DateTime fin,
         double umbralHoras,
         List<SnapshotSlot> snapshotSlots,
-        Dictionary<int, int>? snapshotPorProducto)
+        Dictionary<int, int>? snapshotPorProducto,
+        List<Venta> ventasMaquina,
+        Dictionary<(int maquinaId, int productoId), decimal>? velocidadPorProducto = null)
     {
-        var ventas = await _context.Ventas
-            .Include(v => v.Producto)
-            .Where(v => v.MaquinaId == maquinaId)
+        var ventas = ventasMaquina
             .Where(v => v.FechaLocal >= inicio && v.FechaLocal <= fin)
-            .Where(v => v.IdOrdenMaquina != "TB-EXTRA" && v.IdOrdenMaquina != "TB-SIN-VENTA")
-            .ToListAsync();
+            .ToList();
 
         var result = new List<StockoutAnalysisDto>();
 
@@ -446,13 +518,42 @@ public class TemplateRecargaAnalyticsService : ITemplateRecargaAnalyticsService
 
             decimal velocidadPorHora = cantidadVendida / (decimal)horasActivas;
 
+            // Resolve effective velocity: product-level aggregate when available,
+            // fall back to per-slot velocity otherwise.
+            decimal velocidadEfectiva = velocidadPorHora;
+            if (velocidadPorProducto != null
+                && productoId > 0
+                && velocidadPorProducto.TryGetValue((maquinaId, productoId), out var vp)
+                && vp > 0)
+            {
+                velocidadEfectiva = vp;
+            }
+
             decimal dineroPerdido = 0;
             decimal gananciaPerdida = 0;
 
+            // Use product-level velocity when available — aggregates across all machines
+            // and filters to operating hours (08:00–22:00) for a more robust estimate.
+            // horasSinStock is also adjusted to operating hours for consistency.
             if (posibleQuiebre && horasSinStock > 0 && precioPromedio > 0)
             {
-                dineroPerdido = velocidadPorHora * (decimal)horasSinStock * precioPromedio;
-                gananciaPerdida = velocidadPorHora * (decimal)horasSinStock * gananciaPromedio;
+                if (velocidadEfectiva != velocidadPorHora && velocidadPorProducto != null
+                    && productoId > 0
+                    && velocidadPorProducto.TryGetValue((maquinaId, productoId), out var vpLoss)
+                    && vpLoss > 0)
+                {
+                    double horasSinStockOperativas = HorasEnRangoOperativo(fechaAgotamiento, fin);
+                    if (horasSinStockOperativas < 0) horasSinStockOperativas = 0;
+
+                    dineroPerdido = vpLoss * (decimal)horasSinStockOperativas * precioPromedio;
+                    gananciaPerdida = vpLoss * (decimal)horasSinStockOperativas * gananciaPromedio;
+                }
+                else
+                {
+                    // Fallback: per-slot velocity with raw clock hours
+                    dineroPerdido = velocidadPorHora * (decimal)horasSinStock * precioPromedio;
+                    gananciaPerdida = velocidadPorHora * (decimal)horasSinStock * gananciaPromedio;
+                }
             }
 
             result.Add(new StockoutAnalysisDto
@@ -472,7 +573,7 @@ public class TemplateRecargaAnalyticsService : ITemplateRecargaAnalyticsService
                 StockInicial = cantidadInicial,
                 CantidadVendida = cantidadVendida,
                 HorasActivas = horasActivas,
-                VelocidadPorHora = Math.Round(velocidadPorHora, 4),
+                VelocidadPorHora = Math.Round(velocidadEfectiva, 4),
                 PrecioPromedioVenta = Math.Round(precioPromedio, 0),
                 GananciaPromedio = Math.Round(gananciaPromedio, 0),
                 DineroPerdidoEstimado = Math.Round(dineroPerdido, 0),

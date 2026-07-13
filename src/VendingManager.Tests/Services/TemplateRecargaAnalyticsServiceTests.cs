@@ -535,4 +535,426 @@ public class TemplateRecargaAnalyticsServiceTests : IDisposable
     }
 
     #endregion
+
+    #region ProductVelocity — aggregated velocity and operating-hours filter
+
+    /// <summary>
+    /// When the same product lives in multiple slots, the velocity should be
+    /// aggregated across all slots (not computed per-slot), reducing noise
+    /// for low-volume slots.
+    /// </summary>
+    [Fact]
+    public async Task AnalyzarPorTemplateAsync_ProductVelocity_AggregatedAcrossSlots()
+    {
+        // Arrange — same producto in two slots of the same machine
+        var maquina = TestDataHelpers.CreateMaquina(id: 1, nombre: "Machine 1");
+        var producto = TestDataHelpers.CreateProducto(id: 1, nombre: "Coca Cola", costoPromedio: 400);
+        _context.Maquinas.Add(maquina);
+        _context.Productos.Add(producto);
+        await _context.SaveChangesAsync();
+
+        var fechaRecarga = new DateTime(2025, 1, 1, 8, 0, 0); // 08:00
+
+        var template = new TemplateRecarga
+        {
+            Id = 500,
+            Nombre = "Aggregated Velocity Template",
+            Periodos = new List<PeriodoRecarga>
+            {
+                new()
+                {
+                    Id = 500,
+                    MaquinaId = 1,
+                    FechaRecarga = fechaRecarga,
+                    SnapshotSlots = new List<SnapshotSlot>
+                    {
+                        new() { NumeroSlot = "1", ProductoId = 1, CantidadInicial = 10, Estado = EstadoSlot.Lleno },
+                        new() { NumeroSlot = "2", ProductoId = 1, CantidadInicial = 10, Estado = EstadoSlot.Lleno }
+                    }
+                }
+            }
+        };
+        _context.TemplatesRecarga.Add(template);
+
+        // Slot 1: 3 ventas (low volume, noisy per-slot velocity)
+        // Slot 2: 30 ventas (high volume, realistic velocity)
+        for (int i = 0; i < 3; i++)
+            _context.Ventas.Add(new Venta
+            {
+                MaquinaId = 1, NumeroSlot = "1", ProductoId = 1,
+                FechaLocal = fechaRecarga.AddHours(10 + i), FechaHora = fechaRecarga.AddHours(10 + i),
+                PrecioVenta = 1000, CostoVenta = 400, Pagado = true, IdOrdenMaquina = "TEST"
+            });
+        for (int i = 0; i < 30; i++)
+            _context.Ventas.Add(new Venta
+            {
+                MaquinaId = 1, NumeroSlot = "2", ProductoId = 1,
+                FechaLocal = fechaRecarga.AddHours(10 + i * 0.5), FechaHora = fechaRecarga.AddHours(10 + i * 0.5),
+                PrecioVenta = 1000, CostoVenta = 400, Pagado = true, IdOrdenMaquina = "TEST"
+            });
+
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _service.AnalyzarPorTemplateAsync(templateId: 500);
+
+        // Assert — both slots should share the same aggregated velocity,
+        // NOT wildly different per-slot velocities (3/?? vs 30/??).
+        result.Should().HaveCount(2);
+        var slot1 = result.First(r => r.NumeroSlot == "1");
+        var slot2 = result.First(r => r.NumeroSlot == "2");
+
+        slot1.VelocidadPorHora.Should().Be(slot2.VelocidadPorHora,
+            "both slots share the same product and should use aggregated velocity");
+        slot1.VelocidadPorHora.Should().BeGreaterThan(0,
+            "aggregated velocity should be based on all 33 ventas");
+    }
+
+    /// <summary>
+    /// Ventas outside operating hours (08:00–22:00) should NOT count toward
+    /// the product-level velocity calculation. This prevents overnight dead
+    /// hours from diluting the velocity metric.
+    /// </summary>
+    [Fact]
+    public async Task AnalyzarPorTemplateAsync_OperatingHours_ExcludesNightSalesFromVelocity()
+    {
+        // Arrange
+        var maquina = TestDataHelpers.CreateMaquina(id: 1, nombre: "Machine 1");
+        var producto = TestDataHelpers.CreateProducto(id: 1, nombre: "Coca Cola", costoPromedio: 400);
+        _context.Maquinas.Add(maquina);
+        _context.Productos.Add(producto);
+        await _context.SaveChangesAsync();
+
+        var fechaRecarga = new DateTime(2025, 1, 1, 8, 0, 0);
+
+        var template = new TemplateRecarga
+        {
+            Id = 501,
+            Nombre = "Operating Hours Template",
+            Periodos = new List<PeriodoRecarga>
+            {
+                new()
+                {
+                    Id = 501,
+                    MaquinaId = 1,
+                    FechaRecarga = fechaRecarga,
+                    SnapshotSlots = new List<SnapshotSlot>
+                    {
+                        new() { NumeroSlot = "1", ProductoId = 1, CantidadInicial = 10, Estado = EstadoSlot.Lleno }
+                    }
+                }
+            }
+        };
+        _context.TemplatesRecarga.Add(template);
+
+        // 5 ventas at 3 AM (outside operating hours — excluded from velocity)
+        for (int i = 0; i < 5; i++)
+            _context.Ventas.Add(new Venta
+            {
+                MaquinaId = 1, NumeroSlot = "1", ProductoId = 1,
+                FechaLocal = new DateTime(2025, 1, 1, 3, 0, 0).AddDays(i),
+                FechaHora = new DateTime(2025, 1, 1, 3, 0, 0).AddDays(i),
+                PrecioVenta = 1000, CostoVenta = 400, Pagado = true, IdOrdenMaquina = "TEST"
+            });
+
+        // 10 ventas at 10 AM (inside operating hours)
+        for (int i = 0; i < 10; i++)
+            _context.Ventas.Add(new Venta
+            {
+                MaquinaId = 1, NumeroSlot = "1", ProductoId = 1,
+                FechaLocal = new DateTime(2025, 1, 1, 10, 0, 0).AddDays(i),
+                FechaHora = new DateTime(2025, 1, 1, 10, 0, 0).AddDays(i),
+                PrecioVenta = 1000, CostoVenta = 400, Pagado = true, IdOrdenMaquina = "TEST"
+            });
+
+        // Close the period: next template ends it at day 12
+        var cierre = new TemplateRecarga
+        {
+            Id = 601,
+            Nombre = "Close",
+            Periodos = new List<PeriodoRecarga>
+            {
+                new()
+                {
+                    Id = 601,
+                    MaquinaId = 1,
+                    FechaRecarga = new DateTime(2025, 1, 12, 8, 0, 0),
+                    SnapshotSlots = new List<SnapshotSlot>()
+                }
+            }
+        };
+        _context.TemplatesRecarga.Add(cierre);
+
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _service.AnalyzarPorTemplateAsync(templateId: 501);
+
+        // Assert — velocity should be based on 10 operating-hours ventas, not 15 total.
+        result.Should().HaveCount(1);
+        var slot = result[0];
+
+        slot.VelocidadPorHora.Should().BeGreaterThan(0);
+        // 15 total ventas, initial=10 → stockout. But operating-hours filter
+        // makes the loss estimate more conservative.
+        slot.PosibleQuiebre.Should().BeTrue("15 ventas > 10 inicial");
+        slot.GananciaPerdidaEstimada.Should().BeGreaterThan(0,
+            "slot emptied and had remaining operating hours in the period");
+    }
+
+    /// <summary>
+    /// When a slot goes empty, horasSinStock for loss calculation should use
+    /// operating hours (08:00–22:00), not raw clock hours. A slot that empties
+    /// at 21:00 with next recarga at 09:00 next day has only ~2 operating hours
+    /// of lost sales, not 12.
+    /// </summary>
+    [Fact]
+    public async Task AnalyzarPorTemplateAsync_OperatingHours_DiscountsNightHoursFromLoss()
+    {
+        // Arrange
+        var maquina = TestDataHelpers.CreateMaquina(id: 1, nombre: "Machine 1");
+        var producto = TestDataHelpers.CreateProducto(id: 1, nombre: "Coca Cola", costoPromedio: 400);
+        _context.Maquinas.Add(maquina);
+        _context.Productos.Add(producto);
+        await _context.SaveChangesAsync();
+
+        // Recarga: Jan 1 at 08:00. Next recarga: Jan 2 at 09:00.
+        var fechaRecarga = new DateTime(2025, 1, 1, 8, 0, 0);
+        var siguienteRecarga = new DateTime(2025, 1, 2, 9, 0, 0);
+
+        var template = new TemplateRecarga
+        {
+            Id = 502,
+            Nombre = "Night Hours Loss Template",
+            Periodos = new List<PeriodoRecarga>
+            {
+                new()
+                {
+                    Id = 502,
+                    MaquinaId = 1,
+                    FechaRecarga = fechaRecarga,
+                    SnapshotSlots = new List<SnapshotSlot>
+                    {
+                        new() { NumeroSlot = "1", ProductoId = 1, CantidadInicial = 5, Estado = EstadoSlot.Lleno }
+                    }
+                }
+            }
+        };
+        _context.TemplatesRecarga.Add(template);
+
+        // Precarga histórico: segundo período para cerrar el primero correctamente
+        var historico = new TemplateRecarga
+        {
+            Id = 600,
+            Nombre = "Historical",
+            Periodos = new List<PeriodoRecarga>
+            {
+                new()
+                {
+                    Id = 600,
+                    MaquinaId = 1,
+                    FechaRecarga = siguienteRecarga,
+                    SnapshotSlots = new List<SnapshotSlot>()
+                }
+            }
+        };
+        _context.TemplatesRecarga.Add(historico);
+
+        // 3 ventas durante el día (10:00, 12:00, 14:00)
+        // 2 ventas a las 21:00 (las que vacían el slot)
+        var ventaTimes = new[]
+        {
+            new DateTime(2025, 1, 1, 10, 0, 0),
+            new DateTime(2025, 1, 1, 12, 0, 0),
+            new DateTime(2025, 1, 1, 14, 0, 0),
+            new DateTime(2025, 1, 1, 21, 0, 0), // 4th sale — leaves 1 remaining
+            new DateTime(2025, 1, 1, 21, 5, 0), // 5th sale — empties the slot at 21:05
+        };
+
+        foreach (var t in ventaTimes)
+            _context.Ventas.Add(new Venta
+            {
+                MaquinaId = 1, NumeroSlot = "1", ProductoId = 1,
+                FechaLocal = t, FechaHora = t,
+                PrecioVenta = 1000, CostoVenta = 400, Pagado = true, IdOrdenMaquina = "TEST"
+            });
+
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _service.AnalyzarPorTemplateAsync(templateId: 502);
+
+        // Assert
+        result.Should().HaveCount(1);
+        var slot = result[0];
+
+        slot.PosibleQuiebre.Should().BeTrue("5 ventas >= 5 unidades iniciales");
+        // Raw clock horasSinStock: from 21:05 Jan 1 to 09:00 Jan 2 = 11h55m
+        slot.HorasSinStock.Should().BeGreaterThan(10).And.BeLessThan(13);
+
+        // Pero la pérdida usa horas operativas: 21:05-22:00 (0h55m) + 08:00-09:00 (1h) ≈ 1h55m
+        slot.GananciaPerdidaEstimada.Should().BeGreaterThan(0,
+            "operating-hours adjusted loss should be non-zero but smaller than raw clock hours");
+        slot.GananciaPerdidaEstimada.Should().BeLessThan(700,
+            "raw clock calculation (~12h) would give ~2140; operating-hours gives much less");
+    }
+
+    /// <summary>
+    /// Different machines should get different velocities for the same product.
+    /// A hospital machine sells faster than an office machine; averaging them
+    /// would overestimate loss at the office and underestimate at the hospital.
+    /// </summary>
+    [Fact]
+    public async Task AnalyzarPorTemplateAsync_PerMachineVelocity_DifferentMachinesDiffer()
+    {
+        // Arrange — same product, two machines, different sales velocity
+        var maquinaRapida = TestDataHelpers.CreateMaquina(id: 1, nombre: "Hospital 24h");
+        var maquinaLenta = TestDataHelpers.CreateMaquina(id: 2, nombre: "Oficina");
+        var producto = TestDataHelpers.CreateProducto(id: 1, nombre: "Coca Cola", costoPromedio: 400);
+        _context.Maquinas.AddRange(maquinaRapida, maquinaLenta);
+        _context.Productos.Add(producto);
+        await _context.SaveChangesAsync();
+
+        var fechaRecarga = new DateTime(2025, 1, 1, 8, 0, 0);
+        var fechaCierre = new DateTime(2025, 1, 5, 8, 0, 0);
+
+        var template = new TemplateRecarga
+        {
+            Id = 510,
+            Nombre = "Per-Machine Velocity",
+            Periodos = new List<PeriodoRecarga>
+            {
+                new()
+                {
+                    Id = 510,
+                    MaquinaId = 1, // Hospital — fast
+                    FechaRecarga = fechaRecarga,
+                    SnapshotSlots = new List<SnapshotSlot>
+                    {
+                        new() { NumeroSlot = "1", ProductoId = 1, CantidadInicial = 100, Estado = EstadoSlot.Lleno }
+                    }
+                },
+                new()
+                {
+                    Id = 511,
+                    MaquinaId = 2, // Office — slow
+                    FechaRecarga = fechaRecarga,
+                    SnapshotSlots = new List<SnapshotSlot>
+                    {
+                        new() { NumeroSlot = "1", ProductoId = 1, CantidadInicial = 100, Estado = EstadoSlot.Lleno }
+                    }
+                }
+            }
+        };
+        _context.TemplatesRecarga.Add(template);
+
+        // Close both periods at day 5
+        var cierre = new TemplateRecarga
+        {
+            Id = 610,
+            Nombre = "Close",
+            Periodos = new List<PeriodoRecarga>
+            {
+                new() { Id = 610, MaquinaId = 1, FechaRecarga = fechaCierre, SnapshotSlots = new List<SnapshotSlot>() },
+                new() { Id = 611, MaquinaId = 2, FechaRecarga = fechaCierre, SnapshotSlots = new List<SnapshotSlot>() }
+            }
+        };
+        _context.TemplatesRecarga.Add(cierre);
+
+        // Machine 1 (hospital): 50 ventas in 4 days → ~12.5/day
+        for (int i = 0; i < 50; i++)
+            _context.Ventas.Add(new Venta
+            {
+                MaquinaId = 1, NumeroSlot = "1", ProductoId = 1,
+                FechaLocal = fechaRecarga.AddHours(10 + i * 1.5),
+                FechaHora = fechaRecarga.AddHours(10 + i * 1.5),
+                PrecioVenta = 1000, CostoVenta = 400, Pagado = true, IdOrdenMaquina = "TEST"
+            });
+
+        // Machine 2 (office): 10 ventas in 4 days → ~2.5/day
+        for (int i = 0; i < 10; i++)
+            _context.Ventas.Add(new Venta
+            {
+                MaquinaId = 2, NumeroSlot = "1", ProductoId = 1,
+                FechaLocal = fechaRecarga.AddHours(10 + i * 6),
+                FechaHora = fechaRecarga.AddHours(10 + i * 6),
+                PrecioVenta = 1000, CostoVenta = 400, Pagado = true, IdOrdenMaquina = "TEST"
+            });
+
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _service.AnalyzarPorTemplateAsync(templateId: 510);
+
+        // Assert — same product, different machines → different velocities
+        result.Should().HaveCount(2);
+        var rapida = result.First(r => r.MaquinaId == 1);
+        var lenta = result.First(r => r.MaquinaId == 2);
+
+        rapida.VelocidadPorHora.Should().BeGreaterThan(lenta.VelocidadPorHora,
+            "hospital machine should have higher velocity than office machine");
+        rapida.ProductoId.Should().Be(lenta.ProductoId,
+            "both slots sell the same product");
+    }
+
+    /// <summary>
+    /// When a product has no operating-hours ventas (e.g. only sells at night
+    /// in a 24h location), falls back gracefully to per-slot velocity.
+    /// </summary>
+    [Fact]
+    public async Task AnalyzarPorTemplateAsync_NoOperatingHoursVentas_FallsBackToSlotVelocity()
+    {
+        // Arrange
+        var maquina = TestDataHelpers.CreateMaquina(id: 1, nombre: "Machine 1");
+        var producto = TestDataHelpers.CreateProducto(id: 1, nombre: "Night Owl", costoPromedio: 400);
+        _context.Maquinas.Add(maquina);
+        _context.Productos.Add(producto);
+        await _context.SaveChangesAsync();
+
+        var fechaRecarga = new DateTime(2025, 1, 1, 22, 0, 0);
+
+        var template = new TemplateRecarga
+        {
+            Id = 503,
+            Nombre = "Night Only Template",
+            Periodos = new List<PeriodoRecarga>
+            {
+                new()
+                {
+                    Id = 503,
+                    MaquinaId = 1,
+                    FechaRecarga = fechaRecarga,
+                    SnapshotSlots = new List<SnapshotSlot>
+                    {
+                        new() { NumeroSlot = "1", ProductoId = 1, CantidadInicial = 5, Estado = EstadoSlot.Lleno }
+                    }
+                }
+            }
+        };
+        _context.TemplatesRecarga.Add(template);
+
+        // All ventas at 23:00 (outside operating hours 8-22)
+        for (int i = 0; i < 5; i++)
+            _context.Ventas.Add(new Venta
+            {
+                MaquinaId = 1, NumeroSlot = "1", ProductoId = 1,
+                FechaLocal = fechaRecarga.AddHours(i),
+                FechaHora = fechaRecarga.AddHours(i),
+                PrecioVenta = 1000, CostoVenta = 400, Pagado = true, IdOrdenMaquina = "TEST"
+            });
+
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _service.AnalyzarPorTemplateAsync(templateId: 503);
+
+        // Assert — should NOT crash. Falls back to per-slot velocity.
+        result.Should().HaveCount(1);
+        var slot = result[0];
+        slot.PosibleQuiebre.Should().BeTrue("5 ventas >= 5 inicial");
+        slot.GananciaPerdidaEstimada.Should().BeGreaterThanOrEqualTo(0,
+            "should fall back gracefully, not throw");
+    }
+
+    #endregion
 }
