@@ -75,7 +75,7 @@ Las categorías estructurales (como `RETIRO_CAPITAL`, `DEVOLUCION_RENDICION`) se
 
 ## 4. Flujo Técnico
 
-**Servicios:** `RendicionService`, `TransferenciaService`, `CajaService`, `CajaBusinessService` (este último es predominantemente P&L/finanzas — ver doc 2), `ContabilidadService`.
+**Servicios:** `RendicionService`, `TransferenciaService`, `CajaService`, `CajaBusinessService` (P&L/finanzas — ver doc 2; además expone `IsMonthLockedAsync` como enforcement del candado de período cerrado), `ContabilidadService`.
 
 **Páginas Blazor:** `Conciliacion.razor`, `ConciliacionMovil.razor`, `Caja.razor`, `CajaV2.razor`.
 

@@ -91,6 +91,12 @@ Ambos servicios comparten el catálogo central `CategoriasGasto` en `Shared/` (b
 
 `Cerrado` es terminal y de solo lectura: bloquea edición de compras, gastos y el propio período.
 
+**Enforcement del candado:** `CajaBusinessService.IsMonthLockedAsync(month, year)` consulta si existe algún `AccountingPeriod` con `Estado == Cerrado` cuyo rango (`FechaInicio`..`FechaFin`) cubra total o parcialmente el mes consultado. Si el mes está cubierto por un período cerrado, el candado devuelve `true` y se rechaza:
+- El registro de nuevos `MovimientoCaja` (`RegistrarMovimientoAsync`).
+- El campo `IsLocked` del resumen de caja (`CajaResumenDto`), usado por el frontend para deshabilitar acciones.
+
+El método está unificado en `CajaBusinessService` como fuente única de verdad; `CajaService` expone el mismo método vía `ICajaService.IsMonthLockedAsync` por delegación.
+
 ### 3.4 Gastos recurrentes — manual, mensual, monto completo
 
 - Lista gastos activos que **aún no** tienen un `MovimientoCaja` con ese `GastoRecurrenteId` en el mes.
