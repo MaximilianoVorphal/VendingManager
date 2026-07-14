@@ -85,7 +85,7 @@ namespace VendingManager.Infrastructure.Services
         {
             if (mov.Monto == 0 && mov.Categoria != "MERMA") throw new ArgumentException("El monto no puede ser cero.");
 
-            if (IsMonthLocked(mov.Fecha.Month, mov.Fecha.Year))
+            if (await _business.IsMonthLockedAsync(mov.Fecha.Month, mov.Fecha.Year))
             {
                 throw new InvalidOperationException($"El mes {mov.Fecha:MM/yyyy} está cerrado y no se puede modificar.");
             }
@@ -130,15 +130,6 @@ namespace VendingManager.Infrastructure.Services
             await _context.SaveChangesAsync();
         }
 
-        public bool IsMonthLocked(int month, int year)
-        {
-            DateTime now = DateTime.Now;
-            DateTime targetDateEnd = new DateTime(year, month, 1).AddMonths(1).AddSeconds(-1);
-            if (targetDateEnd >= now) return false;
-            DateTime lockDate = targetDateEnd.AddDays(5);
-            return false;
-        }
-
         public async Task<(byte[] content, string fileName)> ExportarCajaAsync(int month, int year)
         {
             var (resumen, movimientos, ventas) = await _business.GetCajaReportDataAsync(month, year);
@@ -151,6 +142,11 @@ namespace VendingManager.Infrastructure.Services
             var movimientos = await _business.GetMovimientosAsync(month, year);
             var bytes = await _excelExportService.ExportMovimientosAsync(movimientos, month, year);
             return (bytes, $"Caja_{month}_{year}.xlsx");
+        }
+
+        public Task<bool> IsMonthLockedAsync(int month, int year)
+        {
+            return _business.IsMonthLockedAsync(month, year);
         }
 
         public async Task<ValorizacionStockDto> GetValorizacionStockAsync()

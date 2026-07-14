@@ -5,6 +5,7 @@ using VendingManager.Core.Entities;
 using VendingManager.Core.Interfaces;
 using VendingManager.Shared;
 using VendingManager.Shared.DTOs;
+using VendingManager.Shared.Enums;
 
 namespace VendingManager.Infrastructure.Services;
 
@@ -109,8 +110,8 @@ public class CajaBusinessService
         var cantVentasTB = await _ventaRepository.CountPaidInRangeExcludingAsync(startOfMonth, endOfMonth, excludedOrdenIds);
         decimal costoTransbank = cantVentasTB * _config.Value.TransbankFee;
 
-        // Verificación de IsLocked usando método estático de CajaService
-        bool isLocked = IsMonthLockedStatic(month, year);
+        // Verificación de IsLocked contra AccountingPeriod
+        bool isLocked = await IsMonthLockedAsync(month, year);
 
         return new CajaResumenDto
         {
@@ -185,14 +186,18 @@ public class CajaBusinessService
     }
 
     /// <summary>
-    /// Helper estático — misma lógica de bloqueo que CajaService.IsMonthLocked.
+    /// Verifica si el mes/año está bloqueado consultando el ciclo de vida
+    /// del período contable. Un mes está bloqueado si existe un AccountingPeriod
+    /// con Estado == Cerrado que cubra ese mes.
     /// </summary>
-    private static bool IsMonthLockedStatic(int month, int year)
+    public async Task<bool> IsMonthLockedAsync(int month, int year)
     {
-        DateTime now = DateTime.Now;
-        DateTime targetDateEnd = new DateTime(year, month, 1).AddMonths(1).AddSeconds(-1);
-        if (targetDateEnd >= now) return false;
-        DateTime lockDate = targetDateEnd.AddDays(5);
-        return false; // Actualmente deshabilitado en el original
+        DateTime targetStart = new DateTime(year, month, 1);
+        DateTime targetEnd = targetStart.AddMonths(1).AddSeconds(-1);
+
+        return await _context.AccountingPeriods
+            .AnyAsync(p => p.Estado == AccountingPeriodEstado.Cerrado
+                         && p.FechaInicio <= targetEnd
+                         && p.FechaFin >= targetStart);
     }
 }
