@@ -77,7 +77,7 @@ public class AutomatedReportService : BackgroundService
             var degradedCap = TimeSpan.FromMinutes(IntVal("DegradedBackoffCapMinutes", 360));
             var failureThreshold = IntVal("ConsecutiveFailureThreshold", 3);
             var baseCooldown = TimeSpan.FromHours(IntVal("BaseOpenCooldownHours", 24));
-            var maxCooldown = TimeSpan.FromHours(IntVal("MaxOpenCooldownHours", 168));
+                var maxCooldown = TimeSpan.FromHours(IntVal("MaxOpenCooldownHours", (int)PollingCircuitBreaker.DefaultMaxOpenCooldown.TotalHours));
             var maxCycles = IntVal("MaxOpenCycles", 5);
 
             // Load persisted breaker snapshot so state survives restart/redeploy
@@ -303,17 +303,19 @@ public class AutomatedReportService : BackgroundService
     {
         while (!stoppingToken.IsCancellationRequested)
         {
-            var now = DateTime.Now;
-            var nextRun = now.Date.Add(_scheduledTime);
-            if (now > nextRun)
+            var nowUtc = DateTime.UtcNow;
+            var nowClt = TimeZoneInfo.ConvertTimeFromUtc(nowUtc, PollScheduler.ChileTimeZone);
+            var nextRunClt = nowClt.Date.Add(_scheduledTime);
+            if (nowClt > nextRunClt)
             {
-                nextRun = nextRun.AddDays(1);
+                nextRunClt = nextRunClt.AddDays(1);
             }
 
-            var delay = nextRun - now;
+            var nextRunUtc = TimeZoneInfo.ConvertTimeToUtc(nextRunClt, PollScheduler.ChileTimeZone);
+            var delay = nextRunUtc - nowUtc;
             _logger.LogInformation(
-                "Próxima descarga programada en: {DelayHours:F1} horas ({NextRun})",
-                delay.TotalHours, nextRun);
+                "Próxima descarga programada en: {DelayHours:F1} horas ({NextRun} CLT)",
+                delay.TotalHours, nextRunClt);
 
             try
             {
@@ -344,7 +346,7 @@ public class AutomatedReportService : BackgroundService
                     _logger.LogInformation("[AutoSync] (todas las máquinas): {Result}", resultado);
                     if (!resultado.StartsWith("Error"))
                     {
-                        _lastSyncTracker.SetLastSync(DateTime.Now);
+                        _lastSyncTracker.SetLastSync(DateTime.UtcNow);
                     }
                     else
                     {
