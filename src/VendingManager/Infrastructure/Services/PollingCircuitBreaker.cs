@@ -84,7 +84,7 @@ public class PollingCircuitBreaker
     public static readonly TimeSpan DefaultBaseInterval = PollScheduler.DefaultInterval;
     public static readonly TimeSpan DefaultMaxDegradedBackoff = TimeSpan.FromHours(6);
     public static readonly TimeSpan DefaultBaseOpenCooldown = TimeSpan.FromHours(24);
-    public static readonly TimeSpan DefaultMaxOpenCooldown = TimeSpan.FromHours(96);
+    public static readonly TimeSpan DefaultMaxOpenCooldown = TimeSpan.FromHours(168);
     public const int DefaultConsecutiveFailureThreshold = 3;
     public const int DefaultMaxOpenCycles = 5;
 

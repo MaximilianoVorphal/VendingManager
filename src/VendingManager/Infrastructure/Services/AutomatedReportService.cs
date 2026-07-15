@@ -77,7 +77,7 @@ public class AutomatedReportService : BackgroundService
             var degradedCap = TimeSpan.FromMinutes(IntVal("DegradedBackoffCapMinutes", 360));
             var failureThreshold = IntVal("ConsecutiveFailureThreshold", 3);
             var baseCooldown = TimeSpan.FromHours(IntVal("BaseOpenCooldownHours", 24));
-            var maxCooldown = TimeSpan.FromHours(IntVal("MaxOpenCooldownHours", 168));
+                var maxCooldown = TimeSpan.FromHours(IntVal("MaxOpenCooldownHours", (int)PollingCircuitBreaker.DefaultMaxOpenCooldown.TotalHours));
             var maxCycles = IntVal("MaxOpenCycles", 5);
 
             // Load persisted breaker snapshot so state survives restart/redeploy
@@ -303,7 +303,7 @@ public class AutomatedReportService : BackgroundService
     {
         while (!stoppingToken.IsCancellationRequested)
         {
-            var now = DateTime.Now;
+            var now = DateTime.UtcNow;
             var nextRun = now.Date.Add(_scheduledTime);
             if (now > nextRun)
             {
@@ -344,7 +344,7 @@ public class AutomatedReportService : BackgroundService
                     _logger.LogInformation("[AutoSync] (todas las máquinas): {Result}", resultado);
                     if (!resultado.StartsWith("Error"))
                     {
-                        _lastSyncTracker.SetLastSync(DateTime.Now);
+                        _lastSyncTracker.SetLastSync(DateTime.UtcNow);
                     }
                     else
                     {

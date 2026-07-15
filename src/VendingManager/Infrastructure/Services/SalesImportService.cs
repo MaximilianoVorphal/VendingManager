@@ -158,11 +158,11 @@ namespace VendingManager.Infrastructure.Services
                 return (false, false, false, true, false);
             }
 
-            // 4. Parse fecha (machine time), fallback to server time if year < 2024
+            // 4. Parse fecha (machine time), validate relative year guard
             DateTime.TryParse(fechaStr, out DateTime fecha);
             bool usandingServerTime = false;
 
-            if (fecha.Year < 2024 && !string.IsNullOrEmpty(serverTimeStr))
+            if (fecha < DateTime.UtcNow.AddYears(-MaxSaleAgeYears) && !string.IsNullOrEmpty(serverTimeStr))
             {
                 if (DateTime.TryParse(serverTimeStr, out DateTime fechaServer))
                 {
@@ -203,15 +203,9 @@ namespace VendingManager.Infrastructure.Services
                 return (false, true, false, false, false);
 
             // 6. Apply timezone offset
-            int offset;
-            if (usandingServerTime)
-            {
-                offset = -14;
-            }
-            else
-            {
-                offset = machineId.Trim() == "2410280012" ? 1 : -11;
-            }
+            int offset = usandingServerTime
+                ? ServerTimeOffsetHours
+                : maquina.TimezoneOffsetHours ?? _config.Value.DefaultTimezoneOffsetHours;
 
             DateTime fechaLocal = fecha.AddHours(offset);
 

@@ -45,6 +45,7 @@ public class SalesImportServiceTests : IDisposable
         {
             Id = 1,
             IdInternoMaquina = "2410280012",
+            TimezoneOffsetHours = 1,  // This machine has a custom offset
             Slots = new List<ConfiguracionSlot>
             {
                 new() { NumeroSlot = "A1", Producto = new Producto { Id = 1, CostoPromedio = 100 } }
@@ -226,13 +227,13 @@ public class SalesImportServiceTests : IDisposable
         venta.FechaLocal.Hour.Should().Be(22); // 9h - 11h = 22h yesterday
     }
 
-    // ── 2.6: Breaker DefaultMaxOpenCooldown == 96h (pre-refactor snapshot) ──
+    // ── 2.6: Breaker DefaultMaxOpenCooldown == 168h (post-refactor) ──────────
 
     [Fact]
-    public void Breaker_DefaultMaxOpenCooldown_Is96Hours()
+    public void Breaker_DefaultMaxOpenCooldown_Is168Hours()
     {
         // Static field — no instance needed
         PollingCircuitBreaker.DefaultMaxOpenCooldown
-            .Should().Be(TimeSpan.FromHours(96));
+            .Should().Be(TimeSpan.FromHours(168));
     }
 }
