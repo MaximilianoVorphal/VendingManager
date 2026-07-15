@@ -123,7 +123,7 @@ El microservicio Python clasifica cada sincronización como `ok` / `empty` / `bl
 
 ### 3.7 Estado BORRADOR (pertenece a Cargas, no a este pipeline)
 
-El estado `BORRADOR` **no es parte de la ingesta de ventas** — vive en el módulo de órdenes de carga. Se documenta en detalle en `4-operacion-terreno-recargas.md`. Resumen: existe para poder **redactar una orden consolidada sin tocar inventario** hasta que un humano la confirme. La ingesta de ventas nunca crea BORRADOR.
+El estado `BORRADOR` **no es parte de la ingesta de ventas** — vive en el módulo de órdenes de carga. Se documenta en detalle en [04-operacion-terreno.md](./04-operacion-terreno.md). Resumen: existe para poder **redactar una orden consolidada sin tocar inventario** hasta que un humano la confirme. La ingesta de ventas nunca crea BORRADOR.
 
 ---
 

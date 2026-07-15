@@ -1,5 +1,14 @@
 # Documentación — VendingManager
 
+> 📖 Este directorio es la fuente canónica de documentación del proyecto.
+> Cualquier otra copia es derivada y puede estar desactualizada.
+>
+> **Política de mantenimiento:**
+> - `feat`: si cambia comportamiento visible, el doc de dominio correspondiente se actualiza.
+> - `refactor`: solo si cambia nombres de clases/servicios referenciados en docs.
+> - `docs`: cambios a docs son primer ciudadano, no afterthought.
+> - `api.md` debe mantenerse sincronizado con los atributos `[Authorize]` de cada controller.
+
 Documentación completa del sistema, organizada por dominio de negocio y área técnica.
 
 ## 🧭 ¿Por dónde empezar?
@@ -8,7 +17,7 @@ Documentación completa del sistema, organizada por dominio de negocio y área t
 |--------------|-----------|
 | Entender qué hace el sistema y por qué | [README principal](../README.md) y luego los dominios de negocio (01 → 06) |
 | Evaluar el diseño técnico | [Arquitectura](./arquitectura.md) → [Modelo de Datos](./entidades.md) |
-| Levantar el proyecto y correrlo | Quick Start del [README](../README.md#-quick-start) → [Guía de Desarrollo](./desarrollo.md) |
+| Levantar el proyecto y correrlo | Quick Start del [README](../README.md#quick-start) → [Guía de Desarrollo](./desarrollo.md) |
 | Explorar la API REST | [API Reference](./api.md) |
 
 ---

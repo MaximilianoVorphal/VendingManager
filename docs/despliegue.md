@@ -13,7 +13,7 @@ git clone https://github.com/MaximilianoVorphal/VendingManager.git
 cd VendingManager
 
 # 2. Configurar variables de entorno
-cp .env.example .env
+# Crear archivo .env con las variables requeridas (ver .env de desarrollo como referencia)
 # Editar .env con las credenciales reales de producción
 
 # 3. Levantar los servicios
