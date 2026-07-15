@@ -303,17 +303,19 @@ public class AutomatedReportService : BackgroundService
     {
         while (!stoppingToken.IsCancellationRequested)
         {
-            var now = DateTime.UtcNow;
-            var nextRun = now.Date.Add(_scheduledTime);
-            if (now > nextRun)
+            var nowUtc = DateTime.UtcNow;
+            var nowClt = TimeZoneInfo.ConvertTimeFromUtc(nowUtc, PollScheduler.ChileTimeZone);
+            var nextRunClt = nowClt.Date.Add(_scheduledTime);
+            if (nowClt > nextRunClt)
             {
-                nextRun = nextRun.AddDays(1);
+                nextRunClt = nextRunClt.AddDays(1);
             }
 
-            var delay = nextRun - now;
+            var nextRunUtc = TimeZoneInfo.ConvertTimeToUtc(nextRunClt, PollScheduler.ChileTimeZone);
+            var delay = nextRunUtc - nowUtc;
             _logger.LogInformation(
-                "Próxima descarga programada en: {DelayHours:F1} horas ({NextRun})",
-                delay.TotalHours, nextRun);
+                "Próxima descarga programada en: {DelayHours:F1} horas ({NextRun} CLT)",
+                delay.TotalHours, nextRunClt);
 
             try
             {

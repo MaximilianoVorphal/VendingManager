@@ -20,9 +20,9 @@ namespace VendingManager.Infrastructure.Services
         private const int MaxSaleAgeYears = 2;
         /// <summary>
         /// OurVend server-to-CLT delta. When the year guard fires and fecha is
-        /// overwritten with the server timestamp (<c>usandingServerTime=true</c>),
+        /// overwritten with the server timestamp (<c>usingServerTime=true</c>),
         /// the raw server timestamp must be adjusted by -14 hours to convert from
-        /// the server's UTC+14 reference to Chilean CLT (UTC-4 DST / UTC-3 std).
+        /// the server's UTC+14 reference to Chilean CLT (UTC-4 standard / UTC-3 DST).
         /// This constant is intentionally NOT configurable — it is a fixed
         /// property of the OurVend data source, not a per-machine timezone setting.
         /// </summary>
@@ -166,14 +166,14 @@ namespace VendingManager.Infrastructure.Services
 
             // 4. Parse fecha (machine time), validate relative year guard
             DateTime.TryParse(fechaStr, out DateTime fecha);
-            bool usandingServerTime = false;
+            bool usingServerTime = false;
 
             if (fecha < DateTime.UtcNow.AddYears(-MaxSaleAgeYears) && !string.IsNullOrEmpty(serverTimeStr))
             {
                 if (DateTime.TryParse(serverTimeStr, out DateTime fechaServer))
                 {
                     fecha = fechaServer;
-                    usandingServerTime = true;
+                    usingServerTime = true;
                 }
             }
 
@@ -209,7 +209,7 @@ namespace VendingManager.Infrastructure.Services
                 return (false, true, false, false, false);
 
             // 6. Apply timezone offset
-            int offset = usandingServerTime
+            int offset = usingServerTime
                 ? ServerTimeOffsetHours
                 : maquina.TimezoneOffsetHours ?? _config.Value.DefaultTimezoneOffsetHours;
 

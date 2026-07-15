@@ -38,7 +38,7 @@ public class VendingConfig
     /// <summary>
     /// Default timezone offset in hours used when a Maquina does not have
     /// its own <see cref="Entities.Maquina.TimezoneOffsetHours"/> configured.
-    /// Default -11 corresponds to Chilean CLT (UTC-4 during DST, UTC-3 standard;
+    /// Default -11 corresponds to Chilean CLT (UTC-4 standard time, UTC-3 during DST;
     /// the machine reports UTC+7 offset, so the net adjustment is -11).
     /// </summary>
     public int DefaultTimezoneOffsetHours { get; set; } = -11;

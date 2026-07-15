@@ -22,7 +22,8 @@ namespace VendingManager.Infrastructure.Services
                 Console.WriteLine("[Sync] Usando scraper alternativo (inglés, todas las máquinas, orden corregido)");
 
                 // 1. Configurar fechas (máx 32 días para el ALT)
-                var today = DateTime.UtcNow;
+                var utcNow = DateTime.UtcNow;
+                var today = TimeZoneInfo.ConvertTimeFromUtc(utcNow, PollScheduler.ChileTimeZone);
                 var startDate = new DateTime(today.Year, today.Month, 1);
                 var endDate = today;
 
@@ -79,7 +80,8 @@ namespace VendingManager.Infrastructure.Services
         {
             try
             {
-                var today = DateTime.UtcNow;
+                var utcNow = DateTime.UtcNow;
+                var today = TimeZoneInfo.ConvertTimeFromUtc(utcNow, PollScheduler.ChileTimeZone);
                 var startDate = new DateTime(today.Year, today.Month, 1);
                 var endDate = today;
 

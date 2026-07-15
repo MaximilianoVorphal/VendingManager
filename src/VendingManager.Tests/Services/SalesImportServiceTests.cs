@@ -73,7 +73,7 @@ public class SalesImportServiceTests : IDisposable
         venta.FechaHora.Hour.Should().Be(10); // Raw machine time
     }
 
-    // ── 2.3: usandingServerTime=true → offset -14 ───────────────────────────
+    // ── 2.3: usingServerTime=true → offset -14 ──────────────────────────────
 
     [Fact]
     public async Task OldTimestamp_UsesServerTime_AppliesMinus14Offset()
@@ -95,7 +95,7 @@ public class SalesImportServiceTests : IDisposable
             MachineId = "8888888888",
             Slot = "C3",
             Price = 800,
-            MachineTime = "2023-06-01 10:00:00",     // Year < 2024 triggers year guard
+            MachineTime = "2023-06-01 10:00:00",     // outside 2-year window triggers year guard
             ServerTime = "2026-07-15 12:00:00",       // ServerTime available → overwrites fecha
             TrSerialNumber = Guid.NewGuid().ToString()
         };
@@ -111,7 +111,7 @@ public class SalesImportServiceTests : IDisposable
         venta.FechaLocal.Day.Should().Be(14);
     }
 
-    // ── 2.4: Year guard: fecha < 2024 + serverTime → fecha overwritten ──────
+    // ── 2.4: Year guard: outside 2-year window + serverTime → fecha overwritten ─
 
     [Fact]
     public async Task YearGuard_Below2024_WithServerTime_OverwritesFecha()
@@ -133,7 +133,7 @@ public class SalesImportServiceTests : IDisposable
             MachineId = "7777777777",
             Slot = "D4",
             Price = 1200,
-            MachineTime = "2020-01-01 05:00:00",      // Year < 2024
+            MachineTime = "2020-01-01 05:00:00",      // outside 2-year window
             ServerTime = "2026-07-15 15:30:00",        // ServerTime present
             TrSerialNumber = Guid.NewGuid().ToString()
         };
@@ -150,7 +150,7 @@ public class SalesImportServiceTests : IDisposable
         venta.FechaHora.Minute.Should().Be(30);
     }
 
-    // ── 2.5: Year guard: fecha < 2024 + no serverTime → fecha unchanged ─────
+    // ── 2.5: Year guard: outside 2-year window + no serverTime → fecha unchanged
 
     [Fact]
     public async Task YearGuard_Below2024_WithoutServerTime_FechaUnchanged()
@@ -172,7 +172,7 @@ public class SalesImportServiceTests : IDisposable
             MachineId = "6666666666",
             Slot = "E5",
             Price = 600,
-            MachineTime = "2020-03-15 09:00:00",  // Year < 2024
+            MachineTime = "2020-03-15 09:00:00",  // outside 2-year window
             ServerTime = "",                        // No server time → falls through
             TrSerialNumber = Guid.NewGuid().ToString()
         };

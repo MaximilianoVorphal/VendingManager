@@ -19,7 +19,8 @@ public class Maquina
     public ZonaLogistica? Zona { get; set; }
 
     /// <summary>
-    /// Per-machine timezone offset in hours from UTC (e.g., -11 for CLT).
+    /// Delta in hours from the machine's reported timestamp to Chilean CLT
+    /// (e.g., -11 for machines reporting in UTC+7, so 7 + (-11) = -4 = CLT).
     /// Null means "use the appsettings default" (<see cref="Configuration.VendingConfig.DefaultTimezoneOffsetHours"/>).
     /// </summary>
     public int? TimezoneOffsetHours { get; set; }
