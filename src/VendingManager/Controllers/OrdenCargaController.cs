@@ -1,4 +1,6 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using VendingManager.Shared.Constants;
 using VendingManager.Shared.DTOs;
 using VendingManager.Core.Interfaces;
 
@@ -6,11 +8,14 @@ namespace VendingManager.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class OrdenCargaController(
         IOrdenCargaService service,
         IOrdenCargaExcelService ordenCargaExcelService,
         IRecargaOcrService recargaOcrService) : ControllerBase
     {
+        [HttpPost]
+        [Authorize(Roles = Roles.Admin)]
         public async Task<ActionResult<OrdenCargaDto>> CrearOrden(CrearOrdenDto dto)
         {
             try
@@ -25,6 +30,7 @@ namespace VendingManager.Controllers
         }
 
         [HttpPost("finalizar")]
+        [Authorize(Roles = Roles.Admin)]
         public async Task<IActionResult> FinalizarOrden(FinalizarOrdenDto dto)
         {
             try
@@ -39,6 +45,7 @@ namespace VendingManager.Controllers
         }
 
         [HttpPatch("{id}/nombre")]
+        [Authorize(Roles = Roles.Admin)]
         public async Task<IActionResult> ActualizarNombre(int id, [FromBody] string nombre) // usando body de string simple
         {
             try 
@@ -54,6 +61,7 @@ namespace VendingManager.Controllers
         }
 
         [HttpPut("{id}")]
+        [Authorize(Roles = Roles.Admin)]
         public async Task<IActionResult> ActualizarOrden(int id, ActualizarOrdenRequestDto dto)
         {
             try
@@ -123,6 +131,7 @@ namespace VendingManager.Controllers
         }
 
         [HttpPost("{id}/confirmar")]
+        [Authorize(Roles = Roles.Admin)]
         public async Task<ActionResult<OrdenCargaDto>> Confirmar(int id)
         {
             try
@@ -145,6 +154,7 @@ namespace VendingManager.Controllers
         /// performs fuzzy matching against the machine's slots, and returns matched results.
         /// </summary>
         [HttpPost("from-photo")]
+        [Authorize(Roles = Roles.Admin)]
         public async Task<ActionResult<OcrRecargaResultDto>> ExtractFromPhoto(
             IFormFile file,
             [FromQuery] int maquinaId)

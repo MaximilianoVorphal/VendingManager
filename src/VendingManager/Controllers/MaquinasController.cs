@@ -1,4 +1,6 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using VendingManager.Shared.Constants;
 using VendingManager.Shared.DTOs;
 using VendingManager.Core.Interfaces;
 
@@ -6,6 +8,7 @@ namespace VendingManager.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class MaquinasController(IMaquinaService maquinaService, IAuditService auditService) : ControllerBase
     {
         public async Task<ActionResult<List<Maquina>>> GetMaquinas()
@@ -14,6 +17,7 @@ namespace VendingManager.Controllers
         }
 
         [HttpPost]
+        [Authorize(Roles = Roles.Admin)]
         public async Task<ActionResult<Maquina>> PostMaquina(Maquina maquina)
         {
             var created = await maquinaService.CreateMaquinaAsync(maquina);
@@ -22,6 +26,7 @@ namespace VendingManager.Controllers
         }
 
         [HttpPut("{id}")]
+        [Authorize(Roles = Roles.Admin)]
         public async Task<IActionResult> PutMaquina(int id, Maquina maquina)
         {
             if (id != maquina.Id) return BadRequest();
@@ -40,6 +45,7 @@ namespace VendingManager.Controllers
         }
 
         [HttpDelete("{id}")]
+        [Authorize(Roles = Roles.Admin)]
         public async Task<IActionResult> DeleteMaquina(int id)
         {
             var maquina = await maquinaService.GetMaquinaAsync(id);
@@ -58,6 +64,7 @@ namespace VendingManager.Controllers
         }
 
         [HttpPost("{id}/slots")]
+        [Authorize(Roles = Roles.Admin)]
         public async Task<IActionResult> UpdateSlot(int id, [FromBody] ConfiguracionSlotDto slot)
         {
             if (id != slot.MaquinaId) return BadRequest("ID de máquina no coincide.");
@@ -67,6 +74,7 @@ namespace VendingManager.Controllers
         }
 
         [HttpPost("{id}/batch-actions")]
+        [Authorize(Roles = Roles.Admin)]
         public async Task<IActionResult> ProcesarMovimientos(int id, [FromBody] List<SlotActionDto> acciones)
         {
             try

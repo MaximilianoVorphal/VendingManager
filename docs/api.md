@@ -142,13 +142,13 @@ Gestión de gastos recurrentes (servicios, alquileres, etc.) con aplicación aut
 
 ## InformesController
 
-Subida, descarga y eliminación de informes/documentos. Sin restricción de autorización.
+Subida, descarga y eliminación de informes/documentos. Usuarios autenticados pueden descargar; solo administradores pueden subir o eliminar.
 
 | Método | Ruta | Auth | Descripción |
 |--------|------|------|-------------|
-| GET | `/api/informes/{id}` | — | Descarga un informe por ID |
-| POST | `/api/informes` | — | Sube un nuevo informe. Parámetros: `file`, `folder` (opcional, default "General") |
-| DELETE | `/api/informes/{id}` | — | Elimina un informe |
+| GET | `/api/informes/{id}` | Sí | Descarga un informe por ID |
+| POST | `/api/informes` | Admin | Sube un nuevo informe. Parámetros: `file`, `folder` (opcional, default "General") |
+| DELETE | `/api/informes/{id}` | Admin | Elimina un informe |
 
 ---
 
@@ -176,61 +176,61 @@ Análisis predictivo y generación automática de órdenes de carga por zonas lo
 
 ## MaquinasController
 
-CRUD de máquinas expendedoras y configuración de slots. Sin restricción de autorización.
+CRUD de máquinas expendedoras y configuración de slots. Usuarios autenticados pueden consultar; solo administradores pueden crear, modificar o eliminar.
 
 | Método | Ruta | Auth | Descripción |
 |--------|------|------|-------------|
-| GET | `/api/maquinas` | — | Lista todas las máquinas |
-| POST | `/api/maquinas` | — | Crea una nueva máquina. Retorna `201 Created` |
-| PUT | `/api/maquinas/{id}` | — | Actualiza una máquina existente |
-| DELETE | `/api/maquinas/{id}` | — | Elimina una máquina |
-| GET | `/api/maquinas/{id}/slots` | — | Obtiene la configuración de slots de una máquina |
-| POST | `/api/maquinas/{id}/slots` | — | Actualiza la configuración de un slot específico |
-| POST | `/api/maquinas/{id}/batch-actions` | — | Procesa acciones en lote sobre los slots (REFILL, EMPTY, SWAP) |
+| GET | `/api/maquinas` | Sí | Lista todas las máquinas |
+| POST | `/api/maquinas` | Admin | Crea una nueva máquina. Retorna `201 Created` |
+| PUT | `/api/maquinas/{id}` | Admin | Actualiza una máquina existente |
+| DELETE | `/api/maquinas/{id}` | Admin | Elimina una máquina |
+| GET | `/api/maquinas/{id}/slots` | Sí | Obtiene la configuración de slots de una máquina |
+| POST | `/api/maquinas/{id}/slots` | Admin | Actualiza la configuración de un slot específico |
+| POST | `/api/maquinas/{id}/batch-actions` | Admin | Procesa acciones en lote sobre los slots (REFILL, EMPTY, SWAP) |
 
 ---
 
 ## OrdenCargaController
 
-Órdenes de carga: creación, finalización, sugerencias de reposición, OCR de planillas y exportación a Excel.
+Órdenes de carga: creación, finalización, sugerencias de reposición, OCR de planillas y exportación a Excel. Usuarios autenticados pueden consultar; solo administradores pueden crear, modificar, confirmar o procesar órdenes.
 
 | Método | Ruta | Auth | Descripción |
 |--------|------|------|-------------|
-| POST | `/api/ordencarga` | — | Crea una orden de carga |
-| POST | `/api/ordencarga/finalizar` | — | Finaliza una orden de carga y retorna el stock a bodega |
-| PATCH | `/api/ordencarga/{id}/nombre` | — | Actualiza el nombre de una orden |
-| PUT | `/api/ordencarga/{id}` | — | Actualiza una orden de carga completa |
-| GET | `/api/ordencarga/historial` | — | Historial de órdenes. Parámetro opcional: `maquinaId` |
-| GET | `/api/ordencarga/{id}` | — | Detalle de una orden por ID |
-| GET | `/api/ordencarga/sugerencia` | — | Sugerencia de carga para una máquina específica (`maquinaId`) |
-| GET | `/api/ordencarga/exportar-sugerencia` | — | Exporta la sugerencia de carga a Excel |
-| GET | `/api/ordencarga/exportar-consolidado` | — | Exporta la sugerencia global consolidada a Excel |
-| POST | `/api/ordencarga/{id}/confirmar` | — | Confirma una orden de carga |
-| POST | `/api/ordencarga/from-photo` | — | Procesa foto de planilla de recarga mediante OCR. Extrae slot+cantidad y hace fuzzy matching contra la máquina |
+| POST | `/api/ordencarga` | Admin | Crea una orden de carga |
+| POST | `/api/ordencarga/finalizar` | Admin | Finaliza una orden de carga y retorna el stock a bodega |
+| PATCH | `/api/ordencarga/{id}/nombre` | Admin | Actualiza el nombre de una orden |
+| PUT | `/api/ordencarga/{id}` | Admin | Actualiza una orden de carga completa |
+| GET | `/api/ordencarga/historial` | Sí | Historial de órdenes. Parámetro opcional: `maquinaId` |
+| GET | `/api/ordencarga/{id}` | Sí | Detalle de una orden por ID |
+| GET | `/api/ordencarga/sugerencia` | Sí | Sugerencia de carga para una máquina específica (`maquinaId`) |
+| GET | `/api/ordencarga/exportar-sugerencia` | Sí | Exporta la sugerencia de carga a Excel |
+| GET | `/api/ordencarga/exportar-consolidado` | Sí | Exporta la sugerencia global consolidada a Excel |
+| POST | `/api/ordencarga/{id}/confirmar` | Admin | Confirma una orden de carga |
+| POST | `/api/ordencarga/from-photo` | Admin | Procesa foto de planilla de recarga mediante OCR. Extrae slot+cantidad y hace fuzzy matching contra la máquina |
 
 ---
 
 ## ProductosController
 
-Catálogo de productos, stock, costos históricos y mapeo de códigos EAN.
+Catálogo de productos, stock, costos históricos y mapeo de códigos EAN. Usuarios autenticados pueden consultar; solo administradores pueden crear, modificar o eliminar.
 
 | Método | Ruta | Auth | Descripción |
 |--------|------|------|-------------|
-| GET | `/api/productos` | — | Lista todos los productos del catálogo |
-| POST | `/api/productos/importar-catalogo` | — | Importa catálogo desde archivo Excel/CSV |
-| GET | `/api/productos/exportar-catalogo` | — | Exporta el catálogo a Excel |
-| POST | `/api/productos/ajustar-stock` | — | Ajusta el stock en bodega de un producto |
-| GET | `/api/productos/{id}` | — | Obtiene un producto por ID |
-| GET | `/api/productos/{id}/historial-costos` | — | Historial de costos de un producto |
-| POST | `/api/productos` | — | Crea un nuevo producto. Retorna `201 Created` |
-| PUT | `/api/productos/{id}` | — | Actualiza un producto. Parámetros opcionales: `recalculateFrom`, `recalculateTo` para recalcular costos |
-| DELETE | `/api/productos/{id}` | — | Elimina un producto |
-| GET | `/api/productos/ean` | — | Lista todos los mapeos EAN |
-| GET | `/api/productos/ean/{id}` | — | Obtiene un mapeo EAN por ID |
-| POST | `/api/productos/ean` | — | Crea un nuevo mapeo EAN. Retorna `201 Created`. Puede retornar `409` si el EAN ya existe |
-| PUT | `/api/productos/ean/{id}` | — | Actualiza un mapeo EAN existente |
-| DELETE | `/api/productos/ean/{id}` | — | Elimina un mapeo EAN |
-| GET | `/api/productos/{id}/ean` | — | Lista los EANs asociados a un producto |
+| GET | `/api/productos` | Sí | Lista todos los productos del catálogo |
+| POST | `/api/productos/importar-catalogo` | Admin | Importa catálogo desde archivo Excel/CSV |
+| GET | `/api/productos/exportar-catalogo` | Sí | Exporta el catálogo a Excel |
+| POST | `/api/productos/ajustar-stock` | Admin | Ajusta el stock en bodega de un producto |
+| GET | `/api/productos/{id}` | Sí | Obtiene un producto por ID |
+| GET | `/api/productos/{id}/historial-costos` | Sí | Historial de costos de un producto |
+| POST | `/api/productos` | Admin | Crea un nuevo producto. Retorna `201 Created` |
+| PUT | `/api/productos/{id}` | Admin | Actualiza un producto. Parámetros opcionales: `recalculateFrom`, `recalculateTo` para recalcular costos |
+| DELETE | `/api/productos/{id}` | Admin | Elimina un producto |
+| GET | `/api/productos/ean` | Sí | Lista todos los mapeos EAN |
+| GET | `/api/productos/ean/{id}` | Sí | Obtiene un mapeo EAN por ID |
+| POST | `/api/productos/ean` | Admin | Crea un nuevo mapeo EAN. Retorna `201 Created`. Puede retornar `409` si el EAN ya existe |
+| PUT | `/api/productos/ean/{id}` | Admin | Actualiza un mapeo EAN existente |
+| DELETE | `/api/productos/ean/{id}` | Admin | Elimina un mapeo EAN |
+| GET | `/api/productos/{id}/ean` | Sí | Lista los EANs asociados a un producto |
 
 ---
 
@@ -274,31 +274,31 @@ Rendiciones de trabajadores: transferencias, compras y gastos vinculados, cierre
 
 ## TemplateRecargaController
 
-Plantillas de recarga para máquinas, con período y slots. Fotos guía y OCR, sincronización de ventas.
+Plantillas de recarga para máquinas, con período y slots. Fotos guía y OCR, sincronización de ventas. Usuarios autenticados pueden consultar; solo administradores pueden crear, modificar o eliminar.
 
 | Método | Ruta | Auth | Descripción |
 |--------|------|------|-------------|
-| GET | `/api/templaterecarga` | — | Lista todos los templates con sus períodos |
-| GET | `/api/templaterecarga/list` | — | Lista ligera de templates (sin períodos anidados) |
-| POST | `/api/templaterecarga/{id}/terminar` | — | Cambia estado a Terminado. Fuente para stock crítico |
-| POST | `/api/templaterecarga/{id}/reabrir` | — | Reabre un template terminado a Pendiente |
-| POST | `/api/templaterecarga/{templateId}/periodo/{periodoId}/slot-batch` | — | Acciones en lote sobre slots de un período (REFILL, EMPTY, SWAP) |
-| GET | `/api/templaterecarga/{id}` | — | Obtiene un template por ID con sus períodos |
-| POST | `/api/templaterecarga` | — | Crea un nuevo template. Retorna `201 Created`. `409` si hay conflicto de fechas encadenadas |
-| PUT | `/api/templaterecarga/{id}` | — | Actualiza un template existente |
-| DELETE | `/api/templaterecarga/{id}` | — | Elimina un template |
-| GET | `/api/templaterecarga/{id}/analyze` | — | Analiza stockout usando los períodos del template. Parámetro: `umbralHoras` (24) |
-| GET | `/api/templaterecarga/{templateId}/slot-timeline` | — | Timeline de ventas para un slot específico (lazy-loaded para el scrubber del dashboard) |
-| GET | `/api/templaterecarga/maquina/{maquinaId}/slots` | — | Configuración actual de slots de una máquina (para crear snapshot) |
-| POST | `/api/templaterecarga/{id}/sincronizar-ventas` | — | Sincroniza ventas históricas con la configuración del template |
-| POST | `/api/templaterecarga/sincronizar-todas-ventas` | — | Sincroniza todos los templates contra ventas históricas |
-| PATCH | `/api/templaterecarga/{templateId}/periodo/{periodoId}/slot/{numeroSlot}/sincronizar-producto` | — | Reasigna el producto de un slot en las ventas históricas |
-| PUT | `/api/templaterecarga/{templateId}/periodo/{periodoId}/foto-guia` | — | Sube o reemplaza la foto guía de un período. Límite: 10 MB |
-| GET | `/api/templaterecarga/{templateId}/periodo/{periodoId}/foto-guia` | — | Obtiene la foto guía de un período |
-| DELETE | `/api/templaterecarga/{templateId}/periodo/{periodoId}/foto-guia` | — | Elimina la foto guía de un período |
-| PUT | `/api/templaterecarga/{templateId}/periodo/{periodoId}/foto-ocr` | — | Sube o reemplaza la foto OCR de un período. Límite: 5 MB |
-| GET | `/api/templaterecarga/{templateId}/periodo/{periodoId}/foto-ocr` | — | Obtiene la foto OCR de un período |
-| DELETE | `/api/templaterecarga/{templateId}/periodo/{periodoId}/foto-ocr` | — | Elimina la foto OCR de un período |
+| GET | `/api/templaterecarga` | Sí | Lista todos los templates con sus períodos |
+| GET | `/api/templaterecarga/list` | Sí | Lista ligera de templates (sin períodos anidados) |
+| POST | `/api/templaterecarga/{id}/terminar` | Admin | Cambia estado a Terminado. Fuente para stock crítico |
+| POST | `/api/templaterecarga/{id}/reabrir` | Admin | Reabre un template terminado a Pendiente |
+| POST | `/api/templaterecarga/{templateId}/periodo/{periodoId}/slot-batch` | Admin | Acciones en lote sobre slots de un período (REFILL, EMPTY, SWAP) |
+| GET | `/api/templaterecarga/{id}` | Sí | Obtiene un template por ID con sus períodos |
+| POST | `/api/templaterecarga` | Admin | Crea un nuevo template. Retorna `201 Created`. `409` si hay conflicto de fechas encadenadas |
+| PUT | `/api/templaterecarga/{id}` | Admin | Actualiza un template existente |
+| DELETE | `/api/templaterecarga/{id}` | Admin | Elimina un template |
+| GET | `/api/templaterecarga/{id}/analyze` | Sí | Analiza stockout usando los períodos del template. Parámetro: `umbralHoras` (24) |
+| GET | `/api/templaterecarga/{templateId}/slot-timeline` | Sí | Timeline de ventas para un slot específico (lazy-loaded para el scrubber del dashboard) |
+| GET | `/api/templaterecarga/maquina/{maquinaId}/slots` | Sí | Configuración actual de slots de una máquina (para crear snapshot) |
+| POST | `/api/templaterecarga/{id}/sincronizar-ventas` | Admin | Sincroniza ventas históricas con la configuración del template |
+| POST | `/api/templaterecarga/sincronizar-todas-ventas` | Admin | Sincroniza todos los templates contra ventas históricas |
+| PATCH | `/api/templaterecarga/{templateId}/periodo/{periodoId}/slot/{numeroSlot}/sincronizar-producto` | Admin | Reasigna el producto de un slot en las ventas históricas |
+| PUT | `/api/templaterecarga/{templateId}/periodo/{periodoId}/foto-guia` | Admin | Sube o reemplaza la foto guía de un período. Límite: 10 MB |
+| GET | `/api/templaterecarga/{templateId}/periodo/{periodoId}/foto-guia` | Sí | Obtiene la foto guía de un período |
+| DELETE | `/api/templaterecarga/{templateId}/periodo/{periodoId}/foto-guia` | Admin | Elimina la foto guía de un período |
+| PUT | `/api/templaterecarga/{templateId}/periodo/{periodoId}/foto-ocr` | Admin | Sube o reemplaza la foto OCR de un período. Límite: 5 MB |
+| GET | `/api/templaterecarga/{templateId}/periodo/{periodoId}/foto-ocr` | Sí | Obtiene la foto OCR de un período |
+| DELETE | `/api/templaterecarga/{templateId}/periodo/{periodoId}/foto-ocr` | Admin | Elimina la foto OCR de un período |
 
 ---
 

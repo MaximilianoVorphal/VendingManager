@@ -1,4 +1,6 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using VendingManager.Shared.Constants;
 using VendingManager.Shared.DTOs;
 using VendingManager.Core.Interfaces;
 using VendingManager.Core.Entities;
@@ -7,6 +9,7 @@ namespace VendingManager.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class ProductosController(
         IInventarioService inventarioService,
         IAuditService auditService,
@@ -18,6 +21,7 @@ namespace VendingManager.Controllers
         }
 
         [HttpPost("importar-catalogo")]
+        [Authorize(Roles = Roles.Admin)]
         public async Task<IActionResult> SubirCatalogo(IFormFile file)
         {
             if (file == null || file.Length == 0)
@@ -54,6 +58,7 @@ namespace VendingManager.Controllers
         }
 
         [HttpPost("ajustar-stock")]
+        [Authorize(Roles = Roles.Admin)]
         public async Task<IActionResult> AjustarStock([FromBody] StockUpdateDto dto)
         {
             try
@@ -90,6 +95,7 @@ namespace VendingManager.Controllers
         }
 
         [HttpPost]
+        [Authorize(Roles = Roles.Admin)]
         public async Task<ActionResult<Producto>> PostProducto(Producto producto)
         {
             var created = await inventarioService.CreateProductoAsync(producto);
@@ -98,6 +104,7 @@ namespace VendingManager.Controllers
         }
 
         [HttpPut("{id}")]
+        [Authorize(Roles = Roles.Admin)]
         public async Task<IActionResult> PutProducto(int id, Producto producto, [FromQuery] DateTime? recalculateFrom = null, [FromQuery] DateTime? recalculateTo = null)
         {
             if (id != producto.Id) return BadRequest();
@@ -127,6 +134,7 @@ namespace VendingManager.Controllers
         }
 
         [HttpDelete("{id}")]
+        [Authorize(Roles = Roles.Admin)]
         public async Task<IActionResult> DeleteProducto(int id)
         {
             var producto = await inventarioService.GetProductoAsync(id);
@@ -159,6 +167,7 @@ namespace VendingManager.Controllers
 
         /// <summary>Create a new EAN mapping.</summary>
         [HttpPost("ean")]
+        [Authorize(Roles = Roles.Admin)]
         public async Task<ActionResult<ProductoEanDto>> CreateEanMapping([FromBody] CreateProductoEanRequestDto dto)
         {
             if (string.IsNullOrWhiteSpace(dto.EAN))
@@ -190,6 +199,7 @@ namespace VendingManager.Controllers
 
         /// <summary>Update an existing EAN mapping.</summary>
         [HttpPut("ean/{id:int}")]
+        [Authorize(Roles = Roles.Admin)]
         public async Task<IActionResult> UpdateEanMapping(int id, [FromBody] CreateProductoEanRequestDto dto)
         {
             var entity = (await eanRepo.GetAllAsync()).FirstOrDefault(e => e.Id == id);
@@ -217,6 +227,7 @@ namespace VendingManager.Controllers
 
         /// <summary>Delete an EAN mapping.</summary>
         [HttpDelete("ean/{id:int}")]
+        [Authorize(Roles = Roles.Admin)]
         public async Task<IActionResult> DeleteEanMapping(int id)
         {
             var entity = (await eanRepo.GetAllAsync()).FirstOrDefault(e => e.Id == id);

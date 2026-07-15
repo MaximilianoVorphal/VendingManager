@@ -1,4 +1,6 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using VendingManager.Shared.Constants;
 using VendingManager.Shared.DTOs;
 using VendingManager.Core.Interfaces;
 
@@ -6,12 +8,13 @@ namespace VendingManager.Controllers;
 
 [Route("api/[controller]")]
 [ApiController]
+[Authorize]
 public class TemplateRecargaController(
     ITemplateRecargaService service,
     ITemplateRecargaLifecycleService lifecycleService,
     ITemplateRecargaAnalyticsService analyticsService) : ControllerBase
 {
-    /// Obtener todos los templates de recarga
+    /// <summary>Obtener todos los templates de recarga</summary>
     /// </summary>
     [HttpGet]
     public async Task<ActionResult<List<TemplateRecargaDto>>> GetAll()
@@ -36,6 +39,7 @@ public class TemplateRecargaController(
     /// El template queda como completado, fuente para stock-critico.
     /// </summary>
     [HttpPost("{id}/terminar")]
+    [Authorize(Roles = Roles.Admin)]
     public async Task<ActionResult<TemplateRecargaDto>> Terminar(int id)
     {
         try
@@ -58,6 +62,7 @@ public class TemplateRecargaController(
     /// Preserva los SnapshotSlots para permitir edición.
     /// </summary>
     [HttpPost("{id}/reabrir")]
+    [Authorize(Roles = Roles.Admin)]
     public async Task<ActionResult<TemplateRecargaDto>> Reabrir(int id)
     {
         try
@@ -80,6 +85,7 @@ public class TemplateRecargaController(
     /// Soporta: REFILL (actualizar cantidad), EMPTY (cantidad=0), SWAP (cambiar producto).
     /// </summary>
     [HttpPost("{templateId}/periodo/{periodoId}/slot-batch")]
+    [Authorize(Roles = Roles.Admin)]
     public async Task<ActionResult<SlotBatchResponse>> SlotBatch(
         int templateId,
         int periodoId,
@@ -121,6 +127,7 @@ public class TemplateRecargaController(
     /// Crear nuevo template de recarga
     /// </summary>
     [HttpPost]
+    [Authorize(Roles = Roles.Admin)]
     public async Task<ActionResult<TemplateRecargaDto>> Create([FromBody] CreateTemplateRecargaDto dto)
     {
         if (string.IsNullOrWhiteSpace(dto.Nombre))
@@ -141,6 +148,7 @@ public class TemplateRecargaController(
     /// Actualizar template existente
     /// </summary>
     [HttpPut("{id}")]
+    [Authorize(Roles = Roles.Admin)]
     public async Task<ActionResult<TemplateRecargaDto>> Update(int id, [FromBody] UpdateTemplateRecargaDto dto)
     {
         try
@@ -162,6 +170,7 @@ public class TemplateRecargaController(
     /// Eliminar template
     /// </summary>
     [HttpDelete("{id}")]
+    [Authorize(Roles = Roles.Admin)]
     public async Task<IActionResult> Delete(int id)
     {
         await service.DeleteAsync(id);
@@ -215,6 +224,7 @@ public class TemplateRecargaController(
     /// Sincronizar histórico de ventas con la configuración de este template
     /// </summary>
     [HttpPost("{id}/sincronizar-ventas")]
+    [Authorize(Roles = Roles.Admin)]
     public async Task<ActionResult<object>> SincronizarVentas(int id, [FromQuery] bool actualizarCostos = false)
     {
         var template = await service.GetByIdAsync(id);
@@ -233,6 +243,7 @@ public class TemplateRecargaController(
     /// Sincronizar TODOS los templates contra las ventas históricas (global)
     /// </summary>
     [HttpPost("sincronizar-todas-ventas")]
+    [Authorize(Roles = Roles.Admin)]
     public async Task<ActionResult<SyncAllVentasResultDto>> SincronizarTodasVentas([FromQuery] bool actualizarCostos = false)
     {
         var result = await service.SyncAllVentasAsync(actualizarCostos);
@@ -243,6 +254,7 @@ public class TemplateRecargaController(
     /// Sincronizar el producto de un slot específico en las ventas históricas
     /// </summary>
     [HttpPatch("{templateId}/periodo/{periodoId}/slot/{numeroSlot}/sincronizar-producto")]
+    [Authorize(Roles = Roles.Admin)]
     public async Task<ActionResult<SyncSlotProductoResultDto>> SyncSlotProducto(
         int templateId,
         int periodoId,
@@ -270,6 +282,7 @@ public class TemplateRecargaController(
     /// </summary>
     [HttpPut("{templateId}/periodo/{periodoId}/foto-guia")]
     [RequestSizeLimit(10 * 1024 * 1024)]
+    [Authorize(Roles = Roles.Admin)]
     public async Task<IActionResult> UploadFotoGuia(int templateId, int periodoId, IFormFile file)
     {
         if (file == null || file.Length == 0)
@@ -320,6 +333,7 @@ public class TemplateRecargaController(
     /// Eliminar la foto guía de un período
     /// </summary>
     [HttpDelete("{templateId}/periodo/{periodoId}/foto-guia")]
+    [Authorize(Roles = Roles.Admin)]
     public async Task<IActionResult> DeleteFotoGuia(int templateId, int periodoId)
     {
         try
@@ -338,6 +352,7 @@ public class TemplateRecargaController(
     /// </summary>
     [HttpPut("{templateId}/periodo/{periodoId}/foto-ocr")]
     [RequestSizeLimit(5 * 1024 * 1024)]
+    [Authorize(Roles = Roles.Admin)]
     public async Task<IActionResult> UploadFotoOcr(int templateId, int periodoId, IFormFile file)
     {
         if (file == null || file.Length == 0)
@@ -388,6 +403,7 @@ public class TemplateRecargaController(
     /// Eliminar la foto OCR de un período
     /// </summary>
     [HttpDelete("{templateId}/periodo/{periodoId}/foto-ocr")]
+    [Authorize(Roles = Roles.Admin)]
     public async Task<IActionResult> DeleteFotoOcr(int templateId, int periodoId)
     {
         try

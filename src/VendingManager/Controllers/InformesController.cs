@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using System;
@@ -5,11 +6,13 @@ using System.IO;
 using System.Threading.Tasks;
 using VendingManager.Core.Entities;
 using VendingManager.Core.Interfaces;
+using VendingManager.Shared.Constants;
 
 namespace VendingManager.Web.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class InformesController(IInformesService informesService) : ControllerBase
     {
         [HttpGet("{id}")]
@@ -25,6 +28,7 @@ namespace VendingManager.Web.Controllers
         }
 
         [HttpPost]
+        [Authorize(Roles = Roles.Admin)]
         public async Task<IActionResult> Upload(IFormFile file, [FromForm] string? folder = "General")
         {
             if (file == null || file.Length == 0)
@@ -51,6 +55,7 @@ namespace VendingManager.Web.Controllers
         }
 
         [HttpDelete("{id}")]
+        [Authorize(Roles = Roles.Admin)]
         public async Task<IActionResult> Delete(int id)
         {
             await informesService.EliminarInformeAsync(id);

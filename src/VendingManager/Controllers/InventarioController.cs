@@ -1,14 +1,18 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
+using VendingManager.Shared.Constants;
 using VendingManager.Core.Interfaces;
 
 namespace VendingManager.Web.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Microsoft.AspNetCore.Authorization.Authorize]
+    [Authorize]
     public class InventarioController(IInventarioService inventarioService, IAuditService auditService) : ControllerBase
     {
+        [HttpPost]
+        [Authorize(Roles = Roles.Admin)]
         public async Task<IActionResult> SubirCatalogo(IFormFile file)
         {
             if (file == null || file.Length == 0)

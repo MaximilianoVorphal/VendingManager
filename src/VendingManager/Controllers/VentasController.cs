@@ -3,12 +3,14 @@ using System.Net.Http;
 using VendingManager.Core.Entities;
 using VendingManager.Core.Interfaces;
 using VendingManager.Infrastructure.Services;
+using VendingManager.Shared.Constants;
+using Microsoft.AspNetCore.Authorization;
 
 namespace VendingManager.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Microsoft.AspNetCore.Authorization.Authorize]
+    [Authorize]
     public class VentasController(
         IVentasService ventasService,
         IInformesService informesService,
@@ -34,6 +36,8 @@ namespace VendingManager.Controllers
             });
         }
 
+        [HttpPost]
+        [Authorize(Roles = Roles.Admin)]
         public async Task<IActionResult> SubirVentasMaquina(IFormFile file, [FromQuery] DateTime? fechaLimite = null)
         {
             if (file == null || file.Length == 0) return BadRequest("Archivo vacío.");
