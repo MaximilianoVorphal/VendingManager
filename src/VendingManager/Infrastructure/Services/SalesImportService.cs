@@ -18,8 +18,14 @@ namespace VendingManager.Infrastructure.Services
     public class SalesImportService : ISalesImportService
     {
         private const int MaxSaleAgeYears = 2;
-        // OurVend server runs in UTC; serverTime already accounts for machine timezone
-        // but the adjustment to CLT (UTC-4/UTC-3) requires this extra offset.
+        /// <summary>
+        /// OurVend server-to-CLT delta. When the year guard fires and fecha is
+        /// overwritten with the server timestamp (<c>usandingServerTime=true</c>),
+        /// the raw server timestamp must be adjusted by -14 hours to convert from
+        /// the server's UTC+14 reference to Chilean CLT (UTC-4 DST / UTC-3 std).
+        /// This constant is intentionally NOT configurable — it is a fixed
+        /// property of the OurVend data source, not a per-machine timezone setting.
+        /// </summary>
         private const int ServerTimeOffsetHours = -14;
 
         private readonly ApplicationDbContext _context;
