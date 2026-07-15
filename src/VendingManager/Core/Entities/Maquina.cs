@@ -17,6 +17,13 @@ public class Maquina
     // Zona logística para optimización de rutas (opcional)
     public int? ZonaLogisticaId { get; set; }
     public ZonaLogistica? Zona { get; set; }
+
+    /// <summary>
+    /// Per-machine timezone offset in hours from UTC (e.g., -11 for CLT).
+    /// Null means "use the appsettings default" (<see cref="Configuration.VendingConfig.DefaultTimezoneOffsetHours"/>).
+    /// </summary>
+    public int? TimezoneOffsetHours { get; set; }
+
     // Relación con los slots configurados
     public List<ConfiguracionSlot> Slots { get; set; } = new();
 }

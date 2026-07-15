@@ -17,6 +17,11 @@ namespace VendingManager.Infrastructure.Services
 {
     public class SalesImportService : ISalesImportService
     {
+        private const int MaxSaleAgeYears = 2;
+        // OurVend server runs in UTC; serverTime already accounts for machine timezone
+        // but the adjustment to CLT (UTC-4/UTC-3) requires this extra offset.
+        private const int ServerTimeOffsetHours = -14;
+
         private readonly ApplicationDbContext _context;
         private readonly IOptions<VendingConfig> _config;
 
