@@ -41,29 +41,25 @@ namespace VendingManager.Controllers
         public async Task<IActionResult> SubirVentasMaquina(IFormFile file, [FromQuery] DateTime? fechaLimite = null)
         {
             if (file == null || file.Length == 0) return BadRequest("Archivo vacío.");
-            try
+            using (var memoryStream = new MemoryStream())
             {
-                using (var memoryStream = new MemoryStream())
+                await file.CopyToAsync(memoryStream);
+
+                var informe = new Informe
                 {
-                    await file.CopyToAsync(memoryStream);
+                    Nombre = Path.GetFileNameWithoutExtension(file.FileName) + "_AUTO_SAVE",
+                    Extension = Path.GetExtension(file.FileName),
+                    TipoContenido = file.ContentType,
+                    Contenido = memoryStream.ToArray(),
+                    FechaSubida = DateTime.Now
+                };
+                await informesService.SubirInformeAsync(informe);
 
-                    var informe = new Informe
-                    {
-                        Nombre = Path.GetFileNameWithoutExtension(file.FileName) + "_AUTO_SAVE",
-                        Extension = Path.GetExtension(file.FileName),
-                        TipoContenido = file.ContentType,
-                        Contenido = memoryStream.ToArray(),
-                        FechaSubida = DateTime.Now
-                    };
-                    await informesService.SubirInformeAsync(informe);
-
-                    memoryStream.Position = 0;
-                    string resultado = await salesImportService.ImportarVentasMaquina(memoryStream, file.FileName, fechaLimite);
-                    await auditService.RegistrarAccionAsync(User.Identity?.Name ?? "Desconocido", "Importar Ventas Máquina", $"Archivo importado: {file.FileName}. Resultado: {resultado}");
-                    return Ok($"Archivo procesado. {resultado}");
-                }
+                memoryStream.Position = 0;
+                string resultado = await salesImportService.ImportarVentasMaquina(memoryStream, file.FileName, fechaLimite);
+                await auditService.RegistrarAccionAsync(User.Identity?.Name ?? "Desconocido", "Importar Ventas Máquina", $"Archivo importado: {file.FileName}. Resultado: {resultado}");
+                return Ok($"Archivo procesado. {resultado}");
             }
-            catch (Exception ex) { return StatusCode(500, ex.Message); }
         }
 
         [HttpGet("fix-dates")]
@@ -79,30 +75,26 @@ namespace VendingManager.Controllers
         public async Task<IActionResult> SubirTransbank(IFormFile file, [FromQuery] DateTime? fechaLimite = null)
         {
             if (file == null || file.Length == 0) return BadRequest("Archivo vacío.");
-            try
+            using (var memoryStream = new MemoryStream())
             {
-                using (var memoryStream = new MemoryStream())
+                await file.CopyToAsync(memoryStream);
+
+                var informe = new Informe
                 {
-                    await file.CopyToAsync(memoryStream);
+                    Nombre = Path.GetFileNameWithoutExtension(file.FileName) + "_TRANSBANK_AUTO",
+                    Extension = Path.GetExtension(file.FileName),
+                    TipoContenido = file.ContentType,
+                    Contenido = memoryStream.ToArray(),
+                    FechaSubida = DateTime.Now
+                };
+                await informesService.SubirInformeAsync(informe);
 
-                    var informe = new Informe
-                    {
-                        Nombre = Path.GetFileNameWithoutExtension(file.FileName) + "_TRANSBANK_AUTO",
-                        Extension = Path.GetExtension(file.FileName),
-                        TipoContenido = file.ContentType,
-                        Contenido = memoryStream.ToArray(),
-                        FechaSubida = DateTime.Now
-                    };
-                    await informesService.SubirInformeAsync(informe);
-
-                    memoryStream.Position = 0;
-                    await salesImportService.ImportarTransbank(memoryStream, file.FileName, fechaLimite);
-                }
-                
-                await auditService.RegistrarAccionAsync(User.Identity?.Name ?? "Desconocido", "Importar Transbank", $"Archivo importado: {file.FileName}");
-                return Ok("Archivo de TRANSBANK procesado y guardado en Documentos correctamente.");
+                memoryStream.Position = 0;
+                await salesImportService.ImportarTransbank(memoryStream, file.FileName, fechaLimite);
             }
-            catch (Exception ex) { return StatusCode(500, ex.Message); }
+
+            await auditService.RegistrarAccionAsync(User.Identity?.Name ?? "Desconocido", "Importar Transbank", $"Archivo importado: {file.FileName}");
+            return Ok("Archivo de TRANSBANK procesado y guardado en Documentos correctamente.");
         }
 
         [HttpGet("lista-maquinas")]
