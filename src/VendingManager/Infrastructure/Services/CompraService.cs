@@ -477,9 +477,10 @@ public class CompraService : ICompraService
 
     private string GetUploadBasePath()
     {
-        // Simplified fallback: WebRootPath or ContentRootPath/wwwroot.
-        // The explicit VendingConfig.FacturaUploadPath path is removed — it was
-        // only consumed by IUploadPathProvider which is no longer registered.
+        // Resolves the base directory for legacy on-disk factura files:
+        // WebRootPath when available, otherwise ContentRootPath/wwwroot.
+        // Used only for legacy paths — serving old on-disk images and the
+        // one-time backfill that loads them into the database.
         if (!string.IsNullOrEmpty(_env.WebRootPath))
             return _env.WebRootPath;
 

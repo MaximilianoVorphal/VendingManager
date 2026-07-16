@@ -22,6 +22,28 @@ docker-compose up -d
 
 La aplicación se ejecuta en `http://localhost:8080`. Las migraciones de base de datos se aplican automáticamente al iniciar el contenedor de la aplicación web.
 
+## Flujo de Despliegue (CI/CD)
+
+Los despliegues se disparan por **tags**, no por pushes a `master`:
+
+- **Push a `master`**: el pipeline de CI (`.github/workflows/ci.yml`) solo compila y ejecuta los tests. No despliega.
+- **Push de un tag `v*`** (por ejemplo `v1.2.0`): el pipeline compila, ejecuta los tests y, si pasan, ejecuta el job `deploy`, que se conecta al servidor vía Tailscale + SSH, hace checkout del tag, ejecuta un backup pre-deploy (`scripts/backup-db.sh`) y levanta el stack de producción con `docker compose -f docker-compose.yml up -d --build`.
+- **`workflow_dispatch`**: permite relanzar el workflow manualmente; el job `deploy` solo se ejecuta si el ref despachado es un tag `v*`.
+
+```bash
+# Desplegar una nueva versión
+git tag v1.2.0
+git push origin v1.2.0
+```
+
+## Backups
+
+- Backups nocturnos de la base de datos mediante `scripts/backup-db.sh`, programado vía cron en el servidor.
+- Los archivos `.bak` se escriben en un bind mount del host (`~/vendingmanager-backups`), que sobrevive a `docker compose down -v`.
+- Retención de **14 días**: los `.bak` más antiguos se eliminan automáticamente en cada ejecución.
+- Copia off-host opcional vía `scp` sobre Tailscale (ver variables `OFFHOST_*` más abajo).
+- El procedimiento de restauración está documentado en [docs/runbook-restore.md](runbook-restore.md).
+
 ## Entornos Disponibles
 
 El proyecto define tres entornos mediante archivos Docker Compose independientes que comparten el mismo archivo `.env`:
@@ -70,6 +92,17 @@ El archivo `.env` en la raíz del proyecto alimenta las variables de Docker Comp
 | `OURVEND_PASS` | Contraseña de autenticación para el portal OurVend |
 | `GEMINI_API_KEY` | Clave de API de Google Gemini para procesamiento de documentos |
 
+Variables opcionales:
+
+| Variable | Propósito |
+|----------|-----------|
+| `SEED_ADMIN_PASSWORD` | Rota la contraseña del usuario `admin` al iniciar la aplicación. Mientras se use la contraseña por defecto, la app emite una advertencia en el arranque |
+| `OFFHOST_USER` | Usuario SSH para la copia off-host de backups (opcional) |
+| `OFFHOST_HOST` | Host SSH de destino para la copia off-host de backups (opcional) |
+| `OFFHOST_PATH` | Ruta de destino en el host remoto para la copia off-host (opcional) |
+
+Las tres variables `OFFHOST_*` deben definirse juntas para habilitar la copia off-host en `scripts/backup-db.sh`; si falta alguna, el paso se omite.
+
 ## Persistencia de Datos
 
 Los datos se almacenan en volúmenes Docker nombrados:
@@ -86,4 +119,4 @@ Los servicios se comunican internamente a través de la red por defecto de Docke
 - La aplicación web accede a la base de datos mediante `Server=db`
 - La aplicación web consume el scraper mediante `http://scraper:8000`
 
-Los puertos expuestos al host (`8080`, `1433`, `8000`) pueden modificarse en `docker-compose.yml` si existe conflicto con otros servicios en el servidor.
+Los puertos expuestos al host (`8080`, `1433`, `8000`) pueden modificarse en `docker-compose.yml` si existe conflicto con otros servicios en el servidor. El puerto `1433` de SQL Server está ligado únicamente a `127.0.0.1`, por lo que la base de datos no queda expuesta fuera del propio servidor.

@@ -182,7 +182,7 @@ Además, cada tabla replica las columnas escalares de su entidad principal para 
 
 ### Imágenes y Archivos
 
-- Los comprobantes de compra (`Compra.FacturaImagen`) y transferencia (`Transferencia.ComprobanteImagenPath`) se almacenan como `byte[]` en la base de datos, garantizando que viajen con las copias de seguridad.
+- Los comprobantes de compra (`Compra.FacturaImagen`) y transferencia (`Transferencia.ComprobanteImagen`) se almacenan como `byte[]` (`varbinary(max)`) en la base de datos, garantizando que viajen con las copias de seguridad. `Transferencia` acompaña los bytes con `ComprobanteImagenContentType` y `ComprobanteImagenFileName`; la antigua columna de ruta en disco ya no existe.
 - Los informes (`Informe.Contenido`) y fotos de recarga (`PeriodoRecarga.FotoGuia`, `PeriodoRecarga.FotoOcr`) siguen el mismo patrón de almacenamiento binario en DB.
 
 ### Optimistic Concurrency

@@ -62,7 +62,7 @@ src/
 │   ├── Layout/                    # Layouts y shell móvil
 │   └── Services/                  # Clientes HTTP hacia la API
 ├── VendingManager.Shared/         # DTOs y contratos compartidos backend ↔ frontend
-├── VendingManager.Tests/          # Tests unitarios y de integración (xUnit, 900+)
+├── VendingManager.Tests/          # Tests unitarios y de integración (xUnit, 1150+)
 ├── VendingManager.Tests.Viewport/ # Tests visuales de viewport (Playwright)
 ├── VendingManager.slnx            # Archivo de solución
 └── Dockerfile                     # Imagen de la aplicación principal

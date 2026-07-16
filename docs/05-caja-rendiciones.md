@@ -69,7 +69,8 @@ Las categorías estructurales (como `RETIRO_CAPITAL`, `DEVOLUCION_RENDICION`) se
 
 - Máximo **5 MB**.
 - Extensiones permitidas: `.jpg`, `.jpeg`, `.png`, `.pdf`.
-- Almacenado en `/uploads/transferencias/{Guid}.ext`; el archivo previo se elimina.
+- Almacenado en la base de datos como `varbinary` en la entidad `Transferencia` (`ComprobanteImagen` + `ComprobanteImagenContentType` + `ComprobanteImagenFileName`); una nueva subida sobrescribe los bytes del comprobante anterior.
+- La imagen se sirve desde `GET /api/contabilidad/transferencia/{id}/comprobante`.
 
 ---
 

@@ -684,8 +684,8 @@ public class CompraServiceTests : IDisposable
         return new CompraService(
             null!, // ApplicationDbContext — not used by inference
             null!, // IProductMatchingService — not used
-            null!, // IUploadPathProvider — not used
             null!, // IProveedorMatchingService — not used
+            null!, // IWebHostEnvironment — not used
             options,
             logger);
     }

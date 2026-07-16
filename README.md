@@ -102,7 +102,7 @@ flowchart TB
 | Controladores | 19 |
 | Entidades de negocio | 26 |
 | Tablas de historial (auditoría) | 12 |
-| Tests automatizados | 900+ |
+| Tests automatizados | 1150+ |
 | Entornos Docker | 3 (dev, test, prod) |
 
 ---
@@ -131,6 +131,8 @@ La app corre en `http://localhost:8080`. Las migraciones de base de datos se apl
 | Usuario | Contraseña |
 |---------|------------|
 | `admin` | `admin` |
+
+La app emite una advertencia al arrancar mientras la contraseña por defecto no haya sido cambiada; puede rotarse definiendo la variable de entorno `SEED_ADMIN_PASSWORD`.
 
 > Las credenciales de OurVend y la clave de Gemini son opcionales: sin ellas la app funciona completa, solo que sin sincronización automática de ventas ni OCR.
 
