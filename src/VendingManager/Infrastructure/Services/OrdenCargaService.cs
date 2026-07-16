@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using VendingManager.Shared.DTOs;
+using VendingManager.Shared.Enums;
 using VendingManager.Core.Entities;
 using VendingManager.Core.Interfaces;
 using VendingManager.Infrastructure.Data;
@@ -24,7 +25,7 @@ namespace VendingManager.Infrastructure.Services
                 MaquinaId = (dto.MaquinaId.HasValue && dto.MaquinaId.Value > 0) ? dto.MaquinaId : null,
                 Nombre = dto.Nombre,
                 FechaCreacion = dto.Fecha ?? DateTime.Now,
-                Estado = "PENDIENTE"
+                Estado = EstadoOrdenCarga.Pendiente
             };
 
             // 3. Process Items & Deduct Stock
@@ -73,7 +74,7 @@ namespace VendingManager.Infrastructure.Services
                 .FirstOrDefaultAsync(o => o.Id == dto.OrdenId);
 
             if (orden == null) throw new Exception("Orden no encontrada.");
-            if (orden.Estado == "FINALIZADA") throw new Exception("La orden ya fue finalizada.");
+            if (orden.Estado == EstadoOrdenCarga.Finalizada) throw new Exception("La orden ya fue finalizada.");
 
             foreach (var ret in dto.Retornos)
             {
@@ -139,7 +140,7 @@ namespace VendingManager.Infrastructure.Services
                 });
             }
 
-            orden.Estado = "FINALIZADA";
+            orden.Estado = EstadoOrdenCarga.Finalizada;
             orden.FechaFinalizacion = DateTime.Now;
 
             await context.SaveChangesAsync();
@@ -308,7 +309,7 @@ namespace VendingManager.Infrastructure.Services
                 MaquinaId = (dto.MaquinaId.HasValue && dto.MaquinaId.Value > 0) ? dto.MaquinaId : null,
                 Nombre = dto.Nombre,
                 FechaCreacion = dto.Fecha ?? DateTime.Now,
-                Estado = "BORRADOR"
+                Estado = EstadoOrdenCarga.Borrador
             };
 
             // 3. Process Items — NO stock validation, NO stock deduction
@@ -350,7 +351,7 @@ namespace VendingManager.Infrastructure.Services
 
             if (orden == null) throw new Exception("Orden no encontrada.");
 
-            if (orden.Estado != "BORRADOR")
+            if (orden.Estado != EstadoOrdenCarga.Borrador)
                 throw new InvalidOperationException("La orden no está en estado BORRADOR.");
 
             // Validate and deduct stock for each detail
@@ -365,7 +366,7 @@ namespace VendingManager.Infrastructure.Services
                 producto.StockBodega -= detalle.CantidadSolicitada;
             }
 
-            orden.Estado = "PENDIENTE";
+            orden.Estado = EstadoOrdenCarga.Pendiente;
             await context.SaveChangesAsync();
 
             string maquinaName = "RUTA GLOBAL";
@@ -402,7 +403,7 @@ namespace VendingManager.Infrastructure.Services
                 Id = orden.Id,
                 Nombre = orden.Nombre,
                 FechaCreacion = orden.FechaCreacion,
-                Estado = orden.Estado,
+                Estado = orden.Estado.ToString().ToUpperInvariant(),
                 MaquinaId = orden.MaquinaId,
                 MaquinaNombre = maquinaNombre,
                 IdInternoMaquina = idInternoMaquina,

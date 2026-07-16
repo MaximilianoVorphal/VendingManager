@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using VendingManager.Core.Entities;
 using VendingManager.Shared.Enums;
 
@@ -279,6 +280,17 @@ namespace VendingManager.Infrastructure.Data
                 .WithMany()
                 .HasForeignKey(m => m.ZonaLogisticaId)
                 .OnDelete(DeleteBehavior.SetNull);
+
+            // OrdenCarga: Estado enum → NVARCHAR with uppercase persistence
+            modelBuilder.Entity<OrdenCarga>(e =>
+            {
+                var converter = new ValueConverter<EstadoOrdenCarga, string>(
+                    v => v.ToString().ToUpperInvariant(),
+                    v => Enum.Parse<EstadoOrdenCarga>(v, ignoreCase: true));
+
+                e.Property(o => o.Estado)
+                    .HasConversion(converter);
+            });
         }
     }
 }

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using VendingManager.Shared.Enums;
 
 namespace VendingManager.Core.Entities
 {
@@ -13,7 +14,7 @@ namespace VendingManager.Core.Entities
         public DateTime? FechaFinalizacion { get; set; }
 
         [Required]
-        public string Estado { get; set; } = "PENDIENTE"; // BORRADOR, PENDIENTE, FINALIZADA
+        public EstadoOrdenCarga Estado { get; set; } = EstadoOrdenCarga.Pendiente;
 
         public string? Nombre { get; set; } // Opcional, nombre de la ruta/orden
 

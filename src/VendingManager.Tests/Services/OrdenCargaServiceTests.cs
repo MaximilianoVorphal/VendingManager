@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using VendingManager.Core.Entities;
 using VendingManager.Infrastructure.Services;
 using VendingManager.Shared.DTOs;
+using VendingManager.Shared.Enums;
 using VendingManager.Tests.TestData;
 
 /// <summary>
@@ -70,7 +71,7 @@ public class OrdenCargaServiceTests : IDisposable
         var persisted = await _context.OrdenesCarga
             .Include(o => o.Detalles)
             .FirstAsync(o => o.Id == result.Id);
-        persisted.Estado.Should().Be("BORRADOR");
+        persisted.Estado.Should().Be(EstadoOrdenCarga.Borrador);
     }
 
     [Fact]
@@ -185,7 +186,7 @@ public class OrdenCargaServiceTests : IDisposable
         var orden = await _context.OrdenesCarga
             .Include(o => o.Detalles)
             .FirstAsync(o => o.Id == borrador.Id);
-        orden.Estado.Should().Be("BORRADOR");
+        orden.Estado.Should().Be(EstadoOrdenCarga.Borrador);
 
         // No partial deduction
         var productoFinal = await _context.Productos.FindAsync(1);

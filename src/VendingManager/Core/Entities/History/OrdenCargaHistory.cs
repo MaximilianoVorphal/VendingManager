@@ -28,7 +28,7 @@ public class OrdenCargaHistory
     public DateTime? FechaFinalizacion { get; set; }
 
     [Required]
-    public string Estado { get; set; } = "PENDIENTE";
+    public string Estado { get; set; } = "PENDIENTE"; // string stays string — populated by AuditSaveChangesInterceptor reflection
 
     public string? Nombre { get; set; }
     public int? MaquinaId { get; set; }
