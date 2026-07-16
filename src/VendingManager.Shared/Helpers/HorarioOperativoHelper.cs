@@ -17,6 +17,13 @@ public static class HorarioOperativoHelper
     public const int HorasOperativasPorDia = FinOperativo - InicioOperativo; // 14
 
     /// <summary>
+    /// Returns true when <paramref name="fechaLocal"/> falls within the operating
+    /// window [InicioOperativo, FinOperativo), i.e. Hour ≥ 8 and Hour &lt; 22.
+    /// </summary>
+    public static bool EsHoraOperativa(DateTime fechaLocal)
+        => fechaLocal.Hour >= InicioOperativo && fechaLocal.Hour < FinOperativo;
+
+    /// <summary>
     /// Returns total hours in the [8:00, 22:00) window between <paramref name="desde"/>
     /// and <paramref name="hasta"/>. Returns 0 when <paramref name="hasta"/> is not after
     /// <paramref name="desde"/>.

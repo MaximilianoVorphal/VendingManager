@@ -65,7 +65,7 @@ public class TemplateRecargaAnalyticsService : ITemplateRecargaAnalyticsService
                 g => g.Key,
                 g =>
                 {
-                    var ventasEnHorario = g.Where(v => v.FechaLocal.Hour >= 8 && v.FechaLocal.Hour < 22).ToList();
+                    var ventasEnHorario = g.Where(v => HorarioOperativoHelper.EsHoraOperativa(v.FechaLocal)).ToList();
                     if (ventasEnHorario.Count == 0) return 0m;
 
                     var primera = ventasEnHorario.Min(v => v.FechaLocal);

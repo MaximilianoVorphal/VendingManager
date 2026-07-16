@@ -118,4 +118,58 @@ public class HorarioOperativoHelperTests
 
         result.Should().Be(0.0);
     }
+
+    // ── EsHoraOperativa boundary tests (P3: horario-operativo-centralizado) ──
+
+    /// <summary>
+    /// T1.1: 12:00 is within the 08:00–22:00 window → true.
+    /// </summary>
+    [Fact]
+    public void EsHoraOperativa_WithinHours_ReturnsTrue()
+    {
+        var fecha = new DateTime(2026, 7, 15, 12, 0, 0);
+
+        var result = HorarioOperativoHelper.EsHoraOperativa(fecha);
+
+        result.Should().BeTrue();
+    }
+
+    /// <summary>
+    /// T1.2: 08:00 is the start boundary, inclusive → true.
+    /// </summary>
+    [Fact]
+    public void EsHoraOperativa_AtStartBoundary_ReturnsTrue()
+    {
+        var fecha = new DateTime(2026, 7, 15, 8, 0, 0);
+
+        var result = HorarioOperativoHelper.EsHoraOperativa(fecha);
+
+        result.Should().BeTrue();
+    }
+
+    /// <summary>
+    /// T1.3: 22:00 is the end boundary, exclusive → false.
+    /// </summary>
+    [Fact]
+    public void EsHoraOperativa_AtEndBoundary_ReturnsFalse()
+    {
+        var fecha = new DateTime(2026, 7, 15, 22, 0, 0);
+
+        var result = HorarioOperativoHelper.EsHoraOperativa(fecha);
+
+        result.Should().BeFalse();
+    }
+
+    /// <summary>
+    /// T1.4: 06:00 is outside the 08:00–22:00 window → false.
+    /// </summary>
+    [Fact]
+    public void EsHoraOperativa_OutsideWindow_ReturnsFalse()
+    {
+        var fecha = new DateTime(2026, 7, 15, 6, 0, 0);
+
+        var result = HorarioOperativoHelper.EsHoraOperativa(fecha);
+
+        result.Should().BeFalse();
+    }
 }

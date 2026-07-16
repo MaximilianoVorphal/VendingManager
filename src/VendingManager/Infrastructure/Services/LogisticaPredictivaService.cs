@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
 using VendingManager.Core.Entities;
 using VendingManager.Core.Interfaces;
@@ -13,16 +14,20 @@ namespace VendingManager.Infrastructure.Services
     {
         private const double UmbralCriticoDias = 2.0; // Quiebre proyectado < 48h
 
+        // Expression tree for EF-compatible operating-hours filter (08:00–22:00).
+        // Placed here, not in HorarioOperativoHelper, because Shared has zero
+        // project references and cannot reference Core.Entities.Venta.
+        private static readonly Expression<Func<Venta, bool>> EsHoraOperativaExpression =
+            v => v.FechaLocal.Hour >= HorarioOperativoHelper.InicioOperativo
+                 && v.FechaLocal.Hour < HorarioOperativoHelper.FinOperativo;
+
         /// <summary>
         /// Calcula, por zona logística, el lucro cesante proyectado (LCP) de los
         /// próximos <paramref name="ventanaProyeccionDias"/> días si no se recarga.
         ///
         /// Velocidad diaria: unidades vendidas del producto en la máquina durante los
         /// últimos <paramref name="diasHistorial"/> días (por Venta.FechaLocal) dividido
-        /// por diasHistorial. Las ventas no tienen slot asociado: cuando un mismo producto
-        /// ocupa varios slots de la misma máquina, la velocidad máquina-producto se
-        /// reparte en partes iguales entre esos slots (supuesto simplificador y
-        /// determinista; no se pondera por capacidad ni por posición).
+        /// por diasHistorial.
         ///
         /// Las máquinas sin zona se agrupan en un bucket "Sin zona" con CostoBaseViaje 0
         /// y EsRentableViajar siempre false; las zonas reales (incluso con CostoBaseViaje 0)
@@ -48,9 +53,8 @@ namespace VendingManager.Infrastructure.Services
                 .Where(v => v.FechaLocal >= desde
                     && v.ProductoId != null
                     && v.IdOrdenMaquina != "TB-EXTRA"
-                    && v.IdOrdenMaquina != "TB-SIN-VENTA"
-                    && v.FechaLocal.Hour >= 8
-                    && v.FechaLocal.Hour < 22)
+                    && v.IdOrdenMaquina != "TB-SIN-VENTA")
+                .Where(EsHoraOperativaExpression)
                 .GroupBy(v => new { v.MaquinaId, v.ProductoId })
                 .Select(g => new
                 {
