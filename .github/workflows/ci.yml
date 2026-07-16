@@ -6,7 +6,7 @@ on:
     tags: ['v*']
   pull_request:
     branches: [master, main, develop]
-  workflow_dispatch:  # Manual deploy trigger for emergency redeploys
+  workflow_dispatch:  # Manual run (deploys only when dispatched from a v* tag ref)
 
 jobs:
   build:
@@ -59,7 +59,9 @@ jobs:
             cd ~/proyecto/VendingManager
             git fetch --all --tags
             git checkout "${GITHUB_REF_NAME}"
-            # Pre-deploy backup before migrations run at startup
-            bash scripts/backup-db.sh
+            # Pre-deploy backup before migrations run at startup.
+            # Override the script's dev defaults to target the PRODUCTION
+            # stack (compose project vendingmanager, service db, DB VendingDB).
+            BACKUP_CONTAINER_NAME=vendingmanager-db-1 BACKUP_DB_NAME=VendingDB bash scripts/backup-db.sh
             docker compose -f docker-compose.yml down --remove-orphans
             docker compose -f docker-compose.yml up -d --build

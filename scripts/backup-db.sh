@@ -37,9 +37,6 @@ BACKUP_CONTAINER_NAME="${BACKUP_CONTAINER_NAME:-vendingmanager-db-dev-1}"
 BACKUP_DB_NAME="${BACKUP_DB_NAME:-VendingDB_Dev}"
 LOG_FILE="$BACKUP_DIR/backup.log"
 ERROR_LOG_FILE="$BACKUP_DIR/backup-error.log"
-TIMESTAMP="$(date '+%Y-%m-%d_%H%M%S')"
-BACKUP_FILENAME="${BACKUP_DB_NAME}_${TIMESTAMP}.bak"
-BACKUP_CONTAINER_PATH="/var/opt/mssql/backup/$BACKUP_FILENAME"
 
 # ── Logging helper ──────────────────────────────────────────────────────────
 log() {
@@ -78,6 +75,12 @@ if [ -z "${MSSQL_SA_PASSWORD:-}" ]; then
     log_error "FATAL" "MSSQL_SA_PASSWORD is not set in .env"
     exit 1
 fi
+
+# Derived values are computed AFTER sourcing .env so that overrides of
+# BACKUP_DB_NAME propagate consistently to the .bak filename and path.
+TIMESTAMP="$(date '+%Y-%m-%d_%H%M%S')"
+BACKUP_FILENAME="${BACKUP_DB_NAME}_${TIMESTAMP}.bak"
+BACKUP_CONTAINER_PATH="/var/opt/mssql/backup/$BACKUP_FILENAME"
 
 # ── (2) Backup — docker exec → sqlcmd BACKUP DATABASE ──────────────────────
 log "INFO" "Starting backup of [$BACKUP_DB_NAME] via container $BACKUP_CONTAINER_NAME"
