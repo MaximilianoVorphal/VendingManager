@@ -56,6 +56,9 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           envs: GITHUB_REF_NAME
           script: |
+            # Abort the deploy on any failed step — especially the pre-deploy
+            # backup: never take the stack down without a fresh backup.
+            set -e
             cd ~/proyecto/VendingManager
             git fetch --all --tags
             git checkout "${GITHUB_REF_NAME}"
