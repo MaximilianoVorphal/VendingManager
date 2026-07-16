@@ -36,6 +36,7 @@ services:
       - TZ=America/Santiago
     volumes:
       - mssql_data_dev:/var/opt/mssql
+      - ~/vendingmanager-backups:/var/opt/mssql/backup
     ports:
       - "1434:1433"
 
