@@ -4,6 +4,8 @@
 @inject IJSRuntime JS
 @using System.Linq
 @using System.Net.Http.Headers
+@using System.Net.Http.Json
+@using VendingManager.Shared.DTOs
 @using VendingManager.Web.Services
 @using VendingManager.Web.Components.Shared
 @using VendingManager.Web.Components.Mobile
@@ -36,6 +38,39 @@
     }
     else
     {
+        @if (DriftAlerts != null && DriftAlerts.Any())
+        {
+            <div class="row mb-3">
+                <div class="col-12">
+                    <VmCard Header="⚠️ ALERTA DE DESVIACIÓN DE OFFSET HORARIO"
+                            HeaderVariant="danger">
+                        @foreach (var alert in DriftAlerts)
+                        {
+                            <div class="d-flex align-items-center justify-content-between border-bottom border-dark py-2">
+                                <div class="d-flex align-items-center gap-2">
+                                    <strong class="font-monospace">@MachineHelpers.ExtractShortCode(alert.Nombre, alert.IdInternoMaquina)</strong>
+                                    <span class="text-muted small">
+                                        @if (alert.IsFirstTimeProposal)
+                                        {
+                                            <span>SIN CONFIGURAR → Sugerido: <strong>@alert.ImpliedOffsetHours h</strong></span>
+                                        }
+                                        else
+                                        {
+                                            <span>Configurado: @alert.ConfiguredOffsetHours h → Sugerido: <strong>@alert.ImpliedOffsetHours h</strong></span>
+                                        }
+                                        <span class="ms-2">(@alert.SampleCount muestras)</span>
+                                    </span>
+                                </div>
+                                <VmButton Variant="outline" Size="sm" Icon="bi-check2-circle" OnClick="@(async () => await AplicarOffset(alert))">
+                                    APLICAR OFFSET SUGERIDO
+                                </VmButton>
+                            </div>
+                        }
+                    </VmCard>
+                </div>
+            </div>
+        }
+
         <div class="row g-3" style="margin-bottom: 20px;">
             <!-- DIARIO -->
             <div class="col-md-4">
@@ -222,6 +257,7 @@
 
 @code {
     private DashboardStats? Stats;
+    private List<OffsetDriftDto>? DriftAlerts;
     private List<MaquinaSimpleDto>? ListaMaquinas;
     private int MaquinaActualId = 0;
 
@@ -267,6 +303,7 @@
     {
         await CargarMaquinas();
         await CargarDatos();
+        await CargarDriftAlerts();
     }
 
     private async Task CargarMaquinas()
@@ -297,6 +334,27 @@
         {
             Mensaje = "ERROR DE CONEXIÓN: " + ex.Message;
         }
+    }
+
+    private async Task CargarDriftAlerts()
+    {
+        try { DriftAlerts = await Http.GetFromJsonAsync<List<OffsetDriftDto>>("api/Maquinas/offset-drift"); }
+        catch { DriftAlerts = null; }
+    }
+
+    private async Task AplicarOffset(OffsetDriftDto alert)
+    {
+        try
+        {
+            var payload = new { offsetHours = alert.ImpliedOffsetHours };
+            var response = await Http.PatchAsJsonAsync($"api/Maquinas/{alert.MaquinaId}/offset", payload);
+            if (response.IsSuccessStatusCode)
+            {
+                await CargarDriftAlerts();
+                StateHasChanged();
+            }
+        }
+        catch { }
     }
 
     private void IrAReporte(string periodo)

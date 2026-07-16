@@ -73,6 +73,26 @@ namespace VendingManager.Controllers
             return Ok();
         }
 
+        [HttpGet("offset-drift")]
+        public async Task<ActionResult<List<OffsetDriftDto>>> GetOffsetDrift()
+        {
+            return await maquinaService.GetOffsetDriftAsync();
+        }
+
+        [HttpPatch("{id}/offset")]
+        [Authorize(Roles = Roles.Admin)]
+        public async Task<IActionResult> UpdateTimezoneOffset(int id, [FromBody] UpdateOffsetRequest request)
+        {
+            var maquina = await maquinaService.GetMaquinaAsync(id);
+            if (maquina == null) return NotFound();
+
+            await maquinaService.UpdateTimezoneOffsetAsync(id, request.OffsetHours);
+            await auditService.RegistrarAccionAsync(User.Identity?.Name ?? "Desconocido",
+                "Actualizar Offset Horario",
+                $"Máquina {maquina.Nombre} (ID {id}): TimezoneOffsetHours → {request.OffsetHours}");
+            return NoContent();
+        }
+
         [HttpPost("{id}/batch-actions")]
         [Authorize(Roles = Roles.Admin)]
         public async Task<IActionResult> ProcesarMovimientos(int id, [FromBody] List<SlotActionDto> acciones)
@@ -111,4 +131,6 @@ namespace VendingManager.Controllers
             return Ok();
         }
     }
+
+    public record UpdateOffsetRequest(int OffsetHours);
 }

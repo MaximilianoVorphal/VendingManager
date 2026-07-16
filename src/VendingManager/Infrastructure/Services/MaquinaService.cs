@@ -1,4 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+using VendingManager.Core.Configuration;
 
 namespace VendingManager.Infrastructure.Services
 {
@@ -6,10 +8,12 @@ namespace VendingManager.Infrastructure.Services
     public class MaquinaService : IMaquinaService
     {
         private readonly ApplicationDbContext _context;
+        private readonly VendingConfig _config;
 
-        public MaquinaService(ApplicationDbContext context)
+        public MaquinaService(ApplicationDbContext context, IOptions<VendingConfig> config)
         {
             _context = context;
+            _config = config.Value;
         }
 
         public async Task<List<Maquina>> GetMaquinasAsync()
@@ -230,6 +234,45 @@ namespace VendingManager.Infrastructure.Services
                 _context.MovimientosCaja.Add(movimiento);
                 await _context.SaveChangesAsync();
             }
+        }
+
+        public async Task<List<OffsetDriftDto>> GetOffsetDriftAsync()
+        {
+            var threshold = _config.OffsetDriftThresholdHours;
+            var minSamples = _config.OffsetDriftMinSamples;
+
+            var query = from ds in _context.OffsetDriftStates
+                        join m in _context.Maquinas on ds.MaquinaId equals m.Id
+                        select new OffsetDriftDto
+                        {
+                            MaquinaId = m.Id,
+                            Nombre = m.Nombre,
+                            IdInternoMaquina = m.IdInternoMaquina,
+                            ConfiguredOffsetHours = m.TimezoneOffsetHours,
+                            ImpliedOffsetHours = ds.ImpliedOffsetHours,
+                            SampleCount = ds.SampleCount,
+                            MeasuredAtUtc = ds.MeasuredAtUtc,
+                            IsFirstTimeProposal = m.TimezoneOffsetHours == null
+                        };
+
+            var all = await query.ToListAsync();
+
+            return all.Where(d => d.IsFirstTimeProposal
+                || (d.ConfiguredOffsetHours.HasValue
+                    && Math.Abs(d.ImpliedOffsetHours - d.ConfiguredOffsetHours.Value) >= threshold
+                    && d.SampleCount >= minSamples))
+                .ToList();
+        }
+
+        public async Task UpdateTimezoneOffsetAsync(int id, int offsetHours)
+        {
+            var maquina = await _context.Maquinas.FindAsync(id);
+            if (maquina == null)
+                throw new KeyNotFoundException($"Maquina with ID {id} not found.");
+
+            maquina.TimezoneOffsetHours = offsetHours;
+            _context.Entry(maquina).State = EntityState.Modified;
+            await _context.SaveChangesAsync();
         }
     }
 }
