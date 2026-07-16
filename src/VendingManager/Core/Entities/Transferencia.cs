@@ -70,13 +70,6 @@ public class Transferencia
     public string? ComprobanteImagenFileName { get; set; }
 
     /// <summary>
-    /// Relative path to the transfer comprobante image.
-    /// Mirrors Compra.FacturaImagenPath semantics.
-    /// Kept temporarily for backfill (PR 2).
-    /// </summary>
-    public string? ComprobanteImagenPath { get; set; }
-
-    /// <summary>
     /// Indicates whether the transfer comprobante has been verified by the owner.
     /// Defaults to false; historic rows are explicitly unverified after migration.
     /// </summary>

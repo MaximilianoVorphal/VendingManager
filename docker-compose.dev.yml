@@ -21,9 +21,6 @@ services:
       - ASPNETCORE_ENVIRONMENT=Development
       - TZ=America/Santiago
       - ScraperServiceUrl=http://scraper-dev:8000
-      - VendingConfig__FacturaUploadPath=/var/uploads/vendingmanager
-    volumes:
-      - ~/vendingmanager-uploads:/var/uploads/vendingmanager
     depends_on:
       - db-dev
       - scraper-dev

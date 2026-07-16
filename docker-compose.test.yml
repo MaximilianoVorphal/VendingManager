@@ -20,9 +20,6 @@ services:
       - ASPNETCORE_ENVIRONMENT=Development
       - TZ=America/Santiago
       - ScraperServiceUrl=http://scraper-test:8000
-      - VendingConfig__FacturaUploadPath=/var/uploads/vendingmanager-test
-    volumes:
-      - ~/vendingmanager-uploads-test:/var/uploads/vendingmanager-test
     depends_on:
       - db-test
       - scraper-test

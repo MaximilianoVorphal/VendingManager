@@ -415,19 +415,6 @@ public class ContabilidadController(
         return File(transferencia.ComprobanteImagen, contentType);
     }
 
-    /// <summary>
-    /// One-time migration: reads legacy on-disk transfer comprobante files
-    /// referenced by ComprobanteImagenPath and stores them as bytes in the DB.
-    /// Must run while the uploads volume still exists.
-    /// </summary>
-    [Authorize(Roles = Roles.Admin)]
-    [HttpPost("backfill-comprobantes")]
-    public async Task<IActionResult> BackfillComprobantes()
-    {
-        var result = await _transferenciaService.BackfillComprobantesAsync();
-        return Ok(result);
-    }
-
     // ========== Slice 2: Verification endpoints (TASK-11) ==========
 
     /// <summary>Mark a Transferencia as verified. POST = verify, handles RowVersion concurrency → 409.</summary>

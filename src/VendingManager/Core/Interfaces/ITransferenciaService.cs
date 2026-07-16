@@ -22,23 +22,4 @@ public interface ITransferenciaService
     /// </summary>
     Task SaveComprobanteImagenAsync(int transferenciaId, IFormFile file);
 
-    /// <summary>
-    /// One-time migration: reads legacy on-disk comprobante files referenced by
-    /// ComprobanteImagenPath and stores them as bytes in the DB (ComprobanteImagen).
-    /// Must run while the uploads volume still exists (before compose mounts are removed).
-    /// </summary>
-    Task<ComprobanteBackfillResult> BackfillComprobantesAsync();
-}
-
-/// <summary>Report of a comprobante image DB backfill run for Transferencias.</summary>
-public class ComprobanteBackfillResult
-{
-    /// <summary>Rows with a legacy disk path and no DB bytes yet.</summary>
-    public int Total { get; set; }
-
-    /// <summary>Rows whose disk file was found and loaded into the DB.</summary>
-    public int Migrated { get; set; }
-
-    /// <summary>Ids of rows whose disk file was missing (nothing to migrate).</summary>
-    public List<int> MissingFiles { get; set; } = new();
 }

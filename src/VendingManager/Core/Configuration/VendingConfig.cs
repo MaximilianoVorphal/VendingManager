@@ -9,13 +9,6 @@ public class VendingConfig
     public int RotacionStockMinimoDias { get; set; } = 30;
 
     /// <summary>
-    /// Ruta absoluta donde se guardan las imágenes de facturas.
-    /// Si es null o vacío, se usa WebRootPath/wwwroot como fallback.
-    /// Ejemplo en Docker: "/var/uploads/vendingmanager"
-    /// </summary>
-    public string? FacturaUploadPath { get; set; }
-
-    /// <summary>
     /// Cuando es true, stock-critico consulta SnapshotSlots del template Terminado más reciente
     /// en lugar de ConfiguracionSlots. Permite transición gradual al nuevo flujo.
     /// </summary>
