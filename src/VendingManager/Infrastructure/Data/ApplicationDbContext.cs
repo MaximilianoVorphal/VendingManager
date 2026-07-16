@@ -286,7 +286,7 @@ namespace VendingManager.Infrastructure.Data
             {
                 var converter = new ValueConverter<EstadoOrdenCarga, string>(
                     v => v.ToString().ToUpperInvariant(),
-                    v => Enum.Parse<EstadoOrdenCarga>(v, ignoreCase: true));
+                    v => Enum.Parse<EstadoOrdenCarga>(v, true));
 
                 e.Property(o => o.Estado)
                     .HasConversion(converter);
