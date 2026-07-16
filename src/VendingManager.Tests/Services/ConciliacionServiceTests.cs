@@ -54,13 +54,32 @@ public class ConciliacionServiceTests : IDisposable
 
     private static IFormFile CreateMockFile(string fileName, long sizeBytes, string contentType = "image/jpeg")
     {
+        // Content must carry a real magic-byte signature matching the extension —
+        // TransferenciaService.SaveComprobanteImagenAsync now signature-validates
+        // (M-1b, REQ-UPLOAD-02) before writing to disk, so a mocked no-op
+        // CopyToAsync (empty content) would be rejected even for "valid file" cases.
+        var content = BuildSignatureBytesForExtension(Path.GetExtension(fileName));
+
         var mock = new Mock<IFormFile>();
         mock.SetupGet(f => f.FileName).Returns(fileName);
         mock.SetupGet(f => f.Length).Returns(sizeBytes);
         mock.SetupGet(f => f.ContentType).Returns(contentType);
         mock.Setup(f => f.CopyToAsync(It.IsAny<Stream>(), It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
+            .Returns((Stream s, CancellationToken ct) => s.WriteAsync(content, ct).AsTask());
         return mock.Object;
+    }
+
+    private static byte[] BuildSignatureBytesForExtension(string extension)
+    {
+        return extension.ToLowerInvariant() switch
+        {
+            ".jpg" or ".jpeg" => new byte[] { 0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46 },
+            ".png" => new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A },
+            ".pdf" => System.Text.Encoding.ASCII.GetBytes("%PDF-1.7\n"),
+            // Non-image/pdf extensions (e.g. .exe) are rejected by the extension
+            // whitelist before content is ever read, so the exact bytes don't matter.
+            _ => new byte[] { 0x00, 0x01, 0x02, 0x03 }
+        };
     }
 
     private async Task<AccountingPeriod> CreateOpenPeriodAsync()

@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using ClosedXML.Excel;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using VendingManager.Core.Configuration;
@@ -22,6 +24,13 @@ public class SalesImportServiceTests : IDisposable
 {
     private readonly ApplicationDbContext _context;
     private readonly SalesImportService _service;
+
+    static SalesImportServiceTests()
+    {
+        // ExcelDataReader needs the legacy code-page provider registered to read
+        // genuine XLSX streams (used only by the "valid file" tests below).
+        System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
+    }
 
     public SalesImportServiceTests()
     {
@@ -431,5 +440,94 @@ public class SalesImportServiceTests : IDisposable
         var venta = await _context.Ventas.FirstAsync();
         venta.FechaLocal.Hour.Should().Be(7);
         venta.FechaLocal.Day.Should().Be(15);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // M-1b — Upload signature validation (REQ-UPLOAD-02)
+    // Content is sniffed BEFORE ExcelReaderFactory sees it, for both import
+    // entry points.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    [Fact]
+    public async Task ImportarVentasMaquina_NonXlsxRenamedAsXlsx_ReturnsErrorAndPersistsNothing()
+    {
+        // Arrange: plain text content, renamed with a .xlsx extension.
+        using var stream = new MemoryStream(System.Text.Encoding.ASCII.GetBytes("not really an xlsx file"));
+
+        // Act
+        var result = await _service.ImportarVentasMaquina(stream, "ventas.xlsx");
+
+        // Assert — SalesImportService's existing convention converts the caught
+        // exception into an "Error: ..." string rather than rethrowing.
+        result.Should().StartWith("Error:");
+        (await _context.Ventas.CountAsync()).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task ImportarVentasMaquina_GenuineXlsx_ImportsUnchanged()
+    {
+        // Arrange
+        _context.Maquinas.Add(new Maquina
+        {
+            Id = 1,
+            IdInternoMaquina = "9999999999",
+            Slots = new List<ConfiguracionSlot>
+            {
+                new() { NumeroSlot = "A1", Producto = new Producto { Id = 1, CostoPromedio = 100 } }
+            }
+        });
+        await _context.SaveChangesAsync();
+
+        using var stream = BuildGenuineVentasMaquinaXlsx();
+
+        // Act
+        var result = await _service.ImportarVentasMaquina(stream, "ventas.xlsx");
+
+        // Assert — unchanged import behavior: one new sale is persisted.
+        result.Should().Contain("1 nuevas");
+        (await _context.Ventas.CountAsync()).Should().Be(1);
+    }
+
+    [Fact]
+    public async Task ImportarTransbank_NonXlsxRenamedAsXlsx_DoesNotThrowAndPersistsNothing()
+    {
+        // Arrange: plain text content, renamed with a .xlsx extension. ImportarTransbank's
+        // existing convention swallows the caught exception and simply returns — it does
+        // not rethrow — so this is unaffected by the new signature check.
+        using var stream = new MemoryStream(System.Text.Encoding.ASCII.GetBytes("not really an xlsx file"));
+
+        // Act
+        var act = () => _service.ImportarTransbank(stream, "transbank.xlsx");
+
+        // Assert
+        await act.Should().NotThrowAsync();
+        (await _context.Ventas.CountAsync()).Should().Be(0);
+    }
+
+    private static MemoryStream BuildGenuineVentasMaquinaXlsx()
+    {
+        var stream = new MemoryStream();
+        using (var workbook = new XLWorkbook())
+        {
+            var worksheet = workbook.Worksheets.Add("Ventas");
+            worksheet.Cell(1, 1).Value = "Machine ID";
+            worksheet.Cell(1, 2).Value = "Slot Number";
+            worksheet.Cell(1, 3).Value = "Price";
+            worksheet.Cell(1, 4).Value = "Machine Time";
+            worksheet.Cell(1, 5).Value = "Server time";
+            worksheet.Cell(1, 6).Value = "Order Number";
+
+            worksheet.Cell(2, 1).Value = "9999999999";
+            worksheet.Cell(2, 2).Value = "A1";
+            worksheet.Cell(2, 3).Value = 1000;
+            worksheet.Cell(2, 4).Value = "2026-07-15 10:00:00";
+            worksheet.Cell(2, 5).Value = "";
+            worksheet.Cell(2, 6).Value = "ORD-001";
+
+            workbook.SaveAs(stream);
+        }
+
+        stream.Position = 0;
+        return stream;
     }
 }

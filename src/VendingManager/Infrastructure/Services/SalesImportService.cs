@@ -11,6 +11,7 @@ using VendingManager.Core.Configuration;
 using VendingManager.Infrastructure.Data;
 using VendingManager.Core.Interfaces;
 using VendingManager.Core.Entities;
+using VendingManager.Core.Utils;
 using VendingManager.Shared.Constants;
 using VendingManager.Shared.DTOs;
 
@@ -42,7 +43,15 @@ namespace VendingManager.Infrastructure.Services
         {
             try
             {
-                using (var reader = ExcelReaderFactory.CreateReader(fileStream))
+                // Buffer into a seekable MemoryStream and sniff content BEFORE
+                // handing it to ExcelReaderFactory.
+                await using var bufferedStream = new MemoryStream();
+                await fileStream.CopyToAsync(bufferedStream);
+                var contentBytes = bufferedStream.ToArray();
+                FileSignatureValidator.Validate(contentBytes, AllowedFormats.Xlsx);
+                bufferedStream.Position = 0;
+
+                using (var reader = ExcelReaderFactory.CreateReader(bufferedStream))
                 {
                     var conf = new ExcelDataSetConfiguration
                     {
@@ -258,7 +267,15 @@ namespace VendingManager.Infrastructure.Services
 
             try
             {
-                using (var reader = ExcelReaderFactory.CreateReader(fileStream))
+                // Buffer into a seekable MemoryStream and sniff content BEFORE
+                // handing it to ExcelReaderFactory.
+                await using var bufferedStream = new MemoryStream();
+                await fileStream.CopyToAsync(bufferedStream);
+                var contentBytes = bufferedStream.ToArray();
+                FileSignatureValidator.Validate(contentBytes, AllowedFormats.Xlsx);
+                bufferedStream.Position = 0;
+
+                using (var reader = ExcelReaderFactory.CreateReader(bufferedStream))
                 {
                     // Leer sin header row porque la cartola Transbank Chile tiene
                     // filas de metadata antes de los encabezados reales

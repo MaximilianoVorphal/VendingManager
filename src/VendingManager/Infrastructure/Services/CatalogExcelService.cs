@@ -9,6 +9,7 @@ using System.Data;
 using VendingManager.Infrastructure.Data;
 using VendingManager.Core.Interfaces;
 using VendingManager.Core.Entities;
+using VendingManager.Core.Utils;
 
 namespace VendingManager.Infrastructure.Services
 {
@@ -25,7 +26,16 @@ namespace VendingManager.Infrastructure.Services
         {
             try
             {
-                using (var reader = ExcelReaderFactory.CreateReader(fileStream))
+                // Buffer into a seekable MemoryStream and sniff content BEFORE
+                // handing it to ExcelReaderFactory — avoids a generic parse-exception
+                // leak on non-XLSX content renamed with a .xlsx extension.
+                using var bufferedStream = new MemoryStream();
+                await fileStream.CopyToAsync(bufferedStream);
+                var contentBytes = bufferedStream.ToArray();
+                FileSignatureValidator.Validate(contentBytes, AllowedFormats.Xlsx);
+                bufferedStream.Position = 0;
+
+                using (var reader = ExcelReaderFactory.CreateReader(bufferedStream))
                 {
                     var conf = new ExcelDataSetConfiguration
                     {

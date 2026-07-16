@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using VendingManager.Core.Entities;
 using VendingManager.Core.Interfaces;
+using VendingManager.Core.Utils;
 using VendingManager.Infrastructure.Data;
 using VendingManager.Shared.DTOs;
 using VendingManager.Shared.Enums;
@@ -111,6 +112,17 @@ public class TransferenciaService : ITransferenciaService
         if (!allowedExt.Contains(ext))
             throw new ArgumentException("Formato de archivo no permitido. Use JPG, PNG o PDF.");
 
+        // Buffer into memory first so content is signature-validated BEFORE
+        // any lookup, deletion, or disk write occurs.
+        byte[] bytes;
+        await using (var ms = new MemoryStream())
+        {
+            await file.CopyToAsync(ms);
+            bytes = ms.ToArray();
+        }
+
+        FileSignatureValidator.Validate(bytes, AllowedFormats.Jpeg | AllowedFormats.Png | AllowedFormats.Pdf);
+
         var transferencia = await _context.Transferencias.FindAsync(transferenciaId);
         if (transferencia == null)
             throw new KeyNotFoundException($"Transferencia {transferenciaId} no encontrada.");
@@ -132,7 +144,7 @@ public class TransferenciaService : ITransferenciaService
         var physicalPath = Path.Combine(uploadDir, fileName);
 
         await using var stream = new FileStream(physicalPath, FileMode.Create);
-        await file.CopyToAsync(stream);
+        await stream.WriteAsync(bytes);
 
         transferencia.ComprobanteImagenPath = relativePath;
         _context.Transferencias.Update(transferencia);
