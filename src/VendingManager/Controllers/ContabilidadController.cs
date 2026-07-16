@@ -571,7 +571,7 @@ public class ContabilidadController(
             PeriodoId = t.PeriodoId,
             MovimientoCajaId = t.MovimientoCajaId,
             Verificada = t.Verificada,
-            HasComprobante = t.ComprobanteImagen != null,
+            HasComprobante = t.ComprobanteImagenFileName != null,
             ComprobanteImagenFileName = t.ComprobanteImagenFileName,
             Compras = t.Compras?.Select(c => new CompraDto
             {

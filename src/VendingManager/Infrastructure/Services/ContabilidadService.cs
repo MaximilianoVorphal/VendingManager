@@ -1336,7 +1336,7 @@ public class ContabilidadService : IContabilidadService
             MovimientoCajaId = t.MovimientoCajaId,
             // TASK-10: wire Verificada + HasComprobante
             Verificada = t.Verificada,
-            HasComprobante = t.ComprobanteImagen != null,
+            HasComprobante = t.ComprobanteImagenFileName != null,
             ComprobanteImagenFileName = t.ComprobanteImagenFileName,
             Compras = t.Compras?.Select(c => new CompraDto
             {

@@ -202,7 +202,7 @@ public class RendicionController(
                 RendicionId = t.RendicionId,
                 MovimientoCajaId = t.MovimientoCajaId,
                 Verificada = t.Verificada,
-                HasComprobante = t.ComprobanteImagen != null,
+                HasComprobante = t.ComprobanteImagenFileName != null,
                 ComprobanteImagenFileName = t.ComprobanteImagenFileName,
                 Compras = t.Compras?.Select(c => new CompraDto
                 {
@@ -259,7 +259,7 @@ public class RendicionController(
                 RendicionId = t.RendicionId,
                 MovimientoCajaId = t.MovimientoCajaId,
                 Verificada = t.Verificada,
-                HasComprobante = t.ComprobanteImagen != null,
+                HasComprobante = t.ComprobanteImagenFileName != null,
                 ComprobanteImagenFileName = t.ComprobanteImagenFileName,
                 Compras = t.Compras?.Select(c => new CompraDto
                 {
@@ -307,7 +307,11 @@ public class RendicionController(
             Trabajador = t.Trabajador,
             Estado = t.Estado,
             RendicionId = t.RendicionId,
-            MovimientoCajaId = t.MovimientoCajaId
+            MovimientoCajaId = t.MovimientoCajaId,
+            PeriodoId = t.PeriodoId,
+            Verificada = t.Verificada,
+            HasComprobante = t.ComprobanteImagenFileName != null,
+            ComprobanteImagenFileName = t.ComprobanteImagenFileName
         }).ToList();
         return Ok(dto);
     }
