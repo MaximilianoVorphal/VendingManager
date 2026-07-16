@@ -9,6 +9,7 @@ using VendingManager.Core.Configuration;
 using VendingManager.Core.Entities;
 using VendingManager.Core.Interfaces;
 using VendingManager.Infrastructure.Services;
+using VendingManager.Shared.Constants;
 using VendingManager.Tests.TestData;
 
 /// <summary>
@@ -102,7 +103,7 @@ public class SalesAnalyticsService_GetInformeFinancieroAsync_Tests : IDisposable
             PrecioVenta = 5000m,
             Pagado = true,
             NumeroSlot = "ERR",
-            IdOrdenMaquina = "TB-SIN-VENTA",
+            IdOrdenMaquina = VentaConstants.TbSinVenta,
             ProductoId = null,
             CostoVenta = 0,
             MaquinaId = 1
@@ -261,13 +262,13 @@ public class SalesAnalyticsService_GetInformeFinancieroAsync_Tests : IDisposable
         {
             FechaLocal = new DateTime(2026, 6, 30), FechaHora = new DateTime(2026, 6, 30),
             PrecioVenta = 1000m, Pagado = true, NumeroSlot = "ERR",
-            IdOrdenMaquina = "TB-EXTRA", ProductoId = null, CostoVenta = 0, MaquinaId = 1
+            IdOrdenMaquina = VentaConstants.TbExtra, ProductoId = null, CostoVenta = 0, MaquinaId = 1
         });
         _context.Ventas.Add(new Venta
         {
             FechaLocal = new DateTime(2026, 7, 1), FechaHora = new DateTime(2026, 7, 1),
             PrecioVenta = 2000m, Pagado = true, NumeroSlot = "ERR",
-            IdOrdenMaquina = "TB-SIN-VENTA", ProductoId = null, CostoVenta = 0, MaquinaId = 2
+            IdOrdenMaquina = VentaConstants.TbSinVenta, ProductoId = null, CostoVenta = 0, MaquinaId = 2
         });
 
         // Operational gastos (LOGISTICA + INFRA) — must be counted

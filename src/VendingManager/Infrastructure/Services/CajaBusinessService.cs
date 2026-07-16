@@ -4,6 +4,7 @@ using VendingManager.Core.Configuration;
 using VendingManager.Core.Entities;
 using VendingManager.Core.Interfaces;
 using VendingManager.Shared;
+using VendingManager.Shared.Constants;
 using VendingManager.Shared.DTOs;
 using VendingManager.Shared.Enums;
 
@@ -106,7 +107,7 @@ public class CajaBusinessService
         decimal utilidadNetaReal = utilidadOperacional;
 
         // TRANSBANK (Estimado)
-        var excludedOrdenIds = new[] { "TB-EXTRA", "TB-SIN-VENTA" };
+        var excludedOrdenIds = new[] { VentaConstants.TbExtra, VentaConstants.TbSinVenta };
         var cantVentasTB = await _ventaRepository.CountPaidInRangeExcludingAsync(startOfMonth, endOfMonth, excludedOrdenIds);
         decimal costoTransbank = cantVentasTB * _config.Value.TransbankFee;
 

@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using VendingManager.Shared.Constants;
 using VendingManager.Shared.DTOs;
 using VendingManager.Core.Entities;
 using VendingManager.Core.Interfaces;
@@ -942,7 +943,7 @@ public class TemplateRecargaService : ITemplateRecargaService
             .Include(v => v.Producto)
             .Where(v => v.MaquinaId == maquinaId)
             .Where(v => v.FechaLocal >= inicio && v.FechaLocal <= fin)
-            .Where(v => v.IdOrdenMaquina != "TB-EXTRA" && v.IdOrdenMaquina != "TB-SIN-VENTA")
+            .Where(v => v.IdOrdenMaquina != VentaConstants.TbExtra && v.IdOrdenMaquina != VentaConstants.TbSinVenta)
             .ToListAsync();
 
         var result = new List<StockoutAnalysisDto>();

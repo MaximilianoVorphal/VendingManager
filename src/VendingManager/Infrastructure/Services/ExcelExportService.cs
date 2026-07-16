@@ -256,7 +256,7 @@ public class ExcelExportService : IExcelExportService
             {
                 worksheet.Cell(row, 1).Value = item.EnMaquina ? "Sí" : "No";
                 worksheet.Cell(row, 2).Value = item.NombreProducto;
-                worksheet.Cell(row, 3).Value = item.VentasUltimos30Dias;
+                worksheet.Cell(row, 3).Value = item.VentasPeriodo;
                 worksheet.Cell(row, 4).Value = item.StockActualMaquinas;
                 worksheet.Cell(row, 5).Value = item.StockBodega;
                 worksheet.Cell(row, 6).Value = item.CantidadSugerida;

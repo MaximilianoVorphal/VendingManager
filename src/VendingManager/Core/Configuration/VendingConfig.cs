@@ -8,8 +8,6 @@ public class VendingConfig
 
     public int RotacionStockMinimoDias { get; set; } = 30;
 
-    public int RotacionUmbralCritico { get; set; } = 7;
-
     /// <summary>
     /// Ruta absoluta donde se guardan las imágenes de facturas.
     /// Si es null o vacío, se usa WebRootPath/wwwroot como fallback.

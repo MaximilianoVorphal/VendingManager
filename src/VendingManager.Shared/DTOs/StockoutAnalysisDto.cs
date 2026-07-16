@@ -72,8 +72,8 @@ public class StockoutAnalysisDto
     /// <summary>Unidades vendidas por hora (Cantidad / HorasActivas)</summary>
     public decimal VelocidadPorHora { get; set; }
 
-    /// <summary>Unidades vendidas por día (VelocidadPorHora * 14h operativas)</summary>
-    public decimal VelocidadDiaria => VelocidadPorHora * 14;
+    /// <summary>Unidades vendidas por día (VelocidadPorHora * horas operativas)</summary>
+    public decimal VelocidadDiaria => VelocidadPorHora * Helpers.HorarioOperativoHelper.HorasOperativasPorDia;
 
     // =============================================
     // COSTO DE OPORTUNIDAD

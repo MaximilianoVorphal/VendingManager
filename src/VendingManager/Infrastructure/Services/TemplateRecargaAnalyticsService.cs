@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using VendingManager.Shared.Constants;
 using VendingManager.Shared.DTOs;
 using VendingManager.Core.Entities;
 using VendingManager.Core.Interfaces;
@@ -55,7 +56,7 @@ public class TemplateRecargaAnalyticsService : ITemplateRecargaAnalyticsService
         var todasLasVentas = await _context.Ventas
             .Include(v => v.Producto)
             .Where(v => maquinaIds.Contains(v.MaquinaId))
-            .Where(v => v.IdOrdenMaquina != "TB-EXTRA" && v.IdOrdenMaquina != "TB-SIN-VENTA")
+            .Where(v => v.IdOrdenMaquina != VentaConstants.TbExtra && v.IdOrdenMaquina != VentaConstants.TbSinVenta)
             .ToListAsync();
 
         var velocidadPorProducto = todasLasVentas

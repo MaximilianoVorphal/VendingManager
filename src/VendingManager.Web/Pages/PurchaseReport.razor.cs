@@ -182,7 +182,7 @@ namespace VendingManager.Web.Pages
                 Comparison<PurchaseSuggestionDto> cmp = _sortKey switch
                 {
                     "prod" => (a, b) => string.Compare(a.NombreProducto, b.NombreProducto, StringComparison.Ordinal) * dir,
-                    "ventas" => (a, b) => (a.VentasUltimos30Dias - b.VentasUltimos30Dias) * dir,
+                    "ventas" => (a, b) => (a.VentasPeriodo - b.VentasPeriodo) * dir,
                     "stockmaq" => (a, b) => (a.StockActualMaquinas - b.StockActualMaquinas) * dir,
                     "bodega" => (a, b) => (a.StockBodega - b.StockBodega) * dir,
                     _ => (a, b) => (a.CantidadSugerida - b.CantidadSugerida) * dir,
@@ -194,7 +194,7 @@ namespace VendingManager.Web.Pages
         }
 
         private List<RowVm> Rows => View.Select(r => new RowVm(
-            r.NombreProducto, r.EnMaquina, Num(r.VentasUltimos30Dias),
+            r.NombreProducto, r.EnMaquina, Num(r.VentasPeriodo),
             Num(r.StockActualMaquinas), Num(r.StockBodega),
             Num(r.CantidadSugerida), r.CantidadSugerida > 0)).ToList();
 
@@ -214,7 +214,7 @@ namespace VendingManager.Web.Pages
         {
             public int ProductoId { get; set; }
             public string NombreProducto { get; set; } = string.Empty;
-            public int VentasUltimos30Dias { get; set; }
+            public int VentasPeriodo { get; set; }
             public int StockActualMaquinas { get; set; }
             public int StockBodega { get; set; }
             public int CantidadSugerida { get; set; }

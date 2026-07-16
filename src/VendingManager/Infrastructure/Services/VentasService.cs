@@ -60,50 +60,6 @@ namespace VendingManager.Infrastructure.Services
             await context.SaveChangesAsync();
         }
 
-        [Obsolete("RecalcularCostosHistoricosAsync is deprecated. Use ProductoCosto-based sync instead.", error: false)]
-        public async Task RecalcularCostosHistoricosAsync()
-        {
-            var slots = await context.ConfiguracionSlots
-                .Include(s => s.Producto)
-                .Where(s => s.ProductoId != 0 && s.Producto != null)
-                .ToListAsync();
 
-            var slotMap = slots
-                .GroupBy(s => new { s.MaquinaId, s.NumeroSlot })
-                .ToDictionary(g => g.Key, g => g.First());
-
-            var ventas = await context.Ventas
-                .Include(v => v.Producto)
-                .ToListAsync();
-
-            int updated = 0;
-            foreach (var v in ventas)
-            {
-                Producto? p = v.Producto;
-
-                if (p == null)
-                {
-                    if (slotMap.TryGetValue(new { v.MaquinaId, v.NumeroSlot }, out var config))
-                    {
-                        p = config.Producto;
-                        v.ProductoId = config.ProductoId;
-                    }
-                }
-
-                if (p != null)
-                {
-                    if (v.CostoVenta != p.CostoPromedio)
-                    {
-                        v.CostoVenta = p.CostoPromedio;
-                        updated++;
-                    }
-                }
-            }
-
-            if (updated > 0)
-            {
-                await context.SaveChangesAsync();
-            }
-        }
     }
 }

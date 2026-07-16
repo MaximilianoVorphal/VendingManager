@@ -15,11 +15,7 @@ public class AutomatedReportService : BackgroundService
     private readonly IServiceProvider _serviceProvider;
     private readonly LastSyncTracker _lastSyncTracker;
 
-    // Legacy 23:00 scheduled time
-    private readonly TimeSpan _scheduledTime = new TimeSpan(23, 0, 0);
-
-    // Polling API fields (null when UsePollingApi=false)
-    private readonly bool _usePollingApi;
+    // Polling API fields
     private readonly PollScheduler? _pollScheduler;
     private readonly PollingCircuitBreaker? _circuitBreaker;
 
@@ -50,10 +46,8 @@ public class AutomatedReportService : BackgroundService
         // IConfigurationSection from a dynamic mock (e.g. Mock.Of in tests) doesn't throw.
         var pollingSection = _configuration.GetSection("PollingApi");
         // pollingSection may be null under a dynamic mock (e.g. Mock.Of in tests).
-        _usePollingApi = pollingSection != null
-            && string.Equals(pollingSection["UsePollingApi"], "true", StringComparison.OrdinalIgnoreCase);
 
-        if (_usePollingApi && pollingSection != null)
+        if (pollingSection != null)
         {
             int IntVal(string key, int fallback) =>
                 int.TryParse(pollingSection[key], out var v) ? v : fallback;
@@ -97,20 +91,11 @@ public class AutomatedReportService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        if (_usePollingApi)
-        {
-            _logger.LogInformation(
-                "AutomatedReportService: Polling API mode ENABLED — " +
-                "starting jittered ~2h polling cycle (window {WindowStart:hh\\:mm}-{WindowEnd:hh\\:mm} CLT).",
-                _windowStart, _windowEnd);
-            await RunPollingLoopAsync(stoppingToken);
-        }
-        else
-        {
-            _logger.LogInformation(
-                "AutomatedReportService: Polling API mode DISABLED — using legacy 23:00 daily sync.");
-            await RunLegacyScheduleAsync(stoppingToken);
-        }
+        _logger.LogInformation(
+            "AutomatedReportService: Polling API mode — " +
+            "starting jittered ~2h polling cycle (window {WindowStart:hh\\:mm}-{WindowEnd:hh\\:mm} CLT).",
+            _windowStart, _windowEnd);
+        await RunPollingLoopAsync(stoppingToken);
     }
 
     private async Task RunPollingLoopAsync(CancellationToken stoppingToken)
@@ -168,11 +153,9 @@ public class AutomatedReportService : BackgroundService
         PollScheduler pollScheduler,
         PollingCircuitBreaker circuitBreaker,
         TimeSpan windowStart,
-        TimeSpan windowEnd,
-        bool usePollingApi = true)
+        TimeSpan windowEnd)
         : this(logger, httpClientFactory, configuration, serviceProvider, lastSyncTracker)
     {
-        _usePollingApi = usePollingApi;
         _pollScheduler = pollScheduler;
         _circuitBreaker = circuitBreaker;
         _windowStart = windowStart;
@@ -298,70 +281,5 @@ public class AutomatedReportService : BackgroundService
                 _circuitBreaker.DegradedBackoff);
         }
     }
-
-    private async Task RunLegacyScheduleAsync(CancellationToken stoppingToken)
-    {
-        while (!stoppingToken.IsCancellationRequested)
-        {
-            var nowUtc = DateTime.UtcNow;
-            var nowClt = TimeZoneInfo.ConvertTimeFromUtc(nowUtc, PollScheduler.ChileTimeZone);
-            var nextRunClt = nowClt.Date.Add(_scheduledTime);
-            if (nowClt > nextRunClt)
-            {
-                nextRunClt = nextRunClt.AddDays(1);
-            }
-
-            var nextRunUtc = TimeZoneInfo.ConvertTimeToUtc(nextRunClt, PollScheduler.ChileTimeZone);
-            var delay = nextRunUtc - nowUtc;
-            _logger.LogInformation(
-                "Próxima descarga programada en: {DelayHours:F1} horas ({NextRun} CLT)",
-                delay.TotalHours, nextRunClt);
-
-            try
-            {
-                await Task.Delay(delay, stoppingToken);
-            }
-            catch (TaskCanceledException)
-            {
-                break;
-            }
-
-            await RunDownloadProcessAsync();
-        }
-    }
-
-    private async Task RunDownloadProcessAsync()
-    {
-        _logger.LogInformation("Iniciando proceso de sincronización automática...");
-
-        try
-        {
-            using (var scope = _serviceProvider.CreateScope())
-            {
-                var syncService = scope.ServiceProvider.GetRequiredService<ISyncOrchestratorService>();
-
-                try
-                {
-                    var resultado = await syncService.SincronizarDesdePortal(0);
-                    _logger.LogInformation("[AutoSync] (todas las máquinas): {Result}", resultado);
-                    if (!resultado.StartsWith("Error"))
-                    {
-                        _lastSyncTracker.SetLastSync(DateTime.UtcNow);
-                    }
-                    else
-                    {
-                        _logger.LogWarning("[AutoSync] Sincronización falló, no se actualiza último sync: {Result}", resultado);
-                    }
-                }
-        catch (Exception ex)
-                {
-                    _logger.LogError("[AutoSync] Error: {Message}", ex.Message);
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError("Excepción crítica en tarea automática: {Message}", ex.Message);
-        }
-    }
 }
+

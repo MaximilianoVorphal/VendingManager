@@ -11,6 +11,7 @@ using VendingManager.Core.Configuration;
 using VendingManager.Infrastructure.Data;
 using VendingManager.Core.Interfaces;
 using VendingManager.Core.Entities;
+using VendingManager.Shared.Constants;
 using VendingManager.Shared.DTOs;
 
 namespace VendingManager.Infrastructure.Services
@@ -375,7 +376,7 @@ namespace VendingManager.Infrastructure.Services
 
                 var ventasCandidatas = await _context.Ventas
                     .Where(v => v.FechaLocal >= minDate && v.FechaLocal <= maxDate)
-                    .Where(v => !v.Pagado || v.IdOrdenMaquina == "TB-SIN-VENTA")
+                    .Where(v => !v.Pagado || v.IdOrdenMaquina == VentaConstants.TbSinVenta)
                     .ToListAsync();
 
                 Console.WriteLine($"🧠 MEMORIA: Cargadas {ventasCandidatas.Count} ventas candidatas contra {tbRecords.Count} pagos.");
@@ -416,7 +417,7 @@ namespace VendingManager.Infrastructure.Services
                             venta.FechaLocal = pago.Fecha;
                         }
 
-                        if (venta.IdOrdenMaquina == "TB-SIN-VENTA" && !string.IsNullOrEmpty(pago.PosCode))
+                        if (venta.IdOrdenMaquina == VentaConstants.TbSinVenta && !string.IsNullOrEmpty(pago.PosCode))
                         {
                             if (maquinaMap.TryGetValue(pago.PosCode, out int mappedId) && venta.MaquinaId != mappedId)
                                 venta.MaquinaId = mappedId;
@@ -483,7 +484,7 @@ namespace VendingManager.Infrastructure.Services
                         PrecioVenta = pago.Monto,
                         Pagado = true,
                         NumeroSlot = "ERR",
-                        IdOrdenMaquina = "TB-SIN-VENTA",
+                        IdOrdenMaquina = VentaConstants.TbSinVenta,
                         ProductoId = null,
                         CostoVenta = 0,
                         MaquinaId = targetMaquinaId

@@ -140,7 +140,8 @@ namespace VendingManager.Infrastructure.Services
 
             var result = await _cache.GetOrCreateAsync(key, async (entry) =>
             {
-                entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromDays(5);
+                // 1-day cache balances freshness (slow-changing sales data) with DB query cost
+                entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromDays(1);
 
                 DateTime fechaInicio = DateTime.Now.Date.AddDays(-dias);
 
@@ -189,7 +190,7 @@ namespace VendingManager.Infrastructure.Services
                     {
                         ProductoId = p.Id,
                         NombreProducto = p.Nombre,
-                        VentasUltimos30Dias = ventasPeriodo,
+                        VentasPeriodo = ventasPeriodo,
                         StockActualMaquinas = stockEnMaquinas,
                         StockBodega = p.StockBodega,
                         CantidadSugerida = sugerido,
@@ -197,7 +198,7 @@ namespace VendingManager.Infrastructure.Services
                     });
                 }
 
-                return resultInner.OrderByDescending(x => x.CantidadSugerida).ThenByDescending(x => x.VentasUltimos30Dias).ToList();
+                return resultInner.OrderByDescending(x => x.CantidadSugerida).ThenByDescending(x => x.VentasPeriodo).ToList();
             });
 
             return result!;

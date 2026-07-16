@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using VendingManager.Core.Entities;
 using VendingManager.Core.Interfaces;
 using VendingManager.Infrastructure.Data;
+using VendingManager.Shared.Constants;
 using VendingManager.Shared.DTOs;
 using VendingManager.Shared.Helpers;
 
@@ -52,8 +53,8 @@ namespace VendingManager.Infrastructure.Services
             var ventas = await context.Ventas
                 .Where(v => v.FechaLocal >= desde
                     && v.ProductoId != null
-                    && v.IdOrdenMaquina != "TB-EXTRA"
-                    && v.IdOrdenMaquina != "TB-SIN-VENTA")
+                    && v.IdOrdenMaquina != VentaConstants.TbExtra
+                    && v.IdOrdenMaquina != VentaConstants.TbSinVenta)
                 .Where(EsHoraOperativaExpression)
                 .GroupBy(v => new { v.MaquinaId, v.ProductoId })
                 .Select(g => new

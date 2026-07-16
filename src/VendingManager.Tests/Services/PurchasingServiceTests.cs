@@ -29,7 +29,6 @@ public class PurchasingServiceTests : IDisposable
             CajaStartDate = new DateTime(2026, 1, 1),
             TransbankFee = 80,
             RotacionStockMinimoDias = 30,
-            RotacionUmbralCritico = 7,
             UseTemplateInventoryForStockCritico = false
         };
         var config = Options.Create(vendingConfig);

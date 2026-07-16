@@ -1078,57 +1078,6 @@ namespace VendingManager.Web.Pages
             public string Nombre { get; set; } = string.Empty;
         }
 
-        public class StockoutAnalysisDto
-        {
-            public int MaquinaId { get; set; }
-            public string MaquinaNombre { get; set; } = string.Empty;
-            public int? ProductoId { get; set; }
-            public string ProductoNombre { get; set; } = string.Empty;
-            public string NumeroSlot { get; set; } = string.Empty;
-
-            public DateTime? PrimeraVenta { get; set; }
-            public DateTime? UltimaVenta { get; set; }
-            public DateTime UltimaActividadMaquina { get; set; }
-            public DateTime FinReporte { get; set; }
-
-            public List<DateTime> FechasVentas { get; set; } = new();
-
-            public bool PosibleQuiebre { get; set; }
-            public double HorasSinStock { get; set; }
-            public double DiasSinStock => HorasSinStock / 14.0;
-
-            public int StockInicial { get; set; }
-            public int StockActual { get; set; }
-            public int CantidadVendida { get; set; }
-            public int FillPct { get; set; } = -1;
-            public decimal? DiasHastaStockout { get; set; }
-            public bool EsDeadSlot { get; set; }
-            public double HorasActivas { get; set; }
-            public decimal VelocidadPorHora { get; set; }
-            public decimal VelocidadDiaria => VelocidadPorHora * VendingManager.Shared.Helpers.HorarioOperativoHelper.HorasOperativasPorDia;
-
-            public decimal PrecioPromedioVenta { get; set; }
-            public decimal GananciaPromedio { get; set; }
-            public decimal DineroPerdidoEstimado { get; set; }
-            public decimal GananciaPerdidaEstimada { get; set; }
-
-            public string NivelAlerta => HorasSinStock switch
-            {
-                > 72 => "Crítico",
-                > 48 => "Alto",
-                > 24 => "Medio",
-                _ => "Normal"
-            };
-
-            public string ColorAlerta => NivelAlerta switch
-            {
-                "Crítico" => "bg-danger text-white",
-                "Alto" => "bg-warning text-dark",
-                "Medio" => "bg-info text-dark",
-                _ => "bg-light text-muted border"
-            };
-        }
-
         public class TemplateRecargaDto
         {
             public int Id { get; set; }

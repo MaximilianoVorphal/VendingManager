@@ -12,6 +12,7 @@ using VendingManager.Core.Entities;
 using VendingManager.Core.Interfaces;
 using VendingManager.Infrastructure.Data;
 using VendingManager.Shared;
+using VendingManager.Shared.Constants;
 using VendingManager.Shared.DTOs;
 using VendingManager.Shared.Helpers;
 
@@ -191,18 +192,18 @@ public class SalesAnalyticsService : ISalesAnalyticsService
                 MontoTotal = listaVentas.Sum(v => v.PrecioVenta),
                 MontoPagado = listaVentas.Where(v => v.Pagado).Sum(v => v.PrecioVenta),
                 MontoPendiente = listaVentas.Where(v => !v.Pagado).Sum(v => v.PrecioVenta),
-                MontoPhantom = listaVentas.Where(v => v.IdOrdenMaquina == "TB-EXTRA" || v.IdOrdenMaquina == "TB-SIN-VENTA").Sum(v => v.PrecioVenta),
+                MontoPhantom = listaVentas.Where(v => v.IdOrdenMaquina == VentaConstants.TbExtra || v.IdOrdenMaquina == VentaConstants.TbSinVenta).Sum(v => v.PrecioVenta),
                 Detalle = new List<DetalleVentaDto>(),
                 Fantasmas = new List<DetalleVentaDto>()
             };
 
-            reporte.TotalVentas -= listaVentas.Count(v => v.IdOrdenMaquina == "TB-EXTRA" || v.IdOrdenMaquina == "TB-SIN-VENTA");
+            reporte.TotalVentas -= listaVentas.Count(v => v.IdOrdenMaquina == VentaConstants.TbExtra || v.IdOrdenMaquina == VentaConstants.TbSinVenta);
             reporte.MontoTotal -= reporte.MontoPhantom;
             reporte.MontoPagado -= reporte.MontoPhantom;
 
             foreach (var v in listaVentas)
             {
-                bool esFantasma = (v.IdOrdenMaquina == "TB-EXTRA" || v.IdOrdenMaquina == "TB-SIN-VENTA");
+                bool esFantasma = (v.IdOrdenMaquina == VentaConstants.TbExtra || v.IdOrdenMaquina == VentaConstants.TbSinVenta);
 
                 decimal costo = v.CostoVenta;
                 if (costo == 0 && v.Producto != null) costo = v.Producto.CostoPromedio;
@@ -254,7 +255,7 @@ public class SalesAnalyticsService : ISalesAnalyticsService
             // Phantoms (TB-EXTRA, TB-SIN-VENTA) no son ventas reales — excluir del cálculo financiero
             // (mismo criterio que BuildReporteAsync, que las pone aparte en reporte.Fantasmas)
             var ventasReales = listaVentas
-                .Where(v => v.IdOrdenMaquina != "TB-EXTRA" && v.IdOrdenMaquina != "TB-SIN-VENTA")
+                .Where(v => v.IdOrdenMaquina != VentaConstants.TbExtra && v.IdOrdenMaquina != VentaConstants.TbSinVenta)
                 .ToList();
 
             decimal ingresosVentas = 0;
@@ -525,7 +526,7 @@ public class SalesAnalyticsService : ISalesAnalyticsService
                 .Include(v => v.Maquina)
                 .Include(v => v.Producto)
                 .Where(v => v.FechaLocal >= inicioAjustado && v.FechaLocal <= finAjustado)
-                .Where(v => v.IdOrdenMaquina != "TB-EXTRA" && v.IdOrdenMaquina != "TB-SIN-VENTA");
+                .Where(v => v.IdOrdenMaquina != VentaConstants.TbExtra && v.IdOrdenMaquina != VentaConstants.TbSinVenta);
 
             if (maquinaId > 0)
             {
@@ -813,7 +814,7 @@ public class SalesAnalyticsService : ISalesAnalyticsService
                 .Where(v => v.ProductoId == productoId)
                 .Where(v => v.MaquinaId == maquinaId)
                 .Where(v => v.FechaLocal >= inicioAjustado && v.FechaLocal <= finAjustado)
-                .Where(v => v.IdOrdenMaquina != "TB-EXTRA" && v.IdOrdenMaquina != "TB-SIN-VENTA")
+                .Where(v => v.IdOrdenMaquina != VentaConstants.TbExtra && v.IdOrdenMaquina != VentaConstants.TbSinVenta)
                 .GroupBy(v => v.FechaLocal.Date)
                 .Select(g => new VentaDiariaDto
                 {

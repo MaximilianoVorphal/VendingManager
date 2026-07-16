@@ -56,36 +56,6 @@ public class AutomatedReportServiceTests
         return (syncMock, providerMock.Object);
     }
 
-    // ── Legacy path (existing test, adapted) ──────────────────────────────────
-
-    [Fact]
-    public async Task RunDownloadProcessAsync_CallsSincronizarUnaSolaVez()
-    {
-        // Arrange
-        var (syncMock, provider) = CreateServiceProviderMock();
-        syncMock
-            .Setup(s => s.SincronizarDesdePortal(It.IsAny<int>(), It.IsAny<DateTime?>()))
-            .ReturnsAsync("OK");
-
-        var logger = Mock.Of<ILogger<AutomatedReportService>>();
-        var config = Mock.Of<IConfiguration>();
-        var tracker = CreateTracker();
-
-        var service = new AutomatedReportService(
-            logger, null!, config, provider, tracker);
-
-        // Act — invoke private RunDownloadProcessAsync via reflection
-        var method = typeof(AutomatedReportService)
-            .GetMethod("RunDownloadProcessAsync", BindingFlags.NonPublic | BindingFlags.Instance)!;
-        await (Task)method.Invoke(service, null)!;
-
-        // Assert — SincronizarDesdePortal should be called exactly once with maquinaId=0
-        syncMock.Verify(
-            s => s.SincronizarDesdePortal(0, null),
-            Times.Once,
-            "SincronizarDesdePortal should be called once with maquinaId=0");
-    }
-
     // ── Polling-loop tests (Unit 3) ──────────────────────────────────────────
 
     [Fact]
@@ -114,8 +84,8 @@ public class AutomatedReportServiceTests
             logger, null!, config, provider, tracker,
             scheduler, breaker,
             windowStart: TimeSpan.Zero,
-            windowEnd: new TimeSpan(23, 59, 59),
-            usePollingApi: true);
+            windowEnd: new TimeSpan(23, 59, 59)
+);
 
         // Act
         await service.RunOnePollCycleAsync();
@@ -148,8 +118,8 @@ public class AutomatedReportServiceTests
             logger, null!, config, provider, tracker,
             scheduler, breaker,
             windowStart: new TimeSpan(0, 0, 0),
-            windowEnd: new TimeSpan(0, 1, 0),
-            usePollingApi: true);
+            windowEnd: new TimeSpan(0, 1, 0)
+);
 
         // Act
         await service.RunOnePollCycleAsync();
@@ -184,8 +154,8 @@ public class AutomatedReportServiceTests
             logger, null!, config, provider, tracker,
             scheduler, breaker,
             windowStart: TimeSpan.Zero,
-            windowEnd: new TimeSpan(23, 59, 59),
-            usePollingApi: true);
+            windowEnd: new TimeSpan(23, 59, 59)
+);
 
         // Act
         await service.RunOnePollCycleAsync();
@@ -231,8 +201,8 @@ public class AutomatedReportServiceTests
             logger, null!, config, provider, tracker,
             scheduler, breaker,
             windowStart: TimeSpan.Zero,
-            windowEnd: new TimeSpan(23, 59, 59),
-            usePollingApi: true);
+            windowEnd: new TimeSpan(23, 59, 59)
+);
 
         // Act
         await service.RunOnePollCycleAsync();
@@ -276,8 +246,8 @@ public class AutomatedReportServiceTests
             logger, null!, config, provider, tracker,
             scheduler, breaker,
             windowStart: TimeSpan.Zero,
-            windowEnd: new TimeSpan(23, 59, 59),
-            usePollingApi: true);
+            windowEnd: new TimeSpan(23, 59, 59)
+);
 
         // Act
         await service.RunOnePollCycleAsync();
@@ -359,8 +329,8 @@ public class AutomatedReportServiceTests
             logger, null!, config, provider, tracker,
             scheduler, breaker,
             windowStart: TimeSpan.Zero,
-            windowEnd: new TimeSpan(23, 59, 59),
-            usePollingApi: true);
+            windowEnd: new TimeSpan(23, 59, 59)
+);
 
         // Act
         await service.RunOnePollCycleAsync();
@@ -396,8 +366,8 @@ public class AutomatedReportServiceTests
             logger, null!, config, provider, tracker,
             scheduler, breaker,
             windowStart: TimeSpan.Zero,
-            windowEnd: new TimeSpan(23, 59, 59),
-            usePollingApi: true);
+            windowEnd: new TimeSpan(23, 59, 59)
+);
 
         using var cts = new CancellationTokenSource();
         cts.Cancel();
@@ -431,8 +401,8 @@ public class AutomatedReportServiceTests
             logger, null!, config, provider, tracker,
             scheduler, breaker,
             windowStart: TimeSpan.Zero,
-            windowEnd: new TimeSpan(23, 59, 59),
-            usePollingApi: true);
+            windowEnd: new TimeSpan(23, 59, 59)
+);
 
         // Act & Assert — OCE from sync must propagate, not be swallowed
         await service.Invoking(s => s.RunOnePollCycleAsync())
@@ -470,8 +440,8 @@ public class AutomatedReportServiceTests
             logger, null!, config, provider, tracker,
             scheduler, breaker,
             windowStart: TimeSpan.Zero,
-            windowEnd: new TimeSpan(23, 59, 59),
-            usePollingApi: true);
+            windowEnd: new TimeSpan(23, 59, 59)
+);
 
         // Act
         await service.RunOnePollCycleAsync();
@@ -509,8 +479,8 @@ public class AutomatedReportServiceTests
             logger, null!, config, provider, tracker,
             scheduler, breaker,
             windowStart: TimeSpan.Zero,
-            windowEnd: new TimeSpan(23, 59, 59),
-            usePollingApi: true);
+            windowEnd: new TimeSpan(23, 59, 59)
+);
 
         // Simulate DB-unavailable startup
         var field = typeof(AutomatedReportService).GetField("_breakerConfirmedFromDb",
@@ -543,8 +513,8 @@ public class AutomatedReportServiceTests
             scheduler, new PollingCircuitBreaker(rng, tracker.GetBreakerSnapshot(),
                 baseOpenCooldown: TimeSpan.FromHours(24)),
             windowStart: TimeSpan.Zero,
-            windowEnd: new TimeSpan(23, 59, 59),
-            usePollingApi: true);
+            windowEnd: new TimeSpan(23, 59, 59)
+);
 
         // Force the flag back to simulate a scenario where the second cycle should persist
         var field2 = typeof(AutomatedReportService).GetField("_breakerConfirmedFromDb",

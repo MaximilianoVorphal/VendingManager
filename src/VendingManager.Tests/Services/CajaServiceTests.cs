@@ -34,7 +34,6 @@ public class CajaServiceTests : IDisposable
             CajaStartDate = new DateTime(2026, 1, 1),
             TransbankFee = 80,
             RotacionStockMinimoDias = 30,
-            RotacionUmbralCritico = 7
         };
         _config = Options.Create(vendingConfig);
 

@@ -10,7 +10,6 @@ namespace VendingManager.Core.Interfaces
         Task<List<MaquinaSimpleDto>> GetMaquinasAsync();
         Task<List<ProductoSimpleDto>> GetProductosAsync();
         Task FixDatesAsync();
-        Task RecalcularCostosHistoricosAsync();
         Task DeleteVentasRangoAsync(DateTime inicio, DateTime fin, int maquinaId);
     }
 }
