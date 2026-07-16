@@ -15,6 +15,7 @@ namespace VendingManager.Controllers
     public class AccountController(ApplicationDbContext context, IAuditService auditService) : ControllerBase
     {
         [HttpPost("login")]
+        [EnableRateLimiting("LoginPolicy")]
         public async Task<ActionResult<string>> Login(LoginDto loginDto)
         {
             var user = await context.Users
