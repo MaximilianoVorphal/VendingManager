@@ -77,45 +77,38 @@ namespace VendingManager.Controllers
         [Authorize(Roles = Roles.Admin)]
         public async Task<IActionResult> ProcesarMovimientos(int id, [FromBody] List<SlotActionDto> acciones)
         {
-            try
+            // Obtener slots y nombre de máquina para logging detallado
+            var maquina = await maquinaService.GetMaquinaAsync(id);
+            var slots = await maquinaService.GetSlotsAsync(id);
+            var slotDict = slots.ToDictionary(s => s.Id, s => s);
+            string nombreMaq = maquina?.Nombre ?? $"ID {id}";
+
+            await maquinaService.ProcesarMovimientosLoteAsync(id, acciones);
+
+            // Construir log detallado
+            var detalles = new List<string>();
+            foreach (var a in acciones)
             {
-                // Obtener slots y nombre de máquina para logging detallado
-                var maquina = await maquinaService.GetMaquinaAsync(id);
-                var slots = await maquinaService.GetSlotsAsync(id);
-                var slotDict = slots.ToDictionary(s => s.Id, s => s);
-                string nombreMaq = maquina?.Nombre ?? $"ID {id}";
-
-                await maquinaService.ProcesarMovimientosLoteAsync(id, acciones);
-
-                // Construir log detallado
-                var detalles = new List<string>();
-                foreach (var a in acciones)
+                var slot = slotDict.GetValueOrDefault(a.SlotId);
+                string slotNum = slot?.NumeroSlot ?? $"?";
+                string prod = slot?.Producto?.Nombre ?? "N/A";
+                switch (a.ActionType)
                 {
-                    var slot = slotDict.GetValueOrDefault(a.SlotId);
-                    string slotNum = slot?.NumeroSlot ?? $"?";
-                    string prod = slot?.Producto?.Nombre ?? "N/A";
-                    switch (a.ActionType)
-                    {
-                        case "REFILL":
-                            detalles.Add($"Slot {slotNum} ({prod}): +{a.Cantidad}");
-                            break;
-                        case "EMPTY":
-                            detalles.Add($"Slot {slotNum}: Vaciado ({prod})");
-                            break;
-                        case "SWAP":
-                            detalles.Add($"Slot {slotNum}: Cambio {prod} → ProdID {a.NewProductoId}");
-                            break;
-                    }
+                    case "REFILL":
+                        detalles.Add($"Slot {slotNum} ({prod}): +{a.Cantidad}");
+                        break;
+                    case "EMPTY":
+                        detalles.Add($"Slot {slotNum}: Vaciado ({prod})");
+                        break;
+                    case "SWAP":
+                        detalles.Add($"Slot {slotNum}: Cambio {prod} → ProdID {a.NewProductoId}");
+                        break;
                 }
-                string detalle = $"Máquina {nombreMaq}: {string.Join(", ", detalles)}";
-                await auditService.RegistrarAccionAsync(User.Identity?.Name ?? "Desconocido", "Movimiento Inventario", detalle);
-                Response.Headers["X-Deprecated"] = "use /api/TemplateRecarga/{id}/periodo/{periodoId}/slot-batch";
-                return Ok();
             }
-            catch (Exception ex)
-            {
-                return StatusCode(500, ex.Message);
-            }
+            string detalle = $"Máquina {nombreMaq}: {string.Join(", ", detalles)}";
+            await auditService.RegistrarAccionAsync(User.Identity?.Name ?? "Desconocido", "Movimiento Inventario", detalle);
+            Response.Headers["X-Deprecated"] = "use /api/TemplateRecarga/{id}/periodo/{periodoId}/slot-batch";
+            return Ok();
         }
     }
 }

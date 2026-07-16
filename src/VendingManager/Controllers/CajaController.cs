@@ -58,7 +58,6 @@ namespace VendingManager.Web.Controllers
             }
             catch (ArgumentException ex) { return BadRequest(ex.Message); }
             catch (InvalidOperationException ex) { return BadRequest(ex.Message); }
-            catch (Exception ex) { return StatusCode(500, ex.Message); }
         }
 
         [HttpPost("upload")]
@@ -67,38 +66,24 @@ namespace VendingManager.Web.Controllers
             if (file == null || file.Length == 0)
                 return BadRequest("No file uploaded");
 
-            try
+            using (var stream = file.OpenReadStream())
             {
-                using (var stream = file.OpenReadStream())
-                {
-                    // El servicio maneja la lógica de rutas. Podemos pasar null para webRootPath si el servicio lo tiene inyectado.
-                    string path = await cajaService.UploadComprobanteAsync(stream, file.FileName, null, category);
-                    await auditService.RegistrarAccionAsync(User.Identity?.Name ?? "Desconocido", "Subir Comprobante", $"Comprobante subido: {file.FileName} (Categoría: {category ?? "General"})");
-                    return Ok(new { Path = path });
-                }
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, $"Internal server error: {ex.Message}");
+                // El servicio maneja la lógica de rutas. Podemos pasar null para webRootPath si el servicio lo tiene inyectado.
+                string path = await cajaService.UploadComprobanteAsync(stream, file.FileName, null, category);
+                await auditService.RegistrarAccionAsync(User.Identity?.Name ?? "Desconocido", "Subir Comprobante", $"Comprobante subido: {file.FileName} (Categoría: {category ?? "General"})");
+                return Ok(new { Path = path });
             }
         }
 
         [HttpGet("exportar")]
         public async Task<IActionResult> ExportarCaja([FromQuery] int? month, [FromQuery] int? year)
         {
-            try
-            {
-                int targetMonth = month ?? DateTime.Now.Month;
-                int targetYear = year ?? DateTime.Now.Year;
+            int targetMonth = month ?? DateTime.Now.Month;
+            int targetYear = year ?? DateTime.Now.Year;
 
-                // Este endpoint corresponde a "ExportarCajaAsync" (Resumen + Movimientos + Ventas)
-                var (content, fileName) = await cajaService.ExportarCajaAsync(targetMonth, targetYear);
-                return File(content, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
-            }
-            catch (Exception ex)
-            {
-                return BadRequest("Error al generar Excel: " + ex.Message);
-            }
+            // Este endpoint corresponde a "ExportarCajaAsync" (Resumen + Movimientos + Ventas)
+            var (content, fileName) = await cajaService.ExportarCajaAsync(targetMonth, targetYear);
+            return File(content, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
         }
         [HttpGet("valorizacion")]
         public async Task<ActionResult<VendingManager.Shared.DTOs.ValorizacionStockDto>> GetValorizacionStock()
