@@ -121,6 +121,7 @@ builder.Services.AddDbContext<ApplicationDbContext>((sp, options) =>
 // 2.1 Configuration — VendingConfig
 builder.Services.Configure<VendingConfig>(builder.Configuration.GetSection("VendingConfig"));
 builder.Services.Configure<AnalyticsThresholds>(builder.Configuration.GetSection("AnalyticsThresholds"));
+builder.Services.Configure<CategoriaInferenciaConfig>(builder.Configuration.GetSection("CategoriaInferencia"));
 
 // 3. Registrar tus Servicios (Clean Architecture)
 builder.Services.AddScoped<ISyncOrchestratorService, SyncOrchestratorService>();

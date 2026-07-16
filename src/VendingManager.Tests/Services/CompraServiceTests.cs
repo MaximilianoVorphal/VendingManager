@@ -1,6 +1,7 @@
 namespace VendingManager.Tests.Services;
 
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Moq;
 using VendingManager.Core.Configuration;
@@ -18,6 +19,8 @@ public class CompraServiceTests : IDisposable
     private readonly Mock<IProductMatchingService> _mockProductMatching;
     private readonly Mock<IProveedorMatchingService> _mockProveedorMatching;
     private readonly Mock<IProveedorAliasRepository> _mockAliasRepo;
+    private readonly Mock<IOptionsSnapshot<CategoriaInferenciaConfig>> _mockCategoriaConfig;
+    private readonly Mock<ILogger<CompraService>> _mockLogger;
     private readonly CompraService _service;
 
     public CompraServiceTests()
@@ -43,8 +46,22 @@ public class CompraServiceTests : IDisposable
 
         _mockAliasRepo = new Mock<IProveedorAliasRepository>();
 
+        _mockCategoriaConfig = new Mock<IOptionsSnapshot<CategoriaInferenciaConfig>>();
+        _mockCategoriaConfig.Setup(o => o.Value).Returns(new CategoriaInferenciaConfig
+        {
+            Keywords = CategoriaInferenciaConfig.DefaultKeywords
+        });
+
+        _mockLogger = new Mock<ILogger<CompraService>>();
+
         var uploadProvider = new DefaultUploadPathProvider(_mockEnv.Object, _config);
-        _service = new CompraService(_context, _mockProductMatching.Object, uploadProvider, _mockProveedorMatching.Object);
+        _service = new CompraService(
+            _context,
+            _mockProductMatching.Object,
+            uploadProvider,
+            _mockProveedorMatching.Object,
+            _mockCategoriaConfig.Object,
+            _mockLogger.Object);
     }
 
     public void Dispose()
@@ -435,6 +452,167 @@ public class CompraServiceTests : IDisposable
         _mockProveedorMatching.Verify(
             m => m.SaveAliasAsync("Raw Supplier", newCatalog.Id),
             Times.Once);
+    }
+
+    // ─── Slice 3: Expense category inference ──────────────────────────
+
+    [Fact]
+    public void ResolverCategoriaMovimiento_KeywordMatch_ReturnsMappedCategory()
+    {
+        // 3.1: Keyword match returns mapped category
+        // Arrange
+        var config = new CategoriaInferenciaConfig
+        {
+            Keywords = new Dictionary<string, List<string>>
+            {
+                ["LOGISTICA"] = new List<string> { "bencina", "copec", "shell" },
+                ["PEAJES"] = new List<string> { "peaje", "tag" }
+            }
+        };
+        var mockOptions = new Mock<IOptionsSnapshot<CategoriaInferenciaConfig>>();
+        mockOptions.Setup(o => o.Value).Returns(config);
+        var mockLogger = new Mock<ILogger<CompraService>>();
+
+        var service = CreateServiceForInference(mockOptions.Object, mockLogger.Object);
+
+        var compra = new Compra
+        {
+            Proveedor = "COPEC",
+            TipoFactura = "GASTO",
+            SubcategoriaGasto = null
+        };
+
+        // Act
+        var result = service.ResolverCategoriaMovimiento(compra);
+
+        // Assert
+        result.Should().Be("LOGISTICA");
+    }
+
+    [Fact]
+    public void ResolverCategoriaMovimiento_NoMatch_ReturnsGastosGeneralesAndLogsWarning()
+    {
+        // 3.2: No match returns "GASTOS GENERALES" with Log.Warning verification
+        // Arrange
+        var config = new CategoriaInferenciaConfig
+        {
+            Keywords = new Dictionary<string, List<string>>
+            {
+                ["LOGISTICA"] = new List<string> { "bencina", "copec" },
+                ["PEAJES"] = new List<string> { "peaje", "tag" }
+            }
+        };
+        var mockOptions = new Mock<IOptionsSnapshot<CategoriaInferenciaConfig>>();
+        mockOptions.Setup(o => o.Value).Returns(config);
+        var mockLogger = new Mock<ILogger<CompraService>>();
+
+        var service = CreateServiceForInference(mockOptions.Object, mockLogger.Object);
+
+        var compra = new Compra
+        {
+            Proveedor = "TIENDA XYZ",
+            TipoFactura = "GASTO",
+            SubcategoriaGasto = null
+        };
+
+        // Act
+        var result = service.ResolverCategoriaMovimiento(compra);
+
+        // Assert
+        result.Should().Be("GASTOS GENERALES");
+
+        // Verify Serilog warning was logged with the unmatched proveedor name
+        mockLogger.Verify(
+            x => x.Log(
+                LogLevel.Warning,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((state, t) => state.ToString()!.Contains("TIENDA XYZ")),
+                It.IsAny<Exception>(),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public void ResolverCategoriaMovimiento_EmptyConfig_FallsBackToDefaultKeywords()
+    {
+        // 3.3: Empty config section → fallback to default keywords
+        // Arrange
+        var config = new CategoriaInferenciaConfig
+        {
+            Keywords = new Dictionary<string, List<string>>() // empty
+        };
+        var mockOptions = new Mock<IOptionsSnapshot<CategoriaInferenciaConfig>>();
+        mockOptions.Setup(o => o.Value).Returns(config);
+        var mockLogger = new Mock<ILogger<CompraService>>();
+
+        var service = CreateServiceForInference(mockOptions.Object, mockLogger.Object);
+
+        var compra = new Compra
+        {
+            Proveedor = "Copec Station",
+            TipoFactura = "GASTO",
+            SubcategoriaGasto = null
+        };
+
+        // Act
+        var result = service.ResolverCategoriaMovimiento(compra);
+
+        // Assert — should fall back to default keywords, which include "copec"
+        result.Should().Be("LOGISTICA");
+    }
+
+    [Fact]
+    public void ResolverCategoriaMovimiento_ConfigReload_PicksUpNewKeywords()
+    {
+        // 3.4: Config reload picks up new keywords (IOptionsSnapshot)
+        // Arrange
+        var config = new CategoriaInferenciaConfig
+        {
+            Keywords = new Dictionary<string, List<string>>
+            {
+                ["COMISIONES"] = new List<string> { "mercadopago", "transbank" },
+                ["LOGISTICA"] = new List<string> { "bencina", "copec" }
+            }
+        };
+        var mockOptions = new Mock<IOptionsSnapshot<CategoriaInferenciaConfig>>();
+        mockOptions.Setup(o => o.Value).Returns(config);
+        var mockLogger = new Mock<ILogger<CompraService>>();
+
+        var service = CreateServiceForInference(mockOptions.Object, mockLogger.Object);
+
+        var compra = new Compra
+        {
+            Proveedor = "MERCADOPAGO",
+            TipoFactura = "GASTO",
+            SubcategoriaGasto = null
+        };
+
+        // Act
+        var result = service.ResolverCategoriaMovimiento(compra);
+
+        // Assert — new keyword should map to new category
+        result.Should().Be("COMISIONES");
+    }
+
+    /// <summary>
+    /// Creates a CompraService instance with only the dependencies needed for
+    /// ResolverCategoriaMovimiento inference tests. Non-inference dependencies
+    /// are passed as null/default (not exercised by these tests).
+    /// </summary>
+    private static CompraService CreateServiceForInference(
+        IOptionsSnapshot<CategoriaInferenciaConfig> options,
+        ILogger<CompraService> logger)
+    {
+        // We construct CompraService with all required dependencies.
+        // The non-options/logger deps are unused by ResolverCategoriaMovimiento,
+        // so we pass minimal safe defaults.
+        return new CompraService(
+            null!, // ApplicationDbContext — not used by inference
+            null!, // IProductMatchingService — not used
+            null!, // IUploadPathProvider — not used
+            null!, // IProveedorMatchingService — not used
+            options,
+            logger);
     }
 
     private static string BuildExceptionChain(Exception ex)

@@ -1,6 +1,7 @@
 namespace VendingManager.Tests.Services;
 
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Moq;
 using FluentAssertions;
@@ -44,11 +45,16 @@ public class CompraService_CppCentralization_Tests : IDisposable
 
         var uploadProvider = new DefaultUploadPathProvider(mockEnv.Object, config);
 
+        var mockCategoriaConfig = new Mock<IOptionsSnapshot<CategoriaInferenciaConfig>>();
+        mockCategoriaConfig.Setup(o => o.Value).Returns(new CategoriaInferenciaConfig());
+
         _service = new CompraService(
             _context,
             mockProductMatching.Object,
             uploadProvider,
-            mockProveedorMatching.Object);
+            mockProveedorMatching.Object,
+            mockCategoriaConfig.Object,
+            new Mock<ILogger<CompraService>>().Object);
     }
 
     public void Dispose() => _context.Dispose();

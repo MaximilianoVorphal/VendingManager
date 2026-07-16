@@ -1,10 +1,13 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using VendingManager.Core.Domain;
+using VendingManager.Core.Configuration;
 using VendingManager.Core.Entities;
 using VendingManager.Core.Interfaces;
 using VendingManager.Infrastructure.Data;
 using VendingManager.Shared.DTOs;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 
 namespace VendingManager.Infrastructure.Services;
 
@@ -14,17 +17,23 @@ public class CompraService : ICompraService
     private readonly IProductMatchingService _productMatchingService;
     private readonly IProveedorMatchingService _proveedorMatchingService;
     private readonly IUploadPathProvider _uploadPathProvider;
+    private readonly IOptionsSnapshot<CategoriaInferenciaConfig> _categoriaConfig;
+    private readonly ILogger<CompraService> _logger;
 
     public CompraService(
         ApplicationDbContext context,
         IProductMatchingService productMatchingService,
         IUploadPathProvider uploadPathProvider,
-        IProveedorMatchingService proveedorMatchingService)
+        IProveedorMatchingService proveedorMatchingService,
+        IOptionsSnapshot<CategoriaInferenciaConfig> categoriaConfig,
+        ILogger<CompraService> logger)
     {
         _context = context;
         _productMatchingService = productMatchingService;
         _uploadPathProvider = uploadPathProvider;
         _proveedorMatchingService = proveedorMatchingService;
+        _categoriaConfig = categoriaConfig;
+        _logger = logger;
     }
 
     public async Task<IEnumerable<CompraDto>> GetComprasAsync(int? count = null)
@@ -733,9 +742,10 @@ public class CompraService : ICompraService
 
     /// <summary>
     /// Resuelve la categoría del movimiento de caja basado en tipo de factura y subcategoría.
-    /// Prioriza SubcategoriaGasto explícita; si no hay, intenta inferir del proveedor.
+    /// Prioriza SubcategoriaGasto explícita; si no hay, intenta inferir del proveedor
+    /// usando keywords configurables desde appsettings (CategoriaInferencia section).
     /// </summary>
-    private static string ResolverCategoriaMovimiento(Compra compra)
+    internal string ResolverCategoriaMovimiento(Compra compra)
     {
         if (compra.TipoFactura == "MERCADERIA")
             return "MERCADERIA";
@@ -744,17 +754,25 @@ public class CompraService : ICompraService
         if (!string.IsNullOrWhiteSpace(compra.SubcategoriaGasto))
             return compra.SubcategoriaGasto;
 
-        // Inferir del proveedor
+        // Inferir del proveedor usando keywords configurables
         var proveedor = (compra.Proveedor ?? "").ToLowerInvariant();
 
-        if (proveedor.Contains("bencina") || proveedor.Contains("copec") || proveedor.Contains("shell") ||
-            proveedor.Contains("petrobras") || proveedor.Contains("petro") || proveedor.Contains("gasolin"))
-            return "LOGISTICA";
+        // Use config keywords if present; fall back to hardcoded defaults
+        var keywords = _categoriaConfig.Value.Keywords;
+        if (keywords == null || keywords.Count == 0)
+            keywords = CategoriaInferenciaConfig.DefaultKeywords;
 
-        if (proveedor.Contains("peaje") || proveedor.Contains("autopista") || proveedor.Contains("tag") ||
-            proveedor.Contains("costanera") || proveedor.Contains("vespucio"))
-            return "PEAJES";
+        foreach (var kvp in keywords)
+        {
+            foreach (var keyword in kvp.Value)
+            {
+                if (proveedor.Contains(keyword, StringComparison.OrdinalIgnoreCase))
+                    return kvp.Key;
+            }
+        }
 
+        // No match — log warning and return fallback
+        _logger.LogWarning("Categoría no inferida para proveedor '{Proveedor}'. Usando GASTOS GENERALES como fallback.", compra.Proveedor);
         return "GASTOS GENERALES";
     }
 }

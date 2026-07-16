@@ -1,6 +1,7 @@
 namespace VendingManager.Tests.Services;
 
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Moq;
 using VendingManager.Core.Configuration;
@@ -38,7 +39,16 @@ public class UploadPathProviderTests
 
         var uploadProvider = new DefaultUploadPathProvider(envMock.Object, cfg);
 
-        return (new CompraService(context, productMatching.Object, uploadProvider, proveedorMatching.Object), envMock);
+        var mockCategoriaConfig = new Mock<IOptionsSnapshot<CategoriaInferenciaConfig>>();
+        mockCategoriaConfig.Setup(o => o.Value).Returns(new CategoriaInferenciaConfig());
+
+        return (new CompraService(
+            context,
+            productMatching.Object,
+            uploadProvider,
+            proveedorMatching.Object,
+            mockCategoriaConfig.Object,
+            new Mock<ILogger<CompraService>>().Object), envMock);
     }
 
     // ── Regression: step 1 — config path wins ────────────────────────────────
