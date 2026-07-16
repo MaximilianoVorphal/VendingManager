@@ -212,6 +212,12 @@
                                 </InputSelect>
                                 <div class="form-text small">Zona para optimización de rutas (opcional).</div>
                             </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold small">OFFSET HORARIO (UTC)</label>
+                                <InputNumber @bind-Value="maquinaActual.TimezoneOffsetHours" class="form-control rounded-0 border-dark font-monospace"
+                                             placeholder="EJ: -3" />
+                                <div class="form-text small">Diferencia horaria UTC. Vacío = valor por defecto (-11).</div>
+                            </div>
                         </div>
 
                         <div class="modal-footer bg-light rounded-0 mt-4 px-0 pb-0 pt-3 border-top border-dark">
@@ -300,7 +306,8 @@
                 Ubicacion = maquina.Ubicacion,
                 IdInternoMaquina = maquina.IdInternoMaquina,
                 CodigoTerminalPos = maquina.CodigoTerminalPos,
-                ZonaLogisticaId = maquina.ZonaLogisticaId
+                ZonaLogisticaId = maquina.ZonaLogisticaId,
+                TimezoneOffsetHours = maquina.TimezoneOffsetHours
             };
         }
         MostrarModal = true;
@@ -366,6 +373,7 @@
         public string IdInternoMaquina { get; set; } = string.Empty;
         public string CodigoTerminalPos { get; set; } = string.Empty;
         public int? ZonaLogisticaId { get; set; }
+        public int? TimezoneOffsetHours { get; set; }
     }
 }
 </MobileShell>

@@ -11,5 +11,7 @@ namespace VendingManager.Core.Interfaces
         Task UpdateSlotAsync(ConfiguracionSlotDto slot);
         Task ProcesarMovimientosLoteAsync(int maquinaId, List<SlotActionDto> acciones);
         Task DeleteMaquinaAsync(int id);
+        Task<List<OffsetDriftDto>> GetOffsetDriftAsync();
+        Task UpdateTimezoneOffsetAsync(int id, int offsetHours);
     }
 }
