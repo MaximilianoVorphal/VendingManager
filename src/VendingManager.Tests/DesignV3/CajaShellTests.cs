@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -36,6 +37,11 @@ public class CajaShellTests : TestContext
         Services.AddSingleton<IAuthorizationService, FakeAuthorizationService>();
         JSInterop.Mode = JSRuntimeMode.Loose;
     }
+
+    private static string ProjectCssPath => Path.GetFullPath(
+        Path.Combine(
+            AppContext.BaseDirectory, "..", "..", "..", "..", "..",
+            "src", "VendingManager.Web", "Pages", "Caja.razor.css"));
 
     [Fact]
     public void Caja_RendersFourVmKpiCards()
@@ -102,7 +108,13 @@ public class CajaShellTests : TestContext
 
         cut.WaitForAssertion(() => cut.Markup.Should().Contain("MOVIMIENTOS DE"));
 
-        cut.Markup.Should().Contain("overflow-y: auto");
+        // The scroll container moved from an inline style to the scoped CSS
+        // class .caja-movements-scroll — bUnit can't see scoped CSS rules,
+        // so assert the class is applied and the rule lives in Caja.razor.css.
+        cut.Find("div.caja-movements-scroll").Should().NotBeNull();
+
+        var css = File.ReadAllText(ProjectCssPath);
+        css.Should().MatchRegex(@"\.caja-movements-scroll\s*\{[^}]*overflow-y:\s*auto");
     }
 
     [Fact]

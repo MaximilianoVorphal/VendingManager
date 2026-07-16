@@ -267,16 +267,16 @@ public class TemplatesRecargaShellTests : TestContext
 
         cut.WaitForAssertion(() => cut.Markup.Should().Contain("rec-grid"));
 
-        // Compact density is the default, so the editor opens with is-compact.
-        cut.Markup.Should().Contain("rec-grid is-compact");
+        // Cómoda density is the default, so the editor opens without is-compact.
+        cut.Markup.Should().NotContain("rec-grid is-compact");
 
         // The VmSegmented renders the buttons as direct children of
-        // .rec-segment. Click the "Cómoda" one to leave compact mode.
-        var comodaButton = cut.FindAll(".rec-segment > button")
-            .First(b => b.TextContent.Contains("Cómoda"));
-        comodaButton.Click();
+        // .rec-segment. Click the "Compacta" one to enter compact mode.
+        var compactaButton = cut.FindAll(".rec-segment > button")
+            .First(b => b.TextContent.Contains("Compacta"));
+        compactaButton.Click();
 
-        cut.WaitForAssertion(() => cut.Markup.Should().NotContain("rec-grid is-compact"));
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("rec-grid is-compact"));
     }
 
     [Fact]
@@ -688,6 +688,40 @@ public class TemplatesRecargaShellTests : TestContext
         // R3.1b: "Foto guía" button visible again
         cut.FindComponents<VmButton>().Any(b => b.Markup.Contains("Foto guia"))
             .Should().BeTrue("Foto guía button must reappear when panel is closed");
+    }
+
+    [Fact]
+    public void GuiaPanel_Toggle_SyncsCompactDensity()
+    {
+        var cut = RenderComponent<TemplatesTestHost>();
+
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("Template Activo"));
+
+        // Open the editor — cómoda density is the default
+        cut.FindComponents<VmButton>().First(b => b.Markup.Contains("Abrir")).Find("button").Click();
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("rec-split"));
+
+        cut.Markup.Should().NotContain("rec-grid is-compact");
+
+        // Opening the foto guía panel switches the grid to compact density
+        var fotoGuiaButton = cut.FindComponents<VmButton>()
+            .First(b => b.Markup.Contains("Foto guia"));
+        fotoGuiaButton.Find("button").Click();
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.FindAll("aside.rec-guia").Should().NotBeEmpty();
+            cut.Markup.Should().Contain("rec-grid is-compact");
+        });
+
+        // Closing the panel via × restores cómoda density
+        cut.Find("button.rec-guia-close").Click();
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.FindAll("aside.rec-guia").Should().BeEmpty();
+            cut.Markup.Should().NotContain("rec-grid is-compact");
+        });
     }
 
     [Fact]

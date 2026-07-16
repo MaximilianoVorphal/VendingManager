@@ -49,7 +49,9 @@ public class InformeVentasPageTests : TestContext
         cut.WaitForAssertion(() =>
         {
             _mockHandler.Requests.Should().Contain(r => r.Contains("informe-financiero"));
-            cut.Markup.Should().Contain("$1.234.567");
+            // KPI card shows MargenBruto (569470) relabeled as "Margen bruto"
+            cut.Markup.Should().Contain("Margen bruto");
+            cut.Markup.Should().Contain("$569.470");
         });
     }
 

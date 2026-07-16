@@ -30,8 +30,12 @@ public class LoginLayoutTests : TestContext
                 builder.AddMarkupContent(0, "<p data-testid=\"body\">page body</p>"))));
 
         cut.Markup.Should().Contain("page body");
-        cut.Markup.Should().Contain("display:grid");
-        cut.Markup.Should().Contain("place-items:center");
+
+        // Centering moved from an inline style to the .login-root class,
+        // whose embedded <style> block uses spaced formatting.
+        cut.Find("div.login-root").Should().NotBeNull();
+        cut.Markup.Should().MatchRegex(@"display:\s*grid");
+        cut.Markup.Should().MatchRegex(@"place-items:\s*center");
     }
 
     [Fact]
