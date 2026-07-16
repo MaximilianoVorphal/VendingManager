@@ -208,17 +208,23 @@ using (var scope = app.Services.CreateScope())
     {
         var context = services.GetRequiredService<VendingManager.Infrastructure.Data.ApplicationDbContext>();
 
-        // Log pending migrations before applying them so deploy logs show
-        // exactly which schema change is about to run.
-        var pending = context.Database.GetPendingMigrations().ToList();
-        var logger = services.GetRequiredService<ILogger<Program>>();
-        if (pending.Count > 0)
+        // Migrations only apply to relational providers. The test host swaps
+        // in the EF InMemory provider, where GetPendingMigrations()/Migrate()
+        // throw — skip them there; the test factory seeds its own schema.
+        if (context.Database.IsRelational())
         {
-            logger.LogInformation("Applying {Count} pending migration(s): {Migrations}",
-                pending.Count, string.Join(", ", pending));
-        }
+            // Log pending migrations before applying them so deploy logs show
+            // exactly which schema change is about to run.
+            var pending = context.Database.GetPendingMigrations().ToList();
+            var logger = services.GetRequiredService<ILogger<Program>>();
+            if (pending.Count > 0)
+            {
+                logger.LogInformation("Applying {Count} pending migration(s): {Migrations}",
+                    pending.Count, string.Join(", ", pending));
+            }
 
-        context.Database.Migrate();
+            context.Database.Migrate();
+        }
 
         // Validate audit type registry at startup — fail-fast if any
         // audited entity type lacks its history type mapping.
