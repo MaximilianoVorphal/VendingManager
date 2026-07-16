@@ -501,14 +501,23 @@ public class CompraService : ICompraService
         var pending = await _context.Compras
             .Where(c => c.FacturaImagen == null &&
                         c.FacturaImagenPath != null &&
-                        c.FacturaImagenPath.StartsWith("/uploads/"))
+                        c.FacturaImagenPath.StartsWith("/uploads/") &&
+                        !c.FacturaImagenPath.Contains(".."))
             .ToListAsync();
 
         result.Total = pending.Count;
 
         foreach (var compra in pending)
         {
-            var physicalPath = Path.Combine(basePath, compra.FacturaImagenPath!.TrimStart('/'));
+            var physicalPath = Path.GetFullPath(Path.Combine(basePath, compra.FacturaImagenPath!.TrimStart('/')));
+            // Defense-in-depth: reject paths that resolve outside the upload base
+            if (!physicalPath.StartsWith(basePath + Path.DirectorySeparatorChar) &&
+                physicalPath != basePath)
+            {
+                result.MissingFiles.Add(compra.Id);
+                continue;
+            }
+
             if (!System.IO.File.Exists(physicalPath))
             {
                 result.MissingFiles.Add(compra.Id);
@@ -516,6 +525,8 @@ public class CompraService : ICompraService
             }
 
             compra.FacturaImagen = await System.IO.File.ReadAllBytesAsync(physicalPath);
+            FileSignatureValidator.Validate(compra.FacturaImagen,
+                AllowedFormats.Jpeg | AllowedFormats.Png | AllowedFormats.Pdf);
             compra.FacturaImagenContentType =
                 MapContentType(Path.GetExtension(physicalPath).ToLowerInvariant());
             result.Migrated++;

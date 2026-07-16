@@ -154,14 +154,23 @@ public class TransferenciaService : ITransferenciaService
         var pending = await _context.Transferencias
             .Where(t => t.ComprobanteImagen == null &&
                         t.ComprobanteImagenPath != null &&
-                        t.ComprobanteImagenPath.StartsWith("/uploads/"))
+                        t.ComprobanteImagenPath.StartsWith("/uploads/") &&
+                        !t.ComprobanteImagenPath.Contains(".."))
             .ToListAsync();
 
         result.Total = pending.Count;
 
         foreach (var transferencia in pending)
         {
-            var physicalPath = Path.Combine(basePath, transferencia.ComprobanteImagenPath!.TrimStart('/'));
+            var physicalPath = Path.GetFullPath(Path.Combine(basePath, transferencia.ComprobanteImagenPath!.TrimStart('/')));
+            // Defense-in-depth: reject paths that resolve outside the upload base
+            if (!physicalPath.StartsWith(basePath + Path.DirectorySeparatorChar) &&
+                physicalPath != basePath)
+            {
+                result.MissingFiles.Add(transferencia.Id);
+                continue;
+            }
+
             if (!System.IO.File.Exists(physicalPath))
             {
                 result.MissingFiles.Add(transferencia.Id);
@@ -169,6 +178,8 @@ public class TransferenciaService : ITransferenciaService
             }
 
             var bytes = await System.IO.File.ReadAllBytesAsync(physicalPath);
+            FileSignatureValidator.Validate(bytes,
+                AllowedFormats.Jpeg | AllowedFormats.Png | AllowedFormats.Pdf);
             transferencia.ComprobanteImagen = bytes;
             transferencia.ComprobanteImagenContentType =
                 MapContentType(Path.GetExtension(physicalPath).ToLowerInvariant());
