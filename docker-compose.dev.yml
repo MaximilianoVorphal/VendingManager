@@ -13,6 +13,7 @@ services:
     build:
       context: ./src
       dockerfile: Dockerfile
+    restart: unless-stopped
     ports:
       - "8081:8080"
     environment:
@@ -22,11 +23,25 @@ services:
       - TZ=America/Santiago
       - ScraperServiceUrl=http://scraper-dev:8000
     depends_on:
-      - db-dev
-      - scraper-dev
+      db-dev:
+        condition: service_healthy
+      scraper-dev:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8080/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   db-dev:
     image: mcr.microsoft.com/mssql/server:2022-latest
+    restart: unless-stopped
     environment:
       - ACCEPT_EULA=Y
       - MSSQL_SA_PASSWORD=${MSSQL_SA_PASSWORD}
@@ -36,11 +51,23 @@ services:
       - ~/vendingmanager-backups:/var/opt/mssql/backup
     ports:
       - "1434:1433"
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$${MSSQL_SA_PASSWORD}\" -C -Q \"SELECT 1\" || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   scraper-dev:
     build:
       context: ./services/scraper
       dockerfile: Dockerfile
+    restart: unless-stopped
     volumes:
       - scraper_data_dev:/app/downloads
     ports:
@@ -50,3 +77,14 @@ services:
       - OURVEND_USER=${OURVEND_USER}
       - OURVEND_PASS=${OURVEND_PASS}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

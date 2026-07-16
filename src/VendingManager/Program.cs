@@ -200,13 +200,24 @@ builder.Services.AddHealthChecks()
 
 var app = builder.Build();
 
-// Auto-migrate database on startup
+// Auto-migrate database on startup — fail-fast in Production
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
     try
     {
         var context = services.GetRequiredService<VendingManager.Infrastructure.Data.ApplicationDbContext>();
+
+        // Log pending migrations before applying them so deploy logs show
+        // exactly which schema change is about to run.
+        var pending = context.Database.GetPendingMigrations().ToList();
+        var logger = services.GetRequiredService<ILogger<Program>>();
+        if (pending.Count > 0)
+        {
+            logger.LogInformation("Applying {Count} pending migration(s): {Migrations}",
+                pending.Count, string.Join(", ", pending));
+        }
+
         context.Database.Migrate();
 
         // Validate audit type registry at startup — fail-fast if any
@@ -216,7 +227,13 @@ using (var scope = app.Services.CreateScope())
     catch (Exception ex)
     {
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
-        logger.LogError(ex, "An error occurred while migrating the database.");
+        logger.LogError(ex, "Database migration failed — app will not start");
+
+        // Fail-fast: a mismatched schema silently corrupts data at runtime.
+        // Restart policy (F4) retries; persistent failure is visible in
+        // docker compose ps. Rollback: restore pre-deploy backup (F0/F2)
+        // and redeploy the previous tag.
+        Environment.Exit(1);
     }
 }
 
