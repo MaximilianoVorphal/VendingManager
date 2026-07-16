@@ -85,52 +85,27 @@ public class RendicionService : IRendicionService
         if (rendicion.Estado == RendicionEstado.Cerrada)
             throw new InvalidOperationException("La rendición ya está cerrada.");
 
-        // Close-gate — mirror of ContabilidadService.ClosePeriodoAsync gates.
-        // These preconditions MUST fire BEFORE the existing Conciliado check.
+        // Close-gate validation delegated to CierreValidator (SDD endurecimiento-dominio Slice 2).
+        // Adopts canonical ClosePeriodoAsync behavior:
+        //   - G3: gastos filtered by EsGastoOperativoReal (excludes RETIRO_CAPITAL, DEVOLUCION_RENDICION)
+        //   - Auto-conciliation of EnUso transfers with linked compras/gastos
+        var gastosOperativos = rendicion.Gastos
+            ?.Where(g => CategoriasGasto.EsGastoOperativoReal(g.Categoria))
+            .ToList()
+            ?? new List<MovimientoCaja>();
 
-        // Gate 1: all linked Transferencias must be Verificada
-        var unverifiedTransferencias = rendicion.Transferencias
-            .Where(t => !t.Verificada)
-            .ToList();
-        if (unverifiedTransferencias.Count != 0)
-            throw new InvalidOperationException(
-                $"No se puede cerrar la rendición. Hay {unverifiedTransferencias.Count} transferencia(s) sin verificar. " +
-                $"Verificá todos los comprobantes antes de cerrar.");
-
-        // Gate 2: all linked Compras must be Verificada
-        var unverifiedCompras = rendicion.Transferencias
-            .SelectMany(t => t.Compras)
-            .Where(c => !c.Verificada)
-            .ToList();
-        if (unverifiedCompras.Count != 0)
-            throw new InvalidOperationException(
-                $"No se puede cerrar la rendición. Hay {unverifiedCompras.Count} compra(s) sin verificar. " +
-                $"Verificá todos los comprobantes antes de cerrar.");
-
-        // Gate 3: SaldoADevolver must be 0
-        var totalTransferido = rendicion.Transferencias.Sum(t => t.Monto);
-        var totalCompras = rendicion.Transferencias
-            .SelectMany(t => t.Compras)
-            .Sum(c => c.MontoTotal);
-        var totalGastos = rendicion.Gastos?.Sum(g => Math.Abs(g.Monto)) ?? 0m;
         var devuelto = await _context.Devoluciones
             .Where(d => d.RendicionId == id)
             .SumAsync(d => d.Monto);
-        var diferencia = totalTransferido - totalCompras - totalGastos;
-        var saldoADevolver = diferencia - devuelto;
 
-        if (saldoADevolver != 0)
-            throw new InvalidOperationException(
-                $"No se puede cerrar la rendición. El saldo a devolver es ${saldoADevolver:N2}. " +
-                $"Registrá una devolución antes de cerrar.");
+        var validation = CierreValidator.Validate(
+            rendicion.Transferencias.ToList(),
+            gastosOperativos,
+            devuelto,
+            "rendición");
 
-        // Validar que todas las transferencias estén Conciliado antes de cerrar
-        var nonConciliada = rendicion.Transferencias
-            .FirstOrDefault(t => t.Estado != TransferenciaEstado.Conciliado);
-        if (nonConciliada != null)
-            throw new InvalidOperationException(
-                $"No se puede cerrar la rendición. La transferencia #{nonConciliada.Id} " +
-                $"tiene estado {nonConciliada.Estado} y debe estar Conciliado.");
+        if (!validation.Valid)
+            throw new InvalidOperationException(validation.ErrorMessage!);
 
         rendicion.Estado = RendicionEstado.Cerrada;
         rendicion.FechaFin = DateTime.Now;

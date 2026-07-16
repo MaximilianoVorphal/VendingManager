@@ -843,70 +843,27 @@ public class ContabilidadService : IContabilidadService
         if (period.Estado == AccountingPeriodEstado.Cerrado)
             throw new InvalidOperationException("El período ya está cerrado.");
 
-        // TASK-10 close-gate — MUST fire BEFORE the existing Conciliado check.
-
-        // Gate 1: all linked Transferencias must be Verificada
-        var unverifiedTransferencias = period.Transferencias
-            .Where(t => !t.Verificada)
-            .ToList();
-        if (unverifiedTransferencias.Count != 0)
-            throw new InvalidOperationException(
-                $"No se puede cerrar el período. Hay {unverifiedTransferencias.Count} transferencia(s) sin verificar. " +
-                $"Verificá todos los comprobantes antes de cerrar.");
-
-        // Gate 2: all linked Compras must be Verificada
-        var unverifiedCompras = period.Transferencias
-            .SelectMany(t => t.Compras)
-            .Where(c => !c.Verificada)
-            .ToList();
-        if (unverifiedCompras.Count != 0)
-            throw new InvalidOperationException(
-                $"No se puede cerrar el período. Hay {unverifiedCompras.Count} compra(s) sin verificar. " +
-                $"Verificá todos los comprobantes antes de cerrar.");
-
-        // Gate 3: SaldoADevolver must be 0
-        var totalTransferido = period.Transferencias.Sum(t => t.Monto);
-        var totalCompras = period.Transferencias.SelectMany(t => t.Compras).Sum(c => c.MontoTotal);
-        var totalGastos = period.Transferencias
+        // Close-gate validation delegated to CierreValidator (SDD endurecimiento-dominio Slice 2).
+        // Collect operativo-real gastos from all rendiciones linked to this period's transfers.
+        var gastosOperativos = period.Transferencias
             .Where(t => t.Rendicion != null)
             .SelectMany(t => t.Rendicion!.Gastos)
             .Where(m => CategoriasGasto.EsGastoOperativoReal(m.Categoria))
             .DistinctBy(g => g.Id)
-            .Sum(g => Math.Abs(g.Monto));
-        // Query Devoluciones directly to avoid nav-property inclusion edge cases
+            .ToList();
+
         var devuelto = await _context.Devoluciones
             .Where(d => d.PeriodoId == id)
             .SumAsync(d => d.Monto, ct);
-        var diferencia = totalTransferido - totalCompras - totalGastos;
-        var saldoADevolver = diferencia - devuelto;
 
-        if (saldoADevolver != 0)
-            throw new InvalidOperationException(
-                $"No se puede cerrar el período. El saldo a devolver es ${saldoADevolver:N2}. " +
-                $"Registrá una devolución antes de cerrar.");
+        var validation = CierreValidator.Validate(
+            period.Transferencias.ToList(),
+            gastosOperativos,
+            devuelto,
+            "período");
 
-        // Auto-conciliate transfers that have linked compras or gastos
-        foreach (var t in period.Transferencias)
-        {
-            if (t.Estado != TransferenciaEstado.Conciliado)
-            {
-                var hasLinkedItems = t.Compras.Count > 0
-                    || (t.Rendicion?.Gastos?.Count > 0);
-                if (hasLinkedItems)
-                {
-                    t.Estado = TransferenciaEstado.Conciliado;
-                }
-            }
-        }
-
-        // Validate: all transfers must be Conciliado after auto-conciliation
-        var nonConciliated = period.Transferencias
-            .Where(t => t.Estado != TransferenciaEstado.Conciliado)
-            .ToList();
-
-        if (nonConciliated.Count != 0)
-            throw new InvalidOperationException(
-                $"No se puede cerrar el período. Hay {nonConciliated.Count} transferencia(s) no conciliada(s). Vinculá compras o gastos a cada transferencia antes de cerrar.");
+        if (!validation.Valid)
+            throw new InvalidOperationException(validation.ErrorMessage!);
 
         period.Estado = AccountingPeriodEstado.Cerrado;
         await _periodRepository.UpdateAsync(period, ct);
@@ -1024,7 +981,7 @@ public class ContabilidadService : IContabilidadService
                         "Ya existe una devolución registrada para este período. Solo se permite una devolución por período en esta versión.");
 
                 // Guard: Monto must not exceed SaldoADevolver for the period
-                // (mirror of ClosePeriodoAsync gate 3 — single saldo definition, gastos included)
+                // (saldo calculation mirrors CierreValidator G3 — operativos reales only)
                 var periodoTotalTransferido = period.Transferencias.Sum(t => t.Monto);
                 var periodoTotalCompras = period.Transferencias
                     .SelectMany(t => t.Compras)
@@ -1067,7 +1024,7 @@ public class ContabilidadService : IContabilidadService
                         "Ya existe una devolución registrada para esta rendición. Solo se permite una devolución por rendición en esta versión.");
 
                 // Guard: Monto must not exceed SaldoADevolver for the rendición
-                // (mirror of RendicionService.CerrarAsync gate 3 — single saldo definition)
+                // (saldo calculation mirrors CierreValidator G3 — operativos reales only)
                 var rendTotalTransferido = rendicion.Transferencias.Sum(t => t.Monto);
                 var rendTotalCompras = rendicion.Transferencias
                     .SelectMany(t => t.Compras)
