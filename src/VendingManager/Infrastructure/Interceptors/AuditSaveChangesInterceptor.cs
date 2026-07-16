@@ -220,6 +220,25 @@ public class AuditSaveChangesInterceptor : SaveChangesInterceptor
                 var value = entry.CurrentValues[prop.Name];
                 if (value is not null && value is not DBNull)
                 {
+                    // Handle type mismatches from ValueConverters (e.g. enum -> string).
+                    // CurrentValues returns the CLR type; the history property may
+                    // use the store type. Convert before calling SetValue to avoid
+                    // ArgumentException when types don't match.
+                    if (!prop.PropertyType.IsInstanceOfType(value))
+                    {
+                        if (prop.PropertyType == typeof(string))
+                        {
+                            // Enum -> string: produce uppercase to match store format
+                            value = value is Enum
+                                ? value.ToString()!.ToUpperInvariant()
+                                : value.ToString();
+                        }
+                        else
+                        {
+                            value = Convert.ChangeType(value, prop.PropertyType);
+                        }
+                    }
+
                     prop.SetValue(historyRecord, value);
                 }
             }

@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using VendingManager.Core.Entities;
 using VendingManager.Infrastructure.Interceptors;
+using VendingManager.Shared.Enums;
 using Xunit;
 
 namespace VendingManager.Tests.Interceptors;
@@ -315,6 +316,69 @@ public class AuditSaveChangesInterceptorTests
         var updateRecord = historyRecords.Last();
         updateRecord.Action.Should().Be("Modified");
         updateRecord.EntityId.Should().Be(42);
+    }
+
+    [Fact]
+    public async Task SavingChangesAsync_WhenOrdenCargaCreated_WritesOrdenCargaHistoryWithEnumEstado()
+    {
+        // This test verifies that the AuditSaveChangesInterceptor correctly
+        // handles the enum-to-string ValueConverter on OrdenCarga.Estado.
+        // Without the type-conversion fix, CurrentValues returns the CLR enum
+        // type while OrdenCargaHistory.Estado is string — SetValue would throw.
+        var interceptor = CreateInterceptor();
+        using var context = CreateContextWithInterceptor(interceptor, "OrdenCargaHistoryTest");
+
+        var orden = new OrdenCarga
+        {
+            Estado = EstadoOrdenCarga.Borrador,
+            Nombre = "Test Order",
+            FechaCreacion = DateTime.UtcNow
+        };
+        context.OrdenesCarga.Add(orden);
+
+        // Act
+        await context.SaveChangesAsync();
+
+        // Assert: OrdenCargaHistory row written with enum Estado as uppercase string
+        var historyRecord = await context.Set<OrdenCargaHistory>().FirstOrDefaultAsync();
+        historyRecord.Should().NotBeNull();
+        historyRecord!.Action.Should().Be("Added");
+        historyRecord.EntityId.Should().Be(orden.Id);
+        historyRecord.Estado.Should().Be("BORRADOR");
+        historyRecord.Nombre.Should().Be("Test Order");
+    }
+
+    [Fact]
+    public async Task SavingChangesAsync_WhenOrdenCargaModified_WritesOrdenCargaHistoryWithUpdatedEstado()
+    {
+        var interceptor = CreateInterceptor();
+        using var context = CreateContextWithInterceptor(interceptor, "OrdenCargaUpdateHistoryTest");
+
+        var orden = new OrdenCarga
+        {
+            Estado = EstadoOrdenCarga.Pendiente,
+            Nombre = "Pending Order",
+            FechaCreacion = DateTime.UtcNow
+        };
+        context.OrdenesCarga.Add(orden);
+        await context.SaveChangesAsync();
+
+        // Modify
+        orden.Estado = EstadoOrdenCarga.Finalizada;
+        orden.FechaFinalizacion = DateTime.UtcNow;
+
+        // Act
+        await context.SaveChangesAsync();
+
+        // Assert: update history row has FINALIZADA
+        var historyRecords = await context.Set<OrdenCargaHistory>()
+            .OrderBy(h => h.Id)
+            .ToListAsync();
+        historyRecords.Should().HaveCount(2); // Insert + Update
+
+        var updateRecord = historyRecords.Last();
+        updateRecord.Action.Should().Be("Modified");
+        updateRecord.Estado.Should().Be("FINALIZADA");
     }
 
     private class MockHttpContextAccessor : IHttpContextAccessor
