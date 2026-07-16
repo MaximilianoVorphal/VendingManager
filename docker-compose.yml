@@ -10,6 +10,7 @@ services:
     build:
       context: ./src
       dockerfile: Dockerfile
+    restart: unless-stopped
     ports:
       - "8080:8080"
 
@@ -25,20 +26,23 @@ services:
 
   db:
     image: mcr.microsoft.com/mssql/server:2022-latest
+    restart: unless-stopped
     environment:
       - ACCEPT_EULA=Y
       - MSSQL_SA_PASSWORD=${MSSQL_SA_PASSWORD}
       - TZ=America/Santiago
     volumes:
       - mssql_data:/var/opt/mssql
+      - ~/vendingmanager-backups:/var/opt/mssql/backup
     ports:
-      - "1433:1433"
+      - "127.0.0.1:1433:1433"
 
   # Nuevo servicio para el Scraper (Python + Playwright)
   scraper:
     build:
       context: ./services/scraper
       dockerfile: Dockerfile
+    restart: unless-stopped
     volumes:
       - scraper_data:/app/downloads
     ports:

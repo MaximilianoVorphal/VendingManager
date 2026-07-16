@@ -55,5 +55,7 @@ jobs:
           script: |
             cd ~/proyecto/VendingManager
             git pull origin master
-            docker compose -f docker-compose.dev.yml down --remove-orphans
-            docker compose -f docker-compose.dev.yml up -d --build
+            # Pre-deploy backup before migrations run at startup
+            bash scripts/backup-db.sh
+            docker compose -f docker-compose.yml down --remove-orphans
+            docker compose -f docker-compose.yml up -d --build
