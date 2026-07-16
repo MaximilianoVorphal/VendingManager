@@ -33,4 +33,16 @@ public class VendingConfig
     /// the machine reports UTC+7 offset, so the net adjustment is -11).
     /// </summary>
     public int DefaultTimezoneOffsetHours { get; set; } = -11;
+
+    /// <summary>
+    /// Minimum absolute difference (in hours) between a machine's configured offset and its
+    /// watchdog-implied offset before the machine is surfaced as drifting.
+    /// </summary>
+    public int OffsetDriftThresholdHours { get; set; } = 1;
+
+    /// <summary>
+    /// Minimum number of usable (MachineTime, ServerTime) sample pairs required in a single
+    /// import batch before the offset drift watchdog evaluates/persists a machine's drift state.
+    /// </summary>
+    public int OffsetDriftMinSamples { get; set; } = 5;
 }

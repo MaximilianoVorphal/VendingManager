@@ -23,12 +23,12 @@ namespace VendingManager.Infrastructure.Services
         /// <summary>
         /// OurVend server-to-CLT delta. When the year guard fires and fecha is
         /// overwritten with the server timestamp (<c>usingServerTime=true</c>),
-        /// the raw server timestamp must be adjusted by -14 hours to convert from
-        /// the server's UTC+14 reference to Chilean CLT (UTC-4 standard / UTC-3 DST).
+        /// the raw server timestamp must be adjusted by -12 hours to convert from
+        /// the server's UTC+8 reference (Asia/Shanghai) to Chilean CLT (UTC-4 standard / UTC-3 DST).
         /// This constant is intentionally NOT configurable — it is a fixed
         /// property of the OurVend data source, not a per-machine timezone setting.
         /// </summary>
-        private const int ServerTimeOffsetHours = -14;
+        private const int ServerTimeOffsetHours = -12;
 
         private readonly ApplicationDbContext _context;
         private readonly IOptions<VendingConfig> _config;
@@ -82,6 +82,7 @@ namespace VendingManager.Infrastructure.Services
                     int filasVacias = 0;
                     int ignoradosPorFecha = 0;
                     int filtradosPorID = 0;
+                    var muestras = new List<OffsetSample>();
 
                     foreach (DataRow row in tabla.Rows)
                     {
@@ -98,6 +99,8 @@ namespace VendingManager.Infrastructure.Services
                         string serverTimeStr = colServerTime != -1 ? row[colServerTime]?.ToString() ?? "" : "";
                         string orderNumber = colOrden != -1 ? row[colOrden]?.ToString() ?? "" : "";
 
+                        AcumularMuestra(muestras, machineId, fechaStr, serverTimeStr);
+
                         var (guardado, duplicado, fueraRango, noEncontrada, filtrado) = await ProcesarFilaVenta(
                             machineId, slot, precio, fechaStr, serverTimeStr,
                             orderNumber, fechaLimite, maquinaIdEsperado);
@@ -110,6 +113,7 @@ namespace VendingManager.Infrastructure.Services
                     }
 
                     await _context.SaveChangesAsync();
+                    await EvaluarYPersistirDriftAsync(muestras);
                     string reporte = $"PROCESADO: {guardados} nuevas | {duplicados} dupl | { ignoradosPorFecha} fuera_rango | { filtradosPorID} FILTRADOS_ID | { maquinaNoEncontrada} sin_maq";
                     Console.WriteLine($"✅ MÁQUINA: {reporte}");
                     return reporte;
@@ -125,9 +129,12 @@ namespace VendingManager.Infrastructure.Services
         public async Task<string> ImportarVentasDesdeJson(List<SalesReportRowDto> rows, DateTime? fechaLimite = null, string? maquinaIdEsperado = null)
         {
             int guardados = 0, duplicados = 0, maquinaNoEncontrada = 0, ignoradosPorFecha = 0, filtradosPorID = 0;
+            var muestras = new List<OffsetSample>();
 
             foreach (var row in rows)
             {
+                AcumularMuestra(muestras, row.MachineId, row.MachineTime, row.ServerTime);
+
                 var (guardado, duplicado, fueraRango, noEncontrada, filtrado) = await ProcesarFilaVenta(
                     row.MachineId, row.Slot, row.Price, row.MachineTime, row.ServerTime,
                     row.TrSerialNumber, fechaLimite, maquinaIdEsperado);
@@ -140,6 +147,7 @@ namespace VendingManager.Infrastructure.Services
             }
 
             await _context.SaveChangesAsync();
+            await EvaluarYPersistirDriftAsync(muestras);
             string stats = $"PROCESADO_API: {guardados} nuevas | {duplicados} dupl | {ignoradosPorFecha} fuera_rango | {filtradosPorID} FILTRADOS_ID | {maquinaNoEncontrada} sin_maq";
             Console.WriteLine($"✅ API: {stats}");
             return stats;
@@ -259,6 +267,100 @@ namespace VendingManager.Infrastructure.Services
             });
 
             return (true, false, false, false, false);
+        }
+
+        /// <summary>One usable (MachineTime, ServerTime) pair accumulated during a batch, keyed by
+        /// the OurVend machine id. Feeds the offset drift watchdog — see <see cref="EvaluarYPersistirDriftAsync"/>.</summary>
+        private readonly record struct OffsetSample(string MachineId, DateTime MachineTime, DateTime ServerTime);
+
+        /// <summary>
+        /// Parses a row's Machine Time / Server Time strings and, only when BOTH parse
+        /// successfully, adds the pair to <paramref name="muestras"/>. Rows missing either
+        /// timestamp are excluded from the offset drift watchdog's sample count.
+        /// </summary>
+        private static void AcumularMuestra(List<OffsetSample> muestras, string machineId, string fechaStr, string serverTimeStr)
+        {
+            if (DateTime.TryParse(fechaStr, out DateTime machineTime) &&
+                DateTime.TryParse(serverTimeStr, out DateTime serverTime))
+            {
+                muestras.Add(new OffsetSample(machineId, machineTime, serverTime));
+            }
+        }
+
+        /// <summary>
+        /// Evaluates the batch's accumulated offset samples per machine and, for machines with at
+        /// least <see cref="VendingConfig.OffsetDriftMinSamples"/> usable pairs, upserts an
+        /// <see cref="OffsetDriftState"/> row via <see cref="OffsetDriftCalculator"/>. Must be
+        /// called AFTER the caller's own <c>SaveChangesAsync()</c> for the imported ventas, so
+        /// sales are durable before the watchdog runs. This method issues its OWN
+        /// <c>SaveChangesAsync()</c> to isolate drift-state persistence: on any failure the
+        /// pending <see cref="OffsetDriftState"/> entries are detached from the change tracker so
+        /// they cannot poison a later <c>SaveChangesAsync()</c> on this context instance.
+        /// Defensively wrapped: a watchdog failure must NEVER break the sales import.
+        /// </summary>
+        private async Task EvaluarYPersistirDriftAsync(List<OffsetSample> muestras)
+        {
+            if (muestras.Count == 0) return;
+
+            try
+            {
+                int minSamples = _config.Value.OffsetDriftMinSamples;
+                var grupos = muestras
+                    .GroupBy(m => m.MachineId)
+                    .Where(g => g.Count() >= minSamples)
+                    .ToList();
+
+                if (grupos.Count == 0) return;
+
+                var ids = grupos.Select(g => g.Key).ToList();
+                var maquinaIdPorMachineId = await _context.Maquinas
+                    .Where(m => ids.Contains(m.IdInternoMaquina))
+                    .ToDictionaryAsync(m => m.IdInternoMaquina, m => m.Id);
+
+                foreach (var grupo in grupos)
+                {
+                    if (!maquinaIdPorMachineId.TryGetValue(grupo.Key, out int maquinaId))
+                        continue;
+
+                    var samples = grupo
+                        .Select(m => new OffsetDriftCalculator.Sample(m.MachineTime, m.ServerTime))
+                        .ToList();
+
+                    var resultado = OffsetDriftCalculator.ComputeImpliedOffset(samples);
+                    if (resultado is null) continue;
+
+                    var estado = await _context.OffsetDriftStates.FindAsync(maquinaId);
+                    if (estado == null)
+                    {
+                        _context.OffsetDriftStates.Add(new OffsetDriftState
+                        {
+                            MaquinaId = maquinaId,
+                            ObservedMedianDeltaHours = resultado.Value.ObservedMedianDeltaHours,
+                            ImpliedOffsetHours = resultado.Value.ImpliedOffsetHours,
+                            SampleCount = resultado.Value.SampleCount,
+                            MeasuredAtUtc = DateTime.UtcNow
+                        });
+                    }
+                    else
+                    {
+                        estado.ObservedMedianDeltaHours = resultado.Value.ObservedMedianDeltaHours;
+                        estado.ImpliedOffsetHours = resultado.Value.ImpliedOffsetHours;
+                        estado.SampleCount = resultado.Value.SampleCount;
+                        estado.MeasuredAtUtc = DateTime.UtcNow;
+                    }
+                }
+
+                await _context.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"⚠️ WATCHDOG: Error evaluando drift de offset (import continúa): {ex.Message}");
+
+                foreach (var entry in _context.ChangeTracker.Entries<OffsetDriftState>().ToList())
+                {
+                    entry.State = EntityState.Detached;
+                }
+            }
         }
 
         public async Task ImportarTransbank(Stream fileStream, string nombreArchivo, DateTime? fechaLimite = null)

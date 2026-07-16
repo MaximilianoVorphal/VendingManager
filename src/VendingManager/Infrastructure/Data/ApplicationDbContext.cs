@@ -48,6 +48,10 @@ namespace VendingManager.Infrastructure.Data
         public DbSet<ProveedorCatalogHistory> ProveedorCatalogHistory { get; set; } = null!;
         public DbSet<ZonaLogistica> ZonasLogisticas { get; set; } = null!;
 
+        // Virtual so tests can simulate a watchdog-only failure (see SalesImportServiceTests'
+        // Watchdog_Failure_DoesNotBreakImport) without disturbing the rest of the DbContext.
+        public virtual DbSet<OffsetDriftState> OffsetDriftStates { get; set; } = null!;
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -280,6 +284,18 @@ namespace VendingManager.Infrastructure.Data
                 .WithMany()
                 .HasForeignKey(m => m.ZonaLogisticaId)
                 .OnDelete(DeleteBehavior.SetNull);
+
+            // OffsetDriftState: 1:1 latest-state row per Maquina for the offset drift watchdog.
+            // MaquinaId is both the PK and the FK — never DB-generated.
+            modelBuilder.Entity<OffsetDriftState>(e =>
+            {
+                e.HasKey(o => o.MaquinaId);
+                e.Property(o => o.MaquinaId).ValueGeneratedNever();
+                e.HasOne<Maquina>()
+                    .WithMany()
+                    .HasForeignKey(o => o.MaquinaId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
 
             // OrdenCarga: Estado enum → NVARCHAR with uppercase persistence
             modelBuilder.Entity<OrdenCarga>(e =>
