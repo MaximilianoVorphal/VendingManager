@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using VendingManager.Core.Entities;
@@ -12,10 +13,12 @@ namespace VendingManager.Infrastructure.Services;
 public class TransferenciaService : ITransferenciaService
 {
     private readonly ApplicationDbContext _context;
+    private readonly IWebHostEnvironment _env;
 
-    public TransferenciaService(ApplicationDbContext context)
+    public TransferenciaService(ApplicationDbContext context, IWebHostEnvironment env)
     {
         _context = context;
+        _env = env;
     }
 
     public async Task<IEnumerable<Transferencia>> GetAllAsync()
@@ -141,4 +144,50 @@ public class TransferenciaService : ITransferenciaService
         ".pdf" => "application/pdf",
         _ => "application/octet-stream"
     };
+
+    /// <inheritdoc/>
+    public async Task<ComprobanteBackfillResult> BackfillComprobantesAsync()
+    {
+        var result = new ComprobanteBackfillResult();
+        var basePath = GetUploadBasePath();
+
+        var pending = await _context.Transferencias
+            .Where(t => t.ComprobanteImagen == null &&
+                        t.ComprobanteImagenPath != null &&
+                        t.ComprobanteImagenPath.StartsWith("/uploads/"))
+            .ToListAsync();
+
+        result.Total = pending.Count;
+
+        foreach (var transferencia in pending)
+        {
+            var physicalPath = Path.Combine(basePath, transferencia.ComprobanteImagenPath!.TrimStart('/'));
+            if (!System.IO.File.Exists(physicalPath))
+            {
+                result.MissingFiles.Add(transferencia.Id);
+                continue;
+            }
+
+            var bytes = await System.IO.File.ReadAllBytesAsync(physicalPath);
+            transferencia.ComprobanteImagen = bytes;
+            transferencia.ComprobanteImagenContentType =
+                MapContentType(Path.GetExtension(physicalPath).ToLowerInvariant());
+            transferencia.ComprobanteImagenFileName =
+                Path.GetFileName(transferencia.ComprobanteImagenPath);
+            result.Migrated++;
+        }
+
+        if (result.Migrated > 0)
+            await _context.SaveChangesAsync();
+
+        return result;
+    }
+
+    private string GetUploadBasePath()
+    {
+        if (!string.IsNullOrEmpty(_env.WebRootPath))
+            return _env.WebRootPath;
+
+        return Path.Combine(_env.ContentRootPath, "wwwroot");
+    }
 }

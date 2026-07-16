@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using VendingManager.Core.Interfaces;
+using VendingManager.Infrastructure.Data;
+using VendingManager.Shared.Constants;
 using VendingManager.Shared.DTOs;
 
 namespace VendingManager.Controllers;
@@ -13,11 +15,13 @@ namespace VendingManager.Controllers;
 public class ContabilidadController(
     IContabilidadService contabilidadService,
     ITransferenciaService transferenciaService,
-    IIntegrityCheckService integrityCheckService) : ControllerBase
+    IIntegrityCheckService integrityCheckService,
+    ApplicationDbContext context) : ControllerBase
 {
     private readonly IContabilidadService _service = contabilidadService;
     private readonly ITransferenciaService _transferenciaService = transferenciaService;
     private readonly IIntegrityCheckService _integrityCheckService = integrityCheckService;
+    private readonly ApplicationDbContext _context = context;
 
     [HttpPost("transferencia-con-movimiento")]
     public async Task<ActionResult<TransferenciaDto>> CrearTransferenciaConMovimiento(
@@ -409,6 +413,19 @@ public class ContabilidadController(
 
         var contentType = transferencia.ComprobanteImagenContentType ?? "application/octet-stream";
         return File(transferencia.ComprobanteImagen, contentType);
+    }
+
+    /// <summary>
+    /// One-time migration: reads legacy on-disk transfer comprobante files
+    /// referenced by ComprobanteImagenPath and stores them as bytes in the DB.
+    /// Must run while the uploads volume still exists.
+    /// </summary>
+    [Authorize(Roles = Roles.Admin)]
+    [HttpPost("backfill-comprobantes")]
+    public async Task<IActionResult> BackfillComprobantes()
+    {
+        var result = await _transferenciaService.BackfillComprobantesAsync();
+        return Ok(result);
     }
 
     // ========== Slice 2: Verification endpoints (TASK-11) ==========

@@ -1,8 +1,10 @@
 namespace VendingManager.Tests.Services;
 
 using System.Data;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
+using Moq;
 using VendingManager.Core.Configuration;
 using VendingManager.Infrastructure.Data.Repositories;
 using VendingManager.Infrastructure.Services;
@@ -27,7 +29,12 @@ public class ConciliacionServiceTests : IDisposable
 
         var periodRepo = new AccountingPeriodRepository(_context);
         _contabilidadService = new ContabilidadService(_context, periodRepo);
-        _transferenciaService = new TransferenciaService(_context);
+
+        var envMock = new Mock<IWebHostEnvironment>();
+        envMock.Setup(e => e.WebRootPath).Returns(Path.GetTempPath());
+        envMock.Setup(e => e.ContentRootPath).Returns(Path.GetTempPath());
+        _transferenciaService = new TransferenciaService(_context, envMock.Object);
+
         _rendicionService = new RendicionService(_context);
     }
 

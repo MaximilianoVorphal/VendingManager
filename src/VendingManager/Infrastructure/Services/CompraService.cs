@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using VendingManager.Core.Domain;
@@ -17,22 +18,22 @@ public class CompraService : ICompraService
     private readonly ApplicationDbContext _context;
     private readonly IProductMatchingService _productMatchingService;
     private readonly IProveedorMatchingService _proveedorMatchingService;
-    private readonly IUploadPathProvider _uploadPathProvider;
+    private readonly IWebHostEnvironment _env;
     private readonly IOptionsSnapshot<CategoriaInferenciaConfig> _categoriaConfig;
     private readonly ILogger<CompraService> _logger;
 
     public CompraService(
         ApplicationDbContext context,
         IProductMatchingService productMatchingService,
-        IUploadPathProvider uploadPathProvider,
         IProveedorMatchingService proveedorMatchingService,
+        IWebHostEnvironment env,
         IOptionsSnapshot<CategoriaInferenciaConfig> categoriaConfig,
         ILogger<CompraService> logger)
     {
         _context = context;
         _productMatchingService = productMatchingService;
-        _uploadPathProvider = uploadPathProvider;
         _proveedorMatchingService = proveedorMatchingService;
+        _env = env;
         _categoriaConfig = categoriaConfig;
         _logger = logger;
     }
@@ -457,18 +458,6 @@ public class CompraService : ICompraService
 
         FileSignatureValidator.Validate(bytes, AllowedFormats.Jpeg | AllowedFormats.Png | AllowedFormats.Pdf);
 
-        // If this compra still carries a legacy on-disk image, delete it so we
-        // don't leave an orphan file behind now that the bytes live in the DB.
-        var existingPath = compra.FacturaImagenPath;
-        if (!string.IsNullOrEmpty(existingPath) &&
-            existingPath.StartsWith("/uploads/", StringComparison.OrdinalIgnoreCase))
-        {
-            var basePath = _uploadPathProvider.GetUploadBasePath();
-            var oldPath = Path.Combine(basePath, existingPath.TrimStart('/'));
-            if (System.IO.File.Exists(oldPath))
-                System.IO.File.Delete(oldPath);
-        }
-
         compra.FacturaImagen = bytes;
         compra.FacturaImagenContentType = MapContentType(ext);
         // Keep FacturaImagenPath populated as the "has image" flag consumed by
@@ -482,8 +471,19 @@ public class CompraService : ICompraService
 
     public string ResolveFacturaPhysicalPath(string relativePath)
     {
-        var basePath = _uploadPathProvider.GetUploadBasePath();
+        var basePath = GetUploadBasePath();
         return Path.Combine(basePath, relativePath.TrimStart('/'));
+    }
+
+    private string GetUploadBasePath()
+    {
+        // Simplified fallback: WebRootPath or ContentRootPath/wwwroot.
+        // The explicit VendingConfig.FacturaUploadPath path is removed — it was
+        // only consumed by IUploadPathProvider which is no longer registered.
+        if (!string.IsNullOrEmpty(_env.WebRootPath))
+            return _env.WebRootPath;
+
+        return Path.Combine(_env.ContentRootPath, "wwwroot");
     }
 
     /// <summary>
@@ -496,7 +496,7 @@ public class CompraService : ICompraService
     public async Task<FacturaBackfillResult> BackfillFacturaImagenesAsync()
     {
         var result = new FacturaBackfillResult();
-        var basePath = _uploadPathProvider.GetUploadBasePath();
+        var basePath = GetUploadBasePath();
 
         var pending = await _context.Compras
             .Where(c => c.FacturaImagen == null &&

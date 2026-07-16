@@ -4,8 +4,10 @@ using Microsoft.AspNetCore.Mvc;
 using Moq;
 using VendingManager.Controllers;
 using VendingManager.Core.Interfaces;
+using VendingManager.Infrastructure.Data;
 using VendingManager.Shared.DTOs;
 using VendingManager.Shared.Enums;
+using VendingManager.Tests.TestData;
 
 /// <summary>
 /// Controller-level tests for the new TASK-11 endpoints in ContabilidadController.
@@ -22,10 +24,12 @@ public class ConciliacionControllerTests
         _mockService = new Mock<IContabilidadService>();
         _mockTransferenciaService = new Mock<ITransferenciaService>();
         var mockIntegrityCheck = new Mock<IIntegrityCheckService>();
+        var context = TestDataHelpers.CreateInMemoryContext($"ConciliacionControllerTestDb_{Guid.NewGuid()}");
         _controller = new ContabilidadController(
             _mockService.Object,
             _mockTransferenciaService.Object,
-            mockIntegrityCheck.Object);
+            mockIntegrityCheck.Object,
+            context);
     }
 
     // ── VerificarTransferencia ────────────────────────────────────────────

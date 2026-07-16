@@ -1,5 +1,6 @@
 namespace VendingManager.Tests.Services;
 
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Moq;
 using VendingManager.Core.Entities;
@@ -20,7 +21,11 @@ public class TransferenciaServiceTests : IDisposable
     public TransferenciaServiceTests()
     {
         _context = TestDataHelpers.CreateInMemoryContext($"TransferenciaServiceTestDb_{Guid.NewGuid()}");
-        _service = new TransferenciaService(_context);
+
+        var envMock = new Mock<IWebHostEnvironment>();
+        envMock.Setup(e => e.WebRootPath).Returns(Path.GetTempPath());
+        envMock.Setup(e => e.ContentRootPath).Returns(Path.GetTempPath());
+        _service = new TransferenciaService(_context, envMock.Object);
     }
 
     public void Dispose()

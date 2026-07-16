@@ -55,12 +55,11 @@ public class CompraServiceTests : IDisposable
 
         _mockLogger = new Mock<ILogger<CompraService>>();
 
-        var uploadProvider = new DefaultUploadPathProvider(_mockEnv.Object, _config);
         _service = new CompraService(
             _context,
             _mockProductMatching.Object,
-            uploadProvider,
             _mockProveedorMatching.Object,
+            _mockEnv.Object,
             _mockCategoriaConfig.Object,
             _mockLogger.Object);
     }

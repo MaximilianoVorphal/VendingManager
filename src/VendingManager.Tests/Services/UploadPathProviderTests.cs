@@ -32,50 +32,40 @@ public class UploadPathProviderTests
         envMock.SetupGet(e => e.WebRootPath).Returns(webRootPath!);
         envMock.SetupGet(e => e.ContentRootPath).Returns(contentRootPath);
 
-        var cfg = Options.Create(new VendingConfig { FacturaUploadPath = configuredPath });
-
         var productMatching = new Mock<IProductMatchingService>();
         var proveedorMatching = new Mock<IProveedorMatchingService>();
-
-        var uploadProvider = new DefaultUploadPathProvider(envMock.Object, cfg);
 
         var mockCategoriaConfig = new Mock<IOptionsSnapshot<CategoriaInferenciaConfig>>();
         mockCategoriaConfig.Setup(o => o.Value).Returns(new CategoriaInferenciaConfig());
 
+        // The explicit config path (FacturaUploadPath) is no longer used by
+        // CompraService's GetUploadBasePath — it relies on WebRootPath or
+        // ContentRootPath/wwwroot. The configuredPath parameter is accepted but
+        // not wired to CompraService (it was used via IUploadPathProvider which
+        // is removed). Tests that passed configuredPath will now fall through
+        // to the env-based resolution.
         return (new CompraService(
             context,
             productMatching.Object,
-            uploadProvider,
             proveedorMatching.Object,
+            envMock.Object,
             mockCategoriaConfig.Object,
             new Mock<ILogger<CompraService>>().Object), envMock);
     }
 
-    // ── Regression: step 1 — config path wins ────────────────────────────────
+    // ── Regression: step 1 — WebRootPath wins ─────────────────────────────────
 
     [Fact]
-    public void ResolveFacturaPhysicalPath_WhenConfiguredPath_UsesConfiguredPath()
+    public void ResolveFacturaPhysicalPath_WhenWebRootSet_UsesWebRootPath()
     {
-        var (service, _) = BuildService(configuredPath: "/data/uploads");
-
-        var physical = service.ResolveFacturaPhysicalPath("/uploads/compras/facturas/file.jpg");
-
-        physical.Should().Be("/data/uploads/uploads/compras/facturas/file.jpg");
-    }
-
-    // ── Regression: step 2 — WebRootPath fallback ────────────────────────────
-
-    [Fact]
-    public void ResolveFacturaPhysicalPath_WhenNoConfiguredPath_UsesWebRootPath()
-    {
-        var (service, _) = BuildService(configuredPath: null, webRootPath: "/app/wwwroot");
+        var (service, _) = BuildService(webRootPath: "/app/wwwroot");
 
         var physical = service.ResolveFacturaPhysicalPath("/uploads/compras/facturas/file.jpg");
 
         physical.Should().Be("/app/wwwroot/uploads/compras/facturas/file.jpg");
     }
 
-    // ── Regression: step 3 — ContentRootPath/wwwroot fallback ───────────────
+    // ── Regression: step 2 — ContentRootPath/wwwroot fallback ────────────────
 
     [Fact]
     public void ResolveFacturaPhysicalPath_WhenNoWebRoot_UsesContentRootWwwroot()

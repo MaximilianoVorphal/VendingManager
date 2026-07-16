@@ -43,16 +43,14 @@ public class CompraService_CppCentralization_Tests : IDisposable
             .Setup(m => m.SaveAliasAsync(It.IsAny<string>(), It.IsAny<int>()))
             .Returns(Task.CompletedTask);
 
-        var uploadProvider = new DefaultUploadPathProvider(mockEnv.Object, config);
-
         var mockCategoriaConfig = new Mock<IOptionsSnapshot<CategoriaInferenciaConfig>>();
         mockCategoriaConfig.Setup(o => o.Value).Returns(new CategoriaInferenciaConfig());
 
         _service = new CompraService(
             _context,
             mockProductMatching.Object,
-            uploadProvider,
             mockProveedorMatching.Object,
+            mockEnv.Object,
             mockCategoriaConfig.Object,
             new Mock<ILogger<CompraService>>().Object);
     }
