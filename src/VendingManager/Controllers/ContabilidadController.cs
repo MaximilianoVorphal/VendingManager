@@ -375,8 +375,8 @@ public class ContabilidadController(
             if (file == null || file.Length == 0)
                 return BadRequest("No se proporcionó ningún archivo.");
 
-            var path = await _transferenciaService.SaveComprobanteImagenAsync(id, file);
-            return Ok(new { Path = path });
+            await _transferenciaService.SaveComprobanteImagenAsync(id, file);
+            return Ok(new { Message = "Comprobante guardado correctamente." });
         }
         catch (ArgumentException ex)
         {
@@ -389,14 +389,6 @@ public class ContabilidadController(
         catch (DbUpdateConcurrencyException)
         {
             return Conflict("Otro usuario modificó esta transferencia. Recargá la página.");
-        }
-        catch (UnauthorizedAccessException ex)
-        {
-            return StatusCode(500, $"Error de permisos al guardar la imagen: {ex.Message}");
-        }
-        catch (IOException ex)
-        {
-            return StatusCode(500, $"Error de E/S al guardar la imagen: {ex.Message}");
         }
         catch (Exception ex)
         {
@@ -412,18 +404,11 @@ public class ContabilidadController(
         if (transferencia == null)
             return NotFound($"Transferencia {id} no encontrada.");
 
-        if (string.IsNullOrEmpty(transferencia.ComprobanteImagenPath))
-            return NotFound("Esta transferencia no tiene comprobante de imagen.");
+        if (transferencia.ComprobanteImagen == null)
+            return NotFound("Esta transferencia no tiene comprobante adjunto.");
 
-        var filePath = _transferenciaService.ResolveComprobantePhysicalPath(transferencia.ComprobanteImagenPath);
-        if (!System.IO.File.Exists(filePath))
-            return NotFound("Archivo de imagen no encontrado en disco.");
-
-        var contentType = transferencia.ComprobanteImagenPath.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)
-            ? "application/pdf"
-            : "image/" + Path.GetExtension(transferencia.ComprobanteImagenPath).TrimStart('.').ToLowerInvariant();
-
-        return PhysicalFile(Path.GetFullPath(filePath), contentType);
+        var contentType = transferencia.ComprobanteImagenContentType ?? "application/octet-stream";
+        return File(transferencia.ComprobanteImagen, contentType);
     }
 
     // ========== Slice 2: Verification endpoints (TASK-11) ==========

@@ -19,30 +19,22 @@ public class ContabilidadService : IContabilidadService
 {
     private readonly ApplicationDbContext _context;
     private readonly IAccountingPeriodRepository _periodRepository;
-    private readonly IUploadPathProvider? _uploadPathProvider;
     private readonly IMemoryCache? _cache;
     private readonly VendingConfig _vendingConfig;
 
     public ContabilidadService(ApplicationDbContext context, IAccountingPeriodRepository periodRepository)
-        : this(context, periodRepository, null, null, Options.Create(new VendingConfig()))
-    {
-    }
-
-    public ContabilidadService(ApplicationDbContext context, IAccountingPeriodRepository periodRepository, IUploadPathProvider? uploadPathProvider)
-        : this(context, periodRepository, uploadPathProvider, null, Options.Create(new VendingConfig()))
+        : this(context, periodRepository, null, Options.Create(new VendingConfig()))
     {
     }
 
     public ContabilidadService(
         ApplicationDbContext context,
         IAccountingPeriodRepository periodRepository,
-        IUploadPathProvider? uploadPathProvider,
         IMemoryCache? cache,
         IOptions<VendingConfig> config)
     {
         _context = context;
         _periodRepository = periodRepository;
-        _uploadPathProvider = uploadPathProvider;
         _cache = cache;
         _vendingConfig = config?.Value ?? new VendingConfig();
     }
@@ -399,7 +391,6 @@ public class ContabilidadService : IContabilidadService
         await using var transaction = await _context.Database
             .BeginTransactionAsync(IsolationLevel.ReadCommitted, ct);
 
-        string? comprobantePath = null;
         int? periodoId = null;
         int comprasUnlinked = 0;
 
@@ -415,13 +406,6 @@ public class ContabilidadService : IContabilidadService
             if (transferencia.Estado == TransferenciaEstado.Conciliado)
                 throw new InvalidOperationException("No se puede eliminar una transferencia ya conciliada.");
 
-            // Capture comprobante path for post-commit deletion
-            if (!string.IsNullOrEmpty(transferencia.ComprobanteImagenPath) && _uploadPathProvider is not null)
-            {
-                var basePath = _uploadPathProvider.GetUploadBasePath();
-                comprobantePath = Path.Combine(basePath, transferencia.ComprobanteImagenPath.TrimStart('/'));
-            }
-
             // (c) Unlink all Compras
             comprasUnlinked = transferencia.Compras.Count;
             foreach (var compra in transferencia.Compras)
@@ -430,9 +414,7 @@ public class ContabilidadService : IContabilidadService
                 _context.Compras.Update(compra);
             }
 
-            // (d) Delete comprobante file (post-commit, handled below)
-
-            // (e) If PeriodoId set → delete AccountingPeriod + Rendicion
+            // (d) If PeriodoId set → delete AccountingPeriod + Rendicion
             if (transferencia.PeriodoId.HasValue)
             {
                 periodoId = transferencia.PeriodoId.Value;
@@ -469,18 +451,6 @@ public class ContabilidadService : IContabilidadService
         {
             await transaction.RollbackAsync();
             throw;
-        }
-
-        // (h) Post-commit: delete comprobante file (non-transactional)
-        if (comprobantePath is not null)
-        {
-            try
-            {
-                if (File.Exists(comprobantePath))
-                    File.Delete(comprobantePath);
-            }
-            catch (IOException) { }
-            catch (UnauthorizedAccessException) { }
         }
 
         return new EliminarTransferenciaResultDto

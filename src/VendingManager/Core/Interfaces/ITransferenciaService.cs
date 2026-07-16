@@ -16,14 +16,9 @@ public interface ITransferenciaService
 
     /// <summary>
     /// Upload and persist a comprobante image for the given Transferencia.
-    /// Mirrors CompraService.SaveFacturaImagenAsync. Validates size (max 5MB)
-    /// and extension (.jpg/.jpeg/.png/.pdf). Replaces any previously stored file.
-    /// Returns the relative path /uploads/transferencias/{guid}.ext.
+    /// Validates size (max 5MB), extension (.jpg/.jpeg/.png/.pdf), and file signature.
+    /// Stores bytes + content type + original file name directly in the DB.
+    /// Replaces any previously stored bytes.
     /// </summary>
-    Task<string> SaveComprobanteImagenAsync(int transferenciaId, IFormFile file);
-
-    /// <summary>
-    /// Resolves the physical file path for a given relative comprobante path.
-    /// </summary>
-    string ResolveComprobantePhysicalPath(string relativePath);
+    Task SaveComprobanteImagenAsync(int transferenciaId, IFormFile file);
 }

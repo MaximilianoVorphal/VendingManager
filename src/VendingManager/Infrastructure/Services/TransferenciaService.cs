@@ -12,12 +12,10 @@ namespace VendingManager.Infrastructure.Services;
 public class TransferenciaService : ITransferenciaService
 {
     private readonly ApplicationDbContext _context;
-    private readonly IUploadPathProvider _uploadPathProvider;
 
-    public TransferenciaService(ApplicationDbContext context, IUploadPathProvider uploadPathProvider)
+    public TransferenciaService(ApplicationDbContext context)
     {
         _context = context;
-        _uploadPathProvider = uploadPathProvider;
     }
 
     public async Task<IEnumerable<Transferencia>> GetAllAsync()
@@ -98,7 +96,7 @@ public class TransferenciaService : ITransferenciaService
     }
 
     /// <inheritdoc/>
-    public async Task<string> SaveComprobanteImagenAsync(int transferenciaId, IFormFile file)
+    public async Task SaveComprobanteImagenAsync(int transferenciaId, IFormFile file)
     {
         if (file == null || file.Length == 0)
             throw new ArgumentException("No se proporcionó ningún archivo.");
@@ -113,7 +111,7 @@ public class TransferenciaService : ITransferenciaService
             throw new ArgumentException("Formato de archivo no permitido. Use JPG, PNG o PDF.");
 
         // Buffer into memory first so content is signature-validated BEFORE
-        // any lookup, deletion, or disk write occurs.
+        // any lookup or storage occurs.
         byte[] bytes;
         await using (var ms = new MemoryStream())
         {
@@ -127,36 +125,20 @@ public class TransferenciaService : ITransferenciaService
         if (transferencia == null)
             throw new KeyNotFoundException($"Transferencia {transferenciaId} no encontrada.");
 
-        var basePath = _uploadPathProvider.GetUploadBasePath();
-        var uploadDir = Path.Combine(basePath, "uploads", "transferencias");
-        Directory.CreateDirectory(uploadDir);
+        // Store in DB — replaces any previously stored bytes automatically
+        transferencia.ComprobanteImagen = bytes;
+        transferencia.ComprobanteImagenContentType = MapContentType(ext);
+        transferencia.ComprobanteImagenFileName = file.FileName;
 
-        // Delete previous file if it exists
-        if (!string.IsNullOrEmpty(transferencia.ComprobanteImagenPath))
-        {
-            var oldPath = Path.Combine(basePath, transferencia.ComprobanteImagenPath.TrimStart('/'));
-            if (System.IO.File.Exists(oldPath))
-                System.IO.File.Delete(oldPath);
-        }
-
-        var fileName = $"{Guid.NewGuid()}{ext}";
-        var relativePath = $"/uploads/transferencias/{fileName}";
-        var physicalPath = Path.Combine(uploadDir, fileName);
-
-        await using var stream = new FileStream(physicalPath, FileMode.Create);
-        await stream.WriteAsync(bytes);
-
-        transferencia.ComprobanteImagenPath = relativePath;
         _context.Transferencias.Update(transferencia);
         await _context.SaveChangesAsync();
-
-        return relativePath;
     }
 
-    /// <inheritdoc/>
-    public string ResolveComprobantePhysicalPath(string relativePath)
+    private static string MapContentType(string ext) => ext.ToLowerInvariant() switch
     {
-        var basePath = _uploadPathProvider.GetUploadBasePath();
-        return Path.Combine(basePath, relativePath.TrimStart('/'));
-    }
+        ".jpg" or ".jpeg" => "image/jpeg",
+        ".png" => "image/png",
+        ".pdf" => "application/pdf",
+        _ => "application/octet-stream"
+    };
 }
