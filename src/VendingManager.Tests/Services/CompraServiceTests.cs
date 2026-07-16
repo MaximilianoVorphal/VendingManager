@@ -1,6 +1,7 @@
 namespace VendingManager.Tests.Services;
 
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Moq;
@@ -452,6 +453,81 @@ public class CompraServiceTests : IDisposable
         _mockProveedorMatching.Verify(
             m => m.SaveAliasAsync("Raw Supplier", newCatalog.Id),
             Times.Once);
+    }
+
+    // ─── Upload signature validation (M-1a, REQ-UPLOAD-02) ──────────────
+
+    [Fact]
+    public async Task SaveFacturaImagenAsync_SpoofedContent_ThrowsArgumentException()
+    {
+        // Arrange
+        var compra = new Compra
+        {
+            Proveedor = "Supplier Upload",
+            FechaCompra = new DateTime(2026, 6, 1, 10, 0, 0, DateTimeKind.Local),
+            Estado = "PAGADA",
+            PagadaCaja = false,
+            MontoTotal = 0,
+            Detalles = new List<DetalleCompra>()
+        };
+        _context.Compras.Add(compra);
+        await _context.SaveChangesAsync();
+
+        // Plain text content renamed with a .jpg extension — signature mismatch.
+        var spoofedFile = CreateMockFormFile(
+            System.Text.Encoding.ASCII.GetBytes("this is not really a jpeg"),
+            "image/jpeg",
+            "factura.jpg");
+
+        // Act
+        var act = () => _service.SaveFacturaImagenAsync(compra.Id, spoofedFile);
+
+        // Assert
+        await act.Should().ThrowAsync<ArgumentException>();
+
+        var fetched = await _context.Compras.FindAsync(compra.Id);
+        fetched!.FacturaImagen.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task SaveFacturaImagenAsync_ValidJpegContent_SucceedsUnchanged()
+    {
+        // Arrange
+        var compra = new Compra
+        {
+            Proveedor = "Supplier Upload Valid",
+            FechaCompra = new DateTime(2026, 6, 1, 10, 0, 0, DateTimeKind.Local),
+            Estado = "PAGADA",
+            PagadaCaja = false,
+            MontoTotal = 0,
+            Detalles = new List<DetalleCompra>()
+        };
+        _context.Compras.Add(compra);
+        await _context.SaveChangesAsync();
+
+        byte[] jpegBytes = { 0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46 };
+        var validFile = CreateMockFormFile(jpegBytes, "image/jpeg", "factura.jpg");
+
+        // Act
+        var path = await _service.SaveFacturaImagenAsync(compra.Id, validFile);
+
+        // Assert
+        path.Should().Be($"/api/compras/{compra.Id}/factura");
+        var fetched = await _context.Compras.FindAsync(compra.Id);
+        fetched!.FacturaImagen.Should().BeEquivalentTo(jpegBytes);
+    }
+
+    private static IFormFile CreateMockFormFile(byte[] content, string contentType, string fileName)
+    {
+        var stream = new MemoryStream(content);
+        var fileMock = new Mock<IFormFile>();
+        fileMock.Setup(f => f.Length).Returns(content.Length);
+        fileMock.Setup(f => f.ContentType).Returns(contentType);
+        fileMock.Setup(f => f.FileName).Returns(fileName);
+        fileMock.Setup(f => f.OpenReadStream()).Returns(stream);
+        fileMock.Setup(f => f.CopyToAsync(It.IsAny<Stream>(), It.IsAny<CancellationToken>()))
+            .Returns((Stream s, CancellationToken ct) => stream.CopyToAsync(s, ct));
+        return fileMock.Object;
     }
 
     // ─── Slice 3: Expense category inference ──────────────────────────

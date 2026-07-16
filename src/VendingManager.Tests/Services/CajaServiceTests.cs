@@ -271,4 +271,65 @@ public class CajaServiceTests : IDisposable
         result.UtilidadOperacional.Should().Be(3600m);
         result.IsLocked.Should().BeFalse();
     }
+
+    // ─── UploadComprobanteAsync signature validation (M-1a, REQ-UPLOAD-02) ─
+    // Broadest gap: this path previously had NO extension whitelist and NO
+    // content validation at all.
+
+    [Fact]
+    public async Task UploadComprobanteAsync_SpoofedContent_ThrowsArgumentException_BeforePersisting()
+    {
+        // Arrange: plain text renamed with a .jpg extension.
+        using var stream = new MemoryStream(System.Text.Encoding.ASCII.GetBytes("not really a jpeg"));
+
+        // Act
+        var act = () => _cajaService.UploadComprobanteAsync(stream, "comprobante.jpg");
+
+        // Assert
+        await act.Should().ThrowAsync<ArgumentException>();
+        _mockInformesService.Verify(
+            s => s.SubirInformeAsync(It.IsAny<Informe>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task UploadComprobanteAsync_DisallowedExtension_ThrowsArgumentException()
+    {
+        // Arrange: no whitelist existed before M-1a — any extension was accepted.
+        using var stream = new MemoryStream(new byte[] { 0x01, 0x02, 0x03 });
+
+        // Act
+        var act = () => _cajaService.UploadComprobanteAsync(stream, "comprobante.exe");
+
+        // Assert
+        await act.Should().ThrowAsync<ArgumentException>();
+        _mockInformesService.Verify(
+            s => s.SubirInformeAsync(It.IsAny<Informe>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task UploadComprobanteAsync_ValidJpeg_SucceedsUnchanged()
+    {
+        // Arrange
+        byte[] jpegBytes = { 0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46 };
+        using var stream = new MemoryStream(jpegBytes);
+
+        _mockInformesService
+            .Setup(s => s.SubirInformeAsync(It.IsAny<Informe>()))
+            .ReturnsAsync((Informe informe) =>
+            {
+                informe.Id = 42;
+                return informe;
+            });
+
+        // Act
+        var result = await _cajaService.UploadComprobanteAsync(stream, "comprobante.jpg");
+
+        // Assert
+        result.Should().Be("api/informes/42?ext=.jpg");
+        _mockInformesService.Verify(
+            s => s.SubirInformeAsync(It.Is<Informe>(i => i.Contenido!.SequenceEqual(jpegBytes))),
+            Times.Once);
+    }
 }

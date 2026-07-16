@@ -5,6 +5,7 @@ using System.IO;
 using VendingManager.Core.Configuration;
 using VendingManager.Core.Entities;
 using VendingManager.Core.Interfaces;
+using VendingManager.Core.Utils;
 using VendingManager.Shared;
 using VendingManager.Shared.DTOs;
 
@@ -44,6 +45,12 @@ namespace VendingManager.Infrastructure.Services
                 var content = memoryStream.ToArray();
 
                 string extension = Path.GetExtension(fileName).ToLower();
+                var allowedExt = new[] { ".jpg", ".jpeg", ".png", ".pdf" };
+                if (!allowedExt.Contains(extension))
+                    throw new ArgumentException("Formato de archivo no permitido. Use JPG, PNG o PDF.");
+
+                FileSignatureValidator.Validate(content, AllowedFormats.Jpeg | AllowedFormats.Png | AllowedFormats.Pdf);
+
                 string contentType = "application/octet-stream";
 
                 if (extension == ".pdf") contentType = "application/pdf";

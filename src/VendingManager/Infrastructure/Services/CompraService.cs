@@ -8,6 +8,7 @@ using VendingManager.Infrastructure.Data;
 using VendingManager.Shared.DTOs;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
+using VendingManager.Core.Utils;
 
 namespace VendingManager.Infrastructure.Services;
 
@@ -453,6 +454,8 @@ public class CompraService : ICompraService
             await file.CopyToAsync(ms);
             bytes = ms.ToArray();
         }
+
+        FileSignatureValidator.Validate(bytes, AllowedFormats.Jpeg | AllowedFormats.Png | AllowedFormats.Pdf);
 
         // If this compra still carries a legacy on-disk image, delete it so we
         // don't leave an orphan file behind now that the bytes live in the DB.
