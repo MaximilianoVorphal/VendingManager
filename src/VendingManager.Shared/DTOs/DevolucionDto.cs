@@ -11,7 +11,6 @@ public class DevolucionDto
     public decimal Monto { get; set; }
     public DateTime Fecha { get; set; }
     public string Trabajador { get; set; } = string.Empty;
-    public string? ComprobanteImagenPath { get; set; }
     public string? Observaciones { get; set; }
     public int? PeriodoId { get; set; }
     public int? RendicionId { get; set; }

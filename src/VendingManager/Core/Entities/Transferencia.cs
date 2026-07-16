@@ -53,8 +53,26 @@ public class Transferencia
     public List<Compra> Compras { get; set; } = new();
 
     /// <summary>
+    /// Binary content of the transfer comprobante (varbinary(max)).
+    /// </summary>
+    public byte[]? ComprobanteImagen { get; set; }
+
+    /// <summary>
+    /// MIME type of the comprobante (e.g. image/jpeg, application/pdf).
+    /// </summary>
+    [MaxLength(100)]
+    public string? ComprobanteImagenContentType { get; set; }
+
+    /// <summary>
+    /// Original file name of the uploaded comprobante (for display).
+    /// </summary>
+    [MaxLength(255)]
+    public string? ComprobanteImagenFileName { get; set; }
+
+    /// <summary>
     /// Relative path to the transfer comprobante image.
     /// Mirrors Compra.FacturaImagenPath semantics.
+    /// Kept temporarily for backfill (PR 2).
     /// </summary>
     public string? ComprobanteImagenPath { get; set; }
 

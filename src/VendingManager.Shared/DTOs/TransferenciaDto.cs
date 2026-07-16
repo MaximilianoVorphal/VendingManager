@@ -14,6 +14,7 @@ public class TransferenciaDto
     public int? PeriodoId { get; set; }
     public int? MovimientoCajaId { get; set; }
     public bool Verificada { get; set; } = false;
-    public string? ComprobanteImagenPath { get; set; }
+    public bool HasComprobante { get; set; }
+    public string? ComprobanteImagenFileName { get; set; }
     public List<CompraDto> Compras { get; set; } = new();
 }

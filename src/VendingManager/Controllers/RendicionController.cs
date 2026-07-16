@@ -202,7 +202,8 @@ public class RendicionController(
                 RendicionId = t.RendicionId,
                 MovimientoCajaId = t.MovimientoCajaId,
                 Verificada = t.Verificada,
-                ComprobanteImagenPath = t.ComprobanteImagenPath,
+                HasComprobante = t.ComprobanteImagen != null,
+                ComprobanteImagenFileName = t.ComprobanteImagenFileName,
                 Compras = t.Compras?.Select(c => new CompraDto
                 {
                     Id = c.Id,
@@ -258,7 +259,8 @@ public class RendicionController(
                 RendicionId = t.RendicionId,
                 MovimientoCajaId = t.MovimientoCajaId,
                 Verificada = t.Verificada,
-                ComprobanteImagenPath = t.ComprobanteImagenPath,
+                HasComprobante = t.ComprobanteImagen != null,
+                ComprobanteImagenFileName = t.ComprobanteImagenFileName,
                 Compras = t.Compras?.Select(c => new CompraDto
                 {
                     Id = c.Id,

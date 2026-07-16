@@ -601,7 +601,7 @@
                     _ => ("Categoría", selG?.Categoria ?? "—")
                 };
                 string? imgUrl = _selKind switch {
-                    ItemKind.Transferencia => (!string.IsNullOrWhiteSpace(selT?.ComprobanteImagenPath) ? $"api/contabilidad/transferencia/{_selId}/comprobante" : null),
+                    ItemKind.Transferencia => (selT?.HasComprobante == true ? $"api/contabilidad/transferencia/{_selId}/comprobante" : null),
                     ItemKind.Compra => (!string.IsNullOrWhiteSpace(selC?.FacturaImagenPath) ? $"api/compras/{_selId}/factura" : null),
                     _ => null
                 };

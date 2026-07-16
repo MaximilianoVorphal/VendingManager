@@ -44,9 +44,6 @@ public class Devolucion
     public int? MovimientoCajaId { get; set; }
     public MovimientoCaja? MovimientoCaja { get; set; }
 
-    /// <summary>Optional comprobante image path. Not required in first slice.</summary>
-    public string? ComprobanteImagenPath { get; set; }
-
     /// <summary>Optional notes.</summary>
     [MaxLength(500)]
     public string? Observaciones { get; set; }

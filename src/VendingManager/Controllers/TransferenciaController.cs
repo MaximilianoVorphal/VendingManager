@@ -77,9 +77,9 @@ public class TransferenciaController(ITransferenciaService transferenciaService)
         return NoContent();
     }
 
-    private static TransferenciaDto MapToDto(Transferencia t)
+    private static Shared.DTOs.TransferenciaDto MapToDto(Transferencia t)
     {
-        return new TransferenciaDto
+        return new Shared.DTOs.TransferenciaDto
         {
             Id = t.Id,
             Fecha = t.Fecha,
@@ -90,7 +90,8 @@ public class TransferenciaController(ITransferenciaService transferenciaService)
             RendicionId = t.RendicionId,
             MovimientoCajaId = t.MovimientoCajaId,
             Verificada = t.Verificada,
-            ComprobanteImagenPath = t.ComprobanteImagenPath,
+            HasComprobante = t.ComprobanteImagen != null,
+            ComprobanteImagenFileName = t.ComprobanteImagenFileName,
             Compras = t.Compras?.Select(c => new CompraDto
             {
                 Id = c.Id,
@@ -106,22 +107,6 @@ public class TransferenciaController(ITransferenciaService transferenciaService)
             }).ToList() ?? new()
         };
     }
-}
-
-public class TransferenciaDto
-{
-    public int Id { get; set; }
-    public DateTime Fecha { get; set; }
-    public decimal Monto { get; set; }
-    public string? Descripcion { get; set; }
-    public string Trabajador { get; set; } = string.Empty;
-    public Shared.Enums.TransferenciaEstado Estado { get; set; }
-    public int? RendicionId { get; set; }
-    public int? PeriodoId { get; set; }
-    public int? MovimientoCajaId { get; set; }
-    public bool Verificada { get; set; } = false;
-    public string? ComprobanteImagenPath { get; set; }
-    public List<CompraDto> Compras { get; set; } = new();
 }
 
 public class CreateTransferenciaRequest

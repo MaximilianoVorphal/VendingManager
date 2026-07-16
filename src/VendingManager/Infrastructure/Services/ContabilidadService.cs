@@ -1364,9 +1364,10 @@ public class ContabilidadService : IContabilidadService
             RendicionId = t.RendicionId,
             PeriodoId = t.PeriodoId,
             MovimientoCajaId = t.MovimientoCajaId,
-            // TASK-10: wire Verificada + ComprobanteImagenPath
+            // TASK-10: wire Verificada + HasComprobante
             Verificada = t.Verificada,
-            ComprobanteImagenPath = t.ComprobanteImagenPath,
+            HasComprobante = t.ComprobanteImagen != null,
+            ComprobanteImagenFileName = t.ComprobanteImagenFileName,
             Compras = t.Compras?.Select(c => new CompraDto
             {
                 Id = c.Id,

@@ -560,7 +560,7 @@
     var transf = _periodo.Transferencias[0];
     var comprasCount = transf.Compras.Count;
     var totalMonto = transf.Compras.Sum(c => c.MontoTotal);
-    var fileName = transf.ComprobanteImagenPath is not null ? System.IO.Path.GetFileName(transf.ComprobanteImagenPath) : "Sin archivo";
+    var fileName = transf.HasComprobante ? (transf.ComprobanteImagenFileName ?? "Comprobante adjunto") : "Sin archivo";
     var nameMatches = _eliminarConfirmName.Trim() == _periodo.Trabajador;
 
     <div style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:2000;display:flex;align-items:center;justify-content:center;padding:16px;" @onclick="() => _eliminarModalOpen = false">
@@ -1135,8 +1135,8 @@
                     "bi-bank",
                     IsV($"t{t.Id}"),
                     _selectedId == t.Id,
-                    t.ComprobanteImagenPath is not null,
-                    t.ComprobanteImagenPath is not null ? FotoUrl($"t{t.Id}", $"/api/contabilidad/transferencia/{t.Id}/comprobante") : null
+                    t.HasComprobante,
+                    t.HasComprobante ? FotoUrl($"t{t.Id}", $"/api/contabilidad/transferencia/{t.Id}/comprobante") : null
                 ))
                 .ToList();
             if (rows.Count > 0)
@@ -1218,9 +1218,9 @@
             return CacheSel(new("Transferencia", "bi-bank", "Comprobante transferencia",
                 t.Trabajador.ToUpperInvariant(), "Para", t.Trabajador, "Fecha", $"{t.Fecha:dd/MM/yyyy}",
                 "Transferencia", Fmt(t.Monto), true,
-                t.ComprobanteImagenPath ?? "No se eligió ningún archivo",
-                IsV($"t{t.Id}"), t.ComprobanteImagenPath is not null,
-                t.ComprobanteImagenPath is not null ? FotoUrl($"t{t.Id}", $"/api/contabilidad/transferencia/{t.Id}/comprobante") : null));
+                t.HasComprobante ? (t.ComprobanteImagenFileName ?? "Comprobante adjunto") : "No se eligió ningún archivo",
+                IsV($"t{t.Id}"), t.HasComprobante,
+                t.HasComprobante ? FotoUrl($"t{t.Id}", $"/api/contabilidad/transferencia/{t.Id}/comprobante") : null));
         }
 
         // Check compras (flattened)
