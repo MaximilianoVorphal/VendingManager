@@ -145,6 +145,28 @@ public class AdminCredentialGuardHostedServiceTests : IDisposable
         await act.Should().NotThrowAsync();
     }
 
+    // ─── Scenario 5: malformed/empty PasswordHash must never crash startup ──
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("not-a-bcrypt-hash")]
+    public async Task StartAsync_MalformedOrEmptyPasswordHash_DoesNotThrow(string passwordHash)
+    {
+        // Arrange — the seeded admin has an empty or non-BCrypt hash (e.g. corrupted
+        // data or a manual DB edit), which would otherwise throw SaltParseException
+        // or an ArgumentException out of BCrypt.Verify. (EF InMemory rejects a true
+        // null PasswordHash as a required-property violation at seed time, so the
+        // empty-string case exercises the same IsNullOrEmpty guard clause in
+        // AdminCredentialGuardHostedService as a null hash would.)
+        await SeedAdminAsync(passwordHash);
+
+        // Act
+        var act = () => _service.StartAsync(CancellationToken.None);
+
+        // Assert — guard is best-effort and must never abort startup.
+        await act.Should().NotThrowAsync();
+    }
+
     private void VerifyWarningLogged(Times times)
     {
         _mockLogger.Verify(
