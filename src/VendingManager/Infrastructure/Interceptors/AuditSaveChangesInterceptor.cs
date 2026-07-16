@@ -30,24 +30,56 @@ public class AuditSaveChangesInterceptor : SaveChangesInterceptor
     };
 
     /// <summary>
-    /// Mapa de nombre de tipo de entidad a nombre de tipo history.
-    /// Solo entidades en este mapa escriben registros history.
+    /// Static registry mapping entity CLR types to their corresponding history types.
+    /// Uses compile-time typeof() so entity renames break the build, not silently at runtime.
+    /// Only entities in this registry produce history records.
     /// </summary>
-    private static readonly Dictionary<string, string> HistoryTypeMap = new()
+    private static readonly Dictionary<Type, Type> HistoryTypeRegistry = new()
     {
-        { "Compra", "CompraHistory" },
-        { "Producto", "ProductoHistory" },
-        { "Maquina", "MaquinaHistory" },
-        { "Venta", "VentaHistory" },
-        { "MovimientoCaja", "MovimientoCajaHistory" },
-        { "ConfiguracionSlot", "ConfiguracionSlotHistory" },
-        { "GastoRecurrente", "GastoRecurrenteHistory" },
-        { "OrdenCarga", "OrdenCargaHistory" },
-        { "User", "UserHistory" },
-        { "Transferencia", "TransferenciaHistory" },
-        { "Rendicion", "RendicionHistory" },
-        { "ProveedorCatalog", "ProveedorCatalogHistory" }
+        [typeof(Compra)] = typeof(CompraHistory),
+        [typeof(Producto)] = typeof(ProductoHistory),
+        [typeof(Maquina)] = typeof(MaquinaHistory),
+        [typeof(Venta)] = typeof(VentaHistory),
+        [typeof(MovimientoCaja)] = typeof(MovimientoCajaHistory),
+        [typeof(ConfiguracionSlot)] = typeof(ConfiguracionSlotHistory),
+        [typeof(GastoRecurrente)] = typeof(GastoRecurrenteHistory),
+        [typeof(OrdenCarga)] = typeof(OrdenCargaHistory),
+        [typeof(User)] = typeof(UserHistory),
+        [typeof(Transferencia)] = typeof(TransferenciaHistory),
+        [typeof(Rendicion)] = typeof(RendicionHistory),
+        [typeof(ProveedorCatalog)] = typeof(ProveedorCatalogHistory),
     };
+
+    /// <summary>
+    /// Validates the audit type registry at startup. Throws
+    /// <see cref="InvalidOperationException"/> if any audited entity type
+    /// has no mapped history type (null value), ensuring fail-fast behavior
+    /// instead of silent audit gaps.
+    /// </summary>
+    internal static void ValidateRegistry(Dictionary<Type, Type> registry)
+    {
+        ArgumentNullException.ThrowIfNull(registry);
+
+        foreach (var kvp in registry)
+        {
+            if (kvp.Key is null)
+                throw new InvalidOperationException(
+                    "Audit type registry contains a null entity type key.");
+
+            if (kvp.Value is null)
+                throw new InvalidOperationException(
+                    $"Audit type registry: entity type '{kvp.Key.Name}' has no mapped history type.");
+        }
+    }
+
+    /// <summary>
+    /// Convenience overload that validates the built-in
+    /// <see cref="HistoryTypeRegistry"/> at startup.
+    /// </summary>
+    public static void ValidateRegistry()
+    {
+        ValidateRegistry(HistoryTypeRegistry);
+    }
 
     public override ValueTask<InterceptionResult<int>> SavingChangesAsync(
         DbContextEventData eventData,
@@ -77,15 +109,9 @@ public class AuditSaveChangesInterceptor : SaveChangesInterceptor
             var historyRecord = CreateHistoryRecord(entry, context, _httpContextAccessor);
             if (historyRecord is not null)
             {
-                var historyTypeName = entry.Entity.GetType().Name;
-                if (HistoryTypeMap.TryGetValue(historyTypeName, out var historyTypeFullName))
+                if (HistoryTypeRegistry.ContainsKey(entry.Entity.GetType()))
                 {
-                    var historyType = Type.GetType($"VendingManager.Core.Entities.{historyTypeFullName}");
-                    if (historyType is not null)
-                    {
-                        // Usar context.Add para la entidad dinámica — funciona con parámetro object
-                        context.Add(historyRecord);
-                    }
+                    context.Add(historyRecord);
                 }
             }
         }
@@ -151,8 +177,7 @@ public class AuditSaveChangesInterceptor : SaveChangesInterceptor
         DbContext context,
         IHttpContextAccessor? httpContextAccessor)
     {
-        var entityType = entry.Entity.GetType().Name;
-        if (!HistoryTypeMap.ContainsKey(entityType))
+        if (!HistoryTypeRegistry.ContainsKey(entry.Entity.GetType()))
             return null;
 
         var action = entry.State switch
@@ -179,10 +204,7 @@ public class AuditSaveChangesInterceptor : SaveChangesInterceptor
         var entityId = CaptureEntityId(entry);
 
         // Construir un registro history dinámico usando el constructor del tipo history
-        var historyTypeName = HistoryTypeMap[entityType];
-        var historyType = Type.GetType($"VendingManager.Core.Entities.{historyTypeName}");
-        if (historyType is null)
-            return null;
+        var historyType = HistoryTypeRegistry[entry.Entity.GetType()];
 
         var historyRecord = Activator.CreateInstance(historyType);
         if (historyRecord is null)

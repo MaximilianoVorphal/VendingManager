@@ -206,6 +206,10 @@ using (var scope = app.Services.CreateScope())
     {
         var context = services.GetRequiredService<VendingManager.Infrastructure.Data.ApplicationDbContext>();
         context.Database.Migrate();
+
+        // Validate audit type registry at startup — fail-fast if any
+        // audited entity type lacks its history type mapping.
+        AuditSaveChangesInterceptor.ValidateRegistry();
     }
     catch (Exception ex)
     {
