@@ -1,12 +1,9 @@
 namespace VendingManager.Tests.Services;
 
 using System.Data;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
-using Moq;
 using VendingManager.Core.Configuration;
-using VendingManager.Core.Interfaces;
 using VendingManager.Infrastructure.Data.Repositories;
 using VendingManager.Infrastructure.Services;
 using VendingManager.Shared.DTOs;
@@ -20,9 +17,6 @@ using VendingManager.Tests.TestData;
 public class ConciliacionServiceTests : IDisposable
 {
     private readonly ApplicationDbContext _context;
-    private readonly Mock<IWebHostEnvironment> _mockEnv;
-    private readonly IOptions<VendingConfig> _config;
-    private readonly IUploadPathProvider _uploadProvider;
     private readonly ContabilidadService _contabilidadService;
     private readonly TransferenciaService _transferenciaService;
     private readonly RendicionService _rendicionService;
@@ -31,17 +25,9 @@ public class ConciliacionServiceTests : IDisposable
     {
         _context = TestDataHelpers.CreateInMemoryContext($"ConciliacionServiceTestDb_{Guid.NewGuid()}");
 
-        _mockEnv = new Mock<IWebHostEnvironment>();
-        _mockEnv.SetupGet(e => e.WebRootPath).Returns("/tmp/wwwroot");
-        _mockEnv.SetupGet(e => e.ContentRootPath).Returns("/tmp");
-
-        var vendingConfig = new VendingConfig();
-        _config = Options.Create(vendingConfig);
-        _uploadProvider = new DefaultUploadPathProvider(_mockEnv.Object, _config);
-
         var periodRepo = new AccountingPeriodRepository(_context);
         _contabilidadService = new ContabilidadService(_context, periodRepo);
-        _transferenciaService = new TransferenciaService(_context, _uploadProvider);
+        _transferenciaService = new TransferenciaService(_context);
         _rendicionService = new RendicionService(_context);
     }
 
@@ -205,7 +191,7 @@ public class ConciliacionServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task SaveComprobanteImagenAsync_ValidFile_ReturnsPathInTransferenciasFolder()
+    public async Task SaveComprobanteImagenAsync_ValidJpeg_StoresBytesInDb()
     {
         // Arrange
         var transferencia = new Transferencia
@@ -221,15 +207,13 @@ public class ConciliacionServiceTests : IDisposable
         var validFile = CreateMockFile("comprobante.jpg", 1024);
 
         // Act
-        var path = await _transferenciaService.SaveComprobanteImagenAsync(transferencia.Id, validFile);
+        await _transferenciaService.SaveComprobanteImagenAsync(transferencia.Id, validFile);
 
-        // Assert — path matches /uploads/transferencias/{guid}.jpg convention
-        path.Should().StartWith("/uploads/transferencias/");
-        path.Should().EndWith(".jpg");
-
-        // Persisted on entity
+        // Assert — bytes stored in DB, content type + file name set
         var updated = await _context.Transferencias.FindAsync(transferencia.Id);
-        updated!.ComprobanteImagenPath.Should().Be(path);
+        updated!.ComprobanteImagen.Should().NotBeNull();
+        updated.ComprobanteImagenContentType.Should().Be("image/jpeg");
+        updated.ComprobanteImagenFileName.Should().Be("comprobante.jpg");
     }
 
     [Fact]
@@ -249,10 +233,12 @@ public class ConciliacionServiceTests : IDisposable
         var pdfFile = CreateMockFile("comprobante.pdf", 1024, "application/pdf");
 
         // Act
-        var path = await _transferenciaService.SaveComprobanteImagenAsync(transferencia.Id, pdfFile);
+        await _transferenciaService.SaveComprobanteImagenAsync(transferencia.Id, pdfFile);
 
         // Assert
-        path.Should().EndWith(".pdf");
+        var updated = await _context.Transferencias.FindAsync(transferencia.Id);
+        updated!.ComprobanteImagenContentType.Should().Be("application/pdf");
+        updated.ComprobanteImagenFileName.Should().Be("comprobante.pdf");
     }
 
     // ═══════════════════════════════════════════════════════════════════════

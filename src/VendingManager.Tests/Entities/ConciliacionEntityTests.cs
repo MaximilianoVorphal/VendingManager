@@ -10,10 +10,12 @@ public class ConciliacionEntityTests
     // ── TASK-01: Transferencia ────────────────────────────────────────────────
 
     [Fact]
-    public void Transferencia_NewInstance_HasNullComprobanteImagenPath()
+    public void Transferencia_NewInstance_HasNullComprobanteImagen()
     {
         var t = new Transferencia();
-        t.ComprobanteImagenPath.Should().BeNull();
+        t.ComprobanteImagen.Should().BeNull();
+        t.ComprobanteImagenContentType.Should().BeNull();
+        t.ComprobanteImagenFileName.Should().BeNull();
     }
 
     [Fact]
@@ -24,13 +26,17 @@ public class ConciliacionEntityTests
     }
 
     [Fact]
-    public void Transferencia_ComprobanteImagenPath_CanBeSetToRelativePath()
+    public void Transferencia_ComprobanteImagen_CanStoreBinaryData()
     {
         var t = new Transferencia
         {
-            ComprobanteImagenPath = "/uploads/transferencias/abc.jpg"
+            ComprobanteImagen = new byte[] { 0xFF, 0xD8, 0xFF },
+            ComprobanteImagenContentType = "image/jpeg",
+            ComprobanteImagenFileName = "comprobante.jpg"
         };
-        t.ComprobanteImagenPath.Should().Be("/uploads/transferencias/abc.jpg");
+        t.ComprobanteImagen.Should().BeEquivalentTo(new byte[] { 0xFF, 0xD8, 0xFF });
+        t.ComprobanteImagenContentType.Should().Be("image/jpeg");
+        t.ComprobanteImagenFileName.Should().Be("comprobante.jpg");
     }
 
     [Fact]
@@ -68,7 +74,6 @@ public class ConciliacionEntityTests
         d.RendicionId.Should().BeNull();
         d.PeriodoId.Should().BeNull();
         d.MovimientoCajaId.Should().BeNull();
-        d.ComprobanteImagenPath.Should().BeNull();
         d.Observaciones.Should().BeNull();
     }
 

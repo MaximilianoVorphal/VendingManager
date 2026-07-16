@@ -1,15 +1,12 @@
 namespace VendingManager.Tests.Services;
 
 using System.Data;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
-using Moq;
 using VendingManager.Core.Configuration;
 using VendingManager.Core.Entities;
-using VendingManager.Core.Interfaces;
 using VendingManager.Infrastructure.Data.Repositories;
 using VendingManager.Infrastructure.Services;
 using VendingManager.Shared.DTOs;
@@ -23,25 +20,14 @@ using VendingManager.Tests.TestData;
 public class ContabilidadServiceTests : IDisposable
 {
     private readonly ApplicationDbContext _context;
-    private readonly Mock<IWebHostEnvironment> _mockEnv;
-    private readonly IOptions<VendingConfig> _config;
-    private readonly IUploadPathProvider _uploadProvider;
     private readonly ContabilidadService _service;
 
     public ContabilidadServiceTests()
     {
         _context = TestDataHelpers.CreateInMemoryContext($"ContabilidadServiceTestDb_{Guid.NewGuid()}");
 
-        _mockEnv = new Mock<IWebHostEnvironment>();
-        _mockEnv.SetupGet(e => e.WebRootPath).Returns(Path.GetTempPath());
-        _mockEnv.SetupGet(e => e.ContentRootPath).Returns(Path.GetTempPath());
-
-        var vendingConfig = new VendingConfig();
-        _config = Options.Create(vendingConfig);
-        _uploadProvider = new DefaultUploadPathProvider(_mockEnv.Object, _config);
-
         var periodRepo = new AccountingPeriodRepository(_context);
-        _service = new ContabilidadService(_context, periodRepo, _uploadProvider);
+        _service = new ContabilidadService(_context, periodRepo);
     }
 
     public void Dispose()
@@ -82,8 +68,7 @@ public class ContabilidadServiceTests : IDisposable
             Trabajador = "Juan",
             Estado = estado,
             RendicionId = rendicion.Id,
-            PeriodoId = period.Id,
-            ComprobanteImagenPath = "/uploads/transferencias/test-comprobante.jpg"
+            PeriodoId = period.Id
         };
         _context.Transferencias.Add(transferencia);
         await _context.SaveChangesAsync();
@@ -110,23 +95,13 @@ public class ContabilidadServiceTests : IDisposable
         return (transferencia, period, rendicion, compras);
     }
 
-    private string CreateTempComprobanteFile(string relativePath)
-    {
-        var basePath = _uploadProvider.GetUploadBasePath();
-        var physicalPath = Path.Combine(basePath, relativePath.TrimStart('/'));
-        Directory.CreateDirectory(Path.GetDirectoryName(physicalPath)!);
-        File.WriteAllText(physicalPath, "fake image content");
-        return physicalPath;
-    }
-
     // ── T-01: Cuadre happy path ─────────────────────────────────────────────
 
     [Fact]
     public async Task EliminarTransferenciaCuadreAsync_CuadreHappyPath_AllComprasUnlinkedPeriodDeleted()
     {
-        // Arrange — cuadre with 3 compras + comprobante on disk
+        // Arrange — cuadre with 3 compras
         var (transferencia, period, rendicion, compras) = await CreateCuadreWithComprasAsync(3);
-        var comprobantePath = CreateTempComprobanteFile(transferencia.ComprobanteImagenPath!);
 
         // Act
         var result = await _service.EliminarTransferenciaCuadreAsync(transferencia.Id);
@@ -141,9 +116,6 @@ public class ContabilidadServiceTests : IDisposable
             var reloaded = await _context.Compras.FindAsync(compra.Id);
             reloaded!.TransferenciaId.Should().BeNull();
         }
-
-        // Assert — comprobante file gone
-        File.Exists(comprobantePath).Should().BeFalse();
 
         // Assert — period and rendicion deleted
         var deletedPeriod = await _context.AccountingPeriods.FindAsync(period.Id);
@@ -250,23 +222,17 @@ public class ContabilidadServiceTests : IDisposable
             .WithMessage("No se puede eliminar una transferencia ya conciliada.");
     }
 
-    // ── T-07: Comprobante file missing on disk ─────────────────────────────
+    // ── T-07: Happy path — single compra (simplified, no file I/O) ──────
 
     [Fact]
-    public async Task EliminarTransferenciaCuadreAsync_ComprobanteMissingOnDisk_NoError()
+    public async Task EliminarTransferenciaCuadreAsync_SingleCompra_ComprasUnlinkedPeriodDeleted()
     {
-        // Arrange — cuadre with comprobante path set but file NOT on disk
         var (transferencia, period, _, compras) = await CreateCuadreWithComprasAsync(1);
-        // Don't create the file on disk — it's already missing
 
-        // Act — should NOT throw
         var result = await _service.EliminarTransferenciaCuadreAsync(transferencia.Id);
 
-        // Assert — still succeeds
         result.ComprasUnlinked.Should().Be(1);
         result.PeriodoId.Should().Be(period.Id);
-
-        // Assert — transferencia deleted
         var deletedTransf = await _context.Transferencias.FindAsync(transferencia.Id);
         deletedTransf.Should().BeNull();
     }
@@ -288,12 +254,11 @@ public class ContabilidadServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task EliminarTransferenciaCuadreAsync_MidTransactionFailure_ExceptionPropagatesAndComprobanteStays()
+    public async Task EliminarTransferenciaCuadreAsync_MidTransactionFailure_ExceptionPropagates()
     {
         // Arrange — use a context that will throw on SaveChangesAsync
-        // Note: EF InMemory ignores real transactions. This test verifies that
-        // (1) the exception propagates (not swallowed by the service) and
-        // (2) the comprobante file is NOT deleted (post-commit, non-transactional).
+        // Note: EF InMemory ignores real transactions. This test verifies
+        // that the exception propagates (not swallowed by the service).
         var dbName = $"RollbackTest_{Guid.NewGuid()}";
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
             .UseInMemoryDatabase(dbName)
@@ -331,8 +296,7 @@ public class ContabilidadServiceTests : IDisposable
                 Trabajador = "Test",
                 Estado = TransferenciaEstado.Pendiente,
                 RendicionId = rendicion.Id,
-                PeriodoId = period.Id,
-                ComprobanteImagenPath = "/uploads/transferencias/rollback-test.jpg"
+                PeriodoId = period.Id
             };
             seedContext.Transferencias.Add(transferencia);
             await seedContext.SaveChangesAsync();
@@ -353,29 +317,16 @@ public class ContabilidadServiceTests : IDisposable
             await seedContext.SaveChangesAsync();
         }
 
-        // Create comprobante file on disk
-        var basePath = _uploadProvider.GetUploadBasePath();
-        var comprobantePhysicalPath = Path.Combine(basePath, "uploads", "transferencias", "rollback-test.jpg");
-        Directory.CreateDirectory(Path.GetDirectoryName(comprobantePhysicalPath)!);
-        File.WriteAllText(comprobantePhysicalPath, "test content");
-
         // Create service with throwing context
         using var throwingContext = new ThrowingDbContext(options);
         var throwingPeriodRepo = new AccountingPeriodRepository(throwingContext);
-        var throwingService = new ContabilidadService(throwingContext, throwingPeriodRepo, _uploadProvider);
+        var throwingService = new ContabilidadService(throwingContext, throwingPeriodRepo);
 
         // Act — should throw DbUpdateException
         var act = () => throwingService.EliminarTransferenciaCuadreAsync(transferenciaId);
 
         // Assert — exception propagates (not swallowed)
         await act.Should().ThrowAsync<DbUpdateException>();
-
-        // Assert — comprobante file is NOT deleted (file deletion is post-commit)
-        File.Exists(comprobantePhysicalPath).Should().BeTrue(
-            "comprobante file must survive when transaction fails");
-
-        // Cleanup
-        File.Delete(comprobantePhysicalPath);
     }
 
     // ── Phase 2: Repository query optimizations (O-03, O-04) ─────────────────
@@ -661,7 +612,7 @@ public class ContabilidadServiceTests : IDisposable
         var cache = new MemoryCache(new MemoryCacheOptions());
         var config = Options.Create(new VendingConfig { UsePeriodCache = true, PeriodCacheDurationMinutes = 5 });
         var periodRepo = new AccountingPeriodRepository(_context);
-        var service = new ContabilidadService(_context, periodRepo, _uploadProvider, cache, config);
+        var service = new ContabilidadService(_context, periodRepo, cache, config);
 
         // Act — first call (cache miss, queries DB)
         var firstResult = await service.GetPeriodosAsync(null, null);
@@ -697,7 +648,7 @@ public class ContabilidadServiceTests : IDisposable
         var cache = new MemoryCache(new MemoryCacheOptions());
         var config = Options.Create(new VendingConfig { UsePeriodCache = false, PeriodCacheDurationMinutes = 5 });
         var periodRepo = new AccountingPeriodRepository(_context);
-        var service = new ContabilidadService(_context, periodRepo, _uploadProvider, cache, config);
+        var service = new ContabilidadService(_context, periodRepo, cache, config);
 
         // Act — first call with cache disabled
         var firstResult = await service.GetPeriodosAsync(null, null);
@@ -736,7 +687,7 @@ public class ContabilidadServiceTests : IDisposable
         var cache = new MemoryCache(new MemoryCacheOptions());
         var config = Options.Create(new VendingConfig { UsePeriodCache = true, PeriodCacheDurationMinutes = 5 });
         var periodRepo = new AccountingPeriodRepository(_context);
-        var service = new ContabilidadService(_context, periodRepo, _uploadProvider, cache, config);
+        var service = new ContabilidadService(_context, periodRepo, cache, config);
 
         // Act — first call (cache miss)
         var result = await service.GetPeriodosAsync(null, null);

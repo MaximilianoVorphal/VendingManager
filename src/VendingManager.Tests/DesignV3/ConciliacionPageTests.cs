@@ -1271,7 +1271,8 @@ public class ConciliacionPageTests : TestContext
                             PeriodoId = (int?)1,
                             MovimientoCajaId = (int?)null,
                             Verificada = true,
-                            ComprobanteImagenPath = TransferenciaHasComprobante ? "/images/comprobante.jpg" : (string?)null,
+                            HasComprobante = TransferenciaHasComprobante,
+                            ComprobanteImagenFileName = TransferenciaHasComprobante ? "comprobante.jpg" : null,
                             Compras = new object[]
                             {
                                 new

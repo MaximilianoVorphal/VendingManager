@@ -3,41 +3,29 @@ namespace VendingManager.Tests.Services;
 using Microsoft.AspNetCore.Http;
 using Moq;
 using VendingManager.Core.Entities;
-using VendingManager.Core.Interfaces;
 using VendingManager.Infrastructure.Services;
 using VendingManager.Shared.Enums;
 using VendingManager.Tests.TestData;
 
 /// <summary>
 /// Covers <see cref="TransferenciaService.SaveComprobanteImagenAsync"/> signature
-/// validation (M-1b, REQ-UPLOAD-02). This is the one live on-disk write path among
-/// the upload sites — spoofed content must be rejected before anything is written.
+/// validation and DB storage. After PR 1, bytes are stored directly in the DB
+/// varbinary column — no disk writes occur.
 /// </summary>
 public class TransferenciaServiceTests : IDisposable
 {
     private readonly ApplicationDbContext _context;
-    private readonly Mock<IUploadPathProvider> _mockUploadPathProvider;
-    private readonly string _uploadBasePath;
     private readonly TransferenciaService _service;
 
     public TransferenciaServiceTests()
     {
         _context = TestDataHelpers.CreateInMemoryContext($"TransferenciaServiceTestDb_{Guid.NewGuid()}");
-
-        _uploadBasePath = Path.Combine(Path.GetTempPath(), $"vm-transferencia-tests-{Guid.NewGuid()}");
-        Directory.CreateDirectory(_uploadBasePath);
-
-        _mockUploadPathProvider = new Mock<IUploadPathProvider>();
-        _mockUploadPathProvider.Setup(p => p.GetUploadBasePath()).Returns(_uploadBasePath);
-
-        _service = new TransferenciaService(_context, _mockUploadPathProvider.Object);
+        _service = new TransferenciaService(_context);
     }
 
     public void Dispose()
     {
         _context.Dispose();
-        if (Directory.Exists(_uploadBasePath))
-            Directory.Delete(_uploadBasePath, recursive: true);
     }
 
     private static IFormFile CreateMockFormFile(byte[] content, string contentType, string fileName)
@@ -67,7 +55,7 @@ public class TransferenciaServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task SaveComprobanteImagenAsync_SpoofedContent_ThrowsArgumentException_NoDiskWriteOccurs()
+    public async Task SaveComprobanteImagenAsync_SpoofedContent_ThrowsArgumentException_NoBytesStored()
     {
         // Arrange
         var transferencia = await SeedTransferenciaAsync();
@@ -82,18 +70,14 @@ public class TransferenciaServiceTests : IDisposable
         // Assert
         await act.Should().ThrowAsync<ArgumentException>();
 
-        var transferenciasDir = Path.Combine(_uploadBasePath, "uploads", "transferencias");
-        if (Directory.Exists(transferenciasDir))
-        {
-            Directory.GetFiles(transferenciasDir).Should().BeEmpty();
-        }
-
         var fetched = await _context.Transferencias.FindAsync(transferencia.Id);
-        fetched!.ComprobanteImagenPath.Should().BeNull();
+        fetched!.ComprobanteImagen.Should().BeNull();
+        fetched.ComprobanteImagenContentType.Should().BeNull();
+        fetched.ComprobanteImagenFileName.Should().BeNull();
     }
 
     [Fact]
-    public async Task SaveComprobanteImagenAsync_ValidJpeg_WritesToDiskUnchanged()
+    public async Task SaveComprobanteImagenAsync_ValidJpeg_StoresBytesInDb()
     {
         // Arrange
         var transferencia = await SeedTransferenciaAsync();
@@ -101,17 +85,13 @@ public class TransferenciaServiceTests : IDisposable
         var validFile = CreateMockFormFile(jpegBytes, "image/jpeg", "comprobante.jpg");
 
         // Act
-        var relativePath = await _service.SaveComprobanteImagenAsync(transferencia.Id, validFile);
+        await _service.SaveComprobanteImagenAsync(transferencia.Id, validFile);
 
-        // Assert
-        relativePath.Should().StartWith("/uploads/transferencias/");
-        var physicalPath = Path.Combine(_uploadBasePath, relativePath.TrimStart('/'));
-        File.Exists(physicalPath).Should().BeTrue();
-        var writtenBytes = await File.ReadAllBytesAsync(physicalPath);
-        writtenBytes.Should().BeEquivalentTo(jpegBytes);
-
+        // Assert — stored in DB, no disk writes
         var fetched = await _context.Transferencias.FindAsync(transferencia.Id);
-        fetched!.ComprobanteImagenPath.Should().Be(relativePath);
+        fetched!.ComprobanteImagen.Should().BeEquivalentTo(jpegBytes);
+        fetched.ComprobanteImagenContentType.Should().Be("image/jpeg");
+        fetched.ComprobanteImagenFileName.Should().Be("comprobante.jpg");
     }
 
     [Fact]
@@ -126,5 +106,44 @@ public class TransferenciaServiceTests : IDisposable
 
         // Assert
         await act.Should().ThrowAsync<KeyNotFoundException>();
+    }
+
+    [Fact]
+    public async Task SaveComprobanteImagenAsync_ValidPdf_StoresBytesInDb()
+    {
+        // Arrange
+        var transferencia = await SeedTransferenciaAsync();
+        byte[] pdfBytes = { 0x25, 0x50, 0x44, 0x46, 0x2D }; // %PDF- header
+        var validFile = CreateMockFormFile(pdfBytes, "application/pdf", "comprobante.pdf");
+
+        // Act
+        await _service.SaveComprobanteImagenAsync(transferencia.Id, validFile);
+
+        // Assert
+        var fetched = await _context.Transferencias.FindAsync(transferencia.Id);
+        fetched!.ComprobanteImagen.Should().BeEquivalentTo(pdfBytes);
+        fetched.ComprobanteImagenContentType.Should().Be("application/pdf");
+        fetched.ComprobanteImagenFileName.Should().Be("comprobante.pdf");
+    }
+
+    [Fact]
+    public async Task SaveComprobanteImagenAsync_ReUpload_ReplacesBytes()
+    {
+        // Arrange
+        var transferencia = await SeedTransferenciaAsync();
+        byte[] firstBytes = { 0xFF, 0xD8, 0xFF, 0xE0, 0x00 };
+        var firstFile = CreateMockFormFile(firstBytes, "image/jpeg", "first.jpg");
+        await _service.SaveComprobanteImagenAsync(transferencia.Id, firstFile);
+
+        byte[] secondBytes = { 0xFF, 0xD8, 0xFF, 0xE0, 0x01 };
+        var secondFile = CreateMockFormFile(secondBytes, "image/jpeg", "second.jpg");
+
+        // Act
+        await _service.SaveComprobanteImagenAsync(transferencia.Id, secondFile);
+
+        // Assert — old bytes replaced by new
+        var fetched = await _context.Transferencias.FindAsync(transferencia.Id);
+        fetched!.ComprobanteImagen.Should().BeEquivalentTo(secondBytes);
+        fetched.ComprobanteImagenFileName.Should().Be("second.jpg");
     }
 }

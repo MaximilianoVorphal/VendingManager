@@ -124,10 +124,11 @@ public class ConciliacionDtoTests
     }
 
     [Fact]
-    public void TransferenciaDto_HasNullComprobanteImagenPathByDefault()
+    public void TransferenciaDto_HasComprobanteFalseByDefault()
     {
         var dto = new TransferenciaDto();
-        dto.ComprobanteImagenPath.Should().BeNull();
+        dto.HasComprobante.Should().BeFalse();
+        dto.ComprobanteImagenFileName.Should().BeNull();
     }
 
     // ── CompraDto new fields ──────────────────────────────────────────────────
@@ -150,14 +151,12 @@ public class ConciliacionDtoTests
             Monto = 250m,
             Fecha = new DateTime(2026, 6, 20),
             Trabajador = "Ana Torres",
-            ComprobanteImagenPath = "/uploads/devoluciones/abc.jpg",
             Observaciones = "Devolución parcial"
         };
 
         dto.Id.Should().Be(1);
         dto.Monto.Should().Be(250m);
         dto.Trabajador.Should().Be("Ana Torres");
-        dto.ComprobanteImagenPath.Should().Be("/uploads/devoluciones/abc.jpg");
         dto.Observaciones.Should().Be("Devolución parcial");
     }
 
