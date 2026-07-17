@@ -1,5 +1,7 @@
 # Base stage for runtime
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS base
+# curl is required for Docker HEALTHCHECK (aspnet:10.0 Ubuntu 24.04 base does not include it)
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
 USER app
 WORKDIR /app
 EXPOSE 8080
