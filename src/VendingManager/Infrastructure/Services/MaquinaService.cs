@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using VendingManager.Core.Configuration;
+using VendingManager.Core.Entities;
 
 namespace VendingManager.Infrastructure.Services
 {
@@ -28,8 +29,51 @@ namespace VendingManager.Infrastructure.Services
 
         public async Task<Maquina> CreateMaquinaAsync(Maquina maquina)
         {
-            _context.Maquinas.Add(maquina);
-            await _context.SaveChangesAsync();
+            // Validate MaquinaTipo before any DB write to avoid partial commits.
+            List<ConfiguracionSlot>? autoSlots = null;
+            if (maquina.MaquinaTipo.HasValue)
+            {
+                if (!Enum.IsDefined(typeof(MaquinaTipo), maquina.MaquinaTipo.Value))
+                    throw new ArgumentException($"Invalid MaquinaTipo value: {maquina.MaquinaTipo.Value}");
+
+                if (maquina.Slots == null || maquina.Slots.Count == 0)
+                {
+                    var tipo = (MaquinaTipo)maquina.MaquinaTipo.Value;
+                    var slotNumbers = SlotTemplateProvider.GetSlotNumbers(tipo);
+
+                    autoSlots = slotNumbers.Select(numero => new ConfiguracionSlot
+                    {
+                        NumeroSlot = numero,
+                        CapacidadMaxima = 10,
+                        StockMinimo = 2,
+                        PrecioVenta = 0
+                    }).ToList();
+                }
+            }
+
+            using var transaction = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                _context.Maquinas.Add(maquina);
+                await _context.SaveChangesAsync();
+
+                if (autoSlots != null)
+                {
+                    foreach (var slot in autoSlots)
+                        slot.MaquinaId = maquina.Id;
+
+                    _context.ConfiguracionSlots.AddRange(autoSlots);
+                    await _context.SaveChangesAsync();
+                }
+
+                await transaction.CommitAsync();
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+
             return maquina;
         }
 

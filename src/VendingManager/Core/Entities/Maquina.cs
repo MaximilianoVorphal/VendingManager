@@ -19,6 +19,11 @@ public class Maquina
     public ZonaLogistica? Zona { get; set; }
 
     /// <summary>
+    /// Machine type for automatic slot provisioning (null = legacy/unknown).
+    /// </summary>
+    public int? MaquinaTipo { get; set; }
+
+    /// <summary>
     /// Delta in hours from the machine's reported timestamp to Chilean CLT
     /// (e.g., -11 for machines reporting in UTC+7, so 7 + (-11) = -4 = CLT).
     /// Null means "use the appsettings default" (<see cref="Configuration.VendingConfig.DefaultTimezoneOffsetHours"/>).

@@ -56,12 +56,14 @@ public static class TestDataHelpers
     public static Maquina CreateMaquina(
         int id = 1,
         string nombre = "Test Machine",
-        string ubicacion = "Test Location")
+        string ubicacion = "Test Location",
+        int? maquinaTipo = null)
         => new Maquina
         {
             Id = id,
             Nombre = nombre,
-            Ubicacion = ubicacion
+            Ubicacion = ubicacion,
+            MaquinaTipo = maquinaTipo
         };
 
     public static ConfiguracionSlot CreateSlot(

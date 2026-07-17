@@ -218,6 +218,19 @@
                                              placeholder="EJ: -3" />
                                 <div class="form-text small">Diferencia horaria UTC. Vacío = valor por defecto (-11).</div>
                             </div>
+
+                            @if (maquinaActual.Id == 0)
+                            {
+                                <div class="col-md-6">
+                                    <label class="form-label fw-bold small">TIPO DE MÁQUINA</label>
+                                    <InputSelect @bind-Value="maquinaActual.MaquinaTipo" class="form-select rounded-0 border-dark">
+                                        <option value="">Sin tipo</option>
+                                        <option value="1">Snack</option>
+                                        <option value="2">Café+Snack</option>
+                                    </InputSelect>
+                                    <div class="form-text small">Define la grilla de slots que se creará automáticamente.</div>
+                                </div>
+                            }
                         </div>
 
                         <div class="modal-footer bg-light rounded-0 mt-4 px-0 pb-0 pt-3 border-top border-dark">
@@ -307,7 +320,8 @@
                 IdInternoMaquina = maquina.IdInternoMaquina,
                 CodigoTerminalPos = maquina.CodigoTerminalPos,
                 ZonaLogisticaId = maquina.ZonaLogisticaId,
-                TimezoneOffsetHours = maquina.TimezoneOffsetHours
+                TimezoneOffsetHours = maquina.TimezoneOffsetHours,
+                MaquinaTipo = maquina.MaquinaTipo
             };
         }
         MostrarModal = true;
@@ -374,6 +388,7 @@
         public string CodigoTerminalPos { get; set; } = string.Empty;
         public int? ZonaLogisticaId { get; set; }
         public int? TimezoneOffsetHours { get; set; }
+        public int? MaquinaTipo { get; set; }
     }
 }
 </MobileShell>
