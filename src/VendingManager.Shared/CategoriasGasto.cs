@@ -16,8 +16,9 @@ namespace VendingManager.Shared;
 /// CalcularUtilidadOperacional() — fórmula unificada para CajaBusinessService y
 ///   SalesAnalyticsService: margenBruto - mermasAbs - totalGastosOps.
 ///
-/// EsGastoOperativoReal() — extensión in-memory (NO traducible a SQL) para
-///   objetos materializados. Para LINQ-to-Entities usar el set directamente:
+/// EsGastoOperativoReal() — extensión in-memory para objetos materializados.
+///   Para LINQ-to-Entities usar el HashSet directamente (ICollection<T>.Contains()
+///   es traducible a SQL IN):
 ///   .Where(m => !CategoriasGasto.Estructurales.Contains(m.Categoria))
 /// </summary>
 public static class CategoriasGasto
@@ -27,7 +28,7 @@ public static class CategoriasGasto
     /// Excluidas de totales de gastos y listados de rendición.
     /// OrdinalIgnoreCase para consistencia con los datos históricos.
     /// </summary>
-    public static readonly IReadOnlySet<string> Estructurales =
+    public static readonly HashSet<string> Estructurales =
         new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
             "RETIRO_CAPITAL",
@@ -46,14 +47,14 @@ public static class CategoriasGasto
     // ── P&amp;L buckets (Unit 3) ───────────────────────────────────────────
 
     /// <summary>Gastos variables: logística operativa diaria.</summary>
-    public static readonly IReadOnlySet<string> Variables =
+    public static readonly HashSet<string> Variables =
         new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
             "LOGISTICA", "PEAJES", "INSUMOS", "MANTENCION"
         };
 
     /// <summary>Gastos fijos: infraestructura, personal, comisiones.</summary>
-    public static readonly IReadOnlySet<string> Fijos =
+    public static readonly HashSet<string> Fijos =
         new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
             "INFRA", "ARRIENDO_POS", "INTERNET", "COMISIONES",
@@ -61,7 +62,7 @@ public static class CategoriasGasto
         };
 
     /// <summary>Variables ∪ Fijos — el conjunto completo de categorías operacionales.</summary>
-    public static readonly IReadOnlySet<string> Operacionales =
+    public static readonly HashSet<string> Operacionales =
         new HashSet<string>(Variables.Concat(Fijos), StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
