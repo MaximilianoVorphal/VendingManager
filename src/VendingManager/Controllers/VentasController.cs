@@ -176,7 +176,7 @@ namespace VendingManager.Controllers
             var resultado = await syncService.SincronizarDesdePortal(maquinaId, fechaLimite);
             if (resultado.StartsWith("Error")) return BadRequest(resultado);
             await auditService.RegistrarAccionAsync(User.Identity?.Name ?? "Desconocido", "Sincronizar Portal", $"Sincronización manual máquina {maquinaId}. Fecha límite: {(fechaLimite?.ToString("dd/MM/yyyy HH:mm") ?? "Sin límite")}. Resultado: {resultado}");
-            lastSyncTracker.SetLastSync(DateTime.Now);
+            lastSyncTracker.SetLastSync(DateTime.UtcNow);
             return Ok(resultado);
         }
 
@@ -186,7 +186,7 @@ namespace VendingManager.Controllers
             var resultado = await syncService.SincronizarDesdePortalApi(maquinaId, fechaLimite);
             if (resultado.StartsWith("Error")) return BadRequest(resultado);
             await auditService.RegistrarAccionAsync(User.Identity?.Name ?? "Desconocido", "Sincronizar Portal (API)", $"Sincronización API máquina {maquinaId}. Resultado: {resultado}");
-            lastSyncTracker.SetLastSync(DateTime.Now);
+            lastSyncTracker.SetLastSync(DateTime.UtcNow);
             return Ok(resultado);
         }
         
