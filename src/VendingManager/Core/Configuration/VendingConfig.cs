@@ -45,4 +45,11 @@ public class VendingConfig
     /// import batch before the offset drift watchdog evaluates/persists a machine's drift state.
     /// </summary>
     public int OffsetDriftMinSamples { get; set; } = 5;
+
+    /// <summary>
+    /// Maximum time gap (in hours) between the last successful sync and the current poll cycle
+    /// for an Empty outcome to be considered genuine (not suspicious).
+    /// Default 4.5h ≈ 2× the default 2h polling interval plus jitter/backoff margin.
+    /// </summary>
+    public double EmptyFailsafeThresholdHours { get; set; } = 4.5;
 }

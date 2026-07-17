@@ -32,7 +32,8 @@ namespace VendingManager.Controllers
             {
                 lastSync = last,
                 healthStatus = health.ToString(),
-                breakerState = snapshot.State.ToString()
+                breakerState = snapshot.State.ToString(),
+                syncEmptySuspicious = lastSyncTracker.EmptyFailsafeTripped
             });
         }
 

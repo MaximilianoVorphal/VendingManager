@@ -19,6 +19,9 @@ public class AutomatedReportService : BackgroundService
     private readonly PollScheduler? _pollScheduler;
     private readonly PollingCircuitBreaker? _circuitBreaker;
 
+    // Empty-outcome failsafe threshold (hours), from IConfiguration["VendingConfig:EmptyFailsafeThresholdHours"]
+    private readonly double _emptyFailsafeThreshold;
+
     /// <summary>
     /// Whether the breaker state used to initialize <see cref="_circuitBreaker"/> was
     /// confirmed as loaded from the database. False when the DB was unavailable at
@@ -86,6 +89,14 @@ public class AutomatedReportService : BackgroundService
                 maxOpenCycles: maxCycles);
 
             _breakerConfirmedFromDb = snapshot.LoadedFromDb;
+
+            // Read failsafe threshold from VendingConfig section (same indexer pattern as PollingApi)
+            var vendingSection = _configuration.GetSection("VendingConfig");
+            _emptyFailsafeThreshold = double.TryParse(vendingSection?["EmptyFailsafeThresholdHours"], out var t) ? t : 4.5;
+        }
+        else
+        {
+            _emptyFailsafeThreshold = 4.5;
         }
     }
 
@@ -231,6 +242,32 @@ public class AutomatedReportService : BackgroundService
         {
             outcome = PollOutcome.Error;
             _logger.LogError(ex, "Unhandled exception during poll cycle");
+        }
+
+        // 3a. Empty-outcome failsafe: detect suspicious empties that would
+        //     permanently lose sales data if the tracker advanced.
+        if (outcome == PollOutcome.Ok)
+        {
+            // Clear any previously-tripped failsafe flag on a healthy cycle.
+            _lastSyncTracker.ResetEmptyFailsafe();
+        }
+
+        if (outcome == PollOutcome.Empty)
+        {
+            var lastSync = _lastSyncTracker.GetLastSync();
+            var suspicious = lastSync is null
+                || (DateTime.UtcNow - lastSync.Value).TotalHours > _emptyFailsafeThreshold;
+
+            if (suspicious)
+            {
+                _logger.LogWarning(
+                    "Empty outcome classified as suspicious (lastSync={LastSync}, threshold={Threshold:F1}h) — " +
+                    "re-mapping to Blocked to prevent permanent data loss",
+                    lastSync?.ToString("O") ?? "null", _emptyFailsafeThreshold);
+
+                _lastSyncTracker.TripEmptyFailsafe();
+                outcome = PollOutcome.Blocked; // Re-map so breaker degrades and tracker is NOT advanced
+            }
         }
 
         // 4. Record outcome in breaker and persist state immediately so a restart

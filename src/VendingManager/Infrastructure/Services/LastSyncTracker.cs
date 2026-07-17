@@ -33,6 +33,8 @@ public class LastSyncTracker
     private BreakerSnapshot? _breakerSnapshot;
     private bool _breakerLoaded;
 
+    private bool _emptyFailsafeTripped;
+
     public LastSyncTracker(IServiceScopeFactory scopeFactory)
     {
         _scopeFactory = scopeFactory;
@@ -96,6 +98,27 @@ public class LastSyncTracker
             _breakerLoaded = true;
         }
         SaveBreakerToDb(snapshot);
+    }
+
+    /// <summary>
+    /// Whether a suspicious Empty outcome was detected in the most recent poll cycle.
+    /// Ephemeral (in-memory only) — not persisted to DB. Reset on restart.
+    /// </summary>
+    public bool EmptyFailsafeTripped
+    {
+        get { lock (_lock) { return _emptyFailsafeTripped; } }
+    }
+
+    /// <summary>Sets <see cref="EmptyFailsafeTripped"/> to <c>true</c>.</summary>
+    public void TripEmptyFailsafe()
+    {
+        lock (_lock) { _emptyFailsafeTripped = true; }
+    }
+
+    /// <summary>Resets <see cref="EmptyFailsafeTripped"/> to <c>false</c>.</summary>
+    public void ResetEmptyFailsafe()
+    {
+        lock (_lock) { _emptyFailsafeTripped = false; }
     }
 
     /// <summary>

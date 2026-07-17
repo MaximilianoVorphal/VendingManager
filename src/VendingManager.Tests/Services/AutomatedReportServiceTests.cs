@@ -56,6 +56,221 @@ public class AutomatedReportServiceTests
         return (syncMock, providerMock.Object);
     }
 
+    // ── Phase 1: Characterization — Empty outcome advances tracker (pre-change behavior) ──
+
+    [Fact]
+    public async Task RunOnePollCycleAsync_EmptyOutcome_AdvancesTracker()
+    {
+        // Arrange — Empty outcome with recent last sync: current behavior is that
+        // Empty advances the tracker and the breaker stays Closed (Empty = success).
+        var rng = new Random(42);
+        var breaker = new PollingCircuitBreaker(rng, baseOpenCooldown: TimeSpan.FromHours(24));
+        var scheduler = new PollScheduler(
+            windowStart: TimeSpan.Zero,
+            windowEnd: new TimeSpan(23, 59, 59));
+
+        var (syncMock, provider) = CreateServiceProviderMock();
+        syncMock
+            .Setup(s => s.SincronizarDesdePortalApi(It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new SyncResult { Outcome = SyncOutcome.Empty, Stats = "no data" });
+
+        var logger = Mock.Of<ILogger<AutomatedReportService>>();
+        var config = Mock.Of<IConfiguration>();
+        var tracker = CreateTracker();
+
+        // Set a known last-sync value (2 hours ago so it's within the 4.5h threshold)
+        var baseline = DateTime.UtcNow.AddHours(-2);
+        tracker.SetLastSync(baseline);
+
+        var service = new AutomatedReportService(
+            logger, null!, config, provider, tracker,
+            scheduler, breaker,
+            windowStart: TimeSpan.Zero,
+            windowEnd: new TimeSpan(23, 59, 59)
+);
+
+        // Act
+        await service.RunOnePollCycleAsync();
+
+        // Assert — current behavior: Empty outcome advances tracker, breaker stays Closed
+        tracker.GetLastSync().Should().NotBeNull(
+            "Empty outcome should advance the tracker (current behavior)");
+        tracker.GetLastSync().Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5),
+            "tracker should be updated to UtcNow after an Empty outcome");
+        breaker.State.Should().Be(BreakerState.Closed,
+            "Empty outcome should not degrade the breaker (it counts as success)");
+        breaker.ConsecutiveFailures.Should().Be(0);
+    }
+
+    // ── Phase 3: Empty-outcome failsafe behavior tests (RED before production guard) ──
+
+    [Fact]
+    public async Task RunOnePollCycleAsync_EmptyWithNullLastSync_DoesNotAdvanceTracker()
+    {
+        // Arrange — cold start: GetLastSync() returns null (no SetLastSync call yet).
+        // With the failsafe guard, Empty + null last sync → Blocked → tracker NOT advanced.
+        var rng = new Random(42);
+        var breaker = new PollingCircuitBreaker(rng, baseOpenCooldown: TimeSpan.FromHours(24));
+        var scheduler = new PollScheduler(
+            windowStart: TimeSpan.Zero,
+            windowEnd: new TimeSpan(23, 59, 59));
+
+        var (syncMock, provider) = CreateServiceProviderMock();
+        syncMock
+            .Setup(s => s.SincronizarDesdePortalApi(It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new SyncResult { Outcome = SyncOutcome.Empty, Stats = "no data" });
+
+        var logger = Mock.Of<ILogger<AutomatedReportService>>();
+        var config = Mock.Of<IConfiguration>();
+        var tracker = CreateTracker();
+
+        // No SetLastSync — cold start, GetLastSync() returns null
+
+        var service = new AutomatedReportService(
+            logger, null!, config, provider, tracker,
+            scheduler, breaker,
+            windowStart: TimeSpan.Zero,
+            windowEnd: new TimeSpan(23, 59, 59)
+);
+
+        // Act
+        await service.RunOnePollCycleAsync();
+
+        // Assert — with failsafe guard: suspicious empty degrades breaker, tracker NOT advanced
+        tracker.GetLastSync().Should().BeNull(
+            "tracker must NOT advance on suspicious Empty with null last sync");
+        breaker.State.Should().Be(BreakerState.Degraded,
+            "suspicious Empty must degrade the breaker (Blocked outcome)");
+        breaker.ConsecutiveFailures.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task RunOnePollCycleAsync_EmptyWithStaleLastSync_DegradesBreaker()
+    {
+        // Arrange — last sync was 10 hours ago (well beyond 4.5h threshold).
+        // Empty + stale → suspicious → Blocked → breaker degrades, tracker NOT advanced.
+        var rng = new Random(42);
+        var breaker = new PollingCircuitBreaker(rng, baseOpenCooldown: TimeSpan.FromHours(24));
+        var scheduler = new PollScheduler(
+            windowStart: TimeSpan.Zero,
+            windowEnd: new TimeSpan(23, 59, 59));
+
+        var (syncMock, provider) = CreateServiceProviderMock();
+        syncMock
+            .Setup(s => s.SincronizarDesdePortalApi(It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new SyncResult { Outcome = SyncOutcome.Empty, Stats = "no data" });
+
+        var logger = Mock.Of<ILogger<AutomatedReportService>>();
+        var config = Mock.Of<IConfiguration>();
+        var tracker = CreateTracker();
+
+        var staleSync = DateTime.UtcNow.AddHours(-10);
+        tracker.SetLastSync(staleSync);
+        // Verify baseline
+        tracker.GetLastSync().Should().BeCloseTo(staleSync, TimeSpan.FromSeconds(1));
+
+        var service = new AutomatedReportService(
+            logger, null!, config, provider, tracker,
+            scheduler, breaker,
+            windowStart: TimeSpan.Zero,
+            windowEnd: new TimeSpan(23, 59, 59)
+);
+
+        // Act
+        await service.RunOnePollCycleAsync();
+
+        // Assert — tracker must NOT have advanced (still the stale value)
+        tracker.GetLastSync().Should().BeCloseTo(staleSync, TimeSpan.FromSeconds(1),
+            "tracker must NOT advance on suspicious Empty with stale last sync");
+        breaker.State.Should().Be(BreakerState.Degraded,
+            "suspicious Empty must degrade the breaker");
+        breaker.ConsecutiveFailures.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task RunOnePollCycleAsync_EmptyWithRecentLastSync_AdvancesTracker()
+    {
+        // Arrange — last sync was 2 hours ago (within 4.5h threshold).
+        // Empty + recent → NOT suspicious → tracker advances, stays Closed.
+        var rng = new Random(42);
+        var breaker = new PollingCircuitBreaker(rng, baseOpenCooldown: TimeSpan.FromHours(24));
+        var scheduler = new PollScheduler(
+            windowStart: TimeSpan.Zero,
+            windowEnd: new TimeSpan(23, 59, 59));
+
+        var (syncMock, provider) = CreateServiceProviderMock();
+        syncMock
+            .Setup(s => s.SincronizarDesdePortalApi(It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new SyncResult { Outcome = SyncOutcome.Empty, Stats = "no data" });
+
+        var logger = Mock.Of<ILogger<AutomatedReportService>>();
+        var config = Mock.Of<IConfiguration>();
+        var tracker = CreateTracker();
+
+        var recentSync = DateTime.UtcNow.AddHours(-2);
+        tracker.SetLastSync(recentSync);
+
+        var service = new AutomatedReportService(
+            logger, null!, config, provider, tracker,
+            scheduler, breaker,
+            windowStart: TimeSpan.Zero,
+            windowEnd: new TimeSpan(23, 59, 59)
+);
+
+        // Act
+        await service.RunOnePollCycleAsync();
+
+        // Assert — genuine Empty (within threshold) must advance the tracker
+        tracker.GetLastSync().Should().NotBeNull(
+            "genuine Empty outcome must advance the tracker");
+        tracker.GetLastSync().Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5),
+            "tracker should be updated to UtcNow after a genuine Empty");
+        breaker.State.Should().Be(BreakerState.Closed,
+            "genuine Empty must not degrade the breaker");
+        breaker.ConsecutiveFailures.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task RunOnePollCycleAsync_OkResetsEmptyFailsafe()
+    {
+        // Arrange — simulate a prior suspicious empty by tripping the failsafe flag,
+        // then Ok outcome should reset it.
+        var rng = new Random(42);
+        var breaker = new PollingCircuitBreaker(rng, baseOpenCooldown: TimeSpan.FromHours(24));
+        var scheduler = new PollScheduler(
+            windowStart: TimeSpan.Zero,
+            windowEnd: new TimeSpan(23, 59, 59));
+
+        var (syncMock, provider) = CreateServiceProviderMock();
+        syncMock
+            .Setup(s => s.SincronizarDesdePortalApi(It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new SyncResult { Outcome = SyncOutcome.Ok, Stats = "3 rows imported" });
+
+        var logger = Mock.Of<ILogger<AutomatedReportService>>();
+        var config = Mock.Of<IConfiguration>();
+        var tracker = CreateTracker();
+
+        // Simulate prior suspicious empty
+        tracker.TripEmptyFailsafe();
+        tracker.EmptyFailsafeTripped.Should().BeTrue(
+            "pre-condition: flag must be true before the cycle");
+
+        var service = new AutomatedReportService(
+            logger, null!, config, provider, tracker,
+            scheduler, breaker,
+            windowStart: TimeSpan.Zero,
+            windowEnd: new TimeSpan(23, 59, 59)
+);
+
+        // Act
+        await service.RunOnePollCycleAsync();
+
+        // Assert — Ok outcome must call ResetEmptyFailsafe()
+        tracker.EmptyFailsafeTripped.Should().BeFalse(
+            "Ok outcome must reset the EmptyFailsafeTripped flag");
+        breaker.State.Should().Be(BreakerState.Closed);
+    }
+
     // ── Polling-loop tests (Unit 3) ──────────────────────────────────────────
 
     [Fact]
