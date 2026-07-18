@@ -231,6 +231,120 @@ public class StockoutMetricsCalculatorTests
         typeof(StockoutProductoDto).GetProperty("UnidadesNoAtendidasEstimadas")!.GetValue(product).Should().Be(0m);
     }
 
+    [Fact]
+    public void CalculateProductMachineStockouts_IsolatesMachinesAndDoesNotPoolTheirInventory()
+    {
+        var rows = StockoutMetricsCalculator.CalculateProductMachineStockouts(
+            [
+                ProductSlot(1, "Machine A", "1", 7, 5),
+                ProductSlot(2, "Machine B", "1", 7, 5)
+            ],
+            [
+                Sale(1, 7, "1", 1), Sale(1, 7, "1", 2), Sale(1, 7, "1", 3), Sale(1, 7, "1", 4), Sale(1, 7, "1", 5),
+                Sale(2, 7, "1", 1), Sale(2, 7, "1", 2), Sale(2, 7, "1", 3)
+            ], PeriodStart, ReportEnd);
+
+        rows.Should().HaveCount(2);
+        rows.Single(row => row.MaquinaId == 1).FechaAgotamientoEstimada.Should().Be(SaleTime(5));
+        rows.Single(row => row.MaquinaId == 2).FechaAgotamientoEstimada.Should().BeNull();
+        rows.Single(row => row.MaquinaId == 2).StockRestante.Should().Be(2);
+    }
+
+    [Fact]
+    public void CalculateProductMachineStockouts_UsesInterleavedSlotChronologyForExactDepletionBoundary()
+    {
+        var rows = StockoutMetricsCalculator.CalculateProductMachineStockouts(
+            [ProductSlot(1, "Machine A", "1", 7, 2), ProductSlot(1, "Machine A", "2", 7, 3)],
+            [Sale(1, 7, "2", 1), Sale(1, 7, "1", 2), Sale(1, 7, "2", 3), Sale(1, 7, "1", 4), Sale(1, 7, "2", 5)],
+            PeriodStart, ReportEnd);
+
+        var row = rows.Single();
+        row.CantidadVendidaTotal.Should().Be(5);
+        row.FechaAgotamientoEstimada.Should().Be(SaleTime(5));
+        row.HorasSinStock.Should().NotBeNull();
+        row.DineroPerdidoEstimado.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void CalculateProductMachineStockouts_CapsOversalesPerSlotAndKeepsPartialStateSeparate()
+    {
+        var rows = StockoutMetricsCalculator.CalculateProductMachineStockouts(
+            [ProductSlot(1, "Machine A", "1", 7, 2), ProductSlot(1, "Machine A", "2", 7, 3)],
+            [Sale(1, 7, "1", 1), Sale(1, 7, "1", 2), Sale(1, 7, "1", 3), Sale(1, 7, "1", 4)],
+            PeriodStart, ReportEnd);
+
+        var row = rows.Single();
+        row.CantidadVendidaTotal.Should().Be(2, "oversales in slot 1 cannot consume slot 2 stock");
+        row.StockRestante.Should().Be(3);
+        row.SlotsParcialmenteAgotados.Should().Equal("1");
+        row.FechaAgotamientoEstimada.Should().BeNull();
+        row.HorasSinStock.Should().BeNull();
+        row.UnidadesNoAtendidasEstimadas.Should().BeNull();
+        row.DineroPerdidoEstimado.Should().BeNull();
+    }
+
+    [Fact]
+    public void CalculateProductMachineStockouts_ExcludesUnreliableSlotsAndDoesNotInferDepletionWithoutChronology()
+    {
+        var rows = StockoutMetricsCalculator.CalculateProductMachineStockouts(
+            [
+                ProductSlot(1, "Machine A", "1", 7, 5, reportedSold: 5),
+                ProductSlot(1, "Machine A", "2", 7, 5, StockoutQualityFlags.MissingSnapshot),
+                ProductSlot(1, "Machine A", "3", 7, 0)
+            ],
+            [], PeriodStart, ReportEnd);
+
+        var row = rows.Single();
+        row.CantidadSlotsElegibles.Should().Be(1);
+        row.CantidadSlotsExcluidos.Should().Be(2);
+        row.StockInicialTotal.Should().Be(5);
+        row.TieneDatosNoConfiables.Should().BeTrue();
+        row.TieneEvidenciaCronologicaIncompleta.Should().BeTrue();
+        row.FechaAgotamientoEstimada.Should().BeNull();
+        row.DineroPerdidoEstimado.Should().BeNull();
+    }
+
+    [Fact]
+    public void StockoutDashboardAnalysisDto_ExposesSlotAndMachineProductCollections()
+    {
+        var bundle = new StockoutDashboardAnalysisDto
+        {
+            Slots = [ProductSlot(1, "Machine A", "1", 7, 5)],
+            ProductosMaquina = [new StockoutProductoMaquinaDto { MaquinaId = 1, ProductoId = 7, StockInicialTotal = 5 }]
+        };
+
+        bundle.Slots.Should().ContainSingle(slot => slot.NumeroSlot == "1");
+        bundle.ProductosMaquina.Should().ContainSingle(row => row.StockRestante == 5);
+    }
+
+    private static readonly DateTime PeriodStart = new(2026, 7, 10, 8, 0, 0);
+    private static readonly DateTime ReportEnd = new(2026, 7, 10, 18, 0, 0);
+
+    private static StockoutAnalysisDto ProductSlot(int machineId, string machine, string slot, int productId, int initialStock,
+        StockoutQualityFlags qualityFlags = StockoutQualityFlags.None, int reportedSold = 0) => new()
+        {
+            MaquinaId = machineId,
+            MaquinaNombre = machine,
+            NumeroSlot = slot,
+            ProductoId = productId,
+            ProductoNombre = $"Product {productId}",
+            StockInicial = initialStock,
+            CantidadVendida = reportedSold,
+            QualityFlags = qualityFlags
+        };
+
+    private static StockoutProductoMaquinaVentaDto Sale(int machineId, int productId, string slot, int hour)
+        => new()
+        {
+            MaquinaId = machineId,
+            ProductoId = productId,
+            NumeroSlot = slot,
+            FechaLocal = SaleTime(hour),
+            VentaId = hour
+        };
+
+    private static DateTime SaleTime(int hour) => PeriodStart.AddHours(hour);
+
     private static StockoutAnalysisDto Slot(
         int productId,
         string machine,

@@ -74,6 +74,103 @@ public static class StockoutMetricsCalculator
 
     public static decimal MoneyClp(decimal amount) => Math.Round(amount, 0, MidpointRounding.AwayFromZero);
 
+    public static List<StockoutProductoMaquinaDto> CalculateProductMachineStockouts(
+        IEnumerable<StockoutAnalysisDto> slots,
+        IEnumerable<StockoutProductoMaquinaVentaDto> sales,
+        DateTime observationStart,
+        DateTime reportEnd)
+    {
+        var saleEvidence = sales.ToList();
+        return slots
+            .Where(slot => slot.ProductoId is > 0)
+            .GroupBy(slot => new ProductMachineKey(slot.MaquinaId, slot.ProductoId!.Value))
+            .OrderBy(group => group.Key.MaquinaId)
+            .ThenBy(group => group.Key.ProductoId)
+            .Select(group => CalculateProductMachineStockout(group.Key, group.ToList(), saleEvidence, observationStart, reportEnd))
+            .ToList();
+    }
+
+    private static StockoutProductoMaquinaDto CalculateProductMachineStockout(
+        ProductMachineKey key,
+        List<StockoutAnalysisDto> allSlots,
+        List<StockoutProductoMaquinaVentaDto> sales,
+        DateTime observationStart,
+        DateTime reportEnd)
+    {
+        var eligibleSlots = allSlots
+            .Where(slot => slot.StockInicial > 0 && !slot.QualityFlags.HasFlag(StockoutQualityFlags.MissingSnapshot))
+            .OrderBy(slot => SlotOrder(slot.NumeroSlot))
+            .ThenBy(slot => slot.NumeroSlot, StringComparer.Ordinal)
+            .ToList();
+        var slotLoads = eligibleSlots.ToDictionary(slot => slot.NumeroSlot, slot => slot.StockInicial, StringComparer.Ordinal);
+        var consumedBySlot = slotLoads.Keys.ToDictionary(slot => slot, _ => 0, StringComparer.Ordinal);
+        var totalStock = slotLoads.Values.Sum();
+        var consumedTotal = 0;
+        var orderedSales = sales
+            .Where(sale => sale.MaquinaId == key.MaquinaId && sale.ProductoId == key.ProductoId && slotLoads.ContainsKey(sale.NumeroSlot))
+            .OrderBy(sale => sale.FechaLocal)
+            .ThenBy(sale => SlotOrder(sale.NumeroSlot))
+            .ThenBy(sale => sale.NumeroSlot, StringComparer.Ordinal)
+            .ThenBy(sale => sale.VentaId)
+            .ToList();
+
+        DateTime? depletion = null;
+        var consumedSales = new List<StockoutProductoMaquinaVentaDto>();
+        foreach (var sale in orderedSales)
+        {
+            if (consumedBySlot[sale.NumeroSlot] >= slotLoads[sale.NumeroSlot])
+                continue;
+
+            consumedBySlot[sale.NumeroSlot]++;
+            consumedTotal++;
+            consumedSales.Add(sale);
+            if (consumedTotal == totalStock)
+                depletion = sale.FechaLocal;
+        }
+
+        var isDepleted = totalStock > 0 && depletion.HasValue;
+        var row = new StockoutProductoMaquinaDto
+        {
+            MaquinaId = key.MaquinaId,
+            MaquinaNombre = allSlots.OrderBy(slot => slot.MaquinaNombre, StringComparer.Ordinal).First().MaquinaNombre,
+            ProductoId = key.ProductoId,
+            ProductoNombre = allSlots.OrderBy(slot => slot.ProductoNombre, StringComparer.Ordinal).First().ProductoNombre,
+            CantidadSlotsElegibles = eligibleSlots.Count,
+            CantidadSlotsExcluidos = allSlots.Count - eligibleSlots.Count,
+            StockInicialTotal = totalStock,
+            CantidadVendidaTotal = consumedTotal,
+            SlotsParcialmenteAgotados = isDepleted
+                ? []
+                : eligibleSlots.Where(slot => consumedBySlot[slot.NumeroSlot] == slot.StockInicial).Select(slot => slot.NumeroSlot).ToList(),
+            TieneDatosNoConfiables = allSlots.Count != eligibleSlots.Count,
+            TieneEvidenciaCronologicaIncompleta = totalStock > 0 && !isDepleted,
+            TieneAnomalias = orderedSales.Count > consumedSales.Count
+        };
+
+        if (!isDepleted)
+            return row;
+
+        var depletionTime = depletion!.Value;
+        var firstPostDepletionSale = orderedSales.FirstOrDefault(sale => sale.FechaLocal > depletionTime)?.FechaLocal;
+        var operatingSales = consumedSales.Count(sale => sale.FechaLocal <= depletionTime && HorarioOperativoHelper.EsHoraOperativa(sale.FechaLocal));
+        var exposure = HorarioOperativoHelper.HorasEnRangoOperativo(observationStart, depletionTime);
+        var velocity = operatingSales / (decimal)Math.Max(exposure, 1d);
+        var preDepletionSales = consumedSales.Where(sale => sale.FechaLocal <= depletionTime).ToList();
+        var averagePrice = preDepletionSales.Count == 0 ? 0m : preDepletionSales.Average(sale => sale.PrecioVenta);
+        var averageMargin = preDepletionSales.Count == 0 ? 0m : preDepletionSales.Average(sale => sale.GananciaUnitaria);
+        var loss = CalculateConservativeLoss(velocity, depletionTime, firstPostDepletionSale, reportEnd, averagePrice, averageMargin);
+
+        row.FechaAgotamientoEstimada = depletion;
+        row.HorasSinStock = loss.HorasOperativas;
+        row.VelocidadPorHora = velocity;
+        row.UnidadesNoAtendidasEstimadas = loss.UnidadesNoAtendidasEstimadas;
+        row.DineroPerdidoEstimado = loss.DineroPerdidoEstimado;
+        row.GananciaPerdidaEstimada = loss.GananciaPerdidaEstimada;
+        row.TieneAnomalias |= firstPostDepletionSale.HasValue;
+        row.TieneEvidenciaCronologicaIncompleta = false;
+        return row;
+    }
+
     public static List<StockoutProductoDto> AggregateByProduct(IEnumerable<StockoutAnalysisDto> slots)
         => slots
             .GroupBy(slot => new ProductKey(slot.ProductoId, slot.ProductoNombre))
@@ -185,7 +282,10 @@ public static class StockoutMetricsCalculator
         return values.Count == 0 ? null : values.Max();
     }
 
+    private static int SlotOrder(string slot) => int.TryParse(slot, out var value) ? value : int.MaxValue;
+
     private sealed record ProductKey(int? ProductoId, string ProductoNombre);
+    private sealed record ProductMachineKey(int MaquinaId, int ProductoId);
 }
 
 public sealed record StockoutLossMetrics(
