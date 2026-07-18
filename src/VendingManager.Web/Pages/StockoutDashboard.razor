@@ -11,7 +11,7 @@
    El diseño no tiene botón "Analizar": elegir un template dispara el análisis.
    Data real: cableada al backend vía el partial StockoutDashboard.razor.cs
    (HttpClient + stockout-analysis / TemplateRecarga/{id}/analyze). Un adapter
-   en el code-behind mapea Datos/DatosAgrupados a los view-models del markup.
+    en el code-behind mapea slots y filas producto-máquina a los view-models del markup.
    ============================================================================= *@
 
 <PageTitle>Quiebres de Stock</PageTitle>
@@ -232,9 +232,18 @@
                                         case "alerta":
                                             <span style="display:inline-block;background:var(--signal-warning);color:var(--ink-900);font-family:var(--font-mono);font-weight:700;font-size:0.58rem;text-transform:uppercase;letter-spacing:0.4px;padding:3px 7px;">Alerta</span>
                                             break;
-                                        case "dead":
-                                            <span style="display:inline-block;background:var(--ink-500);color:#fff;font-family:var(--font-mono);font-weight:700;font-size:0.58rem;text-transform:uppercase;letter-spacing:0.4px;padding:3px 7px;">Dead slot</span>
-                                            break;
+                                         case "dead":
+                                             <span style="display:inline-block;background:var(--ink-500);color:#fff;font-family:var(--font-mono);font-weight:700;font-size:0.58rem;text-transform:uppercase;letter-spacing:0.4px;padding:3px 7px;">Dead slot</span>
+                                             break;
+                                         case "agotado":
+                                             <span style="display:inline-block;background:var(--signal-danger);color:#fff;font-family:var(--font-mono);font-weight:700;font-size:0.58rem;text-transform:uppercase;letter-spacing:0.4px;padding:3px 7px;">Agotado</span>
+                                             break;
+                                         case "parcial":
+                                             <span style="display:inline-block;background:var(--signal-warning);color:var(--ink-900);font-family:var(--font-mono);font-weight:700;font-size:0.58rem;text-transform:uppercase;letter-spacing:0.4px;padding:3px 7px;">Quiebre parcial</span>
+                                             break;
+                                         case "noconfiable":
+                                             <span style="display:inline-block;background:var(--ink-500);color:#fff;font-family:var(--font-mono);font-weight:700;font-size:0.58rem;text-transform:uppercase;letter-spacing:0.4px;padding:3px 7px;">Datos no confiables</span>
+                                             break;
                                     }
                                 </td>
                             </tr>

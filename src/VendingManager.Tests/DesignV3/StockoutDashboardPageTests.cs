@@ -40,91 +40,82 @@ public class StockoutDashboardPageTests : TestContext
     }
 
     [Fact]
-    public void LoadedRows_ComeFromEndpoints_NotFromTemplateMock()
+    public void ProductMachineRows_KeepMachinesIndependentAndDoNotShowLossBeforeDepletion()
     {
-        _mockHandler.AnalyzePayload = OneCriticalSlotJson();
+        _mockHandler.V2AnalyzePayload = ProductMachineBundleJson();
         NavigateTo("stockout-dashboard?templateId=1");
 
         var cut = RenderComponent<StockoutDashboard>();
 
         cut.WaitForAssertion(() =>
         {
-            cut.Markup.Should().Contain("PRODUCTO ENDPOINT TEST");
-        });
-
-        // The template mock array must be gone from the wired component.
-        cut.Markup.Should().NotContain("Coca Cola 580cc");
-        cut.Markup.Should().NotContain("Score Gorila");
-    }
-
-    [Fact]
-    public void Kpis_ReflectMockedDtoValues()
-    {
-        _mockHandler.AnalyzePayload = OneCriticalSlotJson();
-        NavigateTo("stockout-dashboard?templateId=1");
-
-        var cut = RenderComponent<StockoutDashboard>();
-
-        cut.WaitForAssertion(() =>
-        {
-            // Midpoint CLP amounts use AwayFromZero at presentation.
-            cut.Markup.Should().Contain("$5.001");
-            cut.Markup.Should().Contain("$12.001");
+            cut.Markup.Should().Contain("COCA COLA");
+            cut.Markup.Should().Contain("MÁQUINA NORTE");
+            cut.Markup.Should().Contain("MÁQUINA SUR");
+            cut.FindAll("tr").Select(row => row.TextContent).Should().Contain(text => text.Contains("6/20"));
+            cut.Markup.Should().Contain("Quiebre parcial");
+            var northCocaRow = cut.FindAll("tr").Single(row => row.TextContent.Contains("MÁQUINA NORTE") && row.TextContent.Contains("COCA COLA"));
+            northCocaRow.TextContent.Should().NotContain("Agotado");
+            northCocaRow.TextContent.Should().NotContain("$12.000");
         });
     }
 
     [Fact]
-    public void ProductWithRemainingStock_PreservesDepletedSlotLoss()
+    public void ProductMachineRows_ShowDepletedAndUnreliableLabelsAndKeepUnreliableSlotsLastInDetail()
     {
-        // A product can retain stock in one slot while customers at another machine/slot
-        // already encounter a stockout. Grouping must preserve that depleted-slot loss.
-        _mockHandler.AnalyzePayload = ProductAcrossTwoSlotsWithLeftoverJson();
+        _mockHandler.V2AnalyzePayload = ProductMachineBundleJson();
         NavigateTo("stockout-dashboard?templateId=1");
 
         var cut = RenderComponent<StockoutDashboard>();
 
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("MÁQUINA SUR"));
+
+        cut.Markup.Should().Contain("Agotado");
+        cut.Markup.Should().Contain("Datos no confiables");
+
+        cut.FindAll("button").First(button => button.TextContent.Contains("Solo quiebres")).Click();
+        cut.FindAll("button").First(button => button.TextContent.Contains("Agrupar por producto")).Click();
+
         cut.WaitForAssertion(() =>
         {
-            cut.Markup.Should().Contain("PRODUCTO ENDPOINT TEST");
-            cut.Markup.Should().Contain("$8.000");
+            var markup = cut.Markup;
+            markup.IndexOf("SLOT ELEGIBLE", StringComparison.Ordinal)
+                .Should().BeLessThan(markup.IndexOf("SLOT NO CONFIABLE", StringComparison.Ordinal));
+            markup.Should().Contain("MÁQUINA NORTE · A2");
         });
     }
 
     [Fact]
-    public void TruthfulStockoutPresentation_ShowsDepletionQualityAndEstimatedVocabulary()
+    public void ProductMachineKpisAndCache_InvalidationFollowTheCurrentV2Bundle()
     {
-        _mockHandler.AnalyzePayload = OneCriticalSlotJson();
+        _mockHandler.V2AnalyzePayload = ProductMachineBundleJson();
         NavigateTo("stockout-dashboard?templateId=1");
 
         var cut = RenderComponent<StockoutDashboard>();
 
         cut.WaitForAssertion(() =>
         {
-            cut.Markup.Should().Contain("Agot. est.");
-            cut.Markup.Should().Contain("20/06 10:00");
-            cut.Markup.Should().Contain("Evidencia últ. venta: 22/06 14:20");
-            cut.Markup.Should().Contain("Horario asumido: 08:00–22:00 · confianza disponible por slot");
-            cut.Markup.Should().Contain("Venta posterior: posible recarga no registrada o inconsistencia de datos.");
-            cut.Markup.Should().Contain("Unidades no atendidas est.: 20");
-            cut.Markup.Should().Contain("margen bruto est.: $5.001");
-            cut.Markup.Should().Contain("Ingreso bruto no realizado est.");
-            cut.Markup.Should().Contain("7,5");
+            cut.Markup.Should().Contain("$12.000");
+            cut.Markup.Should().Contain("COCA COLA · MÁQUINA SUR");
         });
+
+        cut.Find("input[type=number]").Change("36");
+
+        cut.WaitForAssertion(() => _mockHandler.V2AnalyzeRequestCount.Should().Be(2));
     }
 
     [Fact]
-    public void GroupedPresentation_ShowsPartialMachinesWithoutPostDepletionWarning()
+    public void SelectingProductMachine_FocusesThatMachineInsteadOfWorstLossFallback()
     {
-        _mockHandler.AnalyzePayload = ProductAcrossTwoSlotsWithLeftoverJson();
+        _mockHandler.V2AnalyzePayload = ProductMachineBundleJson();
         NavigateTo("stockout-dashboard?templateId=1");
 
         var cut = RenderComponent<StockoutDashboard>();
 
-        cut.WaitForAssertion(() =>
-        {
-            cut.Markup.Should().Contain("1/2 máq agot. · MAQUINA ENDPOINT");
-            cut.Markup.Should().NotContain("Venta posterior: posible recarga no registrada o inconsistencia de datos.");
-        });
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("MÁQUINA SUR"));
+        cut.FindAll("select").Last().Change("MÁQUINA NORTE · COCA COLA");
+
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("MÁQ MÁQUINA NORTE"));
     }
 
     [Fact]
@@ -287,9 +278,30 @@ public class StockoutDashboardPageTests : TestContext
         return JsonSerializer.Serialize(payload);
     }
 
+    private static string ProductMachineBundleJson()
+    {
+        var slots = new object[]
+        {
+            new { MaquinaId = 7, MaquinaNombre = "MÁQUINA NORTE", ProductoId = 42, ProductoNombre = "COCA COLA", NumeroSlot = "A2", StockInicial = 10, StockActual = 0, CantidadVendida = 10, PosibleQuiebre = true, FechaAgotamientoEstimada = new DateTime(2026, 6, 20, 10, 0, 0) },
+            new { MaquinaId = 7, MaquinaNombre = "MÁQUINA NORTE", ProductoId = 42, ProductoNombre = "COCA COLA", NumeroSlot = "A3", StockInicial = 10, StockActual = 6, CantidadVendida = 4, PosibleQuiebre = false },
+            new { MaquinaId = 7, MaquinaNombre = "MÁQUINA NORTE", ProductoId = 99, ProductoNombre = "SLOT ELEGIBLE", NumeroSlot = "B1", StockInicial = 5, StockActual = 2, CantidadVendida = 3, PosibleQuiebre = false },
+            new { MaquinaId = 7, MaquinaNombre = "MÁQUINA NORTE", ProductoId = 100, ProductoNombre = "SLOT NO CONFIABLE", NumeroSlot = "B2", StockInicial = 0, StockActual = 0, CantidadVendida = 0, EsDeadSlot = true, QualityFlags = 1 },
+            new { MaquinaId = 8, MaquinaNombre = "MÁQUINA SUR", ProductoId = 42, ProductoNombre = "COCA COLA", NumeroSlot = "C1", StockInicial = 5, StockActual = 0, CantidadVendida = 5, PosibleQuiebre = true, FechaAgotamientoEstimada = new DateTime(2026, 6, 19, 10, 0, 0), GananciaPerdidaEstimada = 4000m }
+        };
+        var products = new object[]
+        {
+            new { MaquinaId = 7, MaquinaNombre = "MÁQUINA NORTE", ProductoId = 42, ProductoNombre = "COCA COLA", CantidadSlotsElegibles = 2, StockInicialTotal = 20, CantidadVendidaTotal = 14, SlotsParcialmenteAgotados = new[] { "A2" }, TieneEvidenciaCronologicaIncompleta = true },
+            new { MaquinaId = 8, MaquinaNombre = "MÁQUINA SUR", ProductoId = 42, ProductoNombre = "COCA COLA", CantidadSlotsElegibles = 1, StockInicialTotal = 5, CantidadVendidaTotal = 5, FechaAgotamientoEstimada = new DateTime(2026, 6, 19, 10, 0, 0), HorasSinStock = 48.0, VelocidadPorHora = 1m, DineroPerdidoEstimado = 12000m, GananciaPerdidaEstimada = 4000m, UnidadesNoAtendidasEstimadas = 10m },
+            new { MaquinaId = 7, MaquinaNombre = "MÁQUINA NORTE", ProductoId = 100, ProductoNombre = "SLOT NO CONFIABLE", TieneDatosNoConfiables = true, CantidadSlotsExcluidos = 1 }
+        };
+        return JsonSerializer.Serialize(new { Slots = slots, ProductosMaquina = products });
+    }
+
     private class StockoutMockHttpMessageHandler : HttpMessageHandler
     {
         public string AnalyzePayload { get; set; } = "[]";
+        public string V2AnalyzePayload { get; set; } = "{\"slots\":[],\"productosMaquina\":[]}";
+        public int V2AnalyzeRequestCount { get; private set; }
         public bool FailAnalyze { get; set; }
 
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
@@ -297,15 +309,20 @@ public class StockoutDashboardPageTests : TestContext
             var url = request.RequestUri?.ToString() ?? "";
             string json;
 
-            if (url.Contains("analyze"))
+            if (url.Contains("analyze") && FailAnalyze)
             {
-                if (FailAnalyze)
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.InternalServerError)
                 {
-                    return Task.FromResult(new HttpResponseMessage(HttpStatusCode.InternalServerError)
-                    {
-                        Content = new StringContent("boom")
-                    });
-                }
+                    Content = new StringContent("boom")
+                });
+            }
+            if (url.Contains("analyze-v2"))
+            {
+                V2AnalyzeRequestCount++;
+                json = V2AnalyzePayload;
+            }
+            else if (url.Contains("analyze"))
+            {
                 json = AnalyzePayload;
             }
             else if (url.Contains("lista-maquinas"))
