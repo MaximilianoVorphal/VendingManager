@@ -608,6 +608,12 @@ public class TemplateRecargaAnalyticsServiceTests : IDisposable
             "both slots share the same product and should use aggregated velocity");
         slot1.VelocidadPorHora.Should().BeGreaterThan(0,
             "aggregated velocity should be based on all 33 ventas");
+        slot1.OrigenVelocidad.Should().Be(VendingManager.Shared.DTOs.OrigenVelocidad.ProductoMaquina);
+        slot1.EsRepresentantePoolVelocidad.Should().BeTrue("lowest ordinal slot owns the shared pool evidence");
+        slot1.VentasOperativasPoolProductoMaquina.Should().Be(11, "only pre-depletion, in-schedule sales belong to pooled evidence");
+        slot2.IdPoolVelocidadProductoMaquina.Should().Be(slot1.IdPoolVelocidadProductoMaquina);
+        slot2.VentasOperativasPoolProductoMaquina.Should().BeNull("pooled evidence must not be repeated for siblings");
+        slot2.VelocidadObservadaSlotPorHora.Should().NotBe(slot2.VelocidadEfectivaPorHora);
     }
 
     /// <summary>
@@ -718,9 +724,9 @@ public class TemplateRecargaAnalyticsServiceTests : IDisposable
         _context.Productos.Add(producto);
         await _context.SaveChangesAsync();
 
-        // Recarga: Jan 1 at 08:00. Next recarga: Jan 2 at 09:00.
+        // Recarga: Jan 1 at 08:00. Next recarga: Jan 2 at 08:00.
         var fechaRecarga = new DateTime(2025, 1, 1, 8, 0, 0);
-        var siguienteRecarga = new DateTime(2025, 1, 2, 9, 0, 0);
+        var siguienteRecarga = new DateTime(2025, 1, 2, 8, 0, 0);
 
         var template = new TemplateRecarga
         {
@@ -761,14 +767,15 @@ public class TemplateRecargaAnalyticsServiceTests : IDisposable
         _context.TemplatesRecarga.Add(historico);
 
         // 3 ventas durante el día (10:00, 12:00, 14:00)
-        // 2 ventas a las 21:00 (las que vacían el slot)
+        // The final sale at closing time empties the slot; the rest of the
+        // report window is overnight and must not accrue an estimate.
         var ventaTimes = new[]
         {
             new DateTime(2025, 1, 1, 10, 0, 0),
             new DateTime(2025, 1, 1, 12, 0, 0),
             new DateTime(2025, 1, 1, 14, 0, 0),
             new DateTime(2025, 1, 1, 21, 0, 0), // 4th sale — leaves 1 remaining
-            new DateTime(2025, 1, 1, 21, 5, 0), // 5th sale — empties the slot at 21:05
+            new DateTime(2025, 1, 1, 22, 0, 0), // 5th sale — empties the slot at closing
         };
 
         foreach (var t in ventaTimes)
@@ -789,14 +796,11 @@ public class TemplateRecargaAnalyticsServiceTests : IDisposable
         var slot = result[0];
 
         slot.PosibleQuiebre.Should().BeTrue("5 ventas >= 5 unidades iniciales");
-        // Raw clock horasSinStock: from 21:05 Jan 1 to 09:00 Jan 2 = 11h55m
-        slot.HorasSinStock.Should().BeGreaterThan(10).And.BeLessThan(13);
+        // Raw clock horasSinStock: from 22:00 Jan 1 to 08:00 Jan 2 = 10h.
+        slot.HorasSinStock.Should().BeApproximately(10, 0.01);
 
-        // Pero la pérdida usa horas operativas: 21:05-22:00 (0h55m) + 08:00-09:00 (1h) ≈ 1h55m
-        slot.GananciaPerdidaEstimada.Should().BeGreaterThan(0,
-            "operating-hours adjusted loss should be non-zero but smaller than raw clock hours");
-        slot.GananciaPerdidaEstimada.Should().BeLessThan(700,
-            "raw clock calculation (~12h) would give ~2140; operating-hours gives much less");
+        slot.GananciaPerdidaEstimada.Should().Be(0,
+            "the 22:00–08:00 window contains no operating hours");
     }
 
     /// <summary>

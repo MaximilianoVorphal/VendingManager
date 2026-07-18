@@ -1,5 +1,17 @@
 namespace VendingManager.Shared.DTOs;
 
+[Flags]
+public enum StockoutQualityFlags
+{
+    None = 0,
+    MissingSnapshot = 1,
+    SparseVelocity = 2,
+    PostDepletionSales = 4
+}
+
+public enum EstimateConfidence { NotEstimable, Low, Medium }
+public enum OrigenVelocidad { Slot, ProductoMaquina }
+
 /// <summary>
 /// DTO para el análisis de quiebres de stock y costo de oportunidad.
 /// Representa datos calculados para cada combinación Máquina + Producto.
@@ -24,6 +36,18 @@ public class StockoutAnalysisDto
     /// <summary>Última venta del producto específico</summary>
     public DateTime? UltimaVenta { get; set; }
 
+    /// <summary>Venta que agotó el stock inicial estimado</summary>
+    public DateTime? FechaAgotamientoEstimada { get; set; }
+
+    /// <summary>Indica que se registraron ventas después del agotamiento estimado</summary>
+    public bool TieneVentasPosterioresAlAgotamiento { get; set; }
+
+    /// <summary>Primera venta que invalida una estimación posterior al agotamiento</summary>
+    public DateTime? PrimeraVentaPosteriorAlAgotamiento { get; set; }
+
+    /// <summary>Última venta registrada después del agotamiento estimado</summary>
+    public DateTime? UltimaVentaPosteriorAlAgotamiento { get; set; }
+
     /// <summary>Última venta de CUALQUIER producto en la máquina</summary>
     public DateTime UltimaActividadMaquina { get; set; }
 
@@ -42,8 +66,8 @@ public class StockoutAnalysisDto
     /// <summary>Horas desde última venta hasta fin del periodo (o última actividad máquina)</summary>
     public double HorasSinStock { get; set; }
 
-    /// <summary>Días sin stock (calculado sobre 14h operativas)</summary>
-    public double DiasSinStock => HorasSinStock / 14.0;
+    /// <summary>Días sin stock calculados desde horas de calendario</summary>
+    public double DiasSinStock => HorasSinStock / 24.0;
 
     // =============================================
     // VELOCIDAD REAL (basada en horas activas, NO días calendario)
@@ -69,11 +93,27 @@ public class StockoutAnalysisDto
     /// <summary>Horas entre primera y última venta del producto</summary>
     public double HorasActivas { get; set; }
 
-    /// <summary>Unidades vendidas por hora (Cantidad / HorasActivas)</summary>
-    public decimal VelocidadPorHora { get; set; }
+    /// <summary>Observed, slot-scoped pre-depletion velocity.</summary>
+    public decimal VelocidadObservadaSlotPorHora { get; set; }
+    /// <summary>Velocity used only for demand and loss estimates.</summary>
+    public decimal VelocidadEfectivaPorHora { get; set; }
+    public OrigenVelocidad OrigenVelocidad { get; set; }
+    public string? IdPoolVelocidadProductoMaquina { get; set; }
+    public bool EsRepresentantePoolVelocidad { get; set; }
+    public int? VentasOperativasPoolProductoMaquina { get; set; }
+    public double? HorasExposicionPoolProductoMaquina { get; set; }
+    [Obsolete("Use VelocidadEfectivaPorHora.")]
+    public decimal VelocidadPorHora { get => VelocidadEfectivaPorHora; set => VelocidadEfectivaPorHora = value; }
 
-    /// <summary>Unidades vendidas por día (VelocidadPorHora * horas operativas)</summary>
-    public decimal VelocidadDiaria => VelocidadPorHora * Helpers.HorarioOperativoHelper.HorasOperativasPorDia;
+    public int VentasOperativasObservadas { get; set; }
+    public double HorasExposicionOperativas { get; set; }
+    public StockoutQualityFlags QualityFlags { get; set; }
+    public EstimateConfidence EstimateConfidence { get; set; }
+
+    public decimal VelocidadEfectivaDiaria => VelocidadEfectivaPorHora * Helpers.HorarioOperativoHelper.HorasOperativasPorDia;
+    public decimal VelocidadObservadaSlotDiaria => VelocidadObservadaSlotPorHora * Helpers.HorarioOperativoHelper.HorasOperativasPorDia;
+    [Obsolete("Use VelocidadEfectivaDiaria.")]
+    public decimal VelocidadDiaria => VelocidadEfectivaDiaria;
 
     // =============================================
     // COSTO DE OPORTUNIDAD
@@ -89,6 +129,9 @@ public class StockoutAnalysisDto
 
     /// <summary>Ganancia estimada perdida = VelocidadPorHora * HorasSinStock * GananciaPromedio</summary>
     public decimal GananciaPerdidaEstimada { get; set; }
+
+    /// <summary>Unidades físicas estimadas no atendidas; no es un monto CLP.</summary>
+    public decimal UnidadesNoAtendidasEstimadas { get; set; }
 
     // =============================================
     // HELPERS PARA UI
@@ -163,6 +206,10 @@ public class StockoutSlotDto
     // =============================================
     public DateTime? PrimeraVenta { get; set; }
     public DateTime? UltimaVenta { get; set; }
+    public DateTime? FechaAgotamientoEstimada { get; set; }
+    public bool TieneVentasPosterioresAlAgotamiento { get; set; }
+    public DateTime? PrimeraVentaPosteriorAlAgotamiento { get; set; }
+    public DateTime? UltimaVentaPosteriorAlAgotamiento { get; set; }
     public DateTime UltimaActividadMaquina { get; set; }
     public DateTime FinReporte { get; set; }
 
@@ -178,7 +225,7 @@ public class StockoutSlotDto
     // =============================================
     public bool PosibleQuiebre { get; set; }
     public double HorasSinStock { get; set; }
-    public double DiasSinStock => HorasSinStock / 14.0;
+    public double DiasSinStock => HorasSinStock / 24.0;
 
     // =============================================
     // VELOCIDAD REAL
@@ -190,8 +237,23 @@ public class StockoutSlotDto
     public decimal? DiasHastaStockout { get; set; }
     public bool EsDeadSlot { get; set; }
     public double HorasActivas { get; set; }
-    public decimal VelocidadPorHora { get; set; }
-    public decimal VelocidadDiaria => VelocidadPorHora * 14;
+    public decimal VelocidadObservadaSlotPorHora { get; set; }
+    public decimal VelocidadEfectivaPorHora { get; set; }
+    public OrigenVelocidad OrigenVelocidad { get; set; }
+    public string? IdPoolVelocidadProductoMaquina { get; set; }
+    public bool EsRepresentantePoolVelocidad { get; set; }
+    public int? VentasOperativasPoolProductoMaquina { get; set; }
+    public double? HorasExposicionPoolProductoMaquina { get; set; }
+    [Obsolete("Use VelocidadEfectivaPorHora.")]
+    public decimal VelocidadPorHora { get => VelocidadEfectivaPorHora; set => VelocidadEfectivaPorHora = value; }
+    public int VentasOperativasObservadas { get; set; }
+    public double HorasExposicionOperativas { get; set; }
+    public StockoutQualityFlags QualityFlags { get; set; }
+    public EstimateConfidence EstimateConfidence { get; set; }
+    public decimal VelocidadEfectivaDiaria => VelocidadEfectivaPorHora * Helpers.HorarioOperativoHelper.HorasOperativasPorDia;
+    public decimal VelocidadObservadaSlotDiaria => VelocidadObservadaSlotPorHora * Helpers.HorarioOperativoHelper.HorasOperativasPorDia;
+    [Obsolete("Use VelocidadEfectivaDiaria.")]
+    public decimal VelocidadDiaria => VelocidadEfectivaDiaria;
 
     // =============================================
     // COSTO DE OPORTUNIDAD
@@ -200,6 +262,7 @@ public class StockoutSlotDto
     public decimal GananciaPromedio { get; set; }
     public decimal DineroPerdidoEstimado { get; set; }
     public decimal GananciaPerdidaEstimada { get; set; }
+    public decimal UnidadesNoAtendidasEstimadas { get; set; }
 
     // =============================================
     // HELPERS PARA UI

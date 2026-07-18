@@ -48,34 +48,11 @@ public class TemplateRecargaAnalyticsService : ITemplateRecargaAnalyticsService
         var maquinaIds = template.Periodos.Select(p => p.MaquinaId).ToHashSet();
         var crossTemplateLookup = await BuildCrossTemplateLookupAsync(maquinaIds);
 
-        // Pre-load ALL ventas across ALL machines in this template to compute
-        // per-machine product velocity (aggregated by slot, not per-slot)
-        // with operating-hours filter.
-        // Key: (MaquinaId, ProductoId) — velocity varies by machine location,
-        // not just by product. Same product in an office vs. a hospital sells differently.
         var todasLasVentas = await _context.Ventas
             .Include(v => v.Producto)
             .Where(v => maquinaIds.Contains(v.MaquinaId))
             .Where(v => v.IdOrdenMaquina != VentaConstants.TbExtra && v.IdOrdenMaquina != VentaConstants.TbSinVenta)
             .ToListAsync();
-
-        var velocidadPorProducto = todasLasVentas
-            .Where(v => v.ProductoId.HasValue && v.ProductoId > 0)
-            .GroupBy(v => (v.MaquinaId, ProductoId: v.ProductoId!.Value))
-            .ToDictionary(
-                g => g.Key,
-                g =>
-                {
-                    var ventasEnHorario = g.Where(v => HorarioOperativoHelper.EsHoraOperativa(v.FechaLocal)).ToList();
-                    if (ventasEnHorario.Count == 0) return 0m;
-
-                    var primera = ventasEnHorario.Min(v => v.FechaLocal);
-                    var ultima = ventasEnHorario.Max(v => v.FechaLocal);
-                    var horasActivas = HorasEnRangoOperativo(primera, ultima);
-                    if (horasActivas < 1) horasActivas = 1;
-
-                    return ventasEnHorario.Count / (decimal)horasActivas;
-                });
 
         foreach (var periodo in template.Periodos)
         {
@@ -84,14 +61,21 @@ public class TemplateRecargaAnalyticsService : ITemplateRecargaAnalyticsService
                 .GroupBy(s => s.ProductoId!.Value)
                 .ToDictionary(g => g.Key, g => g.Sum(s => s.CantidadInicial));
 
-            var fechaFin = await GetEndDateForPeriodoAsync(
-                periodo.MaquinaId, periodo.FechaRecarga, crossTemplateLookup);
+            var fechaFin = CapReportEnd(await GetEndDateForPeriodoAsync(
+                periodo.MaquinaId, periodo.FechaRecarga, crossTemplateLookup));
 
             var ventasMaquina = todasLasVentas
                 .Where(v => v.MaquinaId == periodo.MaquinaId
                          && v.FechaLocal >= periodo.FechaRecarga
                          && v.FechaLocal <= fechaFin)
                 .ToList();
+
+            var poolsPorProducto = ventasMaquina
+                .Where(v => v.ProductoId is > 0)
+                .GroupBy(v => v.ProductoId!.Value)
+                .ToDictionary(g => g.Key, g => CreatePreDepletionPool(
+                    periodo.MaquinaId, g.Key, periodo.FechaRecarga, fechaFin,
+                    periodo.SnapshotSlots, g.ToList()));
 
             var analisisMaquina = AnalizarMaquinaEnPeriodo(
                 periodo.MaquinaId,
@@ -102,7 +86,7 @@ public class TemplateRecargaAnalyticsService : ITemplateRecargaAnalyticsService
                 periodo.SnapshotSlots.ToList(),
                 snapshotPorProducto,
                 ventasMaquina,
-                velocidadPorProducto);
+                poolsPorProducto);
 
             result.AddRange(analisisMaquina);
         }
@@ -384,6 +368,34 @@ public class TemplateRecargaAnalyticsService : ITemplateRecargaAnalyticsService
     private static double HorasEnRangoOperativo(DateTime desde, DateTime hasta)
         => HorarioOperativoHelper.HorasEnRangoOperativo(desde, hasta);
 
+    private static DateTime CapReportEnd(DateTime requestedEnd)
+        => requestedEnd < DateTime.Now ? requestedEnd : DateTime.Now;
+
+    private static ProductMachineVelocityPool CreatePreDepletionPool(
+        int maquinaId,
+        int productoId,
+        DateTime observationStart,
+        DateTime reportEnd,
+        IEnumerable<SnapshotSlot> snapshotSlots,
+        List<Venta> productSales)
+    {
+        var preDepletionSales = snapshotSlots
+            .Where(slot => slot.ProductoId == productoId && slot.CantidadInicial > 0)
+            .SelectMany(slot => productSales
+                .Where(sale => sale.NumeroSlot == slot.NumeroSlot)
+                .OrderBy(sale => sale.FechaLocal)
+                .Take(slot.CantidadInicial))
+            .ToList();
+
+        var evidence = preDepletionSales.Count > 0 ? preDepletionSales : productSales;
+        var observationEnd = evidence.Count > 0
+            ? evidence.Max(sale => sale.FechaLocal)
+            : reportEnd;
+        return StockoutMetricsCalculator.CreateProductMachinePool(
+            maquinaId, productoId, observationStart, observationEnd,
+            evidence.Select(sale => sale.FechaLocal));
+    }
+
     private async Task<DateTime> GetEndDateForPeriodoAsync(
         int maquinaId,
         DateTime fechaRecarga,
@@ -415,7 +427,7 @@ public class TemplateRecargaAnalyticsService : ITemplateRecargaAnalyticsService
         List<SnapshotSlot> snapshotSlots,
         Dictionary<int, int>? snapshotPorProducto,
         List<Venta> ventasMaquina,
-        Dictionary<(int maquinaId, int productoId), decimal>? velocidadPorProducto = null)
+        Dictionary<int, ProductMachineVelocityPool>? poolsPorProducto = null)
     {
         var ventas = ventasMaquina
             .Where(v => v.FechaLocal >= inicio && v.FechaLocal <= fin)
@@ -486,48 +498,40 @@ public class TemplateRecargaAnalyticsService : ITemplateRecargaAnalyticsService
 
             if (horasSinStock < 0) horasSinStock = 0;
 
-            double horasActivas = (fechaAgotamiento - inicio).TotalHours;
-            if (horasActivas < 1) horasActivas = 1;
+            var primeraVentaPosterior = posibleQuiebre && cantidadVendida > cantidadInicial
+                ? ventasSlot[cantidadInicial].FechaLocal
+                : (DateTime?)null;
+            var ultimaVentaPosterior = posibleQuiebre && cantidadVendida > cantidadInicial
+                ? ventasSlot.Last().FechaLocal
+                : (DateTime?)null;
+            var slotVelocity = StockoutMetricsCalculator.CalculateSlotVelocity(
+                ventasSlot.Select(venta => venta.FechaLocal), inicio,
+                posibleQuiebre ? fechaAgotamiento : null, fin);
+            double horasActivas = Math.Max(slotVelocity.HorasExposicionOperativas, 1);
+            decimal velocidadPorHora = slotVelocity.VelocidadPorHora;
 
-            decimal velocidadPorHora = cantidadVendida / (decimal)horasActivas;
-
-            // Resolve effective velocity: product-level aggregate when available,
-            // fall back to per-slot velocity otherwise.
-            decimal velocidadEfectiva = velocidadPorHora;
-            if (velocidadPorProducto != null
-                && productoId > 0
-                && velocidadPorProducto.TryGetValue((maquinaId, productoId), out var vp)
-                && vp > 0)
-            {
-                velocidadEfectiva = vp;
-            }
+            ProductMachineVelocityPool? pool = null;
+            poolsPorProducto?.TryGetValue(productoId, out pool);
+            var selection = StockoutMetricsCalculator.SelectEffectiveVelocity(
+                productoId, cantidadVendida == 0, slotVelocity, pool);
+            decimal velocidadEfectiva = selection.VelocidadEfectivaPorHora;
 
             decimal dineroPerdido = 0;
             decimal gananciaPerdida = 0;
+            decimal unidadesNoAtendidas = 0;
 
-            // Use product-level velocity when available — aggregates across all machines
-            // and filters to operating hours (08:00–22:00) for a more robust estimate.
-            // horasSinStock is also adjusted to operating hours for consistency.
             if (posibleQuiebre && horasSinStock > 0 && precioPromedio > 0)
             {
-                if (velocidadEfectiva != velocidadPorHora && velocidadPorProducto != null
-                    && productoId > 0
-                    && velocidadPorProducto.TryGetValue((maquinaId, productoId), out var vpLoss)
-                    && vpLoss > 0)
-                {
-                    double horasSinStockOperativas = HorasEnRangoOperativo(fechaAgotamiento, fin);
-                    if (horasSinStockOperativas < 0) horasSinStockOperativas = 0;
-
-                    dineroPerdido = vpLoss * (decimal)horasSinStockOperativas * precioPromedio;
-                    gananciaPerdida = vpLoss * (decimal)horasSinStockOperativas * gananciaPromedio;
-                }
-                else
-                {
-                    // Fallback: per-slot velocity with raw clock hours
-                    dineroPerdido = velocidadPorHora * (decimal)horasSinStock * precioPromedio;
-                    gananciaPerdida = velocidadPorHora * (decimal)horasSinStock * gananciaPromedio;
-                }
+                var loss = StockoutMetricsCalculator.CalculateConservativeLoss(
+                    velocidadEfectiva, fechaAgotamiento, primeraVentaPosterior, fin,
+                    precioPromedio, gananciaPromedio);
+                dineroPerdido = loss.DineroPerdidoEstimado;
+                gananciaPerdida = loss.GananciaPerdidaEstimada;
+                unidadesNoAtendidas = loss.UnidadesNoAtendidasEstimadas;
             }
+
+            var qualityFlags = StockoutMetricsCalculator.CalculateQualityFlags(
+                cantidadInicial, slotVelocity.HorasExposicionOperativas, primeraVentaPosterior.HasValue);
 
             result.Add(new StockoutAnalysisDto
             {
@@ -538,6 +542,10 @@ public class TemplateRecargaAnalyticsService : ITemplateRecargaAnalyticsService
                 NumeroSlot = slot.NumeroSlot,
                 PrimeraVenta = primeraVenta,
                 UltimaVenta = ultimaVenta,
+                FechaAgotamientoEstimada = posibleQuiebre ? fechaAgotamiento : null,
+                TieneVentasPosterioresAlAgotamiento = primeraVentaPosterior.HasValue,
+                PrimeraVentaPosteriorAlAgotamiento = primeraVentaPosterior,
+                UltimaVentaPosteriorAlAgotamiento = ultimaVentaPosterior,
                 UltimaActividadMaquina = ultimaActividadMaquina,
                 FinReporte = fin,
                 FechasVentas = ventasSlot.Select(v => v.FechaLocal).ToList(),
@@ -545,13 +553,37 @@ public class TemplateRecargaAnalyticsService : ITemplateRecargaAnalyticsService
                 HorasSinStock = horasSinStock,
                 StockInicial = cantidadInicial,
                 CantidadVendida = cantidadVendida,
+                EsDeadSlot = cantidadVendida == 0,
                 HorasActivas = horasActivas,
-                VelocidadPorHora = Math.Round(velocidadEfectiva, 4),
-                PrecioPromedioVenta = Math.Round(precioPromedio, 0),
-                GananciaPromedio = Math.Round(gananciaPromedio, 0),
-                DineroPerdidoEstimado = Math.Round(dineroPerdido, 0),
-                GananciaPerdidaEstimada = Math.Round(gananciaPerdida, 0),
+                VelocidadObservadaSlotPorHora = velocidadPorHora,
+                VelocidadEfectivaPorHora = velocidadEfectiva,
+                OrigenVelocidad = selection.OrigenVelocidad,
+                VentasOperativasObservadas = slotVelocity.VentasOperativasObservadas,
+                HorasExposicionOperativas = slotVelocity.HorasExposicionOperativas,
+                QualityFlags = qualityFlags,
+                EstimateConfidence = StockoutMetricsCalculator.CalculateEstimateConfidence(qualityFlags, cantidadVendida == 0),
+                PrecioPromedioVenta = precioPromedio,
+                GananciaPromedio = gananciaPromedio,
+                DineroPerdidoEstimado = dineroPerdido,
+                GananciaPerdidaEstimada = gananciaPerdida,
+                UnidadesNoAtendidasEstimadas = unidadesNoAtendidas,
             });
+        }
+
+        foreach (var productGroup in result.Where(slot => slot.OrigenVelocidad == OrigenVelocidad.ProductoMaquina)
+                     .GroupBy(slot => slot.ProductoId))
+        {
+            if (productGroup.Key is not { } productId || !poolsPorProducto!.TryGetValue(productId, out var pool))
+                continue;
+
+            var representative = productGroup.OrderBy(slot => SlotOrdinal(slot.NumeroSlot)).ThenBy(slot => slot.NumeroSlot, StringComparer.Ordinal).First();
+            foreach (var slot in productGroup)
+            {
+                slot.IdPoolVelocidadProductoMaquina = pool.Id;
+                slot.EsRepresentantePoolVelocidad = ReferenceEquals(slot, representative);
+            }
+            representative.VentasOperativasPoolProductoMaquina = pool.VentasOperativas;
+            representative.HorasExposicionPoolProductoMaquina = pool.HorasExposicionOperativas;
         }
 
         var ventasPendientes = ventas.Where(v => v.ProductoId == null).ToList();
@@ -578,4 +610,7 @@ public class TemplateRecargaAnalyticsService : ITemplateRecargaAnalyticsService
 
         return result;
     }
+
+    private static int SlotOrdinal(string numeroSlot)
+        => int.TryParse(numeroSlot, out var ordinal) ? ordinal : int.MaxValue;
 }

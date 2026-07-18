@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 using VendingManager.Shared.DTOs;
+using VendingManager.Shared.Helpers;
 using VendingManager.Web.Shared;
 
 namespace VendingManager.Web.Pages
@@ -87,85 +88,7 @@ namespace VendingManager.Web.Pages
                     .ToList();
                 if (baseDatos.Count == 0) return _agrupadosCache = new();
 
-                _agrupadosCache = baseDatos
-                    .GroupBy(d => new { d.ProductoId, d.ProductoNombre })
-                    .Select(g =>
-                    {
-                        var todasFechasVentas = g.SelectMany(d => d.FechasVentas).OrderBy(f => f).ToList();
-                        var stockTotal = g.Sum(d => d.StockInicial);
-                        var vendidoTotal = g.Sum(d => d.CantidadVendida);
-                        var finPeriodo = g.Max(d => d.FinReporte);
-                        var primeraVenta = g.Min(d => d.PrimeraVenta);
-                        var ultimaVenta = g.Max(d => d.UltimaVenta);
-
-                        var posibleQuiebre = stockTotal > 0 && vendidoTotal >= stockTotal;
-
-                        bool tieneTimeline = vendidoTotal > 0 && todasFechasVentas.Count == vendidoTotal;
-
-                        double horasSinStock;
-                        decimal dineroPerdido, gananciaPerdida, velocidadDiaria;
-
-                        if (tieneTimeline)
-                        {
-                            var fechaAgotamiento = posibleQuiebre
-                                ? todasFechasVentas[stockTotal - 1]
-                                : (DateTime?)null;
-                            horasSinStock = fechaAgotamiento.HasValue
-                                ? Math.Max(0, (finPeriodo - fechaAgotamiento.Value).TotalHours)
-                                : 0;
-
-                            var conVenta = g.Where(d => d.CantidadVendida > 0).ToList();
-                            var unidades = conVenta.Sum(d => d.CantidadVendida);
-                            decimal precioPromedio = unidades > 0
-                                ? conVenta.Sum(d => d.PrecioPromedioVenta * d.CantidadVendida) / unidades
-                                : 0;
-                            decimal gananciaPromedio = unidades > 0
-                                ? conVenta.Sum(d => d.GananciaPromedio * d.CantidadVendida) / unidades
-                                : 0;
-
-                            var finVentana = fechaAgotamiento ?? ultimaVenta;
-                            double horasActivas = (primeraVenta.HasValue && finVentana.HasValue)
-                                ? Math.Max(1, (finVentana.Value - primeraVenta.Value).TotalHours)
-                                : 1;
-                            decimal velocidadPorHora = vendidoTotal / (decimal)horasActivas;
-                            velocidadDiaria = Math.Round(velocidadPorHora * 24, 1);
-
-                            if (posibleQuiebre && horasSinStock > 0 && precioPromedio > 0)
-                            {
-                                dineroPerdido = Math.Round(velocidadPorHora * (decimal)horasSinStock * precioPromedio, 0);
-                                gananciaPerdida = Math.Round(velocidadPorHora * (decimal)horasSinStock * gananciaPromedio, 0);
-                            }
-                            else
-                            {
-                                dineroPerdido = 0;
-                                gananciaPerdida = 0;
-                            }
-                        }
-                        else
-                        {
-                            horasSinStock = posibleQuiebre ? g.Max(d => d.HorasSinStock) : 0;
-                            dineroPerdido = g.Sum(d => d.DineroPerdidoEstimado);
-                            gananciaPerdida = g.Sum(d => d.GananciaPerdidaEstimada);
-                            velocidadDiaria = Math.Round(g.Average(d => d.VelocidadDiaria), 1);
-                        }
-
-                        return new StockoutProductoDto
-                        {
-                            ProductoId = g.Key.ProductoId,
-                            ProductoNombre = g.Key.ProductoNombre,
-                            CantidadTotalSlots = g.Count(),
-                            StockInicialTotal = stockTotal,
-                            CantidadVendidaTotal = vendidoTotal,
-                            PrimeraVenta = primeraVenta,
-                            UltimaVenta = ultimaVenta,
-                            HorasSinStock = horasSinStock,
-                            DineroPerdidoEstimado = dineroPerdido,
-                            GananciaPerdidaEstimada = gananciaPerdida,
-                            VelocidadDiaria = velocidadDiaria,
-                            PosibleQuiebre = posibleQuiebre,
-                            Maquinas = g.Select(d => d.MaquinaNombre).Distinct().ToList()
-                        };
-                    })
+                _agrupadosCache = StockoutMetricsCalculator.AggregateByProduct(baseDatos)
                     .Where(p => !SoloConQuiebre || soloDeadSlots || p.PosibleQuiebre)
                     .OrderByDescending(p => p.GananciaPerdidaEstimada)
                     .ToList();
@@ -317,11 +240,14 @@ namespace VendingManager.Web.Pages
         // Format (es-CL: dot thousands separator, matches the template)
         private static readonly System.Globalization.NumberFormatInfo Nfi =
             new() { NumberGroupSeparator = ".", NumberDecimalDigits = 0 };
-        private static string Money(decimal n) => "$" + Math.Round(n).ToString("N0", Nfi);
-        private static string FmtFecha(DateTime? dt) => dt.HasValue ? dt.Value.ToString("dd/MM HH:mm") : "—";
+        private static readonly System.Globalization.CultureInfo ChileanCulture = new("es-CL");
+        private static string Money(decimal n) => "$" + StockoutMetricsCalculator.MoneyClp(n).ToString("N0", Nfi);
+        private static string FmtFecha(DateTime? dt) => dt.HasValue ? dt.Value.ToString("dd'/'MM HH:mm", ChileanCulture) : "—";
+        private static string FmtDias(double dias) => dias.ToString("0.##", ChileanCulture);
 
         // View models the markup binds to
-        private record RowVm(string Producto, string MaqSlot, int Stock, int Cap, string UltVenta, int Dias, string Vel, string Perdido, string Est);
+        private record RowVm(string Producto, string MaqSlot, int Stock, int Cap, string Agotamiento, string UltVenta,
+            string Dias, string Vel, string Perdido, string UnidadesNoAtendidas, string Est, string Calidad, bool TieneAdvertencia);
         private record TlVm(int Rank, string Name, string MaqText, int Pct, string Color, int Dias);
         private record BarVm(string Val, int Hpct, string Col, string ColBg, string Day);
 
@@ -344,25 +270,33 @@ namespace VendingManager.Web.Pages
                 {
                     return DatosAgrupados.Select(p => new RowVm(
                         p.ProductoNombre,
-                        $"{p.Maquinas.Count} máq · {p.CantidadTotalSlots} slot{(p.CantidadTotalSlots > 1 ? "s" : "")}",
+                        $"{p.CantidadMaquinasAgotadas}/{p.Maquinas.Count} máq agot. · {p.MaquinasAgotadasResumen}",
                         Math.Max(0, p.StockInicialTotal - p.CantidadVendidaTotal),
                         p.StockInicialTotal,
+                        FmtFecha(p.FechaAgotamientoEstimada),
                         FmtFecha(p.UltimaVenta),
-                        (int)Math.Round(p.DiasSinStock),
+                        FmtDias(p.DiasSinStock),
                         p.VelocidadDiaria.ToString("0.0"),
                         p.GananciaPerdidaEstimada > 0 ? Money(p.GananciaPerdidaEstimada) : "—",
-                        EstadoProducto(p))).ToList();
+                        p.UnidadesNoAtendidasEstimadas.ToString("0.##", ChileanCulture),
+                        EstadoProducto(p),
+                        "Horario asumido: 08:00–22:00 · confianza disponible por slot",
+                        p.TieneVentasPosterioresAlAgotamiento)).ToList();
                 }
                 return DatosFiltrados.Select(d => new RowVm(
                     d.ProductoNombre,
                     $"{d.MaquinaNombre} · {d.NumeroSlot}",
                     d.StockActual,
                     d.StockInicial,
+                    FmtFecha(d.FechaAgotamientoEstimada),
                     FmtFecha(d.UltimaVenta),
-                    (int)Math.Round(d.DiasSinStock),
-                    d.VelocidadDiaria.ToString("0.0"),
+                    FmtDias(d.DiasSinStock),
+                    d.VelocidadEfectivaDiaria.ToString("0.0"),
                     d.GananciaPerdidaEstimada > 0 ? Money(d.GananciaPerdidaEstimada) : "—",
-                    EstadoSlot(d))).ToList();
+                    d.UnidadesNoAtendidasEstimadas.ToString("0.##", ChileanCulture),
+                    EstadoSlot(d),
+                    $"Horario asumido: 08:00–22:00 · confianza: {d.EstimateConfidence}",
+                    d.TieneVentasPosterioresAlAgotamiento)).ToList();
             }
         }
 
@@ -371,10 +305,11 @@ namespace VendingManager.Web.Pages
         private int KAlerta => KpiProductos.Count;
         private string KPerdido => Money(KpiProductos.Sum(p => p.DineroPerdidoEstimado));
         private string KGanancia => Money(KpiProductos.Sum(p => p.GananciaPerdidaEstimada));
+        private string KUnidadesNoAtendidas => KpiProductos.Sum(p => p.UnidadesNoAtendidasEstimadas).ToString("0.##", ChileanCulture);
         private StockoutProductoDto? Worst =>
             KpiProductos.OrderByDescending(p => p.GananciaPerdidaEstimada).ThenByDescending(p => p.DiasSinStock).FirstOrDefault();
         private string KWorstName => Worst?.ProductoNombre ?? "—";
-        private string KWorstMeta => Worst == null ? "—" : $"{Worst.MaquinasResumen} · {(int)Math.Round(Worst.DiasSinStock)} días sin stock";
+        private string KWorstMeta => Worst == null ? "—" : $"{Worst.MaquinasAgotadasResumen} · {FmtDias(Worst.DiasSinStock)} días sin stock";
 
         private List<TlVm> Timeline
         {
@@ -403,7 +338,7 @@ namespace VendingManager.Web.Pages
             }
         }
         private StockoutProductoDto? SelP => KpiProductos.FirstOrDefault(p => p.ProductoNombre == SelName);
-        private int SelDias => (int)Math.Round(SelP?.DiasSinStock ?? 0);
+        private string SelDias => FmtDias(SelP?.DiasSinStock ?? 0);
         private string SelPerdido => Money(SelP?.GananciaPerdidaEstimada ?? 0);
         private string SelMeta => SelP == null ? "—" : $"{SelP.Maquinas.Count} máq · {SelP.CantidadTotalSlots} slot{(SelP.CantidadTotalSlots > 1 ? "s" : "")}";
         private List<VmSelect.VmSelectOption> ProdOptions =>
@@ -746,6 +681,10 @@ namespace VendingManager.Web.Pages
                     NumeroSlot = s.NumeroSlot,
                     PrimeraVenta = s.PrimeraVenta,
                     UltimaVenta = s.UltimaVenta,
+                    FechaAgotamientoEstimada = s.FechaAgotamientoEstimada,
+                    TieneVentasPosterioresAlAgotamiento = s.TieneVentasPosterioresAlAgotamiento,
+                    PrimeraVentaPosteriorAlAgotamiento = s.PrimeraVentaPosteriorAlAgotamiento,
+                    UltimaVentaPosteriorAlAgotamiento = s.UltimaVentaPosteriorAlAgotamiento,
                     UltimaActividadMaquina = s.UltimaActividadMaquina,
                     FinReporte = s.FinReporte,
                     FechasVentas = s.FechasVentas,
@@ -758,11 +697,22 @@ namespace VendingManager.Web.Pages
                     DiasHastaStockout = s.DiasHastaStockout,
                     EsDeadSlot = s.EsDeadSlot,
                     HorasActivas = s.HorasActivas,
-                    VelocidadPorHora = s.VelocidadPorHora,
+                    VelocidadObservadaSlotPorHora = s.VelocidadObservadaSlotPorHora,
+                    VelocidadEfectivaPorHora = s.VelocidadEfectivaPorHora,
+                    OrigenVelocidad = s.OrigenVelocidad,
+                    IdPoolVelocidadProductoMaquina = s.IdPoolVelocidadProductoMaquina,
+                    EsRepresentantePoolVelocidad = s.EsRepresentantePoolVelocidad,
+                    VentasOperativasPoolProductoMaquina = s.VentasOperativasPoolProductoMaquina,
+                    HorasExposicionPoolProductoMaquina = s.HorasExposicionPoolProductoMaquina,
+                    VentasOperativasObservadas = s.VentasOperativasObservadas,
+                    HorasExposicionOperativas = s.HorasExposicionOperativas,
+                    QualityFlags = s.QualityFlags,
+                    EstimateConfidence = s.EstimateConfidence,
                     PrecioPromedioVenta = s.PrecioPromedioVenta,
                     GananciaPromedio = s.GananciaPromedio,
                     DineroPerdidoEstimado = s.DineroPerdidoEstimado,
                     GananciaPerdidaEstimada = s.GananciaPerdidaEstimada,
+                    UnidadesNoAtendidasEstimadas = s.UnidadesNoAtendidasEstimadas,
                 }).ToList();
 
                 // Filtrar por máquina si hay una seleccionada
@@ -863,8 +813,8 @@ namespace VendingManager.Web.Pages
                 x.UltimaVenta).ToList(),
                 "DiasAgotado" => Ascendente ? Datos.OrderBy(x => x.DiasSinStock).ToList() : Datos.OrderByDescending(x =>
                 x.DiasSinStock).ToList(),
-                "Velocidad" => Ascendente ? Datos.OrderBy(x => x.VelocidadDiaria).ToList() : Datos.OrderByDescending(x =>
-                x.VelocidadDiaria).ToList(),
+                "Velocidad" => Ascendente ? Datos.OrderBy(x => x.VelocidadEfectivaDiaria).ToList() : Datos.OrderByDescending(x =>
+                    x.VelocidadEfectivaDiaria).ToList(),
                 "DineroPerdido" => Ascendente ? Datos.OrderBy(x => x.GananciaPerdidaEstimada).ToList() : Datos.OrderByDescending(x =>
                 x.GananciaPerdidaEstimada).ToList(),
                 _ => Datos
@@ -1104,52 +1054,6 @@ namespace VendingManager.Web.Pages
             public int Cantidad { get; set; }
         }
 
-        /// <summary>
-        /// Datos de stockout agrupados por producto (todos los slots combinados).
-        /// </summary>
-        public class StockoutProductoDto
-        {
-            public int? ProductoId { get; set; }
-            public string ProductoNombre { get; set; } = string.Empty;
-            public int CantidadTotalSlots { get; set; }
-            public int StockInicialTotal { get; set; }
-            public int CantidadVendidaTotal { get; set; }
-            public DateTime? PrimeraVenta { get; set; }
-            public DateTime? UltimaVenta { get; set; }
-            public double HorasSinStock { get; set; }
-            public double DiasSinStock => HorasSinStock / 14.0;
-            public decimal DineroPerdidoEstimado { get; set; }
-            public decimal GananciaPerdidaEstimada { get; set; }
-            public decimal VelocidadDiaria { get; set; }
-            public bool PosibleQuiebre { get; set; }
-            public List<string> Maquinas { get; set; } = new();
 
-            public string MaquinasResumen => Maquinas.Count switch
-            {
-                0 => "-",
-                1 => Maquinas[0],
-                <= 3 => string.Join(", ", Maquinas),
-                _ => $"{Maquinas.Count} máquinas"
-            };
-
-            public string NivelAlerta => HorasSinStock switch
-            {
-                > 72 => "Crítico",
-                > 48 => "Alto",
-                > 24 => "Medio",
-                _ => "Normal"
-            };
-
-            public string ColorAlerta => NivelAlerta switch
-            {
-                "Crítico" => "bg-danger text-white",
-                "Alto" => "bg-warning text-dark",
-                "Medio" => "bg-info text-dark",
-                _ => "bg-light text-muted border"
-            };
-        }
     }
 }
-
-
-

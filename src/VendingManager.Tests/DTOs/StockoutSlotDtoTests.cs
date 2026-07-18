@@ -52,6 +52,10 @@ public class StockoutSlotDtoTests
             NumeroSlot = "A1",
             PrimeraVenta = new DateTime(2025, 1, 1),
             UltimaVenta = new DateTime(2025, 1, 15),
+            FechaAgotamientoEstimada = new DateTime(2025, 1, 10),
+            TieneVentasPosterioresAlAgotamiento = true,
+            PrimeraVentaPosteriorAlAgotamiento = new DateTime(2025, 1, 11),
+            UltimaVentaPosteriorAlAgotamiento = new DateTime(2025, 1, 15),
             UltimaActividadMaquina = new DateTime(2025, 1, 20),
             FinReporte = new DateTime(2025, 2, 1),
             PosibleQuiebre = true,
@@ -64,6 +68,10 @@ public class StockoutSlotDtoTests
             EsDeadSlot = false,
             HorasActivas = 336,
             VelocidadPorHora = 0.0238m,
+            VentasOperativasObservadas = 8,
+            HorasExposicionOperativas = 28,
+            QualityFlags = StockoutQualityFlags.PostDepletionSales,
+            EstimateConfidence = EstimateConfidence.Low,
             PrecioPromedioVenta = 1500m,
             GananciaPromedio = 600m,
             DineroPerdidoEstimado = 45000m,
@@ -77,8 +85,13 @@ public class StockoutSlotDtoTests
         dto.NumeroSlot.Should().Be("A1");
         dto.PrimeraVenta.Should().Be(new DateTime(2025, 1, 1));
         dto.GananciaPerdidaEstimada.Should().Be(18000m);
+        dto.FechaAgotamientoEstimada.Should().Be(new DateTime(2025, 1, 10));
+        dto.TieneVentasPosterioresAlAgotamiento.Should().BeTrue();
+        dto.PrimeraVentaPosteriorAlAgotamiento.Should().Be(new DateTime(2025, 1, 11));
+        dto.VentasOperativasObservadas.Should().Be(8);
+        dto.EstimateConfidence.Should().Be(EstimateConfidence.Low);
         dto.NivelAlerta.Should().Be("Crítico");
-        dto.DiasSinStock.Should().BeApproximately(73.0 / 14.0, 0.001);
+        dto.DiasSinStock.Should().BeApproximately(73.0 / 24.0, 0.001);
     }
 
     [Fact]
@@ -90,9 +103,52 @@ public class StockoutSlotDtoTests
             VelocidadPorHora = 2.5m
         };
 
-        dto.DiasSinStock.Should().BeApproximately(50.0 / 14.0, 0.001);
+        dto.DiasSinStock.Should().BeApproximately(50.0 / 24.0, 0.001);
         dto.VelocidadDiaria.Should().Be(35m); // 2.5 * 14
         dto.NivelAlerta.Should().Be("Alto");
         dto.ColorAlerta.Should().Be("bg-warning text-dark");
+    }
+
+    [Fact]
+    public void StockoutDtos_UseCalendarDaysAndExposeDepletionMetadata()
+    {
+        var depletion = new DateTime(2025, 1, 10, 2, 24, 0);
+        var dto = new StockoutAnalysisDto
+        {
+            HorasSinStock = 180,
+            FechaAgotamientoEstimada = depletion,
+            TieneVentasPosterioresAlAgotamiento = true,
+            UltimaVentaPosteriorAlAgotamiento = depletion.AddDays(1)
+        };
+
+        dto.DiasSinStock.Should().Be(7.5);
+        dto.FechaAgotamientoEstimada.Should().Be(depletion);
+        dto.TieneVentasPosterioresAlAgotamiento.Should().BeTrue();
+        dto.UltimaVentaPosteriorAlAgotamiento.Should().Be(depletion.AddDays(1));
+    }
+
+    [Fact]
+    public void StockoutDtos_MirrorObservedEffectiveVelocityAndObsoleteAliases()
+    {
+        var analysis = new StockoutAnalysisDto { VelocidadObservadaSlotPorHora = .25m, VelocidadEfectivaPorHora = .5m, OrigenVelocidad = OrigenVelocidad.ProductoMaquina };
+        var slot = new StockoutSlotDto { VelocidadObservadaSlotPorHora = .25m, VelocidadEfectivaPorHora = .5m, OrigenVelocidad = OrigenVelocidad.ProductoMaquina };
+
+        analysis.VentasOperativasObservadas.Should().Be(0);
+        analysis.VelocidadPorHora.Should().Be(.5m);
+        analysis.VelocidadDiaria.Should().Be(7m);
+        slot.VelocidadPorHora.Should().Be(.5m);
+        slot.VelocidadDiaria.Should().Be(7m);
+        slot.OrigenVelocidad.Should().Be(OrigenVelocidad.ProductoMaquina);
+    }
+
+    [Fact]
+    public void StockoutDtos_ExposeEstimatedUnmetPhysicalUnits()
+    {
+        foreach (var type in new[] { typeof(StockoutAnalysisDto), typeof(StockoutSlotDto), typeof(StockoutProductoDto) })
+        {
+            var property = type.GetProperty("UnidadesNoAtendidasEstimadas");
+            property.Should().NotBeNull($"{type.Name} must distinguish estimated physical units from CLP estimates");
+            property!.PropertyType.Should().Be(typeof(decimal));
+        }
     }
 }

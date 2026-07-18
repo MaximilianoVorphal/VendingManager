@@ -121,13 +121,13 @@
                 <div style="font-family:var(--font-sans);font-weight:700;font-size:1.5rem;letter-spacing:-1px;line-height:1;color:var(--ink-900);flex-shrink:0;">@KAlerta</div>
             </div>
         </div>
-        <!-- Ventas perdidas est. -->
+        <!-- Estimaciones de demanda no atendida -->
         <div class="qs-kpi" style="flex:1.15;min-width:0;display:flex;border:2px solid var(--ink-900);background:var(--paper-0);overflow:hidden;">
             <span style="width:5px;flex-shrink:0;background:var(--ink-900);"></span>
             <div style="flex:1;min-width:0;padding:0.5rem 0.75rem;display:flex;align-items:center;justify-content:space-between;gap:8px;">
                 <div style="min-width:0;">
-                    <div style="font-family:var(--font-mono);font-weight:700;font-size:0.62rem;text-transform:uppercase;letter-spacing:0.7px;">Ventas perdidas est.</div>
-                    <div style="font-family:var(--font-mono);font-size:0.52rem;text-transform:uppercase;letter-spacing:0.3px;color:var(--signal-success);margin-top:2px;">Ganancia est.: @KGanancia</div>
+                    <div style="font-family:var(--font-mono);font-weight:700;font-size:0.62rem;text-transform:uppercase;letter-spacing:0.7px;">Ingreso bruto no realizado est.</div>
+                    <div style="font-family:var(--font-mono);font-size:0.52rem;text-transform:uppercase;letter-spacing:0.3px;color:var(--signal-success);margin-top:2px;">Unidades no atendidas est.: @KUnidadesNoAtendidas · margen bruto est.: @KGanancia</div>
                 </div>
                 <div style="font-family:var(--font-sans);font-weight:700;font-size:1.5rem;letter-spacing:-1px;line-height:1;color:var(--signal-danger);flex-shrink:0;white-space:nowrap;">@KPerdido</div>
             </div>
@@ -197,7 +197,7 @@
                             <th class="qs-th" style="text-align:left;padding:7px 10px;font-weight:700;background:var(--ink-700);">Producto</th>
                             <th class="qs-th" style="text-align:left;padding:7px 8px;font-weight:700;background:var(--ink-700);">Máq · Slot</th>
                             <th class="qs-th" style="text-align:center;padding:7px 8px;font-weight:700;background:var(--ink-700);">Stock</th>
-                            <th class="qs-th" style="text-align:left;padding:7px 8px;font-weight:700;background:var(--ink-700);">Últ. venta</th>
+                            <th class="qs-th" style="text-align:left;padding:7px 8px;font-weight:700;background:var(--ink-700);">Agot. est.</th>
                             <th class="qs-th" style="text-align:right;padding:7px 8px;font-weight:700;background:var(--ink-700);">Días</th>
                             <th class="qs-th" style="text-align:right;padding:7px 8px;font-weight:700;background:var(--ink-700);">Vel/día</th>
                             <th class="qs-th" style="text-align:right;padding:7px 8px;font-weight:700;background:var(--ink-700);">$ Perd.</th>
@@ -211,7 +211,15 @@
                                 <td style="padding:6px 10px;font-family:var(--font-sans);font-weight:600;font-size:0.78rem;text-transform:uppercase;letter-spacing:-0.2px;">@r.Producto</td>
                                 <td style="padding:6px 8px;font-family:var(--font-mono);font-size:0.66rem;color:var(--text-secondary);white-space:nowrap;">@r.MaqSlot</td>
                                 <td style="padding:6px 8px;text-align:center;font-family:var(--font-mono);font-weight:700;font-size:0.74rem;"><span style="color:var(--signal-danger);">@r.Stock</span><span style="color:var(--text-muted);">/@r.Cap</span></td>
-                                <td style="padding:6px 8px;font-family:var(--font-mono);font-size:0.66rem;color:var(--text-secondary);white-space:nowrap;">@r.UltVenta</td>
+                                <td style="padding:6px 8px;font-family:var(--font-mono);font-size:0.66rem;color:var(--text-secondary);">
+                                    <div style="white-space:nowrap;">@r.Agotamiento</div>
+                                    <div style="font-size:0.52rem;color:var(--text-muted);white-space:nowrap;">Evidencia últ. venta: @r.UltVenta</div>
+                                    <div style="font-size:0.52rem;color:var(--text-muted);">@r.Calidad</div>
+                                    @if (r.TieneAdvertencia)
+                                    {
+                                        <div style="font-size:0.52rem;color:var(--signal-warning);">Venta posterior: posible recarga no registrada o inconsistencia de datos.</div>
+                                    }
+                                </td>
                                 <td style="padding:6px 8px;text-align:right;font-family:var(--font-mono);font-weight:700;font-size:0.74rem;">@r.Dias</td>
                                 <td style="padding:6px 8px;text-align:right;font-family:var(--font-mono);font-size:0.72rem;color:var(--text-secondary);">@r.Vel</td>
                                 <td style="padding:6px 8px;text-align:right;font-family:var(--font-mono);font-weight:700;font-size:0.72rem;color:var(--signal-danger);">@r.Perdido</td>
@@ -235,7 +243,7 @@
                     <tfoot style="position:sticky;bottom:0;z-index:2;">
                         <tr style="background:var(--ink-900);color:#fff;font-family:var(--font-mono);font-weight:700;text-transform:uppercase;font-size:0.66rem;letter-spacing:0.4px;">
                             <td colspan="4" style="padding:7px 10px;">Total · @Rows.Count alertas</td>
-                            <td colspan="2" style="padding:7px 8px;text-align:right;">Pérdida acum.</td>
+                            <td colspan="2" style="padding:7px 8px;text-align:right;">Ingreso bruto no realizado est.</td>
                             <td colspan="2" style="padding:7px 10px;text-align:right;color:#ff5a67;">@KPerdido</td>
                         </tr>
                     </tfoot>
@@ -360,8 +368,8 @@
                     }
                 </div>
                 <div style="flex-shrink:0;border-top:2px solid var(--ink-900);background:var(--paper-50);padding:5px 10px;display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:0.58rem;text-transform:uppercase;letter-spacing:0.3px;">
-                    <span style="color:var(--text-muted);">Quiebre: <strong style="color:var(--signal-danger);">@SelDias d</strong> sin venta</span>
-                    <span style="color:var(--text-muted);">Pérdida: <strong style="color:var(--ink-900);">@SelPerdido</strong></span>
+                     <span style="color:var(--text-muted);">Quiebre: <strong style="color:var(--signal-danger);">@SelDias d</strong> sin stock</span>
+                     <span style="color:var(--text-muted);">Margen bruto no realizado est.: <strong style="color:var(--ink-900);">@SelPerdido</strong></span>
                 </div>
             </section>
         </aside>
@@ -415,8 +423,8 @@
                 <span style="width:5px;flex-shrink:0;background:var(--ink-900);"></span>
                 <div style="flex:1;min-width:0;padding:0.55rem 0.8rem;display:flex;align-items:center;justify-content:space-between;gap:10px;">
                     <div style="min-width:0;">
-                        <div style="font-family:var(--font-mono);font-weight:700;font-size:0.58rem;text-transform:uppercase;letter-spacing:0.5px;">Ventas perdidas est.</div>
-                        <div style="font-family:var(--font-mono);font-size:0.52rem;text-transform:uppercase;letter-spacing:0.3px;color:var(--signal-success);margin-top:2px;">Ganancia est.: @KGanancia</div>
+                         <div style="font-family:var(--font-mono);font-weight:700;font-size:0.58rem;text-transform:uppercase;letter-spacing:0.5px;">Ingreso bruto no realizado est.</div>
+                          <div style="font-family:var(--font-mono);font-size:0.52rem;text-transform:uppercase;letter-spacing:0.3px;color:var(--signal-success);margin-top:2px;">Unidades no atendidas est.: @KUnidadesNoAtendidas · margen bruto est.: @KGanancia</div>
                     </div>
                     <div style="font-family:var(--font-sans);font-weight:700;font-size:1.5rem;letter-spacing:-1px;line-height:1;color:var(--signal-danger);flex-shrink:0;white-space:nowrap;">@KPerdido</div>
                 </div>
@@ -471,7 +479,12 @@
                             <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:9px;">
                                 <div style="min-width:0;">
                                     <div style="font-family:var(--font-sans);font-weight:700;font-size:0.9rem;text-transform:uppercase;letter-spacing:-0.3px;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">@r.Producto</div>
-                                    <div style="font-family:var(--font-mono);font-size:0.62rem;color:var(--text-muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">@r.MaqSlot · últ. @r.UltVenta</div>
+                                     <div style="font-family:var(--font-mono);font-size:0.62rem;color:var(--text-muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">@r.MaqSlot · agot. est. @r.Agotamiento</div>
+                                     <div style="font-family:var(--font-mono);font-size:0.52rem;color:var(--text-muted);margin-top:2px;">Evidencia últ. venta: @r.UltVenta · @r.Calidad</div>
+                                     @if (r.TieneAdvertencia)
+                                     {
+                                         <div style="font-family:var(--font-mono);font-size:0.52rem;color:var(--signal-warning);margin-top:2px;">Venta posterior: posible recarga no registrada o inconsistencia de datos.</div>
+                                     }
                                 </div>
                                 @switch (r.Est)
                                 {
@@ -500,7 +513,7 @@
                                     <div style="font-family:var(--font-mono);font-weight:700;font-size:0.76rem;color:var(--text-secondary);">@r.Vel</div>
                                 </div>
                                 <div style="flex:1.15;padding:5px 8px;">
-                                    <div style="font-family:var(--font-mono);font-weight:700;font-size:0.46rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);">$ Perd.</div>
+                                     <div style="font-family:var(--font-mono);font-weight:700;font-size:0.46rem;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);">Margen bruto est.</div>
                                     <div style="font-family:var(--font-mono);font-weight:700;font-size:0.76rem;color:var(--signal-danger);white-space:nowrap;">@r.Perdido</div>
                                 </div>
                             </div>

@@ -519,13 +519,12 @@ public class SalesAnalyticsService : ISalesAnalyticsService
         public async Task<List<StockoutAnalysisDto>> GetStockoutAnalysisAsync(
             DateTime inicio, DateTime fin, int maquinaId, double umbralHorasSilencio = 14)
         {
-            DateTime finAjustado = fin.Date.AddDays(1).AddTicks(-1);
-            DateTime inicioAjustado = inicio.Date;
+            var reportEnd = fin < DateTime.Now ? fin : DateTime.Now;
 
             var query = _context.Ventas
                 .Include(v => v.Maquina)
                 .Include(v => v.Producto)
-                .Where(v => v.FechaLocal >= inicioAjustado && v.FechaLocal <= finAjustado)
+                .Where(v => v.FechaLocal >= inicio && v.FechaLocal <= reportEnd)
                 .Where(v => v.IdOrdenMaquina != VentaConstants.TbExtra && v.IdOrdenMaquina != VentaConstants.TbSinVenta);
 
             if (maquinaId > 0)
@@ -544,9 +543,12 @@ public class SalesAnalyticsService : ISalesAnalyticsService
                 .GroupBy(v => v.MaquinaId)
                 .ToDictionary(g => g.Key, g => g.Max(v => v.FechaLocal));
 
-            var grupos = ventas
+            var gruposPorProductoMaquina = ventas
                 .Where(v => v.ProductoId.HasValue && v.ProductoId > 0)
                 .GroupBy(v => new { v.MaquinaId, v.ProductoId })
+                .ToList();
+            var grupos = gruposPorProductoMaquina
+                .SelectMany(group => group.GroupBy(venta => new { venta.MaquinaId, venta.ProductoId, venta.NumeroSlot }))
                 .ToList();
 
             // T12: Detectar Dead Slots — slots configurados sin ventas en el período
@@ -571,7 +573,7 @@ public class SalesAnalyticsService : ISalesAnalyticsService
             var snapshotSlots = await _context.SnapshotSlots
                 .Include(ss => ss.PeriodoRecarga)
                 .Where(ss => maquinaId == 0 || ss.PeriodoRecarga.MaquinaId == maquinaId)
-                .Where(ss => ss.PeriodoRecarga.FechaRecarga <= finAjustado)
+                .Where(ss => ss.PeriodoRecarga.FechaRecarga <= reportEnd)
                 .ToListAsync();
 
             var slotSnapshotLookup = snapshotSlots
@@ -583,12 +585,30 @@ public class SalesAnalyticsService : ISalesAnalyticsService
                 );
 
             var result = new List<StockoutAnalysisDto>();
+            var pools = gruposPorProductoMaquina.ToDictionary(
+                group => (group.Key.MaquinaId, group.Key.ProductoId!.Value),
+                group =>
+                {
+                    var evidence = group
+                        .GroupBy(venta => venta.NumeroSlot)
+                        .SelectMany(slot =>
+                        {
+                            var initial = slotSnapshotLookup.GetValueOrDefault((group.Key.MaquinaId, slot.Key!), 0);
+                            return initial > 0 ? slot.OrderBy(venta => venta.FechaLocal).Take(initial) : slot;
+                        })
+                        .ToList();
+                    var poolSales = evidence.Count > 0 ? evidence : group.ToList();
+                    var observationEnd = poolSales.Max(venta => venta.FechaLocal);
+                    return StockoutMetricsCalculator.CreateProductMachinePool(
+                        group.Key.MaquinaId, group.Key.ProductoId!.Value, inicio, observationEnd,
+                        poolSales.Select(venta => venta.FechaLocal));
+                });
 
             foreach (var grupo in grupos)
             {
                 var maquinaId_ = grupo.Key.MaquinaId;
                 var productoId = grupo.Key.ProductoId!.Value;
-                var ventasGrupo = grupo.ToList();
+                var ventasGrupo = grupo.OrderBy(v => v.FechaLocal).ToList();
 
                 var primeraVenta = ventasGrupo.Min(v => v.FechaLocal);
                 var ultimaVenta = ventasGrupo.Max(v => v.FechaLocal);
@@ -599,27 +619,6 @@ public class SalesAnalyticsService : ISalesAnalyticsService
                 var costoPromedio = ventasGrupo.Average(v =>
                     v.CostoVenta > 0 ? v.CostoVenta : (v.Producto?.CostoPromedio ?? 0));
                 var gananciaPromedio = precioPromedio - costoPromedio;
-
-                var horasDiferencia = HorarioOperativoHelper.HorasEnRangoOperativo(ultimaVenta, ultimaActividadMaquina);
-                var posibleQuiebre = horasDiferencia > umbralHorasSilencio;
-
-                var fechaReferencia = posibleQuiebre ? ultimaActividadMaquina : finAjustado;
-                var horasSinStock = HorarioOperativoHelper.HorasEnRangoOperativo(ultimaVenta, fechaReferencia);
-                if (horasSinStock < 0) horasSinStock = 0;
-
-                var horasActivas = HorarioOperativoHelper.HorasEnRangoOperativo(inicio, ultimaVenta);
-                if (horasActivas < 1) horasActivas = 1;
-
-                var velocidadPorHora = cantidad / (decimal)horasActivas;
-
-                decimal dineroPerdido = 0;
-                decimal gananciaPerdida = 0;
-
-                if (posibleQuiebre && horasSinStock > 0)
-                {
-                    dineroPerdido = velocidadPorHora * (decimal)horasSinStock * precioPromedio;
-                    gananciaPerdida = velocidadPorHora * (decimal)horasSinStock * gananciaPromedio;
-                }
 
                 var maquina = ventasGrupo.First().Maquina;
                 var producto = ventasGrupo.First().Producto;
@@ -634,6 +633,33 @@ public class SalesAnalyticsService : ISalesAnalyticsService
                         stockInicial = snapStock;
                 }
 
+                var fechaAgotamiento = stockInicial > 0 && slots.Count == 1 && cantidad >= stockInicial
+                    ? ventasGrupo[stockInicial - 1].FechaLocal
+                    : (DateTime?)null;
+                var primeraVentaPosterior = fechaAgotamiento.HasValue && cantidad > stockInicial
+                    ? ventasGrupo[stockInicial].FechaLocal
+                    : (DateTime?)null;
+                var ultimaVentaPosterior = primeraVentaPosterior.HasValue ? ventasGrupo.Last().FechaLocal : (DateTime?)null;
+                var horasDiferencia = HorarioOperativoHelper.HorasEnRangoOperativo(ultimaVenta, ultimaActividadMaquina);
+                var posibleQuiebre = fechaAgotamiento.HasValue || horasDiferencia > umbralHorasSilencio;
+                var horasSinStock = fechaAgotamiento.HasValue
+                    ? Math.Max(0, Math.Min((reportEnd - fechaAgotamiento.Value).TotalHours, (reportEnd - inicio).TotalHours))
+                    : posibleQuiebre
+                        ? Math.Max(0, HorarioOperativoHelper.HorasEnRangoOperativo(ultimaVenta, reportEnd))
+                        : 0;
+                var slotVelocity = StockoutMetricsCalculator.CalculateSlotVelocity(
+                    ventasGrupo.Select(venta => venta.FechaLocal), inicio, fechaAgotamiento, reportEnd);
+                var selection = StockoutMetricsCalculator.SelectEffectiveVelocity(
+                    productoId, false, slotVelocity, pools.GetValueOrDefault((maquinaId_, productoId)));
+                var qualityFlags = StockoutMetricsCalculator.CalculateQualityFlags(
+                    stockInicial, slotVelocity.HorasExposicionOperativas, primeraVentaPosterior.HasValue);
+                var lossStart = fechaAgotamiento ?? ultimaVenta;
+                var loss = posibleQuiebre
+                    ? StockoutMetricsCalculator.CalculateConservativeLoss(
+                        selection.VelocidadEfectivaPorHora, lossStart, primeraVentaPosterior, reportEnd,
+                        precioPromedio, gananciaPromedio)
+                    : new StockoutLossMetrics(0, 0, 0);
+
                 var dto = new StockoutAnalysisDto
                 {
                     MaquinaId = maquinaId_,
@@ -644,8 +670,12 @@ public class SalesAnalyticsService : ISalesAnalyticsService
 
                     PrimeraVenta = primeraVenta,
                     UltimaVenta = ultimaVenta,
+                    FechaAgotamientoEstimada = fechaAgotamiento,
+                    TieneVentasPosterioresAlAgotamiento = primeraVentaPosterior.HasValue,
+                    PrimeraVentaPosteriorAlAgotamiento = primeraVentaPosterior,
+                    UltimaVentaPosteriorAlAgotamiento = ultimaVentaPosterior,
                     UltimaActividadMaquina = ultimaActividadMaquina,
-                    FinReporte = finAjustado,
+                    FinReporte = reportEnd,
 
                     PosibleQuiebre = posibleQuiebre,
                     HorasSinStock = horasSinStock,
@@ -653,13 +683,19 @@ public class SalesAnalyticsService : ISalesAnalyticsService
                     CantidadVendida = cantidad,
                     StockInicial = stockInicial,
                     StockActual = slotStockLookup.GetValueOrDefault(slots.FirstOrDefault() ?? "", 0),
-                    HorasActivas = horasActivas,
-                    VelocidadPorHora = Math.Round(velocidadPorHora, 4),
-
-                    PrecioPromedioVenta = Math.Round(precioPromedio, 0),
-                    GananciaPromedio = Math.Round(gananciaPromedio, 0),
-                    DineroPerdidoEstimado = Math.Round(dineroPerdido, 0),
-                    GananciaPerdidaEstimada = Math.Round(gananciaPerdida, 0)
+                    HorasActivas = Math.Max(slotVelocity.HorasExposicionOperativas, 1),
+                    VelocidadObservadaSlotPorHora = slotVelocity.VelocidadPorHora,
+                    VelocidadEfectivaPorHora = selection.VelocidadEfectivaPorHora,
+                    OrigenVelocidad = selection.OrigenVelocidad,
+                    VentasOperativasObservadas = slotVelocity.VentasOperativasObservadas,
+                    HorasExposicionOperativas = slotVelocity.HorasExposicionOperativas,
+                    QualityFlags = qualityFlags,
+                    EstimateConfidence = StockoutMetricsCalculator.CalculateEstimateConfidence(qualityFlags, false),
+                    PrecioPromedioVenta = precioPromedio,
+                    GananciaPromedio = gananciaPromedio,
+                    DineroPerdidoEstimado = loss.DineroPerdidoEstimado,
+                    GananciaPerdidaEstimada = loss.GananciaPerdidaEstimada,
+                    UnidadesNoAtendidasEstimadas = loss.UnidadesNoAtendidasEstimadas
                 };
 
                 // T13: Fill % y Predicción Stockout
@@ -673,6 +709,23 @@ public class SalesAnalyticsService : ISalesAnalyticsService
                 }
 
                 result.Add(dto);
+            }
+
+            foreach (var productGroup in result.Where(slot => slot.OrigenVelocidad == OrigenVelocidad.ProductoMaquina)
+                         .GroupBy(slot => (slot.MaquinaId, slot.ProductoId)))
+            {
+                if (productGroup.Key.ProductoId is not { } productId ||
+                    !pools.TryGetValue((productGroup.Key.MaquinaId, productId), out var pool))
+                    continue;
+
+                var representative = productGroup.OrderBy(slot => slot.NumeroSlot, StringComparer.Ordinal).First();
+                foreach (var slot in productGroup)
+                {
+                    slot.IdPoolVelocidadProductoMaquina = pool.Id;
+                    slot.EsRepresentantePoolVelocidad = ReferenceEquals(slot, representative);
+                }
+                representative.VentasOperativasPoolProductoMaquina = pool.VentasOperativas;
+                representative.HorasExposicionPoolProductoMaquina = pool.HorasExposicionOperativas;
             }
 
             // T12: Agregar Dead Slots — slots configurados que no tuvieron ventas en el período
@@ -711,8 +764,10 @@ public class SalesAnalyticsService : ISalesAnalyticsService
                     EsDeadSlot = true,
                     StockActual = slot.StockActual,
                     PosibleQuiebre = slot.StockActual <= slot.StockMinimo,
-                    FinReporte = finAjustado,
-                    UltimaActividadMaquina = finAjustado
+                    FinReporte = reportEnd,
+                    UltimaActividadMaquina = reportEnd,
+                    QualityFlags = StockoutQualityFlags.MissingSnapshot,
+                    EstimateConfidence = EstimateConfidence.NotEstimable
                 });
             }
 

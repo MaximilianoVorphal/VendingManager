@@ -67,19 +67,17 @@ public class StockoutDashboardPageTests : TestContext
 
         cut.WaitForAssertion(() =>
         {
-            // GananciaPerdidaEstimada = 5000 -> formatted "$5.000"
-            cut.Markup.Should().Contain("$5.000");
-            // DineroPerdidoEstimado = 12000 -> "$12.000"
-            cut.Markup.Should().Contain("$12.000");
+            // Midpoint CLP amounts use AwayFromZero at presentation.
+            cut.Markup.Should().Contain("$5.001");
+            cut.Markup.Should().Contain("$12.001");
         });
     }
 
     [Fact]
-    public void ProductWithRemainingStock_ShowsNoLoss_NotFlaggedAsStockout()
+    public void ProductWithRemainingStock_PreservesDepletedSlotLoss()
     {
-        // Un producto en dos slots: uno se vació solo, el otro todavía tiene stock.
-        // Vendido total (13) < stock total (20) => el producto NO está agotado, así que
-        // no debe contarse el quiebre ni arrastrar la pérdida por slot del slot vacío.
+        // A product can retain stock in one slot while customers at another machine/slot
+        // already encounter a stockout. Grouping must preserve that depleted-slot loss.
         _mockHandler.AnalyzePayload = ProductAcrossTwoSlotsWithLeftoverJson();
         NavigateTo("stockout-dashboard?templateId=1");
 
@@ -87,12 +85,46 @@ public class StockoutDashboardPageTests : TestContext
 
         cut.WaitForAssertion(() =>
         {
-            // Sin productos en quiebre (filtro por defecto) => estado "todo en orden".
-            cut.Markup.Should().Contain("Todo en orden");
+            cut.Markup.Should().Contain("PRODUCTO ENDPOINT TEST");
+            cut.Markup.Should().Contain("$8.000");
         });
+    }
 
-        // La pérdida fantasma del slot vacío NO debe aparecer en ningún KPI/fila.
-        cut.Markup.Should().NotContain("$8.000");
+    [Fact]
+    public void TruthfulStockoutPresentation_ShowsDepletionQualityAndEstimatedVocabulary()
+    {
+        _mockHandler.AnalyzePayload = OneCriticalSlotJson();
+        NavigateTo("stockout-dashboard?templateId=1");
+
+        var cut = RenderComponent<StockoutDashboard>();
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("Agot. est.");
+            cut.Markup.Should().Contain("20/06 10:00");
+            cut.Markup.Should().Contain("Evidencia últ. venta: 22/06 14:20");
+            cut.Markup.Should().Contain("Horario asumido: 08:00–22:00 · confianza disponible por slot");
+            cut.Markup.Should().Contain("Venta posterior: posible recarga no registrada o inconsistencia de datos.");
+            cut.Markup.Should().Contain("Unidades no atendidas est.: 20");
+            cut.Markup.Should().Contain("margen bruto est.: $5.001");
+            cut.Markup.Should().Contain("Ingreso bruto no realizado est.");
+            cut.Markup.Should().Contain("7,5");
+        });
+    }
+
+    [Fact]
+    public void GroupedPresentation_ShowsPartialMachinesWithoutPostDepletionWarning()
+    {
+        _mockHandler.AnalyzePayload = ProductAcrossTwoSlotsWithLeftoverJson();
+        NavigateTo("stockout-dashboard?templateId=1");
+
+        var cut = RenderComponent<StockoutDashboard>();
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Markup.Should().Contain("1/2 máq agot. · MAQUINA ENDPOINT");
+            cut.Markup.Should().NotContain("Venta posterior: posible recarga no registrada o inconsistencia de datos.");
+        });
     }
 
     [Fact]
@@ -152,6 +184,10 @@ public class StockoutDashboardPageTests : TestContext
                 NumeroSlot = "A2",
                 PrimeraVenta = new DateTime(2026, 6, 18, 9, 0, 0),
                 UltimaVenta = new DateTime(2026, 6, 22, 14, 20, 0),
+                FechaAgotamientoEstimada = new DateTime(2026, 6, 20, 10, 0, 0),
+                TieneVentasPosterioresAlAgotamiento = true,
+                PrimeraVentaPosteriorAlAgotamiento = new DateTime(2026, 6, 22, 14, 20, 0),
+                UltimaVentaPosteriorAlAgotamiento = new DateTime(2026, 6, 22, 14, 20, 0),
                 UltimaActividadMaquina = new DateTime(2026, 7, 3, 8, 0, 0),
                 FinReporte = new DateTime(2026, 7, 3, 8, 0, 0),
                 FechasVentas = new[]
@@ -160,7 +196,7 @@ public class StockoutDashboardPageTests : TestContext
                     new DateTime(2026, 6, 22, 14, 20, 0)
                 },
                 PosibleQuiebre = true,
-                HorasSinStock = 120.0,
+                HorasSinStock = 180.0,
                 StockInicial = 8,
                 StockActual = 0,
                 CantidadVendida = 100,
@@ -169,10 +205,12 @@ public class StockoutDashboardPageTests : TestContext
                 EsDeadSlot = false,
                 HorasActivas = 100.0,
                 VelocidadPorHora = 0.5m,
+                EstimateConfidence = 1,
                 PrecioPromedioVenta = 1200m,
                 GananciaPromedio = 400m,
-                DineroPerdidoEstimado = 12000m,
-                GananciaPerdidaEstimada = 5000m
+                DineroPerdidoEstimado = 12000.5m,
+                GananciaPerdidaEstimada = 5000.5m,
+                UnidadesNoAtendidasEstimadas = 20m
             }
         };
         return JsonSerializer.Serialize(payload);
@@ -180,9 +218,8 @@ public class StockoutDashboardPageTests : TestContext
 
     // Mismo producto (id 42) en dos slots de la misma máquina. El slot A2 se agotó
     // (10 de 10 vendidas, el backend lo marca en quiebre por slot y estima pérdida),
-    // el slot A3 conserva stock (3 de 10). A nivel producto quedan 7 unidades: NO
-    // está agotado. Las FechasVentas están completas (Count == vendidas) para que el
-    // dashboard reconozca el flujo template y recalcule por producto.
+    // el slot A3 conserva stock (3 de 10). La agrupación conserva la pérdida del slot
+    // A2 aunque el producto todavía tenga unidades en A3.
     private static string ProductAcrossTwoSlotsWithLeftoverJson()
     {
         var baseFecha = new DateTime(2026, 6, 20, 8, 0, 0);
@@ -200,6 +237,7 @@ public class StockoutDashboardPageTests : TestContext
                 NumeroSlot = "A2",
                 PrimeraVenta = baseFecha,
                 UltimaVenta = baseFecha.AddHours(27),
+                FechaAgotamientoEstimada = baseFecha.AddHours(27),
                 UltimaActividadMaquina = new DateTime(2026, 7, 3, 8, 0, 0),
                 FinReporte = new DateTime(2026, 7, 3, 8, 0, 0),
                 FechasVentas = Fechas(10),
@@ -220,8 +258,8 @@ public class StockoutDashboardPageTests : TestContext
             },
             new
             {
-                MaquinaId = 7,
-                MaquinaNombre = "MAQUINA ENDPOINT",
+                MaquinaId = 8,
+                MaquinaNombre = "MAQUINA SANA",
                 ProductoId = 42,
                 ProductoNombre = "PRODUCTO ENDPOINT TEST",
                 NumeroSlot = "A3",
