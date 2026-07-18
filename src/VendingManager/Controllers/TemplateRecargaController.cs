@@ -193,6 +193,19 @@ public class TemplateRecargaController(
         return Ok(result);
     }
 
+    /// <summary>Analizar stockout con el bundle máquina-producto de v2.</summary>
+    [HttpGet("{id}/analyze-v2")]
+    public async Task<ActionResult<StockoutDashboardAnalysisDto>> AnalyzePorTemplateV2(
+        int id,
+        [FromQuery] double umbralHoras = 24)
+    {
+        var template = await service.GetByIdAsync(id);
+        if (template == null)
+            return NotFound($"Template con ID {id} no encontrado");
+
+        return Ok(await analyticsService.AnalyzarPorTemplateV2Async(id, umbralHoras));
+    }
+
     /// <summary>
     /// Obtiene el timeline de ventas para un slot específico bajo demanda.
     /// Lazy-loaded: solo se invoca cuando el usuario interactúa con el scrubber en el dashboard.

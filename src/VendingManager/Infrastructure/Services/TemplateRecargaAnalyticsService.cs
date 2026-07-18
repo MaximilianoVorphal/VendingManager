@@ -98,6 +98,28 @@ public class TemplateRecargaAnalyticsService : ITemplateRecargaAnalyticsService
             .ToList();
     }
 
+    public async Task<StockoutDashboardAnalysisDto> AnalyzarPorTemplateV2Async(
+        int templateId,
+        double umbralHorasSilencio = 24)
+    {
+        var slots = await AnalyzarPorTemplateAsync(templateId, umbralHorasSilencio);
+        if (slots.Count == 0)
+            return new StockoutDashboardAnalysisDto { Slots = slots };
+
+        var machineIds = slots.Select(slot => slot.MaquinaId).Distinct().ToList();
+        var start = await _context.PeriodosRecarga
+            .Where(periodo => periodo.TemplateRecargaId == templateId)
+            .MinAsync(periodo => periodo.FechaRecarga);
+        var end = slots.Max(slot => slot.FinReporte);
+        var sales = await GetRawProductSalesAsync(machineIds, start, end);
+
+        return new StockoutDashboardAnalysisDto
+        {
+            Slots = slots,
+            ProductosMaquina = StockoutMetricsCalculator.CalculateProductMachineStockouts(slots, sales, start, end)
+        };
+    }
+
     public async Task<int> SyncVentasWithTemplateAsync(int templateId, bool actualizarCostos)
     {
         var template = await _context.TemplatesRecarga
@@ -370,6 +392,28 @@ public class TemplateRecargaAnalyticsService : ITemplateRecargaAnalyticsService
 
     private static DateTime CapReportEnd(DateTime requestedEnd)
         => requestedEnd < DateTime.Now ? requestedEnd : DateTime.Now;
+
+    private async Task<List<StockoutProductoMaquinaVentaDto>> GetRawProductSalesAsync(
+        List<int> machineIds,
+        DateTime start,
+        DateTime end)
+        => await _context.Ventas
+            .Include(venta => venta.Producto)
+            .Where(venta => machineIds.Contains(venta.MaquinaId))
+            .Where(venta => venta.ProductoId.HasValue && venta.ProductoId.Value > 0)
+            .Where(venta => venta.FechaLocal >= start && venta.FechaLocal <= end)
+            .Where(venta => venta.IdOrdenMaquina != VentaConstants.TbExtra && venta.IdOrdenMaquina != VentaConstants.TbSinVenta)
+            .Select(venta => new StockoutProductoMaquinaVentaDto
+            {
+                MaquinaId = venta.MaquinaId,
+                ProductoId = venta.ProductoId!.Value,
+                NumeroSlot = venta.NumeroSlot,
+                FechaLocal = venta.FechaLocal,
+                VentaId = venta.Id,
+                PrecioVenta = venta.PrecioVenta,
+                GananciaUnitaria = venta.PrecioVenta - (venta.CostoVenta > 0 ? venta.CostoVenta : venta.Producto!.CostoPromedio)
+            })
+            .ToListAsync();
 
     private static ProductMachineVelocityPool CreatePreDepletionPool(
         int maquinaId,

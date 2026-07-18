@@ -15,6 +15,12 @@ public interface ITemplateRecargaAnalyticsService
     Task<List<StockoutAnalysisDto>> AnalyzarPorTemplateAsync(int templateId, double umbralHorasSilencio = 24);
 
     /// <summary>
+    /// Executes stockout analysis with the machine-scoped product bundle used by v2 consumers.
+    /// Existing slot-only analysis remains available through <see cref="AnalyzarPorTemplateAsync"/>.
+    /// </summary>
+    Task<StockoutDashboardAnalysisDto> AnalyzarPorTemplateV2Async(int templateId, double umbralHorasSilencio = 24);
+
+    /// <summary>
     /// Sincroniza históricamente el ProductoId y (opcionalmente) CostoVenta
     /// en la tabla de Ventas utilizando la configuración del Template de Recarga.
     /// </summary>

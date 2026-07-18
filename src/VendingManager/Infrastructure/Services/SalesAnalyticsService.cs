@@ -778,6 +778,42 @@ public class SalesAnalyticsService : ISalesAnalyticsService
                 .ToList();
         }
 
+        public async Task<StockoutDashboardAnalysisDto> GetStockoutDashboardAnalysisV2Async(
+            DateTime inicio, DateTime fin, int maquinaId, double umbralHorasSilencio = 14)
+        {
+            var reportEnd = fin < DateTime.Now ? fin : DateTime.Now;
+            var slots = await GetStockoutAnalysisAsync(inicio, reportEnd, maquinaId, umbralHorasSilencio);
+            if (slots.Count == 0)
+                return new StockoutDashboardAnalysisDto { Slots = slots };
+
+            var salesQuery = _context.Ventas
+                .Include(venta => venta.Producto)
+                .Where(venta => venta.FechaLocal >= inicio && venta.FechaLocal <= reportEnd)
+                .Where(venta => venta.ProductoId.HasValue && venta.ProductoId.Value > 0)
+                .Where(venta => venta.IdOrdenMaquina != VentaConstants.TbExtra && venta.IdOrdenMaquina != VentaConstants.TbSinVenta);
+            if (maquinaId > 0)
+                salesQuery = salesQuery.Where(venta => venta.MaquinaId == maquinaId);
+
+            var sales = await salesQuery
+                .Select(venta => new StockoutProductoMaquinaVentaDto
+                {
+                    MaquinaId = venta.MaquinaId,
+                    ProductoId = venta.ProductoId!.Value,
+                    NumeroSlot = venta.NumeroSlot,
+                    FechaLocal = venta.FechaLocal,
+                    VentaId = venta.Id,
+                    PrecioVenta = venta.PrecioVenta,
+                    GananciaUnitaria = venta.PrecioVenta - (venta.CostoVenta > 0 ? venta.CostoVenta : venta.Producto!.CostoPromedio)
+                })
+                .ToListAsync();
+
+            return new StockoutDashboardAnalysisDto
+            {
+                Slots = slots,
+                ProductosMaquina = StockoutMetricsCalculator.CalculateProductMachineStockouts(slots, sales, inicio, reportEnd)
+            };
+        }
+
         // T11: Agregación por categoría
         public async Task<List<CategoriaAnalisisDto>> GetCategoriaAnalisisAsync(DateTime inicio, DateTime fin, int maquinaId)
         {

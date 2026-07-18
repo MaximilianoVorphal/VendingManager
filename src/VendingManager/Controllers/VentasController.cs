@@ -211,6 +211,17 @@ namespace VendingManager.Controllers
             return Ok(result);
         }
 
+        [HttpGet("stockout-analysis-v2")]
+        public async Task<ActionResult<StockoutDashboardAnalysisDto>> GetStockoutAnalysisV2(
+            [FromQuery] DateTime inicio,
+            [FromQuery] DateTime fin,
+            [FromQuery] int maquinaId = 0,
+            [FromQuery] double umbralHoras = 24)
+        {
+            var result = await salesAnalyticsService.GetStockoutDashboardAnalysisV2Async(inicio, fin, maquinaId, umbralHoras);
+            return Ok(result);
+        }
+
         [HttpGet("ventas-diarias")]
         public async Task<ActionResult<List<VentaDiariaDto>>> GetVentasDiarias(
             [FromQuery] int productoId,
