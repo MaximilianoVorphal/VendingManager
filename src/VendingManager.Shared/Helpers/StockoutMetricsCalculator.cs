@@ -79,14 +79,23 @@ public static class StockoutMetricsCalculator
         IEnumerable<StockoutProductoMaquinaVentaDto> sales,
         DateTime observationStart,
         DateTime reportEnd)
+        => CalculateProductMachineStockouts(slots, sales, [], observationStart, reportEnd);
+
+    public static List<StockoutProductoMaquinaDto> CalculateProductMachineStockouts(
+        IEnumerable<StockoutAnalysisDto> slots,
+        IEnumerable<StockoutProductoMaquinaVentaDto> sales,
+        IEnumerable<StockoutProductoMaquinaRecargaDto> refills,
+        DateTime observationStart,
+        DateTime reportEnd)
     {
         var saleEvidence = sales.ToList();
+        var refillEvidence = refills.ToList();
         return slots
             .Where(slot => slot.ProductoId is > 0)
             .GroupBy(slot => new ProductMachineKey(slot.MaquinaId, slot.ProductoId!.Value))
             .OrderBy(group => group.Key.MaquinaId)
             .ThenBy(group => group.Key.ProductoId)
-            .Select(group => CalculateProductMachineStockout(group.Key, group.ToList(), saleEvidence, observationStart, reportEnd))
+            .Select(group => CalculateProductMachineStockout(group.Key, group.ToList(), saleEvidence, refillEvidence, observationStart, reportEnd))
             .ToList();
     }
 
@@ -94,6 +103,7 @@ public static class StockoutMetricsCalculator
         ProductMachineKey key,
         List<StockoutAnalysisDto> allSlots,
         List<StockoutProductoMaquinaVentaDto> sales,
+        List<StockoutProductoMaquinaRecargaDto> refills,
         DateTime observationStart,
         DateTime reportEnd)
     {
@@ -112,6 +122,11 @@ public static class StockoutMetricsCalculator
             .ThenBy(sale => SlotOrder(sale.NumeroSlot))
             .ThenBy(sale => sale.NumeroSlot, StringComparer.Ordinal)
             .ThenBy(sale => sale.VentaId)
+            .ToList();
+        var orderedRefills = refills
+            .Where(refill => refill.MaquinaId == key.MaquinaId && refill.ProductoId == key.ProductoId &&
+                             refill.UnidadesAgregadas > 0 && slotLoads.ContainsKey(refill.NumeroSlot))
+            .OrderBy(refill => refill.FechaLocal)
             .ToList();
 
         DateTime? depletion = null;
@@ -151,14 +166,19 @@ public static class StockoutMetricsCalculator
             return row;
 
         var depletionTime = depletion!.Value;
-        var firstPostDepletionSale = orderedSales.FirstOrDefault(sale => sale.FechaLocal > depletionTime)?.FechaLocal;
+        DateTime? firstPostDepletionAnomaly = orderedSales
+            .Where(sale => sale.FechaLocal > depletionTime)
+            .Select(sale => (DateTime?)sale.FechaLocal)
+            .Concat(orderedRefills.Where(refill => refill.FechaLocal > depletionTime).Select(refill => (DateTime?)refill.FechaLocal))
+            .Min();
         var operatingSales = consumedSales.Count(sale => sale.FechaLocal <= depletionTime && HorarioOperativoHelper.EsHoraOperativa(sale.FechaLocal));
         var exposure = HorarioOperativoHelper.HorasEnRangoOperativo(observationStart, depletionTime);
         var velocity = operatingSales / (decimal)Math.Max(exposure, 1d);
         var preDepletionSales = consumedSales.Where(sale => sale.FechaLocal <= depletionTime).ToList();
         var averagePrice = preDepletionSales.Count == 0 ? 0m : preDepletionSales.Average(sale => sale.PrecioVenta);
         var averageMargin = preDepletionSales.Count == 0 ? 0m : preDepletionSales.Average(sale => sale.GananciaUnitaria);
-        var loss = CalculateConservativeLoss(velocity, depletionTime, firstPostDepletionSale, reportEnd, averagePrice, averageMargin);
+        var loss = CalculateConservativeLoss(velocity, depletionTime, firstPostDepletionAnomaly,
+            reportEnd, averagePrice, averageMargin);
 
         row.FechaAgotamientoEstimada = depletion;
         row.HorasSinStock = loss.HorasOperativas;
@@ -166,7 +186,7 @@ public static class StockoutMetricsCalculator
         row.UnidadesNoAtendidasEstimadas = loss.UnidadesNoAtendidasEstimadas;
         row.DineroPerdidoEstimado = loss.DineroPerdidoEstimado;
         row.GananciaPerdidaEstimada = loss.GananciaPerdidaEstimada;
-        row.TieneAnomalias |= firstPostDepletionSale.HasValue;
+        row.TieneAnomalias |= firstPostDepletionAnomaly.HasValue;
         row.TieneEvidenciaCronologicaIncompleta = false;
         return row;
     }

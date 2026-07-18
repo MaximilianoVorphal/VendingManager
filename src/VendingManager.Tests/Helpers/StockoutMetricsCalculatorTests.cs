@@ -305,6 +305,67 @@ public class StockoutMetricsCalculatorTests
     }
 
     [Fact]
+    public void CalculateProductMachineStockouts_PreservesInputSlotMathAndQualityMetadata()
+    {
+        var depletion = SaleTime(2);
+        var slot = ProductSlot(1, "Machine A", "1", 7, 2, reportedSold: 1);
+        slot.FechaAgotamientoEstimada = depletion;
+        slot.DineroPerdidoEstimado = 123m;
+        slot.GananciaPerdidaEstimada = 45m;
+        slot.UnidadesNoAtendidasEstimadas = 2m;
+        slot.VelocidadObservadaSlotPorHora = 0.5m;
+        slot.VelocidadEfectivaPorHora = 0.75m;
+        slot.QualityFlags = StockoutQualityFlags.SparseVelocity;
+        slot.EstimateConfidence = EstimateConfidence.Low;
+
+        StockoutMetricsCalculator.CalculateProductMachineStockouts(
+            [slot], [Sale(1, 7, "1", 1)], PeriodStart, ReportEnd);
+
+        slot.StockInicial.Should().Be(2);
+        slot.CantidadVendida.Should().Be(1);
+        slot.FechaAgotamientoEstimada.Should().Be(depletion);
+        slot.DineroPerdidoEstimado.Should().Be(123m);
+        slot.GananciaPerdidaEstimada.Should().Be(45m);
+        slot.UnidadesNoAtendidasEstimadas.Should().Be(2m);
+        slot.VelocidadObservadaSlotPorHora.Should().Be(0.5m);
+        slot.VelocidadEfectivaPorHora.Should().Be(0.75m);
+        slot.QualityFlags.Should().Be(StockoutQualityFlags.SparseVelocity);
+        slot.EstimateConfidence.Should().Be(EstimateConfidence.Low);
+    }
+
+    [Fact]
+    public void CalculateProductMachineStockouts_PreservesDepletionAndStopsLossAtFirstPostDepletionRefill()
+    {
+        var refillTime = SaleTime(4);
+        var row = StockoutMetricsCalculator.CalculateProductMachineStockouts(
+            [ProductSlot(1, "Machine A", "1", 7, 2)],
+            [Sale(1, 7, "1", 1), Sale(1, 7, "1", 2)],
+            [Refill(1, 7, "1", refillTime, 2)],
+            PeriodStart,
+            ReportEnd).Single();
+
+        row.FechaAgotamientoEstimada.Should().Be(SaleTime(2));
+        row.TieneAnomalias.Should().BeTrue();
+        row.HorasSinStock.Should().Be(2);
+        row.UnidadesNoAtendidasEstimadas.Should().Be(2m);
+    }
+
+    [Fact]
+    public void CalculateProductMachineStockouts_DoesNotFlagRefillEvidenceBeforeDepletion()
+    {
+        var row = StockoutMetricsCalculator.CalculateProductMachineStockouts(
+            [ProductSlot(1, "Machine A", "1", 7, 2)],
+            [Sale(1, 7, "1", 1), Sale(1, 7, "1", 2)],
+            [Refill(1, 7, "1", SaleTime(1), 2)],
+            PeriodStart,
+            ReportEnd).Single();
+
+        row.FechaAgotamientoEstimada.Should().Be(SaleTime(2));
+        row.TieneAnomalias.Should().BeFalse();
+        row.HorasSinStock.Should().Be(8);
+    }
+
+    [Fact]
     public void StockoutDashboardAnalysisDto_ExposesSlotAndMachineProductCollections()
     {
         var bundle = new StockoutDashboardAnalysisDto
@@ -341,6 +402,16 @@ public class StockoutMetricsCalculatorTests
             NumeroSlot = slot,
             FechaLocal = SaleTime(hour),
             VentaId = hour
+        };
+
+    private static StockoutProductoMaquinaRecargaDto Refill(int machineId, int productId, string slot, DateTime time, int units)
+        => new()
+        {
+            MaquinaId = machineId,
+            ProductoId = productId,
+            NumeroSlot = slot,
+            FechaLocal = time,
+            UnidadesAgregadas = units
         };
 
     private static DateTime SaleTime(int hour) => PeriodStart.AddHours(hour);

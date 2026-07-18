@@ -41,3 +41,16 @@ public class StockoutProductoMaquinaVentaDto
     public decimal PrecioVenta { get; set; }
     public decimal GananciaUnitaria { get; set; }
 }
+
+/// <summary>
+/// Explicit load-increase evidence for a machine, product, and slot. This is kept separate
+/// from sale evidence so aggregation never infers a refill from inconsistent sales counts.
+/// </summary>
+public class StockoutProductoMaquinaRecargaDto
+{
+    public int MaquinaId { get; set; }
+    public int ProductoId { get; set; }
+    public string NumeroSlot { get; set; } = string.Empty;
+    public DateTime FechaLocal { get; set; }
+    public int UnidadesAgregadas { get; set; }
+}
